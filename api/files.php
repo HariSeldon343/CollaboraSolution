@@ -161,9 +161,9 @@ function listFiles($pdo, $tenant_id, $user_id, $params) {
             0 as size,
             NULL as mime_type,
             fo.owner_id,
-            u.first_name,
-            u.last_name,
-            CONCAT(u.first_name, ' ', u.last_name) as owner_name,
+            u.id as user_id,
+            u.name as owner_name,
+            u.email as owner_email,
             fo.created_at,
             fo.updated_at,
             (SELECT COUNT(*) FROM files WHERE folder_id = fo.id AND deleted_at IS NULL) as file_count,
@@ -207,7 +207,8 @@ function listFiles($pdo, $tenant_id, $user_id, $params) {
                 'item_count' => (int)$folder['file_count'] + (int)$folder['folder_count'],
                 'uploaded_by' => [
                     'id' => $folder['owner_id'],
-                    'name' => $folder['owner_name']
+                    'name' => $folder['owner_name'],
+                    'email' => $folder['owner_email']
                 ],
                 'created_at' => $folder['created_at'],
                 'updated_at' => $folder['updated_at']
@@ -221,20 +222,21 @@ function listFiles($pdo, $tenant_id, $user_id, $params) {
         $files_sql = "SELECT
                 f.id,
                 f.name,
-                f.storage_path as path,
+                f.file_path as path,
                 f.mime_type,
-                0 as is_folder,
-                f.size_bytes as size,
-                f.owner_id,
-                u.first_name,
-                u.last_name,
-                CONCAT(u.first_name, ' ', u.last_name) as owner_name,
+                f.is_folder,
+                f.file_size as size,
+                f.uploaded_by as owner_id,
+                u.id as user_id,
+                u.name as owner_name,
+                u.email as owner_email,
                 f.created_at,
                 f.updated_at
             FROM files f
-            LEFT JOIN users u ON f.owner_id = u.id
+            LEFT JOIN users u ON f.uploaded_by = u.id
             WHERE f.tenant_id = :tenant_id
-            AND f.deleted_at IS NULL";
+            AND f.deleted_at IS NULL
+            AND (f.is_folder = 0 OR f.is_folder IS NULL)";
 
         $files_params = [':tenant_id' => $tenant_id];
 
@@ -279,7 +281,8 @@ function listFiles($pdo, $tenant_id, $user_id, $params) {
                 'item_count' => null,
                 'uploaded_by' => [
                     'id' => $file['owner_id'],
-                    'name' => $file['owner_name']
+                    'name' => $file['owner_name'],
+                    'email' => $file['owner_email']
                 ],
                 'created_at' => $file['created_at'],
                 'updated_at' => $file['updated_at']
@@ -335,10 +338,11 @@ function listFiles($pdo, $tenant_id, $user_id, $params) {
 function getFileDetails($pdo, $file_id, $tenant_id, $user_id) {
     $stmt = $pdo->prepare("
         SELECT f.*,
-               u.first_name, u.last_name,
-               CONCAT(u.first_name, ' ', u.last_name) as owner_name
+               u.id as user_id,
+               u.name as owner_name,
+               u.email as owner_email
         FROM files f
-        LEFT JOIN users u ON f.owner_id = u.id
+        LEFT JOIN users u ON f.uploaded_by = u.id
         WHERE f.id = :file_id
         AND f.tenant_id = :tenant_id
         AND f.deleted_at IS NULL
@@ -367,15 +371,15 @@ function getFileDetails($pdo, $file_id, $tenant_id, $user_id) {
         'data' => [
             'id' => $file['id'],
             'name' => $file['name'],
-            'path' => $file['storage_path'],
+            'path' => $file['file_path'],
             'type' => strtolower($ext) ?: 'file',
-            'is_folder' => false,
-            'size' => (int)$file['size_bytes'],
+            'is_folder' => (bool)$file['is_folder'],
+            'size' => (int)$file['file_size'],
             'mime_type' => $file['mime_type'],
-            'checksum' => $file['checksum'],
             'uploaded_by' => [
-                'id' => $file['owner_id'],
-                'name' => $file['owner_name']
+                'id' => $file['uploaded_by'],
+                'name' => $file['owner_name'],
+                'email' => $file['owner_email']
             ],
             'created_at' => $file['created_at'],
             'updated_at' => $file['updated_at']
@@ -418,9 +422,9 @@ function uploadFile($pdo, $tenant_id, $user_id) {
     $file_hash = sha1_file($file['tmp_name']);
     $unique_name = $file_hash . '_' . time() . '.' . $file_ext;
 
-    // Crea percorso di upload usando struttura hash
-    $upload_dir = '../uploads/tenant_' . $tenant_id . '/' . substr($file_hash, 0, 2) . '/' . substr($file_hash, 2, 2);
-    $relative_path = 'uploads/tenant_' . $tenant_id . '/' . substr($file_hash, 0, 2) . '/' . substr($file_hash, 2, 2) . '/' . $unique_name;
+    // Crea percorso di upload usando struttura semplice per tenant
+    $upload_dir = '../uploads/tenant_' . $tenant_id;
+    $relative_path = 'uploads/tenant_' . $tenant_id . '/' . $unique_name;
 
     // Crea directory se non esiste
     if (!is_dir($upload_dir)) {
@@ -440,12 +444,12 @@ function uploadFile($pdo, $tenant_id, $user_id) {
         $stmt = $pdo->prepare("
             INSERT INTO files (
                 tenant_id, folder_id, name, original_name,
-                mime_type, size_bytes, storage_path, checksum,
-                owner_id, created_at, updated_at
+                mime_type, file_size, file_path, file_type,
+                uploaded_by, is_folder, created_at, updated_at
             ) VALUES (
                 :tenant_id, :folder_id, :name, :original_name,
-                :mime_type, :size_bytes, :storage_path, :checksum,
-                :owner_id, NOW(), NOW()
+                :mime_type, :file_size, :file_path, :file_type,
+                :uploaded_by, 0, NOW(), NOW()
             )
         ");
 
@@ -455,10 +459,10 @@ function uploadFile($pdo, $tenant_id, $user_id) {
             ':name' => $original_name,
             ':original_name' => $original_name,
             ':mime_type' => $mime_type,
-            ':size_bytes' => $file_size,
-            ':storage_path' => $relative_path,
-            ':checksum' => $file_hash,
-            ':owner_id' => $user_id
+            ':file_size' => $file_size,
+            ':file_path' => $relative_path,
+            ':file_type' => $file_ext,
+            ':uploaded_by' => $user_id
         ]);
 
         $file_id = $pdo->lastInsertId();
@@ -794,7 +798,8 @@ function deleteFile($pdo, $file_id, $tenant_id, $user_id) {
     }
 
     // Verifica permessi (solo chi ha creato l'elemento o admin può eliminarlo)
-    if ($item['owner_id'] != $user_id && !in_array($_SESSION['role'], ['admin', 'super_admin'])) {
+    $owner_field = $is_folder ? 'owner_id' : 'uploaded_by';
+    if ($item[$owner_field] != $user_id && !in_array($_SESSION['role'], ['admin', 'super_admin'])) {
         http_response_code(403);
         die(json_encode(['error' => 'Non hai i permessi per eliminare questo elemento']));
     }
