@@ -8,20 +8,25 @@
     class FileManager {
     constructor() {
         this.config = {
-            apiBase: '/CollaboraNexio/api/files.php',
+            apiBase: '/CollaboraNexio/api/files_tenant.php',
             pollInterval: 5000,
             maxFileSize: 100 * 1024 * 1024, // 100MB
             allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'jpg', 'jpeg', 'png', 'gif', 'mp4', 'mp3', 'zip', 'rar']
         };
         this.state = {
             currentPath: '/',
+            currentFolderId: null,
             currentView: 'grid',
             selectedFiles: new Set(),
             uploadQueue: [],
             sortBy: 'name',
             filterType: 'all',
-            searchQuery: ''
+            searchQuery: '',
+            isRoot: true,
+            currentTenant: null
         };
+        this.userRole = document.getElementById('userRole')?.value || 'user';
+        this.currentTenantId = document.getElementById('currentTenantId')?.value || null;
         this.init();
     }
 
@@ -71,6 +76,11 @@
         // New folder button
         document.getElementById('newFolderBtn')?.addEventListener('click', () => {
             this.createNewFolder();
+        });
+
+        // Create root folder button for Admin/Super Admin
+        document.getElementById('createRootFolderBtn')?.addEventListener('click', () => {
+            this.showCreateRootFolderDialog();
         });
 
         // Breadcrumb navigation
@@ -390,9 +400,10 @@
     openFile(element) {
         const fileName = element.dataset.name;
         const isFolder = element.dataset.type === 'folder';
+        const itemId = element.dataset.id || element.dataset.fileId;
 
         if (isFolder) {
-            this.navigateToFolder(fileName);
+            this.navigateToFolder(itemId, fileName);
         } else {
             console.log('Apertura file:', fileName);
             this.showToast(`Apertura di ${fileName}...`, 'info');
@@ -774,46 +785,91 @@
         // Implement sorting logic here
     }
 
-    navigateToFolder(folderName) {
-        this.state.currentPath = this.state.currentPath + folderName + '/';
+    navigateToFolder(folderId, folderName) {
+        this.state.currentFolderId = folderId;
+        this.state.isRoot = false;
         this.loadFiles();
-        this.updateBreadcrumb();
         this.showToast(`Aperta cartella: ${folderName}`, 'success');
     }
 
     navigateToPath(path) {
-        this.state.currentPath = path;
+        if (path === '/') {
+            this.state.currentFolderId = null;
+            this.state.isRoot = true;
+        }
         this.loadFiles();
-        this.updateBreadcrumb();
     }
 
-    updateBreadcrumb() {
+    updateBreadcrumb(breadcrumb = []) {
         const breadcrumbItems = document.querySelector('.breadcrumb-items');
         if (!breadcrumbItems) return;
 
-        const pathParts = this.state.currentPath.split('/').filter(p => p);
+        // Clear existing breadcrumb
+        breadcrumbItems.innerHTML = '';
 
-        // Clear current breadcrumb
-        while (breadcrumbItems.children.length > 2) {
-            breadcrumbItems.removeChild(breadcrumbItems.lastChild);
-        }
+        // Add home/root
+        const homeItem = document.createElement('a');
+        homeItem.href = '#';
+        homeItem.className = 'breadcrumb-item';
+        homeItem.dataset.path = '/';
+        homeItem.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            </svg>
+            <span>File Manager</span>
+        `;
+        homeItem.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.navigateToRoot();
+        });
+        breadcrumbItems.appendChild(homeItem);
 
-        // Update current path display
-        const current = document.querySelector('.breadcrumb-current');
-        if (current) {
-            current.textContent = pathParts.length > 0 ? pathParts[pathParts.length - 1] : 'I Miei File';
+        // Add breadcrumb items
+        breadcrumb.forEach((item, index) => {
+            // Add separator
+            const separator = document.createElement('svg');
+            separator.className = 'breadcrumb-separator';
+            separator.innerHTML = '<polyline points="9 18 15 12 9 6"/>';
+            separator.setAttribute('viewBox', '0 0 24 24');
+            separator.setAttribute('fill', 'none');
+            separator.setAttribute('stroke', 'currentColor');
+            separator.setAttribute('stroke-width', '2');
+            breadcrumbItems.appendChild(separator);
+
+            // Add breadcrumb item
+            if (index === breadcrumb.length - 1) {
+                // Last item - make it non-clickable
+                const span = document.createElement('span');
+                span.className = 'breadcrumb-current';
+                span.textContent = item.name;
+                breadcrumbItems.appendChild(span);
+            } else {
+                const link = document.createElement('a');
+                link.href = '#';
+                link.className = 'breadcrumb-item';
+                link.textContent = item.name;
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.navigateToFolder(item.id, item.name);
+                });
+                breadcrumbItems.appendChild(link);
+            }
+        });
+
+        // Update tenant context badge if exists
+        if (this.state.currentTenant) {
+            this.updateTenantContext(this.state.currentTenant);
         }
     }
 
     async loadFiles() {
-        console.log('Loading files for path:', this.state.currentPath);
+        console.log('Loading files for folder:', this.state.currentFolderId);
 
         try {
             const params = new URLSearchParams({
+                action: 'list',
                 folder_id: this.state.currentFolderId || '',
-                search: this.state.searchQuery || '',
-                sort: this.state.sortBy || 'name',
-                order: 'ASC'
+                search: this.state.searchQuery || ''
             });
 
             const response = await fetch(`${this.config.apiBase}?${params}`, {
@@ -829,6 +885,8 @@
 
             if (result.success) {
                 this.renderFiles(result.data);
+                this.updateUIForCurrentState(result.data);
+                this.updateBreadcrumb(result.data.breadcrumb);
             } else {
                 throw new Error(result.error || 'Failed to load files');
             }
@@ -859,68 +917,11 @@
         }
     }
 
-    showUploadDialog() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.multiple = true;
-        input.accept = this.config.allowedExtensions.map(ext => `.${ext}`).join(',');
-        input.onchange = (e) => {
-            this.handleFileUpload(e.target.files);
-        };
-        input.click();
-    }
-
-    handleFileUpload(files) {
-        if (files.length === 0) return;
-
-        // Validate files
-        const validFiles = Array.from(files).filter(file => {
-            if (file.size > this.config.maxFileSize) {
-                this.showToast(`${file.name} è troppo grande (max 100MB)`, 'error');
-                return false;
-            }
-            return true;
-        });
-
-        if (validFiles.length === 0) return;
-
-        this.showUploadToast(validFiles.length);
-
-        validFiles.forEach(file => {
-            this.uploadFile(file);
-        });
-    }
 
     handleFileDrop(files) {
         this.handleFileUpload(files);
     }
 
-    uploadFile(file) {
-        const uploadItems = document.getElementById('uploadItems');
-        if (!uploadItems) return;
-
-        const uploadItem = this.createUploadItem(file);
-        uploadItems.appendChild(uploadItem);
-
-        // Simulate upload progress
-        let progress = 0;
-        const progressBar = uploadItem.querySelector('.progress-fill');
-        const interval = setInterval(() => {
-            progress += Math.random() * 30;
-            if (progress >= 100) {
-                progress = 100;
-                clearInterval(interval);
-                uploadItem.classList.add('complete');
-                this.showToast(`${file.name} caricato con successo`, 'success');
-
-                // Add file to the grid
-                this.addFileToGrid(file);
-            }
-            if (progressBar) {
-                progressBar.style.width = `${progress}%`;
-            }
-        }, 500);
-    }
 
     createUploadItem(file) {
         const div = document.createElement('div');
@@ -1027,47 +1028,41 @@
         }
     }
 
-    createNewFolder() {
+    async createNewFolder() {
+        if (this.state.isRoot) {
+            this.showToast('Non puoi creare cartelle nella root. Seleziona prima una cartella tenant.', 'error');
+            return;
+        }
+
         const folderName = prompt('Inserisci il nome della cartella:');
         if (folderName && folderName.trim()) {
-            console.log('Creating folder:', folderName);
-            this.showToast(`Cartella "${folderName}" creata`, 'success');
+            try {
+                const csrfToken = document.getElementById('csrfToken')?.value;
 
-            // Add to grid
-            const filesGrid = document.getElementById('filesGrid');
-            if (filesGrid) {
-                const newFolder = document.createElement('div');
-                newFolder.className = 'file-card folder';
-                newFolder.dataset.name = folderName;
-                newFolder.dataset.type = 'folder';
-                newFolder.innerHTML = `
-                    <div class="file-card-icon">
-                        ${this.getFileIcon('folder')}
-                    </div>
-                    <div class="file-card-info">
-                        <h4 class="file-name">${folderName}</h4>
-                        <span class="file-meta">0 elementi · Creato ora</span>
-                    </div>
-                    <div class="file-card-actions">
-                        <button class="action-btn" title="Share">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-                                <polyline points="16 6 12 2 8 6"/>
-                                <line x1="12" y1="2" x2="12" y2="15"/>
-                            </svg>
-                        </button>
-                        <button class="action-btn" title="More">
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <circle cx="12" cy="12" r="1"/>
-                                <circle cx="12" cy="5" r="1"/>
-                                <circle cx="12" cy="19" r="1"/>
-                            </svg>
-                        </button>
-                    </div>
-                `;
+                const response = await fetch(this.config.apiBase + '?action=create_folder', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: folderName.trim(),
+                        parent_id: this.state.currentFolderId,
+                        csrf_token: csrfToken
+                    }),
+                    credentials: 'same-origin'
+                });
 
-                filesGrid.insertBefore(newFolder, filesGrid.firstChild);
-                newFolder.style.animation = 'fadeIn 0.3s';
+                const result = await response.json();
+
+                if (result.success) {
+                    this.showToast(`Cartella "${folderName}" creata`, 'success');
+                    this.loadFiles();
+                } else {
+                    this.showToast(result.error || 'Errore nella creazione della cartella', 'error');
+                }
+            } catch (error) {
+                console.error('Error creating folder:', error);
+                this.showToast('Errore di rete nella creazione della cartella', 'error');
             }
         }
     }
@@ -1320,12 +1315,19 @@
     }
 
     // Render files from API response
-    renderFiles(files) {
+    renderFiles(data) {
         const filesGrid = document.getElementById('filesGrid');
         const filesList = document.getElementById('filesList');
         const emptyState = document.getElementById('emptyState');
 
-        if (!files || files.length === 0) {
+        const items = data.items || [];
+
+        // Update current state
+        if (data.current_folder) {
+            this.state.currentTenant = data.current_folder.tenant_name;
+        }
+
+        if (!items || items.length === 0) {
             // Show empty state
             if (emptyState) {
                 emptyState.classList.remove('hidden');
@@ -1350,46 +1352,58 @@
             if (tbody) tbody.innerHTML = '';
         }
 
-        // Render each file
-        files.forEach(file => {
+        // Render each item
+        items.forEach(item => {
             if (this.state.currentView === 'grid') {
-                this.renderGridItem(file);
+                this.renderGridItem(item);
             } else {
-                this.renderListItem(file);
+                this.renderListItem(item);
             }
         });
     }
 
     // Render a file in grid view
-    renderGridItem(file) {
+    renderGridItem(item) {
         const filesGrid = document.getElementById('filesGrid');
         if (!filesGrid) return;
 
+        const isFolder = item.type === 'folder';
         const fileCard = document.createElement('div');
-        fileCard.className = file.is_folder ? 'file-card folder' : 'file-card';
-        fileCard.dataset.name = file.name;
-        fileCard.dataset.type = file.is_folder ? 'folder' : file.type;
-        fileCard.dataset.fileId = file.id;
+        fileCard.className = isFolder ? 'file-card folder' : 'file-card';
+        fileCard.dataset.name = item.name;
+        fileCard.dataset.type = isFolder ? 'folder' : (item.type || 'file');
+        fileCard.dataset.id = item.id;
+        fileCard.dataset.fileId = item.id;
 
-        const iconHtml = file.is_folder ?
+        const iconHtml = isFolder ?
             `<svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z" fill="#F59E0B"/>
             </svg>` :
-            this.getFileIcon(file.type);
+            this.getFileIcon(this.getFileTypeFromMime(item.mime_type));
 
-        const formattedSize = file.is_folder ?
-            `${file.item_count || 0} elementi` :
-            this.formatFileSize(file.size);
+        const formattedSize = isFolder ?
+            `${(item.subfolder_count || 0) + (item.file_count || 0)} elementi` :
+            this.formatFileSize(item.size);
 
-        const modifiedDate = this.formatDate(file.updated_at);
+        const modifiedDate = this.formatDate(item.updated_at);
+
+        // Tenant label for Admin/Super Admin in root view
+        const tenantLabel = (this.state.isRoot && item.tenant_name && ['admin', 'super_admin'].includes(this.userRole)) ?
+            `<div class="tenant-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/>
+                </svg>
+                ${item.tenant_name}
+            </div>` : '';
 
         fileCard.innerHTML = `
-            <div class="file-card-icon ${file.type}">
+            <div class="file-card-icon ${item.type}">
                 ${iconHtml}
             </div>
             <div class="file-card-info">
-                <h4 class="file-name">${file.name}</h4>
-                <span class="file-meta">${formattedSize} · Modificato ${modifiedDate}</span>
+                <h4 class="file-name">${item.name}</h4>
+                <span class="file-meta">${formattedSize} · ${modifiedDate}</span>
+                ${tenantLabel}
             </div>
             <div class="file-card-actions">
                 <button class="action-btn" title="Download">
@@ -1548,6 +1562,261 @@
         } else {
             console.error('Sidebar element not found in DOM!');
         }
+    }
+
+    // New methods for multi-tenant support
+
+    navigateToRoot() {
+        this.state.currentFolderId = null;
+        this.state.isRoot = true;
+        this.state.currentTenant = null;
+        this.loadFiles();
+    }
+
+    updateUIForCurrentState(data) {
+        const uploadBtn = document.getElementById('uploadBtn');
+        const newFolderBtn = document.getElementById('newFolderBtn');
+        const filesWrapper = document.getElementById('filesWrapper');
+
+        // Update upload button visibility
+        if (uploadBtn) {
+            uploadBtn.style.display = this.state.isRoot ? 'none' : 'inline-flex';
+        }
+
+        // Update new folder button visibility
+        if (newFolderBtn) {
+            newFolderBtn.style.display = this.state.isRoot ? 'none' : 'inline-flex';
+        }
+
+        // Add class to body to indicate root state
+        if (this.state.isRoot) {
+            document.body.classList.add('at-root');
+        } else {
+            document.body.classList.remove('at-root');
+        }
+
+        // Show/hide tenant context badge
+        const tenantBadge = document.getElementById('tenantContextBadge');
+        if (tenantBadge) {
+            if (data.current_folder && data.current_folder.tenant_name) {
+                tenantBadge.style.display = 'inline-flex';
+                document.getElementById('tenantContextName').textContent = data.current_folder.tenant_name;
+            } else {
+                tenantBadge.style.display = 'none';
+            }
+        }
+    }
+
+    updateTenantContext(tenantName) {
+        const badge = document.getElementById('tenantContextBadge');
+        const nameSpan = document.getElementById('tenantContextName');
+
+        if (badge && nameSpan && tenantName) {
+            badge.style.display = 'inline-flex';
+            nameSpan.textContent = tenantName;
+        }
+    }
+
+    async showCreateRootFolderDialog() {
+        // Load tenant list first
+        const tenants = await this.getTenantList();
+
+        if (!tenants || tenants.length === 0) {
+            this.showToast('Nessun tenant disponibile', 'error');
+            return;
+        }
+
+        // Populate tenant dropdown
+        const tenantSelect = document.getElementById('tenantSelect');
+        if (tenantSelect) {
+            tenantSelect.innerHTML = '<option value="">-- Seleziona un tenant --</option>';
+            tenants.forEach(tenant => {
+                const option = document.createElement('option');
+                option.value = tenant.id;
+                option.textContent = tenant.name + (tenant.is_active === '0' ? ' (Inattivo)' : '');
+                option.disabled = tenant.is_active === '0';
+                tenantSelect.appendChild(option);
+            });
+        }
+
+        // Show modal
+        const modal = document.getElementById('createTenantFolderModal');
+        if (modal) {
+            modal.style.display = 'flex';
+        }
+    }
+
+    async getTenantList() {
+        try {
+            const response = await fetch(this.config.apiBase + '?action=get_tenant_list', {
+                method: 'GET',
+                credentials: 'same-origin'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                return result.data;
+            } else {
+                this.showToast(result.error || 'Errore nel caricamento dei tenant', 'error');
+                return [];
+            }
+        } catch (error) {
+            console.error('Error fetching tenant list:', error);
+            this.showToast('Errore di rete nel caricamento dei tenant', 'error');
+            return [];
+        }
+    }
+
+    async createRootFolder(folderName, tenantId) {
+        try {
+            const csrfToken = document.getElementById('csrfToken')?.value;
+
+            const response = await fetch(this.config.apiBase + '?action=create_root_folder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: folderName,
+                    tenant_id: tenantId,
+                    csrf_token: csrfToken
+                }),
+                credentials: 'same-origin'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showToast(result.message || 'Cartella tenant creata con successo', 'success');
+                return result;
+            } else {
+                this.showToast(result.error || 'Errore nella creazione della cartella', 'error');
+                return null;
+            }
+        } catch (error) {
+            console.error('Error creating root folder:', error);
+            this.showToast('Errore di rete nella creazione della cartella', 'error');
+            return null;
+        }
+    }
+
+    getFileTypeFromMime(mimeType) {
+        if (!mimeType) return 'file';
+
+        if (mimeType.includes('pdf')) return 'pdf';
+        if (mimeType.includes('word') || mimeType.includes('document')) return 'word';
+        if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'excel';
+        if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'powerpoint';
+        if (mimeType.startsWith('image/')) return 'image';
+        if (mimeType.startsWith('video/')) return 'video';
+        if (mimeType.startsWith('audio/')) return 'audio';
+        if (mimeType.includes('zip') || mimeType.includes('rar')) return 'archive';
+
+        return 'file';
+    }
+
+    async uploadFile(file) {
+        if (this.state.isRoot || !this.state.currentFolderId) {
+            this.showToast('Seleziona una cartella prima di caricare file', 'error');
+            return;
+        }
+
+        const uploadItems = document.getElementById('uploadItems');
+        if (!uploadItems) return;
+
+        const uploadItem = this.createUploadItem(file);
+        uploadItems.appendChild(uploadItem);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folder_id', this.state.currentFolderId);
+            formData.append('csrf_token', document.getElementById('csrfToken')?.value || '');
+
+            const xhr = new XMLHttpRequest();
+
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    const progressBar = uploadItem.querySelector('.progress-fill');
+                    if (progressBar) {
+                        progressBar.style.width = `${percentComplete}%`;
+                    }
+                }
+            });
+
+            xhr.addEventListener('load', () => {
+                if (xhr.status === 200) {
+                    try {
+                        const result = JSON.parse(xhr.responseText);
+                        if (result.success) {
+                            uploadItem.classList.add('complete');
+                            this.showToast(`${file.name} caricato con successo`, 'success');
+                            this.loadFiles(); // Reload files
+                        } else {
+                            this.showToast(result.error || `Errore nel caricamento di ${file.name}`, 'error');
+                        }
+                    } catch (e) {
+                        this.showToast(`Errore nel caricamento di ${file.name}`, 'error');
+                    }
+                } else {
+                    this.showToast(`Errore nel caricamento di ${file.name}`, 'error');
+                }
+            });
+
+            xhr.addEventListener('error', () => {
+                this.showToast(`Errore di rete nel caricamento di ${file.name}`, 'error');
+            });
+
+            xhr.open('POST', this.config.apiBase + '?action=upload');
+            xhr.send(formData);
+        } catch (error) {
+            console.error('Upload error:', error);
+            this.showToast(`Errore nel caricamento di ${file.name}`, 'error');
+        }
+    }
+
+    handleFileUpload(files) {
+        if (this.state.isRoot) {
+            this.showToast('Seleziona una cartella prima di caricare file', 'error');
+            return;
+        }
+
+        if (files.length === 0) return;
+
+        // Validate files
+        const validFiles = Array.from(files).filter(file => {
+            if (file.size > this.config.maxFileSize) {
+                this.showToast(`${file.name} è troppo grande (max 100MB)`, 'error');
+                return false;
+            }
+            return true;
+        });
+
+        if (validFiles.length === 0) return;
+
+        this.showUploadToast(validFiles.length);
+
+        validFiles.forEach(file => {
+            this.uploadFile(file);
+        });
+    }
+
+    showUploadDialog() {
+        if (this.state.isRoot) {
+            this.showToast('Seleziona una cartella prima di caricare file', 'error');
+            return;
+        }
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.accept = this.config.allowedExtensions.map(ext => `.${ext}`).join(',');
+        input.onchange = (e) => {
+            this.handleFileUpload(e.target.files);
+        };
+        input.click();
     }
     }
 
