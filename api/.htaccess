@@ -1,0 +1,15 @@
+# Enable RewriteEngine
+RewriteEngine On
+RewriteBase /CollaboraNexio/api/
+
+# Handle notifications routes
+RewriteRule ^notifications/unread/?$ notifications.php [L]
+RewriteRule ^notifications/all/?$ notifications.php [L]
+RewriteRule ^notifications/mark-read/?$ notifications.php [L]
+RewriteRule ^notifications/mark-all-read/?$ notifications.php [L]
+RewriteRule ^notifications/?$ notifications.php [L]
+
+# Other API routes (existing or future)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ router.php?route=$1 [QSA,L]

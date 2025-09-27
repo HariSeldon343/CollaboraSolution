@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tasks API Test Suite - CollaboraNexio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .status-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ddd;
+        }
+
+        .status-dot.active {
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 30px;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .test-section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .test-section h2 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .test-group {
+            margin-bottom: 15px;
+        }
+
+        .test-group h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .test-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .test-btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+
+        .test-btn:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .test-btn.secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .test-btn.tertiary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .test-btn.warning {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+
+        .test-btn.danger {
+            background: linear-gradient(135deg, #f53844 0%, #ff6b6b 100%);
+        }
+
+        .results-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 250px);
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .results-header h2 {
+            font-size: 18px;
+            color: #333;
+        }
+
+        .clear-btn {
+            padding: 8px 16px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .clear-btn:hover {
+            background: #dc2626;
+        }
+
+        .results-content {
+            flex: 1;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+        }
+
+        .result-entry {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-entry.error {
+            border-left-color: #ef4444;
+            background: #fee;
+        }
+
+        .result-entry.success {
+            border-left-color: #10b981;
+            background: #f0fdf4;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .result-method {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #667eea;
+            color: white;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .result-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .result-status.success {
+            background: #10b981;
+            color: white;
+        }
+
+        .result-status.error {
+            background: #ef4444;
+            color: white;
+        }
+
+        .result-url {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .result-body {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        .task-form {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            z-index: 1000;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .task-form.active {
+            display: block;
+        }
+
+        .form-header {
+            margin-bottom: 20px;
+        }
+
+        .form-header h3 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .form-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .form-btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .form-btn.secondary {
+            background: #e5e7eb;
+            color: #666;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        .overlay.active {
+            display: block;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #667eea;
+            color: white;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                📋 Tasks API Test Suite
+                <span class="badge">v1.0.0</span>
+            </h1>
+            <p>Comprehensive testing interface for CollaboraNexio Task Management REST API</p>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-indicator">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">Not Connected</span>
+            </div>
+            <div class="status-indicator">
+                <span>Session:</span>
+                <strong id="sessionUser">-</strong>
+            </div>
+            <div class="status-indicator">
+                <span>Created Tasks:</span>
+                <strong id="taskCount">0</strong>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="sidebar">
+                <!-- Core CRUD Operations -->
+                <div class="test-section">
+                    <h2>🔧 Core Operations</h2>
+
+                    <div class="test-group">
+                        <h3>Create & Read</h3>
+                        <div class="test-buttons">
+                            <button class="test-btn" onclick="showCreateTaskForm()">
+                                ➕ Create New Task
+                            </button>
+                            <button class="test-btn" onclick="getTasks()">
+                                📋 Get All Tasks
+                            </button>
+                            <button class="test-btn" onclick="getTaskById()">
+                                🔍 Get Task by ID
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="test-group">
+                        <h3>Update Operations</h3>
+                        <div class="test-buttons">
+                            <button class="test-btn secondary" onclick="quickUpdateTask()">
+                                ⚡ Quick Update (PATCH)
+                            </button>
+                            <button class="test-btn secondary" onclick="fullUpdateTask()">
+                                📝 Full Update (PUT)
+                            </button>
+                            <button class="test-btn secondary" onclick="updateProgress()">
+                                📊 Update Progress
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="test-group">
+                        <h3>Delete Operations</h3>
+                        <div class="test-buttons">
+                            <button class="test-btn danger" onclick="deleteTask()">
+                                🗑️ Delete Task
+                            </button>
+                            <button class="test-btn danger" onclick="deleteWithSubtasks()">
+                                🗑️ Delete with Subtasks
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Task Actions -->
+                <div class="test-section">
+                    <h2>⚡ Task Actions</h2>
+
+                    <div class="test-group">
+                        <h3>Collaboration</h3>
+                        <div class="test-buttons">
+                            <button class="test-btn tertiary" onclick="addComment()">
+                                💬 Add Comment
+                            </button>
+                            <button class="test-btn tertiary" onclick="watchTask()">
+                                👁️ Watch Task
+                            </button>
+                            <button class="test-btn tertiary" onclick="unwatchTask()">
+                                👁️‍🗨️ Unwatch Task
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="test-group">
+                        <h3>Assignment</h3>
+                        <div class="test-buttons">
+                            <button class="test-btn warning" onclick="assignUsers()">
+                                👥 Assign Users
+                            </button>
+                            <button class="test-btn warning" onclick="unassignUsers()">
+                                👤 Unassign Users
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="test-group">
+                        <h3>Task Management</h3>
+                        <div class="test-buttons">
+                            <button class="test-btn" onclick="moveTask()">
+                                🔄 Move Task
+                            </button>
+                            <button class="test-btn" onclick="cloneTask()">
+                                📑 Clone Task
+                            </button>
+                            <button class="test-btn" onclick="completeTask()">
+                                ✅ Complete Task
+                            </button>
+                            <button class="test-btn" onclick="reopenTask()">
+                                🔄 Reopen Task
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="test-group">
+                        <h3>Time Tracking</h3>
+                        <div class="test-buttons">
+                            <button class="test-btn secondary" onclick="logTime()">
+                                ⏱️ Log Time
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Special Queries -->
+                <div class="test-section">
+                    <h2>🔍 Special Queries</h2>
+
+                    <div class="test-buttons">
+                        <button class="test-btn" onclick="getMyTasks()">
+                            👤 My Tasks
+                        </button>
+                        <button class="test-btn" onclick="getOverdueTasks()">
+                            ⏰ Overdue Tasks
+                        </button>
+                        <button class="test-btn" onclick="getTaskActivity()">
+                            📊 Task Activity
+                        </button>
+                        <button class="test-btn" onclick="bulkUpdate()">
+                            📦 Bulk Update
+                        </button>
+                        <button class="test-btn" onclick="exportTasks('json')">
+                            📥 Export JSON
+                        </button>
+                        <button class="test-btn" onclick="exportTasks('csv')">
+                            📥 Export CSV
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters & Search -->
+                <div class="test-section">
+                    <h2>🔎 Filters & Search</h2>
+
+                    <div class="test-buttons">
+                        <button class="test-btn tertiary" onclick="filterByStatus()">
+                            🏷️ Filter by Status
+                        </button>
+                        <button class="test-btn tertiary" onclick="filterByPriority()">
+                            ⚠️ Filter by Priority
+                        </button>
+                        <button class="test-btn tertiary" onclick="filterByAssignee()">
+                            👤 Filter by Assignee
+                        </button>
+                        <button class="test-btn tertiary" onclick="searchTasks()">
+                            🔍 Search Tasks
+                        </button>
+                        <button class="test-btn tertiary" onclick="filterByDateRange()">
+                            📅 Filter by Date
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results-panel">
+                <div class="results-header">
+                    <h2>📊 API Response</h2>
+                    <button class="clear-btn" onclick="clearResults()">Clear Results</button>
+                </div>
+                <div class="results-content" id="results">
+                    <div style="color: #999; text-align: center; padding: 40px;">
+                        Select a test from the sidebar to begin
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Creation Form Modal -->
+    <div class="overlay" id="overlay" onclick="closeForm()"></div>
+    <div class="task-form" id="taskForm">
+        <div class="form-header">
+            <h3>Create New Task</h3>
+            <p style="color: #666; font-size: 14px;">Fill in the task details</p>
+        </div>
+
+        <div class="form-group">
+            <label>Title *</label>
+            <input type="text" id="taskTitle" placeholder="Enter task title">
+        </div>
+
+        <div class="form-group">
+            <label>Description</label>
+            <textarea id="taskDescription" rows="3" placeholder="Enter task description"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label>List ID *</label>
+            <input type="number" id="taskListId" value="1" placeholder="Enter list ID">
+        </div>
+
+        <div class="form-group">
+            <label>Column ID</label>
+            <input type="number" id="taskColumnId" value="1" placeholder="Enter column ID">
+        </div>
+
+        <div class="form-group">
+            <label>Priority</label>
+            <select id="taskPriority">
+                <option value="1">Low</option>
+                <option value="2" selected>Medium</option>
+                <option value="3">High</option>
+                <option value="4">Urgent</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Due Date</label>
+            <input type="datetime-local" id="taskDueDate">
+        </div>
+
+        <div class="form-group">
+            <label>Estimated Hours</label>
+            <input type="number" id="taskEstimatedHours" step="0.5" placeholder="e.g., 8">
+        </div>
+
+        <div class="form-group">
+            <label>Tags (comma-separated)</label>
+            <input type="text" id="taskTags" placeholder="e.g., frontend, urgent">
+        </div>
+
+        <div class="form-buttons">
+            <button class="form-btn secondary" onclick="closeForm()">Cancel</button>
+            <button class="form-btn primary" onclick="submitCreateTask()">Create Task</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/CollaboraNexio/api';
+        let createdTaskIds = [];
+        let lastTaskId = null;
+
+        // Check authentication status on load
+        window.onload = async function() {
+            await checkAuth();
+        };
+
+        async function checkAuth() {
+            try {
+                const response = await fetch(`${API_BASE}/auth.php?action=check`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('statusDot').classList.add('active');
+                    document.getElementById('statusText').textContent = 'Connected';
+                    document.getElementById('sessionUser').textContent = data.data.user?.email || 'Authenticated';
+                } else {
+                    document.getElementById('statusText').textContent = 'Not Authenticated';
+                    document.getElementById('sessionUser').textContent = 'Please login';
+                    alert('Please login first to test the API');
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                document.getElementById('statusText').textContent = 'Connection Error';
+            }
+        }
+
+        function addResult(method, url, status, data, isError = false) {
+            const results = document.getElementById('results');
+            const entry = document.createElement('div');
+            entry.className = `result-entry ${isError ? 'error' : 'success'}`;
+
+            const timestamp = new Date().toLocaleTimeString();
+
+            entry.innerHTML = `
+                <div class="result-header">
+                    <div>
+                        <span class="result-method">${method}</span>
+                        <span class="result-status ${isError ? 'error' : 'success'}">${status}</span>
+                    </div>
+                    <span style="color: #999; font-size: 12px;">${timestamp}</span>
+                </div>
+                <div class="result-url">${url}</div>
+                <div class="result-body">
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                </div>
+            `;
+
+            results.insertBefore(entry, results.firstChild);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = `
+                <div style="color: #999; text-align: center; padding: 40px;">
+                    Results cleared. Select a test to continue.
+                </div>
+            `;
+        }
+
+        // Form Management
+        function showCreateTaskForm() {
+            document.getElementById('overlay').classList.add('active');
+            document.getElementById('taskForm').classList.add('active');
+        }
+
+        function closeForm() {
+            document.getElementById('overlay').classList.remove('active');
+            document.getElementById('taskForm').classList.remove('active');
+        }
+
+        async function submitCreateTask() {
+            const title = document.getElementById('taskTitle').value;
+            const description = document.getElementById('taskDescription').value;
+            const listId = parseInt(document.getElementById('taskListId').value);
+            const columnId = parseInt(document.getElementById('taskColumnId').value);
+            const priority = parseInt(document.getElementById('taskPriority').value);
+            const dueDate = document.getElementById('taskDueDate').value;
+            const estimatedHours = parseFloat(document.getElementById('taskEstimatedHours').value) || null;
+            const tags = document.getElementById('taskTags').value.split(',').filter(t => t.trim());
+
+            if (!title || !listId) {
+                alert('Title and List ID are required');
+                return;
+            }
+
+            const taskData = {
+                list_id: listId,
+                column_id: columnId || 1,
+                title: title,
+                description: description,
+                priority: priority,
+                due_date: dueDate ? new Date(dueDate).toISOString() : null,
+                estimated_hours: estimatedHours,
+                tags: tags
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(taskData)
+                });
+
+                const data = await response.json();
+                addResult('POST', '/api/tasks.php', response.status, data, !data.success);
+
+                if (data.success && data.data.id) {
+                    lastTaskId = data.data.id;
+                    createdTaskIds.push(data.data.id);
+                    document.getElementById('taskCount').textContent = createdTaskIds.length;
+                    closeForm();
+
+                    // Clear form
+                    document.getElementById('taskTitle').value = '';
+                    document.getElementById('taskDescription').value = '';
+                    document.getElementById('taskDueDate').value = '';
+                    document.getElementById('taskEstimatedHours').value = '';
+                    document.getElementById('taskTags').value = '';
+                }
+            } catch (error) {
+                addResult('POST', '/api/tasks.php', 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        // Core CRUD Operations
+        async function getTasks() {
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?limit=10`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('GET', '/api/tasks.php?limit=10', response.status, data, !data.success);
+            } catch (error) {
+                addResult('GET', '/api/tasks.php', 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function getTaskById() {
+            const id = lastTaskId || prompt('Enter Task ID:');
+            if (!id) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('GET', `/api/tasks.php?id=${id}`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('GET', `/api/tasks.php?id=${id}`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function quickUpdateTask() {
+            const id = lastTaskId || prompt('Enter Task ID:');
+            if (!id) return;
+
+            const updates = {
+                status: 'in_progress',
+                position: 2,
+                progress: 50
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(updates)
+                });
+                const data = await response.json();
+                addResult('PATCH', `/api/tasks.php?id=${id}`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('PATCH', `/api/tasks.php?id=${id}`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function fullUpdateTask() {
+            const id = lastTaskId || prompt('Enter Task ID:');
+            if (!id) return;
+
+            const updates = {
+                title: 'Updated Task Title',
+                description: 'This task has been fully updated',
+                priority: 3,
+                status: 'in_progress',
+                progress: 75
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(updates)
+                });
+                const data = await response.json();
+                addResult('PUT', `/api/tasks.php?id=${id}`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('PUT', `/api/tasks.php?id=${id}`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function updateProgress() {
+            const id = lastTaskId || prompt('Enter Task ID:');
+            if (!id) return;
+
+            const progress = prompt('Enter progress (0-100):', '75');
+            if (!progress) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({progress: parseInt(progress)})
+                });
+                const data = await response.json();
+                addResult('PATCH', `/api/tasks.php?id=${id}`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('PATCH', `/api/tasks.php?id=${id}`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function deleteTask() {
+            const id = lastTaskId || prompt('Enter Task ID to delete:');
+            if (!id) return;
+
+            if (!confirm('Are you sure you want to delete this task?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('DELETE', `/api/tasks.php?id=${id}`, response.status, data, !data.success);
+
+                if (data.success) {
+                    const index = createdTaskIds.indexOf(parseInt(id));
+                    if (index > -1) {
+                        createdTaskIds.splice(index, 1);
+                        document.getElementById('taskCount').textContent = createdTaskIds.length;
+                    }
+                }
+            } catch (error) {
+                addResult('DELETE', `/api/tasks.php?id=${id}`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function deleteWithSubtasks() {
+            const id = lastTaskId || prompt('Enter Task ID to delete with subtasks:');
+            if (!id) return;
+
+            if (!confirm('This will delete the task and all subtasks. Continue?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}&delete_subtasks=true`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('DELETE', `/api/tasks.php?id=${id}&delete_subtasks=true`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('DELETE', `/api/tasks.php?id=${id}`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        // Task Actions
+        async function addComment() {
+            const id = lastTaskId || prompt('Enter Task ID:');
+            if (!id) return;
+
+            const content = prompt('Enter comment:');
+            if (!content) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}&action=comment`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        content: content,
+                        mentions: []
+                    })
+                });
+                const data = await response.json();
+                addResult('POST', `/api/tasks.php?id=${id}&action=comment`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('POST', `/api/tasks.php?id=${id}&action=comment`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function watchTask() {
+            const id = lastTaskId || prompt('Enter Task ID to watch:');
+            if (!id) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}&action=watch`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        notification_preferences: {
+                            status_changes: true,
+                            comments: true,
+                            assignments: true
+                        }
+                    })
+                });
+                const data = await response.json();
+                addResult('POST', `/api/tasks.php?id=${id}&action=watch`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('POST', `/api/tasks.php?id=${id}&action=watch`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function unwatchTask() {
+            const id = lastTaskId || prompt('Enter Task ID to unwatch:');
+            if (!id) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}&action=unwatch`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('POST', `/api/tasks.php?id=${id}&action=unwatch`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('POST', `/api/tasks.php?id=${id}&action=unwatch`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function assignUsers() {
+            const id = lastTaskId || prompt('Enter Task ID:');
+            if (!id) return;
+
+            const userIds = prompt('Enter user IDs (comma-separated):', '1,2');
+            if (!userIds) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}&action=assign`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        user_ids: userIds.split(',').map(id => parseInt(id.trim())),
+                        notify: true
+                    })
+                });
+                const data = await response.json();
+                addResult('POST', `/api/tasks.php?id=${id}&action=assign`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('POST', `/api/tasks.php?id=${id}&action=assign`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function unassignUsers() {
+            const id = lastTaskId || prompt('Enter Task ID:');
+            if (!id) return;
+
+            const userIds = prompt('Enter user IDs to remove (comma-separated):', '1');
+            if (!userIds) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}&action=unassign`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        user_ids: userIds.split(',').map(id => parseInt(id.trim()))
+                    })
+                });
+                const data = await response.json();
+                addResult('POST', `/api/tasks.php?id=${id}&action=unassign`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('POST', `/api/tasks.php?id=${id}&action=unassign`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function moveTask() {
+            const id = lastTaskId || prompt('Enter Task ID:');
+            if (!id) return;
+
+            const columnId = prompt('Enter target column ID:', '2');
+            const position = prompt('Enter new position:', '1');
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}&action=move`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        target_column_id: parseInt(columnId),
+                        position: parseInt(position)
+                    })
+                });
+                const data = await response.json();
+                addResult('POST', `/api/tasks.php?id=${id}&action=move`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('POST', `/api/tasks.php?id=${id}&action=move`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function cloneTask() {
+            const id = lastTaskId || prompt('Enter Task ID to clone:');
+            if (!id) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}&action=clone`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        include_subtasks: true,
+                        include_attachments: false
+                    })
+                });
+                const data = await response.json();
+                addResult('POST', `/api/tasks.php?id=${id}&action=clone`, response.status, data, !data.success);
+
+                if (data.success && data.data.id) {
+                    createdTaskIds.push(data.data.id);
+                    document.getElementById('taskCount').textContent = createdTaskIds.length;
+                }
+            } catch (error) {
+                addResult('POST', `/api/tasks.php?id=${id}&action=clone`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function completeTask() {
+            const id = lastTaskId || prompt('Enter Task ID to complete:');
+            if (!id) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}&action=complete`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('POST', `/api/tasks.php?id=${id}&action=complete`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('POST', `/api/tasks.php?id=${id}&action=complete`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function reopenTask() {
+            const id = lastTaskId || prompt('Enter Task ID to reopen:');
+            if (!id) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}&action=reopen`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('POST', `/api/tasks.php?id=${id}&action=reopen`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('POST', `/api/tasks.php?id=${id}&action=reopen`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function logTime() {
+            const id = lastTaskId || prompt('Enter Task ID:');
+            if (!id) return;
+
+            const hours = prompt('Enter hours worked:', '2.5');
+            if (!hours) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}&action=log_time`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        hours: parseFloat(hours),
+                        date: new Date().toISOString().split('T')[0],
+                        description: 'Time logged via API test',
+                        billable: true
+                    })
+                });
+                const data = await response.json();
+                addResult('POST', `/api/tasks.php?id=${id}&action=log_time`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('POST', `/api/tasks.php?id=${id}&action=log_time`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        // Special Queries
+        async function getMyTasks() {
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?action=my_tasks`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('GET', '/api/tasks.php?action=my_tasks', response.status, data, !data.success);
+            } catch (error) {
+                addResult('GET', '/api/tasks.php?action=my_tasks', 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function getOverdueTasks() {
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?action=overdue`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('GET', '/api/tasks.php?action=overdue', response.status, data, !data.success);
+            } catch (error) {
+                addResult('GET', '/api/tasks.php?action=overdue', 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function getTaskActivity() {
+            const id = lastTaskId || prompt('Enter Task ID:');
+            if (!id) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?id=${id}&action=activity`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('GET', `/api/tasks.php?id=${id}&action=activity`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('GET', `/api/tasks.php?id=${id}&action=activity`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function bulkUpdate() {
+            const ids = prompt('Enter Task IDs (comma-separated):', createdTaskIds.slice(0, 3).join(','));
+            if (!ids) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?action=bulk_update`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        task_ids: ids.split(',').map(id => parseInt(id.trim())),
+                        updates: {
+                            status: 'done',
+                            priority: 2
+                        }
+                    })
+                });
+                const data = await response.json();
+                addResult('POST', '/api/tasks.php?action=bulk_update', response.status, data, !data.success);
+            } catch (error) {
+                addResult('POST', '/api/tasks.php?action=bulk_update', 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function exportTasks(format) {
+            try {
+                if (format === 'csv') {
+                    // For CSV, open in new window to trigger download
+                    window.open(`${API_BASE}/tasks.php?action=export&format=csv`, '_blank');
+                    addResult('GET', `/api/tasks.php?action=export&format=csv`, 200, {message: 'CSV download initiated'}, false);
+                } else {
+                    const response = await fetch(`${API_BASE}/tasks.php?action=export&format=json`, {
+                        credentials: 'include'
+                    });
+                    const data = await response.json();
+                    addResult('GET', '/api/tasks.php?action=export&format=json', response.status, data, !data.success);
+                }
+            } catch (error) {
+                addResult('GET', `/api/tasks.php?action=export&format=${format}`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        // Filters
+        async function filterByStatus() {
+            const status = prompt('Enter status (todo, in_progress, done, blocked):', 'in_progress');
+            if (!status) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?status=${status}`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('GET', `/api/tasks.php?status=${status}`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('GET', `/api/tasks.php?status=${status}`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function filterByPriority() {
+            const priority = prompt('Enter priority (1=Low, 2=Medium, 3=High, 4=Urgent):', '3');
+            if (!priority) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?priority=${priority}`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('GET', `/api/tasks.php?priority=${priority}`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('GET', `/api/tasks.php?priority=${priority}`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function filterByAssignee() {
+            const assigneeId = prompt('Enter assignee user ID:', '1');
+            if (!assigneeId) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?assignee_id=${assigneeId}`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('GET', `/api/tasks.php?assignee_id=${assigneeId}`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('GET', `/api/tasks.php?assignee_id=${assigneeId}`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function searchTasks() {
+            const query = prompt('Enter search query:');
+            if (!query) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?search=${encodeURIComponent(query)}`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('GET', `/api/tasks.php?search=${query}`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('GET', `/api/tasks.php?search=${query}`, 'ERROR', {error: error.message}, true);
+            }
+        }
+
+        async function filterByDateRange() {
+            const from = prompt('Enter start date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+            const to = prompt('Enter end date (YYYY-MM-DD):', new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0]);
+
+            if (!from || !to) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks.php?due_date_from=${from}&due_date_to=${to}`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                addResult('GET', `/api/tasks.php?due_date_from=${from}&due_date_to=${to}`, response.status, data, !data.success);
+            } catch (error) {
+                addResult('GET', `/api/tasks.php?due_date_from=${from}&due_date_to=${to}`, 'ERROR', {error: error.message}, true);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,265 @@
+<?php
+/**
+ * CollaboraNexio Configuration Template
+ *
+ * Copy this file to config/config.php and update with your actual values
+ * DO NOT commit config.php to version control
+ *
+ * @package CollaboraNexio
+ * @version 1.0.0
+ * @author CollaboraNexio Development Team
+ */
+
+// Prevent direct access
+if (!defined('COLLABORA_NEXIO')) {
+    define('COLLABORA_NEXIO', true);
+}
+
+// ============================================
+// ENVIRONMENT CONFIGURATION
+// ============================================
+define('ENVIRONMENT', 'development'); // development | staging | production
+
+// Set timezone
+date_default_timezone_set('Europe/Rome');
+
+// Error reporting based on environment
+if (ENVIRONMENT === 'development') {
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+    ini_set('log_errors', 1);
+} else {
+    error_reporting(E_ERROR | E_WARNING | E_PARSE);
+    ini_set('display_errors', 0);
+    ini_set('log_errors', 1);
+}
+
+// ============================================
+// DATABASE CONFIGURATION
+// ============================================
+define('DB_HOST', 'localhost');
+define('DB_PORT', 3306);
+define('DB_USER', 'your_db_user');
+define('DB_PASS', 'your_db_password');
+define('DB_NAME', 'collabora');
+define('DB_CHARSET', 'utf8mb4');
+define('DB_COLLATION', 'utf8mb4_unicode_ci');
+
+// Database connection options
+define('DB_PERSISTENT', false);
+define('DB_SSL_ENABLED', false);
+define('DB_SSL_CA', ''); // Path to SSL certificate if needed
+
+// ============================================
+// PATH CONSTANTS
+// ============================================
+define('ROOT_PATH', __DIR__ . DIRECTORY_SEPARATOR);
+define('INCLUDES_PATH', ROOT_PATH . 'includes' . DIRECTORY_SEPARATOR);
+define('UPLOAD_PATH', ROOT_PATH . 'uploads' . DIRECTORY_SEPARATOR);
+define('ASSETS_PATH', ROOT_PATH . 'assets' . DIRECTORY_SEPARATOR);
+define('TEMP_PATH', ROOT_PATH . 'temp' . DIRECTORY_SEPARATOR);
+define('PUBLIC_PATH', ROOT_PATH . 'public' . DIRECTORY_SEPARATOR);
+define('LOGS_PATH', ROOT_PATH . 'logs' . DIRECTORY_SEPARATOR);
+define('CACHE_PATH', ROOT_PATH . 'cache' . DIRECTORY_SEPARATOR);
+define('CONFIG_PATH', ROOT_PATH . 'config' . DIRECTORY_SEPARATOR);
+define('API_PATH', ROOT_PATH . 'api' . DIRECTORY_SEPARATOR);
+
+// ============================================
+// URL CONFIGURATION
+// ============================================
+define('BASE_URL', 'http://localhost/CollaboraNexio/'); // Update with your actual URL
+define('SECURE_URL', 'https://localhost/CollaboraNexio/'); // Update for production
+define('API_URL', BASE_URL . 'api/v1/');
+define('ASSETS_URL', BASE_URL . 'assets/');
+define('PUBLIC_URL', BASE_URL . 'public/');
+
+// Force HTTPS in production
+define('FORCE_SSL', ENVIRONMENT === 'production');
+
+// ============================================
+// SESSION CONFIGURATION
+// ============================================
+define('SESSION_NAME', 'COLLABORA_SESS');
+define('SESSION_LIFETIME', 7200); // 2 hours in seconds
+define('SESSION_PATH', '/');
+define('SESSION_DOMAIN', ''); // Set your domain for production
+define('SESSION_SECURE', ENVIRONMENT === 'production'); // HTTPS only in production
+define('SESSION_HTTPONLY', true);
+define('SESSION_SAMESITE', 'Strict');
+
+// Session handler (file | database | redis | memcached)
+define('SESSION_HANDLER', 'database');
+
+// ============================================
+// SECURITY CONSTANTS
+// ============================================
+define('ENCRYPTION_KEY', 'CHANGE_THIS_TO_A_RANDOM_32_CHAR_STRING_12345678'); // 32 characters minimum
+define('HASH_ALGO', 'sha256');
+define('PASSWORD_ALGO', PASSWORD_ARGON2ID);
+define('CSRF_TOKEN_NAME', 'csrf_token');
+define('CSRF_TOKEN_LENGTH', 32);
+define('CSRF_REGENERATE', true);
+
+// JWT Configuration
+define('JWT_SECRET', 'CHANGE_THIS_TO_A_SECURE_RANDOM_STRING');
+define('JWT_ALGO', 'HS256');
+define('JWT_EXPIRY', 86400); // 24 hours
+
+// Rate limiting
+define('RATE_LIMIT_ENABLED', true);
+define('RATE_LIMIT_REQUESTS', 100); // Max requests
+define('RATE_LIMIT_WINDOW', 3600); // Time window in seconds (1 hour)
+
+// ============================================
+// FILE UPLOAD CONFIGURATION
+// ============================================
+define('MAX_FILE_SIZE', 52428800); // 50 MB in bytes
+define('ALLOWED_FILE_TYPES', [
+    'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+    'txt', 'rtf', 'odt', 'ods', 'odp',
+    'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp',
+    'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm',
+    'mp3', 'wav', 'ogg', 'flac',
+    'zip', 'rar', '7z', 'tar', 'gz',
+    'csv', 'json', 'xml', 'yaml'
+]);
+
+define('BLOCKED_FILE_TYPES', [
+    'exe', 'bat', 'cmd', 'com', 'pif', 'scr', 'vbs', 'js',
+    'jar', 'msi', 'app', 'deb', 'rpm'
+]);
+
+// Chunked upload settings
+define('CHUNK_SIZE', 1048576); // 1 MB chunks
+define('ENABLE_CHUNKED_UPLOAD', true);
+
+// ============================================
+// EMAIL CONFIGURATION
+// ============================================
+define('MAIL_ENABLED', true);
+define('MAIL_FROM_NAME', 'CollaboraNexio');
+define('MAIL_FROM_ADDRESS', 'noreply@collaboranexio.com');
+define('MAIL_REPLY_TO', 'support@collaboranexio.com');
+
+// SMTP Configuration
+define('SMTP_HOST', 'smtp.gmail.com');
+define('SMTP_PORT', 587);
+define('SMTP_ENCRYPTION', 'tls'); // tls | ssl | none
+define('SMTP_AUTH', true);
+define('SMTP_USERNAME', 'your_email@gmail.com');
+define('SMTP_PASSWORD', 'your_app_password');
+
+// ============================================
+// CACHE CONFIGURATION
+// ============================================
+define('CACHE_ENABLED', true);
+define('CACHE_DRIVER', 'file'); // file | redis | memcached | apcu
+define('CACHE_PREFIX', 'collabora_');
+define('CACHE_TTL', 3600); // Default cache time in seconds
+
+// Redis configuration (if using Redis)
+define('REDIS_HOST', '127.0.0.1');
+define('REDIS_PORT', 6379);
+define('REDIS_PASSWORD', '');
+define('REDIS_DATABASE', 0);
+
+// ============================================
+// LOGGING CONFIGURATION
+// ============================================
+define('LOG_ENABLED', true);
+define('LOG_LEVEL', 'debug'); // debug | info | warning | error | critical
+define('LOG_ROTATION', 'daily'); // daily | weekly | monthly
+define('LOG_MAX_FILES', 30); // Keep last 30 log files
+
+// Separate logs by type
+define('LOG_ERRORS', true);
+define('LOG_ACCESS', true);
+define('LOG_AUDIT', true);
+define('LOG_PERFORMANCE', ENVIRONMENT === 'development');
+
+// ============================================
+// MULTI-TENANT CONFIGURATION
+// ============================================
+define('MULTI_TENANT_ENABLED', true);
+define('DEFAULT_TENANT_ID', 1);
+define('TENANT_ISOLATION_LEVEL', 'row'); // row | schema | database
+define('MAX_TENANTS', 1000);
+define('MAX_USERS_PER_TENANT', 500);
+
+// ============================================
+// API CONFIGURATION
+// ============================================
+define('API_ENABLED', true);
+define('API_VERSION', 'v1');
+define('API_RATE_LIMIT', 1000); // Requests per hour
+define('API_KEY_REQUIRED', true);
+define('API_LOG_REQUESTS', true);
+
+// ============================================
+// FEATURE FLAGS
+// ============================================
+define('FEATURE_CHAT', true);
+define('FEATURE_CALENDAR', true);
+define('FEATURE_TASKS', true);
+define('FEATURE_WORKFLOWS', true);
+define('FEATURE_FILE_SHARING', true);
+define('FEATURE_VIDEO_CALL', false);
+define('FEATURE_2FA', true);
+define('FEATURE_SSO', false);
+define('FEATURE_AUDIT_LOG', true);
+define('FEATURE_NOTIFICATIONS', true);
+
+// ============================================
+// PERFORMANCE CONFIGURATION
+// ============================================
+define('GZIP_COMPRESSION', true);
+define('MINIFY_OUTPUT', ENVIRONMENT === 'production');
+define('QUERY_CACHE_ENABLED', true);
+define('SLOW_QUERY_THRESHOLD', 1000); // milliseconds
+
+// ============================================
+// MAINTENANCE MODE
+// ============================================
+define('MAINTENANCE_MODE', false);
+define('MAINTENANCE_MESSAGE', 'System is under maintenance. Please check back later.');
+define('MAINTENANCE_ALLOWED_IPS', ['127.0.0.1', '::1']); // IPs allowed during maintenance
+
+// ============================================
+// MISCELLANEOUS
+// ============================================
+define('DEFAULT_LANGUAGE', 'it_IT');
+define('SUPPORTED_LANGUAGES', ['it_IT', 'en_US', 'fr_FR', 'de_DE', 'es_ES']);
+define('DEFAULT_THEME', 'light');
+define('PAGINATION_LIMIT', 25);
+define('SEARCH_MIN_LENGTH', 3);
+define('AUTO_LOGOUT_TIME', 1800); // 30 minutes of inactivity
+
+// ============================================
+// CRON JOB SETTINGS
+// ============================================
+define('CRON_ENABLED', true);
+define('CRON_KEY', 'CHANGE_THIS_TO_A_SECURE_KEY');
+define('CLEANUP_OLD_FILES_DAYS', 30);
+define('CLEANUP_OLD_LOGS_DAYS', 90);
+define('CLEANUP_OLD_SESSIONS_HOURS', 24);
+
+// ============================================
+// LICENSE CONFIGURATION
+// ============================================
+define('LICENSE_KEY', '');
+define('LICENSE_CHECK_ENABLED', false);
+
+// ============================================
+// DEBUG CONFIGURATION (Development only)
+// ============================================
+if (ENVIRONMENT === 'development') {
+    define('DEBUG_SQL', true);
+    define('DEBUG_API', true);
+    define('DEBUG_PERFORMANCE', true);
+    define('SHOW_PROFILER', true);
+} else {
+    define('DEBUG_SQL', false);
+    define('DEBUG_API', false);
+    define('DEBUG_PERFORMANCE', false);
+    define('SHOW_PROFILER', false);
+}

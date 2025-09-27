@@ -1,0 +1,210 @@
+<?php
+/**
+ * API Endpoint per Long-Polling Chat
+ *
+ * Gestisce le richieste di polling per messaggi real-time, presenza e indicatori di digitazione
+ *
+ * @author CollaboraNexio Development Team
+ * @version 1.0.0
+ */
+
+session_start();
+header('Content-Type: application/json');
+header('X-Content-Type-Options: nosniff');
+
+// Disabilita cache per long-polling
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
+
+require_once '../config.php';
+require_once '../includes/db.php';
+require_once '../includes/auth.php';
+require_once '../includes/polling.php';
+
+// Authentication validation
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    die(json_encode(['error' => 'Non autorizzato']));
+}
+
+// Tenant isolation
+$tenant_id = $_SESSION['tenant_id'];
+$user_id = $_SESSION['user_id'];
+
+// Input sanitization
+$input = json_decode(file_get_contents('php://input'), true);
+$action = $_GET['action'] ?? 'poll';
+
+try {
+    // Inizializza rate limiter
+    $rateLimiter = new RateLimiter();
+
+    // Controlla rate limiting
+    if (!$rateLimiter->checkLimit($tenant_id, $user_id, 'polling')) {
+        http_response_code(429);
+        die(json_encode([
+            'error' => 'Troppe richieste. Riprova tra qualche secondo.',
+            'retry_after' => 60
+        ]));
+    }
+
+    // Inizializza LongPolling
+    $polling = new LongPolling();
+
+    switch ($action) {
+        case 'poll':
+            // Parametri per polling
+            $last_sequence_id = isset($input['last_sequence_id']) ? (int)$input['last_sequence_id'] : 0;
+            $channels = isset($input['channels']) && is_array($input['channels'])
+                ? array_map('intval', $input['channels'])
+                : [];
+
+            // Validazione parametri
+            if ($last_sequence_id < 0) {
+                $last_sequence_id = 0;
+            }
+
+            // Limita numero di canali per prevenire abuse
+            if (count($channels) > 50) {
+                http_response_code(400);
+                die(json_encode(['error' => 'Troppi canali richiesti (max 50)']));
+            }
+
+            // Se nessun canale specificato, ottieni canali dell'utente
+            if (empty($channels)) {
+                $db = Database::getInstance();
+                $pdo = $db->getConnection();
+
+                $sql = "SELECT channel_id
+                        FROM channel_members
+                        WHERE tenant_id = :tenant_id
+                            AND user_id = :user_id";
+
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([
+                    ':tenant_id' => $tenant_id,
+                    ':user_id' => $user_id
+                ]);
+
+                $channels = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            }
+
+            // Esegui polling
+            $response = $polling->poll($tenant_id, $user_id, $last_sequence_id, $channels);
+
+            // Aggiungi informazioni sessione
+            $response['session'] = [
+                'user_id' => $user_id,
+                'tenant_id' => $tenant_id
+            ];
+
+            echo json_encode($response);
+            break;
+
+        case 'typing':
+            // Imposta stato di digitazione
+            if (!isset($input['channel_id']) || !isset($input['is_typing'])) {
+                http_response_code(400);
+                die(json_encode(['error' => 'Parametri mancanti']));
+            }
+
+            $channel_id = (int)$input['channel_id'];
+            $is_typing = (bool)$input['is_typing'];
+
+            // Valida accesso al canale
+            $db = Database::getInstance();
+            $pdo = $db->getConnection();
+
+            $sql = "SELECT COUNT(*) FROM channel_members
+                    WHERE tenant_id = :tenant_id
+                        AND user_id = :user_id
+                        AND channel_id = :channel_id";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                ':tenant_id' => $tenant_id,
+                ':user_id' => $user_id,
+                ':channel_id' => $channel_id
+            ]);
+
+            if ($stmt->fetchColumn() == 0) {
+                http_response_code(403);
+                die(json_encode(['error' => 'Accesso al canale non autorizzato']));
+            }
+
+            // Imposta stato typing
+            $success = $polling->setUserTyping($tenant_id, $user_id, $channel_id, $is_typing);
+
+            echo json_encode([
+                'success' => $success,
+                'channel_id' => $channel_id,
+                'is_typing' => $is_typing
+            ]);
+            break;
+
+        case 'presence':
+            // Aggiorna presenza utente
+            $status = isset($input['status']) && in_array($input['status'], ['online', 'away', 'busy', 'offline'])
+                ? $input['status']
+                : 'online';
+
+            $success = $polling->updateUserPresence($tenant_id, $user_id, $status);
+
+            echo json_encode([
+                'success' => $success,
+                'status' => $status,
+                'timestamp' => time()
+            ]);
+            break;
+
+        case 'stats':
+            // Ottieni statistiche di utilizzo (solo per admin)
+            // Verifica se l'utente è admin
+            $db = Database::getInstance();
+            $pdo = $db->getConnection();
+
+            $sql = "SELECT ruolo FROM users
+                    WHERE id = :user_id AND tenant_id = :tenant_id";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                ':user_id' => $user_id,
+                ':tenant_id' => $tenant_id
+            ]);
+
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$user || !in_array($user['ruolo'], ['admin', 'super_admin'])) {
+                http_response_code(403);
+                die(json_encode(['error' => 'Accesso non autorizzato']));
+            }
+
+            $stats = $polling->getPollingStats($tenant_id);
+
+            echo json_encode([
+                'success' => true,
+                'stats' => $stats,
+                'timestamp' => time()
+            ]);
+            break;
+
+        case 'test':
+            // Test connessione e performance
+            $testResult = $polling->testConnection();
+            echo json_encode($testResult);
+            break;
+
+        default:
+            http_response_code(400);
+            die(json_encode(['error' => 'Azione non valida']));
+    }
+
+} catch (Exception $e) {
+    error_log("Polling API Error: " . $e->getMessage());
+    http_response_code(500);
+    die(json_encode([
+        'error' => 'Errore server',
+        'message' => DEBUG_MODE ? $e->getMessage() : 'Si è verificato un errore'
+    ]));
+}

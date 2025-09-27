@@ -1,0 +1,37 @@
+# CollaboraNexio Main .htaccess
+# Enable RewriteEngine
+RewriteEngine On
+
+# Set the base directory for the application
+RewriteBase /CollaboraNexio/
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# Prevent access to hidden files
+<Files ".*">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+# Prevent access to includes and config files
+<FilesMatch "(^#.*#|\.(bak|config|dist|fla|inc|ini|log|psd|sh|sql|sw[op])|~)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# API routing - Let the api directory handle its own routing
+RewriteCond %{REQUEST_URI} ^/CollaboraNexio/api/
+RewriteRule ^api/(.*)$ api/$1 [L]
+
+# Default index files
+DirectoryIndex index.php index.html
+
+# Error documents
+ErrorDocument 404 /CollaboraNexio/404.php
+ErrorDocument 403 /CollaboraNexio/403.php
+ErrorDocument 500 /CollaboraNexio/500.php

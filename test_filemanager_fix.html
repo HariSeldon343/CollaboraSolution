@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test File Manager - Fixed</title>
+    <link rel="stylesheet" href="assets/css/styles.css">
+    <link rel="stylesheet" href="assets/css/filemanager.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f3f4f6;
+        }
+
+        .test-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-header {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .test-header h1 {
+            margin: 0 0 10px 0;
+            color: #111827;
+        }
+
+        .test-info {
+            display: flex;
+            gap: 30px;
+            margin-top: 15px;
+        }
+
+        .test-status {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .test-status.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .test-status.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .console-output {
+            background: #1f2937;
+            color: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .console-output .error-line {
+            color: #ef4444;
+        }
+
+        .console-output .success-line {
+            color: #10b981;
+        }
+
+        .console-output .info-line {
+            color: #6b7280;
+        }
+
+        /* File manager container */
+        .file-manager-test {
+            margin-top: 30px;
+        }
+
+        /* Make sure sidebar is visible for testing */
+        .file-details-sidebar {
+            position: fixed !important;
+            right: 0;
+            top: 0;
+            height: 100vh;
+            width: 320px;
+            background: white;
+            border-left: 1px solid #e5e7eb;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .file-details-sidebar.active {
+            transform: translateX(0);
+        }
+
+        .file-main-container {
+            transition: margin-right 0.3s ease;
+        }
+
+        .file-main-container.sidebar-open {
+            margin-right: 320px;
+        }
+
+        /* Test buttons */
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .test-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .test-btn.primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .test-btn.primary:hover {
+            background: #2563eb;
+        }
+
+        .test-btn.secondary {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .test-btn.secondary:hover {
+            background: #d1d5db;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>🔧 File Manager Test - Fixed Version</h1>
+            <p>Questa pagina testa le correzioni applicate al file manager</p>
+            <div class="test-info">
+                <div>
+                    <strong>File JS:</strong> <code>assets/js/filemanager.js</code>
+                </div>
+                <div id="testStatus">
+                    <span class="test-status" id="statusBadge">Loading...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-controls">
+            <button class="test-btn primary" onclick="testFileClick()">Test Click su File</button>
+            <button class="test-btn primary" onclick="testMoreButton()">Test Pulsante More</button>
+            <button class="test-btn secondary" onclick="clearConsole()">Clear Console</button>
+            <button class="test-btn secondary" onclick="reloadFileManager()">Reload FileManager</button>
+        </div>
+
+        <div class="console-output" id="consoleOutput">
+            <div class="info-line">Console output will appear here...</div>
+        </div>
+
+        <div class="file-manager-test">
+            <h2>File Manager Interface</h2>
+
+            <!-- File Manager Structure -->
+            <div class="file-main-container">
+                <!-- File Manager Header -->
+                <div class="file-header">
+                    <div class="file-header-left">
+                        <input type="text" id="fileSearch" class="file-search" placeholder="Search files...">
+                    </div>
+                    <div class="file-header-right">
+                        <button id="filterBtn" class="btn btn-icon">Filter</button>
+                        <button id="sortBtn" class="btn btn-icon">Sort</button>
+                        <button class="view-btn active" data-view="grid">Grid</button>
+                        <button class="view-btn" data-view="list">List</button>
+                        <button id="uploadBtn" class="btn btn-primary">Upload</button>
+                        <button id="newFolderBtn" class="btn">New Folder</button>
+                    </div>
+                </div>
+
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <div class="breadcrumb-items">
+                        <span class="breadcrumb-current">Test Files</span>
+                    </div>
+                </div>
+
+                <!-- Files Wrapper -->
+                <div id="filesWrapper">
+                    <!-- Drop Zone -->
+                    <div id="dropZone" class="drop-zone">
+                        <p>Drop files here to upload</p>
+                    </div>
+
+                    <!-- Files Grid -->
+                    <div class="files-grid view-active" id="filesGrid">
+                        <!-- Test Folder -->
+                        <div class="file-card" data-name="Test Folder" data-type="folder">
+                            <div class="file-card-icon folder">
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z" fill="#F59E0B"/>
+                                </svg>
+                            </div>
+                            <div class="file-card-info">
+                                <h4 class="file-name">Test Folder</h4>
+                                <span class="file-meta">3 items · Modified today</span>
+                            </div>
+                            <div class="file-card-actions">
+                                <button class="action-btn" title="Share">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="18" cy="5" r="3"/>
+                                        <circle cx="6" cy="12" r="3"/>
+                                        <circle cx="18" cy="19" r="3"/>
+                                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                                    </svg>
+                                </button>
+                                <button class="action-btn" title="More">
+                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <circle cx="12" cy="12" r="1"/>
+                                        <circle cx="12" cy="5" r="1"/>
+                                        <circle cx="12" cy="19" r="1"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Test PDF File -->
+                        <div class="file-card" data-name="Test_Document.pdf" data-type="pdf">
+                            <div class="file-card-icon pdf">
+                                <svg viewBox="0 0 24 24" fill="none">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="#EF4444"/>
+                                </svg>
+                            </div>
+                            <div class="file-card-info">
+                                <h4 class="file-name">Test_Document.pdf</h4>
+                                <span class="file-meta">2.4 MB · Modified 3 days ago</span>
+                            </div>
+                            <div class="file-card-actions">
+                                <button class="action-btn" title="Download">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>
+                                <button class="action-btn" title="More">
+                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <circle cx="12" cy="12" r="1"/>
+                                        <circle cx="12" cy="5" r="1"/>
+                                        <circle cx="12" cy="19" r="1"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Test Image File -->
+                        <div class="file-card" data-name="Test_Image.png" data-type="image">
+                            <div class="file-card-preview">
+                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 150'%3E%3Crect fill='%23E5E7EB' width='200' height='150'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%236B7280' font-family='sans-serif' font-size='14'%3ETest_Image.png%3C/text%3E%3C/svg%3E" alt="Test_Image.png">
+                            </div>
+                            <div class="file-card-info">
+                                <h4 class="file-name">Test_Image.png</h4>
+                                <span class="file-meta">856 KB · Modified yesterday</span>
+                            </div>
+                            <div class="file-card-actions">
+                                <button class="action-btn" title="Download">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                </button>
+                                <button class="action-btn" title="More">
+                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <circle cx="12" cy="12" r="1"/>
+                                        <circle cx="12" cy="5" r="1"/>
+                                        <circle cx="12" cy="19" r="1"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Files List (hidden by default) -->
+                    <div class="files-list" id="filesList" style="display: none;">
+                        <!-- List view content -->
+                    </div>
+
+                    <!-- Empty State -->
+                    <div class="empty-state hidden" id="emptyState">
+                        <p>No files found</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- File Details Sidebar -->
+            <div class="file-details-sidebar" id="fileDetailsSidebar">
+                <div class="details-header">
+                    <h3>File Details</h3>
+                    <button class="close-details" id="closeDetails">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="details-content">
+                    <div class="details-preview">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 150'%3E%3Crect fill='%23F3F4F6' width='200' height='150'/%3E%3C/svg%3E" alt="Preview">
+                    </div>
+                    <div class="details-info">
+                        <h4 class="details-filename">Select a file</h4>
+                        <div class="details-meta">
+                            <div class="meta-item">
+                                <span class="meta-label">Type</span>
+                                <span class="meta-value">—</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Size</span>
+                                <span class="meta-value">—</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Modified</span>
+                                <span class="meta-value">—</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Owner</span>
+                                <span class="meta-value">—</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Context Menu -->
+            <div class="context-menu" id="contextMenu">
+                <!-- Context menu items -->
+            </div>
+
+            <!-- Upload Toast -->
+            <div class="upload-toast hidden" id="uploadToast">
+                <div class="upload-toast-header">
+                    <span>Uploading files...</span>
+                    <button class="close-btn" id="closeUpload">×</button>
+                </div>
+                <div class="upload-toast-items" id="uploadItems">
+                    <!-- Upload items -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load FileManager Script -->
+    <script src="assets/js/filemanager.js"></script>
+
+    <!-- Test Script -->
+    <script>
+        // Console logging helper
+        const consoleOutput = document.getElementById('consoleOutput');
+        const statusBadge = document.getElementById('statusBadge');
+        let errorCount = 0;
+
+        function logToConsole(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const line = document.createElement('div');
+            line.className = `${type}-line`;
+            line.textContent = `[${timestamp}] ${message}`;
+            consoleOutput.appendChild(line);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        function clearConsole() {
+            consoleOutput.innerHTML = '<div class="info-line">Console cleared</div>';
+            errorCount = 0;
+            updateStatus();
+        }
+
+        function updateStatus() {
+            if (errorCount > 0) {
+                statusBadge.textContent = `${errorCount} Errors`;
+                statusBadge.className = 'test-status error';
+            } else {
+                statusBadge.textContent = 'No Errors';
+                statusBadge.className = 'test-status success';
+            }
+        }
+
+        // Override console methods to capture output
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            logToConsole(args.join(' '), 'info');
+        };
+
+        console.error = function(...args) {
+            originalConsoleError.apply(console, args);
+            errorCount++;
+            logToConsole('ERROR: ' + args.join(' '), 'error');
+            updateStatus();
+        };
+
+        // Capture global errors
+        window.addEventListener('error', function(e) {
+            errorCount++;
+            logToConsole(`ERROR: ${e.message} at line ${e.lineno}`, 'error');
+            updateStatus();
+        });
+
+        // Test functions
+        function testFileClick() {
+            logToConsole('Testing file click...', 'info');
+            const fileCard = document.querySelector('.file-card[data-type="pdf"]');
+            if (fileCard) {
+                fileCard.click();
+                logToConsole('Clicked on PDF file. Sidebar should open.', 'success');
+            } else {
+                logToConsole('No PDF file found to test', 'error');
+            }
+        }
+
+        function testMoreButton() {
+            logToConsole('Testing More button...', 'info');
+            const moreBtn = document.querySelector('.file-card[data-type="pdf"] .action-btn[title="More"]');
+            if (moreBtn) {
+                moreBtn.click();
+                logToConsole('Clicked More button. Menu should appear.', 'success');
+            } else {
+                logToConsole('No More button found to test', 'error');
+            }
+        }
+
+        function reloadFileManager() {
+            logToConsole('Reloading FileManager...', 'info');
+            window.location.reload();
+        }
+
+        // Initial status check
+        document.addEventListener('DOMContentLoaded', function() {
+            logToConsole('Page loaded successfully', 'success');
+
+            // Check if FileManager loaded
+            if (window.fileManager) {
+                logToConsole('FileManager initialized successfully', 'success');
+
+                // Test if critical methods exist
+                const methods = ['showFileMenu', 'handleFileMenuAction', 'selectRange', 'showDetailsSidebar'];
+                methods.forEach(method => {
+                    if (typeof window.fileManager[method] === 'function') {
+                        logToConsole(`✓ Method ${method} exists`, 'success');
+                    } else {
+                        logToConsole(`✗ Method ${method} is missing`, 'error');
+                    }
+                });
+            } else {
+                logToConsole('FileManager not initialized', 'error');
+            }
+
+            updateStatus();
+        });
+    </script>
+</body>
+</html>

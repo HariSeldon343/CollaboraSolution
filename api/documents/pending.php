@@ -1,0 +1,235 @@
+<?php
+session_start();
+header('Content-Type: application/json');
+header('X-Content-Type-Options: nosniff');
+
+require_once '../../config.php';
+require_once '../../includes/db.php';
+require_once '../../includes/auth.php';
+
+// Authentication validation
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    die(json_encode(['error' => 'Non autorizzato']));
+}
+
+// Tenant isolation
+$tenant_id = $_SESSION['tenant_id'] ?? null;
+$selected_tenant = $_GET['tenant_id'] ?? $tenant_id;
+
+// Input sanitization
+$page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT) ?: 1;
+$limit = filter_var($_GET['limit'] ?? 20, FILTER_VALIDATE_INT) ?: 20;
+$status = filter_var($_GET['status'] ?? 'in_approvazione', FILTER_SANITIZE_STRING);
+$search = filter_var($_GET['search'] ?? '', FILTER_SANITIZE_STRING);
+
+try {
+    // Get current user role
+    $user_id = $_SESSION['user_id'];
+    $user_role = $_SESSION['role'] ?? 'user';
+
+    // Get database connection
+    $db = Database::getInstance();
+    $pdo = $db->getConnection();
+
+    // Build query based on user role
+    $query = "SELECT f.id, f.name, f.original_name, f.mime_type, f.size_bytes,
+                     f.status, f.created_at, f.updated_at,
+                     f.approved_by, f.approved_at, f.rejection_reason,
+                     u.first_name as owner_first_name,
+                     u.last_name as owner_last_name,
+                     u.email as owner_email,
+                     t.name as tenant_name,
+                     au.first_name as approver_first_name,
+                     au.last_name as approver_last_name
+              FROM files f
+              INNER JOIN users u ON f.owner_id = u.id
+              INNER JOIN tenants t ON f.tenant_id = t.id
+              LEFT JOIN users au ON f.approved_by = au.id
+              WHERE f.deleted_at IS NULL";
+
+    $params = [];
+
+    // Filter by status
+    if ($status === 'all') {
+        // Show all statuses for managers and above
+        if (!in_array($user_role, ['manager', 'admin', 'super_admin'])) {
+            // Regular users can only see their own files
+            $query .= " AND f.owner_id = :owner_id";
+            $params[':owner_id'] = $user_id;
+        }
+    } else {
+        $query .= " AND f.status = :status";
+        $params[':status'] = $status;
+    }
+
+    // Tenant filtering based on role
+    if ($user_role === 'super_admin') {
+        // Super admin can see all tenants or filter by specific tenant
+        if ($selected_tenant && $selected_tenant !== 'all') {
+            $query .= " AND f.tenant_id = :tenant_id";
+            $params[':tenant_id'] = $selected_tenant;
+        }
+    } elseif ($user_role === 'admin') {
+        // Admin can see tenants they have access to
+        if ($selected_tenant && $selected_tenant !== 'all') {
+            // Verify admin has access to this tenant
+            $accessCheck = "SELECT 1 FROM user_tenant_access
+                            WHERE user_id = :user_id AND tenant_id = :check_tenant_id";
+            $stmt = $pdo->prepare($accessCheck);
+            $stmt->execute([
+                ':user_id' => $user_id,
+                ':check_tenant_id' => $selected_tenant
+            ]);
+
+            if ($stmt->fetch()) {
+                $query .= " AND f.tenant_id = :tenant_id";
+                $params[':tenant_id'] = $selected_tenant;
+            } else {
+                throw new Exception('Non hai accesso a questo tenant');
+            }
+        } else {
+            // Show all tenants admin has access to
+            $query .= " AND f.tenant_id IN (
+                        SELECT tenant_id FROM user_tenant_access WHERE user_id = :access_user_id
+                        UNION
+                        SELECT tenant_id FROM users WHERE id = :user_tenant_id
+                       )";
+            $params[':access_user_id'] = $user_id;
+            $params[':user_tenant_id'] = $user_id;
+        }
+    } else {
+        // Manager and User can only see their own tenant
+        $query .= " AND f.tenant_id = :tenant_id";
+        $params[':tenant_id'] = $tenant_id;
+
+        // Regular users can only see their own files
+        if ($user_role === 'user') {
+            $query .= " AND f.owner_id = :owner_id";
+            $params[':owner_id'] = $user_id;
+        }
+    }
+
+    // Search filter
+    if (!empty($search)) {
+        $query .= " AND (f.name LIKE :search OR f.original_name LIKE :search2
+                    OR u.first_name LIKE :search3 OR u.last_name LIKE :search4)";
+        $searchParam = "%{$search}%";
+        $params[':search'] = $searchParam;
+        $params[':search2'] = $searchParam;
+        $params[':search3'] = $searchParam;
+        $params[':search4'] = $searchParam;
+    }
+
+    // Count total records
+    $countQuery = "SELECT COUNT(*) as total FROM (" . $query . ") as counted";
+    $stmt = $pdo->prepare($countQuery);
+    $stmt->execute($params);
+    $total = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+    // Add pagination
+    $offset = ($page - 1) * $limit;
+    $query .= " ORDER BY f.created_at DESC LIMIT :limit OFFSET :offset";
+    $params[':limit'] = $limit;
+    $params[':offset'] = $offset;
+
+    // Execute main query
+    $stmt = $pdo->prepare($query);
+
+    // Bind parameters with proper types
+    foreach ($params as $key => $value) {
+        if ($key === ':limit' || $key === ':offset') {
+            $stmt->bindValue($key, $value, PDO::PARAM_INT);
+        } else {
+            $stmt->bindValue($key, $value, PDO::PARAM_STR);
+        }
+    }
+
+    $stmt->execute();
+    $files = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Format file sizes and dates
+    foreach ($files as &$file) {
+        $file['size_formatted'] = formatFileSize($file['size_bytes']);
+        $file['created_at_formatted'] = date('d/m/Y H:i', strtotime($file['created_at']));
+        $file['owner_name'] = $file['owner_first_name'] . ' ' . $file['owner_last_name'];
+
+        if ($file['approved_at']) {
+            $file['approved_at_formatted'] = date('d/m/Y H:i', strtotime($file['approved_at']));
+            $file['approver_name'] = $file['approver_first_name'] . ' ' . $file['approver_last_name'];
+        }
+
+        // Add action permissions
+        $file['can_approve'] = in_array($user_role, ['manager', 'admin', 'super_admin'])
+                               && $file['status'] === 'in_approvazione';
+        $file['can_reject'] = $file['can_approve'];
+        $file['can_edit'] = $file['owner_id'] == $user_id ||
+                            in_array($user_role, ['admin', 'super_admin']);
+    }
+
+    // Get summary statistics for managers and above
+    $stats = null;
+    if (in_array($user_role, ['manager', 'admin', 'super_admin'])) {
+        $statsQuery = "SELECT
+                       COUNT(CASE WHEN status = 'in_approvazione' THEN 1 END) as pending,
+                       COUNT(CASE WHEN status = 'approvato' THEN 1 END) as approved,
+                       COUNT(CASE WHEN status = 'rifiutato' THEN 1 END) as rejected,
+                       COUNT(*) as total
+                       FROM files
+                       WHERE deleted_at IS NULL";
+
+        $statsParams = [];
+
+        if ($user_role !== 'super_admin') {
+            if ($user_role === 'admin') {
+                $statsQuery .= " AND tenant_id IN (
+                                SELECT tenant_id FROM user_tenant_access WHERE user_id = :stats_user_id
+                                UNION
+                                SELECT tenant_id FROM users WHERE id = :stats_user_id2
+                               )";
+                $statsParams[':stats_user_id'] = $user_id;
+                $statsParams[':stats_user_id2'] = $user_id;
+            } else {
+                $statsQuery .= " AND tenant_id = :stats_tenant_id";
+                $statsParams[':stats_tenant_id'] = $tenant_id;
+            }
+        }
+
+        $stmt = $pdo->prepare($statsQuery);
+        $stmt->execute($statsParams);
+        $stats = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    // Success response
+    echo json_encode([
+        'success' => true,
+        'data' => $files,
+        'pagination' => [
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit,
+            'pages' => ceil($total / $limit)
+        ],
+        'stats' => $stats,
+        'filters' => [
+            'status' => $status,
+            'search' => $search,
+            'tenant_id' => $selected_tenant
+        ]
+    ]);
+
+} catch (Exception $e) {
+    error_log('Pending Documents Error: ' . $e->getMessage());
+    http_response_code(500);
+    die(json_encode(['error' => $e->getMessage()]));
+}
+
+/**
+ * Format file size in human-readable format
+ */
+function formatFileSize($bytes) {
+    if ($bytes < 1024) return $bytes . ' B';
+    if ($bytes < 1048576) return round($bytes / 1024, 2) . ' KB';
+    if ($bytes < 1073741824) return round($bytes / 1048576, 2) . ' MB';
+    return round($bytes / 1073741824, 2) . ' GB';
+}

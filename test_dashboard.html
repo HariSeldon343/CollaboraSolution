@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard API Test - CollaboraNexio</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .test-section {
+            margin-bottom: 30px;
+        }
+        .test-section h2 {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .test-item {
+            background: #f7f9fc;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .test-item.success {
+            border-left-color: #10b981;
+            background: #f0fdf4;
+        }
+        .test-item.error {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+        }
+        .test-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: normal;
+        }
+        .status.success {
+            background: #10b981;
+            color: white;
+        }
+        .status.error {
+            background: #ef4444;
+            color: white;
+        }
+        .status.pending {
+            background: #f59e0b;
+            color: white;
+        }
+        .test-url {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 10px;
+            word-break: break-all;
+        }
+        .test-result {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        .btn:hover {
+            background: #5a67d8;
+        }
+        .btn.secondary {
+            background: #6b7280;
+        }
+        .btn.secondary:hover {
+            background: #4b5563;
+        }
+        .login-form {
+            display: none;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .summary {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>Dashboard API Test - CollaboraNexio</h1>
+            <p>Test all dashboard API endpoints to ensure they work correctly.</p>
+
+            <!-- Login section -->
+            <div id="loginSection" class="login-form">
+                <h3>Login Required</h3>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label>Email:</label>
+                        <input type="email" id="email" value="admin@collaboranexio.it" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password:</label>
+                        <input type="password" id="password" value="Admin123!" required>
+                    </div>
+                    <button type="submit" class="btn">Login</button>
+                </form>
+            </div>
+
+            <!-- Control buttons -->
+            <div style="margin: 20px 0;">
+                <button class="btn" onclick="checkAuth()">Check Authentication</button>
+                <button class="btn" onclick="runAllTests()">Run All Tests</button>
+                <button class="btn secondary" onclick="clearResults()">Clear Results</button>
+            </div>
+
+            <!-- Authentication status -->
+            <div id="authStatus" class="test-item"></div>
+        </div>
+
+        <!-- Main Dashboard Endpoints -->
+        <div class="card">
+            <div class="test-section">
+                <h2>Main Dashboard Endpoints</h2>
+                <div id="mainTests"></div>
+            </div>
+        </div>
+
+        <!-- Widget Data Endpoints -->
+        <div class="card">
+            <div class="test-section">
+                <h2>Widget Data Endpoints</h2>
+                <div id="widgetTests"></div>
+            </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="card">
+            <div class="summary">
+                <h3>Test Summary</h3>
+                <div id="summary"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Test configuration
+        const API_BASE = '/api/dashboard.php';
+        let testResults = [];
+
+        // Main endpoints to test
+        const mainEndpoints = [
+            { name: 'Dashboard Load', url: '?action=load', description: 'Load main dashboard data' },
+            { name: 'Statistics', url: '?action=stats', description: 'Get dashboard statistics' },
+            { name: 'Activities', url: '?action=activities', description: 'Get recent activities' },
+            { name: 'Notifications', url: '?action=notifications', description: 'Get user notifications' },
+            { name: 'Widget Config', url: '?action=widgets', description: 'Get widget configuration' }
+        ];
+
+        // Widget endpoints to test
+        const widgetEndpoints = [
+            { name: 'Metric - Users', url: '?widget=metric&metric=users', description: 'User metrics widget' },
+            { name: 'Metric - Files', url: '?widget=metric&metric=files', description: 'File metrics widget' },
+            { name: 'Metric - Tasks', url: '?widget=metric&metric=tasks', description: 'Task metrics widget' },
+            { name: 'Chart - Line', url: '?widget=chart&type=line', description: 'Line chart widget' },
+            { name: 'Activities', url: '?widget=activities', description: 'Activities list widget' },
+            { name: 'Storage', url: '?widget=storage', description: 'Storage usage widget' },
+            { name: 'Burndown', url: '?widget=burndown', description: 'Burndown chart widget' },
+            { name: 'Calendar', url: '?widget=calendar', description: 'Calendar events widget' }
+        ];
+
+        // Check authentication status
+        async function checkAuth() {
+            try {
+                const response = await fetch(API_BASE + '?action=load');
+                const authDiv = document.getElementById('authStatus');
+
+                if (response.status === 401) {
+                    authDiv.className = 'test-item error';
+                    authDiv.innerHTML = '<div class="test-title">Not Authenticated <span class="status error">LOGIN REQUIRED</span></div>';
+                    document.getElementById('loginSection').style.display = 'block';
+                    return false;
+                } else if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        authDiv.className = 'test-item success';
+                        authDiv.innerHTML = `<div class="test-title">Authenticated <span class="status success">LOGGED IN</span></div>
+                            <div>User: ${data.data.user?.name || 'Unknown'} | Role: ${data.data.user?.role || 'Unknown'}</div>`;
+                        document.getElementById('loginSection').style.display = 'none';
+                        return true;
+                    }
+                }
+
+                authDiv.className = 'test-item error';
+                authDiv.innerHTML = '<div class="test-title">Authentication Error <span class="status error">ERROR</span></div>';
+                return false;
+            } catch (error) {
+                console.error('Auth check error:', error);
+                document.getElementById('authStatus').innerHTML = '<div class="test-title">Connection Error <span class="status error">FAILED</span></div>';
+                return false;
+            }
+        }
+
+        // Login function
+        document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/api/auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'login', email, password })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert('Login successful!');
+                    await checkAuth();
+                    runAllTests();
+                } else {
+                    alert('Login failed: ' + (data.message || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Login error: ' + error.message);
+            }
+        });
+
+        // Test a single endpoint
+        async function testEndpoint(endpoint) {
+            const testId = 'test-' + Date.now() + '-' + Math.random();
+            const fullUrl = API_BASE + endpoint.url;
+
+            const testResult = {
+                name: endpoint.name,
+                url: fullUrl,
+                description: endpoint.description,
+                status: 'pending',
+                response: null,
+                error: null
+            };
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch(fullUrl);
+                const responseTime = Date.now() - startTime;
+
+                testResult.responseTime = responseTime;
+                testResult.httpStatus = response.status;
+
+                if (!response.ok) {
+                    testResult.status = 'error';
+                    testResult.error = `HTTP ${response.status}`;
+                } else {
+                    const data = await response.json();
+                    testResult.response = data;
+                    testResult.status = data.success ? 'success' : 'error';
+
+                    if (data.data) {
+                        // Analyze response data
+                        if (Array.isArray(data.data)) {
+                            testResult.dataInfo = `Array with ${data.data.length} items`;
+                        } else if (typeof data.data === 'object') {
+                            testResult.dataInfo = `Object with keys: ${Object.keys(data.data).join(', ')}`;
+                        }
+                    }
+                }
+            } catch (error) {
+                testResult.status = 'error';
+                testResult.error = error.message;
+            }
+
+            testResults.push(testResult);
+            return testResult;
+        }
+
+        // Display test result
+        function displayTestResult(result, container) {
+            const div = document.createElement('div');
+            div.className = `test-item ${result.status}`;
+
+            let statusBadge = `<span class="status ${result.status}">${result.status.toUpperCase()}</span>`;
+            if (result.responseTime) {
+                statusBadge += ` <span style="font-size: 11px; color: #6b7280;">${result.responseTime}ms</span>`;
+            }
+
+            let resultHtml = `
+                <div class="test-title">
+                    ${result.name}
+                    ${statusBadge}
+                </div>
+                <div class="test-url">${result.url}</div>
+            `;
+
+            if (result.description) {
+                resultHtml += `<div style="color: #6b7280; font-size: 13px;">${result.description}</div>`;
+            }
+
+            if (result.dataInfo) {
+                resultHtml += `<div style="color: #059669; font-size: 13px; margin-top: 5px;">Data: ${result.dataInfo}</div>`;
+            }
+
+            if (result.status === 'success' && result.response) {
+                resultHtml += `<details style="margin-top: 10px;">
+                    <summary style="cursor: pointer; color: #667eea;">View Response</summary>
+                    <div class="test-result">${JSON.stringify(result.response, null, 2)}</div>
+                </details>`;
+            } else if (result.status === 'error') {
+                resultHtml += `<div style="color: #ef4444; margin-top: 5px;">Error: ${result.error || 'Request failed'}</div>`;
+            }
+
+            div.innerHTML = resultHtml;
+            container.appendChild(div);
+        }
+
+        // Run all tests
+        async function runAllTests() {
+            const isAuthenticated = await checkAuth();
+            if (!isAuthenticated) {
+                alert('Please login first to run tests');
+                return;
+            }
+
+            testResults = [];
+            clearResults();
+
+            // Test main endpoints
+            const mainContainer = document.getElementById('mainTests');
+            mainContainer.innerHTML = '<div style="color: #6b7280;">Running tests...</div>';
+
+            setTimeout(async () => {
+                mainContainer.innerHTML = '';
+                for (const endpoint of mainEndpoints) {
+                    const result = await testEndpoint(endpoint);
+                    displayTestResult(result, mainContainer);
+                }
+
+                // Test widget endpoints
+                const widgetContainer = document.getElementById('widgetTests');
+                widgetContainer.innerHTML = '';
+                for (const endpoint of widgetEndpoints) {
+                    const result = await testEndpoint(endpoint);
+                    displayTestResult(result, widgetContainer);
+                }
+
+                // Display summary
+                displaySummary();
+            }, 100);
+        }
+
+        // Display summary
+        function displaySummary() {
+            const summary = document.getElementById('summary');
+            const total = testResults.length;
+            const successful = testResults.filter(r => r.status === 'success').length;
+            const failed = testResults.filter(r => r.status === 'error').length;
+            const avgTime = testResults.reduce((acc, r) => acc + (r.responseTime || 0), 0) / total;
+
+            summary.innerHTML = `
+                <div class="summary-item">
+                    <span>Total Tests:</span>
+                    <strong>${total}</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Successful:</span>
+                    <strong style="color: #10b981;">${successful}</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Failed:</span>
+                    <strong style="color: #ef4444;">${failed}</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Success Rate:</span>
+                    <strong>${((successful / total) * 100).toFixed(1)}%</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Avg Response Time:</span>
+                    <strong>${avgTime.toFixed(0)}ms</strong>
+                </div>
+            `;
+        }
+
+        // Clear all results
+        function clearResults() {
+            document.getElementById('mainTests').innerHTML = '';
+            document.getElementById('widgetTests').innerHTML = '';
+            document.getElementById('summary').innerHTML = '';
+            testResults = [];
+        }
+
+        // Check auth on page load
+        window.addEventListener('load', checkAuth);
+    </script>
+</body>
+</html>

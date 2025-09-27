@@ -1,0 +1,156 @@
+[2025-09-21 20:14:18] [INFO] Connessione al database stabilita con successo
+[2025-09-21 20:14:18] [ERROR] Errore nella preparazione dello statement: SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'current_time' at line 1
+[2025-09-21 20:14:18] [ERROR] Errore nell'esecuzione della query: Errore durante la preparazione della query
+[2025-09-21 20:14:18] [ERROR] Errore nella preparazione dello statement: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'collabora.tabella_inesistente_12345' doesn't exist
+[2025-09-21 20:14:18] [ERROR] Errore nell'esecuzione della query: Errore durante la preparazione della query
+[2025-09-21 20:14:46] [INFO] Connessione al database stabilita con successo
+[2025-09-21 20:14:46] [ERROR] Errore nella preparazione dello statement: SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'current_time' at line 1
+[2025-09-21 20:14:46] [ERROR] Errore nell'esecuzione della query: Errore durante la preparazione della query
+[2025-09-21 20:14:46] [ERROR] Errore nella preparazione dello statement: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'collabora.tabella_inesistente_12345' doesn't exist
+[2025-09-21 20:14:46] [ERROR] Errore nell'esecuzione della query: Errore durante la preparazione della query
+[2025-09-21 20:15:04] [INFO] Connessione al database stabilita con successo
+[2025-09-21 20:15:04] [ERROR] Errore nella preparazione dello statement: SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'current_time' at line 1
+[2025-09-21 20:15:04] [ERROR] Errore nell'esecuzione della query: Errore durante la preparazione della query
+[2025-09-21 20:15:04] [ERROR] Errore nella preparazione dello statement: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'collabora.tabella_inesistente_12345' doesn't exist
+[2025-09-21 20:15:04] [ERROR] Errore nell'esecuzione della query: Errore durante la preparazione della query
+[2025-09-21 20:15:11] [INFO] Connessione al database stabilita con successo
+[2025-09-21 20:15:11] [ERROR] Errore nella preparazione dello statement: SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'current_time' at line 1
+[2025-09-21 20:15:11] [ERROR] Errore nell'esecuzione della query: Errore durante la preparazione della query
+[2025-09-21 20:15:11] [ERROR] Errore nella preparazione dello statement: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'collabora.tabella_inesistente_12345' doesn't exist
+[2025-09-21 20:15:11] [ERROR] Errore nell'esecuzione della query: Errore durante la preparazione della query
+[2025-09-21 20:15:31] [INFO] Connessione al database stabilita con successo
+[2025-09-21 20:15:31] [ERROR] Errore nella preparazione dello statement: SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'current_time' at line 1
+[2025-09-21 20:15:31] [ERROR] Errore nell'esecuzione della query: Errore durante la preparazione della query
+[2025-09-21 20:15:31] [ERROR] Errore nella preparazione dello statement: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'collabora.tabella_inesistente_12345' doesn't exist
+[2025-09-21 20:15:31] [ERROR] Errore nell'esecuzione della query: Errore durante la preparazione della query
+[2025-09-21 20:15:56] [INFO] Connessione al database stabilita con successo
+[2025-09-21 20:15:56] [ERROR] Errore nella preparazione dello statement: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'collabora.tabella_inesistente_12345' doesn't exist
+[2025-09-21 20:15:56] [ERROR] Errore nell'esecuzione della query: Errore durante la preparazione della query
+[2025-09-22 06:11:48] [INFO] Connessione al database stabilita con successo
+[2025-09-22 06:11:48] [DEBUG] Query eseguita: SELECT 1 as test
+[2025-09-22 06:11:48] [DEBUG] Query eseguita: SHOW TABLES
+[2025-09-22 06:11:48] [DEBUG] Transazione iniziata
+[2025-09-22 06:11:48] [DEBUG] Transazione annullata
+[2025-09-22 06:11:48] [DEBUG] Query eseguita: SHOW TABLES LIKE 'users'
+[2025-09-22 06:11:48] [DEBUG] Query eseguita: SELECT COUNT(*) as total FROM `users`
+[2025-09-22 06:11:48] [DEBUG] Query eseguita: SELECT COUNT(*) as total FROM `users` WHERE `id` = :id
+[2025-09-22 06:11:48] [DEBUG] Query eseguita: SELECT :param1 as test1, :param2 as test2
+[2025-09-22 06:11:48] [ERROR] Errore query: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'collabora.tabella_inesistente' doesn't exist - SQL: SELECT * FROM tabella_inesistente
+[2025-09-22 15:08:19] [INFO] Connessione al database stabilita con successo
+[2025-09-22 15:08:51] [INFO] Connessione al database stabilita con successo
+[2025-09-22 19:03:30] [INFO] Connessione al database stabilita con successo
+[2025-09-22 19:10:24] [INFO] Connessione al database stabilita con successo
+[2025-09-22 19:17:28] [INFO] Connessione al database stabilita con successo
+[2025-09-22 19:24:58] [INFO] Connessione al database stabilita con successo
+[2025-09-22 19:25:00] [INFO] Connessione al database stabilita con successo
+[2025-09-22 19:31:52] [INFO] Connessione al database stabilita con successo
+[2025-09-22 19:31:53] [INFO] Connessione al database stabilita con successo
+[2025-09-22 19:31:54] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:02] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:07] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:07] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:07] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:07] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:07] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:07] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:08] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:13] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:43] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:43] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:43] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:43] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:43] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:43] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:43] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:43] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:44] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:44] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:44] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:44] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:44] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:44] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:44] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:44] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:44] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:44] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:44] [INFO] Connessione al database stabilita con successo
+[2025-09-22 20:53:44] [INFO] Connessione al database stabilita con successo
+[2025-09-22 21:06:21] [INFO] Connessione al database stabilita con successo
+[2025-09-22 21:08:27] [INFO] Connessione al database stabilita con successo
+[2025-09-22 21:08:37] [INFO] Connessione al database stabilita con successo
+[2025-09-22 21:12:06] [INFO] Connessione al database stabilita con successo
+[2025-09-22 21:12:11] [INFO] Connessione al database stabilita con successo
+[2025-09-23 06:25:51] [INFO] Connessione al database stabilita con successo
+[2025-09-23 06:25:55] [INFO] Connessione al database stabilita con successo

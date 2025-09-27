@@ -1,0 +1,9 @@
+# Notifications API Directory Routing
+RewriteEngine On
+
+# Handle direct access to specific endpoints
+RewriteRule ^$ index.php [L]
+
+# Default - let PHP files handle themselves
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^.*$ - [L]

@@ -1,0 +1,524 @@
+[24-Sep-2025 19:09:50 Europe/Rome] PHP Fatal error:  Uncaught Error: Undefined constant "DB_PERSISTENT" in C:\xampp\htdocs\CollaboraNexio\includes\db.php:81
+Stack trace:
+#0 C:\xampp\htdocs\CollaboraNexio\includes\db.php(145): Database->__construct()
+#1 C:\xampp\htdocs\CollaboraNexio\auth_api.php(36): Database::getInstance()
+#2 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\includes\db.php on line 81
+[24-Sep-2025 19:10:29 Europe/Rome] PHP Fatal error:  Uncaught Error: Undefined constant "DB_PERSISTENT" in C:\xampp\htdocs\CollaboraNexio\includes\db.php:81
+Stack trace:
+#0 C:\xampp\htdocs\CollaboraNexio\includes\db.php(145): Database->__construct()
+#1 C:\xampp\htdocs\CollaboraNexio\auth_api.php(36): Database::getInstance()
+#2 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\includes\db.php on line 81
+[24-Sep-2025 19:13:55 Europe/Rome] PHP Deprecated:  Creation of dynamic property MockPhpStream::$context is deprecated in C:\xampp\htdocs\CollaboraNexio\auth_api.php on line 95
+[24-Sep-2025 19:15:57 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed after headers have already been sent in C:\xampp\htdocs\CollaboraNexio\config.php on line 59
+[24-Sep-2025 19:15:57 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed after headers have already been sent in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
+[24-Sep-2025 19:15:57 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed after headers have already been sent in C:\xampp\htdocs\CollaboraNexio\config.php on line 61
+[24-Sep-2025 19:15:57 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed after headers have already been sent in C:\xampp\htdocs\CollaboraNexio\config.php on line 62
+[24-Sep-2025 19:15:57 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed after headers have already been sent in C:\xampp\htdocs\CollaboraNexio\config.php on line 63
+[24-Sep-2025 19:15:57 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed after headers have already been sent in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[24-Sep-2025 19:15:57 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed after headers have already been sent in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[24-Sep-2025 19:40:33 Europe/Rome] Session saved with ID: oirnf1mcn5ta2dad9f8qpbttl2
+[24-Sep-2025 19:40:33 Europe/Rome] Session data after save: {"user_id":1,"user_name":"Admin User","user_email":"admin@demo.com","user_role":"admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"DEMO","logged_in":true,"login_time":1758735633}
+[24-Sep-2025 19:43:32 Europe/Rome] Session saved with ID: oirnf1mcn5ta2dad9f8qpbttl2
+[24-Sep-2025 19:43:32 Europe/Rome] Session data after save: {"user_id":1,"user_name":"Admin User","user_email":"admin@demo.com","user_role":"admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"DEMO","logged_in":true,"login_time":1758735812}
+[24-Sep-2025 19:49:53 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 62
+[24-Sep-2025 19:49:53 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 63
+[24-Sep-2025 19:49:53 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[24-Sep-2025 19:49:53 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[24-Sep-2025 19:49:53 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[24-Sep-2025 19:52:01 Europe/Rome] Session saved with ID: shv8i1bqk6thqtjlovgl826g9c
+[24-Sep-2025 19:52:01 Europe/Rome] Session data after save: {"csrf_token":"392fcc4b959c5fe661e8e13bc05fd08e45bbc40939d23e326ec8d28354d0a6f6","user_id":1,"user_name":"Admin User","user_email":"admin@demo.com","user_role":"admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"DEMO","logged_in":true,"login_time":1758736321}
+[24-Sep-2025 20:07:34 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 62
+[24-Sep-2025 20:07:34 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 63
+[24-Sep-2025 20:07:34 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[24-Sep-2025 20:07:34 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[24-Sep-2025 20:07:34 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 06:57:59 Europe/Rome] Session saved with ID: 2lqkp2vlhs2hqrtk74m2omop0f
+[25-Sep-2025 06:57:59 Europe/Rome] Session data after save: {"csrf_token":"be82e224a4bffe42b0be0c75b37540bffd98198484266782c6a45d84a05d7e4a","user_id":1,"user_name":"Admin User","user_email":"admin@demo.com","user_role":"admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"DEMO","logged_in":true,"login_time":1758776279}
+[25-Sep-2025 07:12:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 62
+[25-Sep-2025 07:12:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 63
+[25-Sep-2025 07:12:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 07:12:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 07:12:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 07:12:39 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method Auth::validateCSRFToken() in C:\xampp\htdocs\CollaboraNexio\api\users\list.php:36
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\api\users\list.php on line 36
+[25-Sep-2025 07:12:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 62
+[25-Sep-2025 07:12:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 63
+[25-Sep-2025 07:12:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 07:12:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 07:12:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 07:12:39 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method Auth::validateCSRFToken() in C:\xampp\htdocs\CollaboraNexio\api\users\tenants.php:36
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\api\users\tenants.php on line 36
+[25-Sep-2025 07:24:57 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 07:24:57 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 07:24:57 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 07:24:57 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 07:24:57 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 07:24:57 Europe/Rome] Get Tenants Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'status' in 'field list'
+[25-Sep-2025 07:24:57 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 07:24:57 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 07:24:57 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 07:24:57 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 07:24:57 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 07:24:57 Europe/Rome] User List Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'u.first_name' in 'field list'
+[25-Sep-2025 08:18:17 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 08:18:17 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 08:18:17 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 08:18:17 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 08:18:17 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 08:18:17 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 08:18:17 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 08:18:17 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 08:18:17 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 08:18:17 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 08:18:17 Europe/Rome] Get Tenants Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'plan_type' in 'field list'
+[25-Sep-2025 08:18:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 08:18:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 08:18:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 08:18:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 08:18:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 08:18:22 Europe/Rome] Toggle User Status Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'entity_type' in 'field list'
+[25-Sep-2025 08:19:49 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 08:19:49 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 08:19:49 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 08:19:49 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 08:19:49 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 08:19:49 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 08:19:49 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 08:19:49 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 08:19:49 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 08:19:49 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 08:19:49 Europe/Rome] Get Tenants Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'plan_type' in 'field list'
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 18:46:08 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method Auth::isLoggedIn() in C:\xampp\htdocs\CollaboraNexio\api\files.php:97
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\api\files.php on line 97
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 18:46:08 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method Auth::isLoggedIn() in C:\xampp\htdocs\CollaboraNexio\api\tasks.php:92
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\api\tasks.php on line 92
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 18:46:08 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method Auth::isAuthenticated() in C:\xampp\htdocs\CollaboraNexio\api\events.php:78
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\api\events.php on line 78
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 18:46:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 19:50:03 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method Auth::isLoggedIn() in C:\xampp\htdocs\CollaboraNexio\api\files.php:97
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\api\files.php on line 97
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 19:50:03 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method Auth::isLoggedIn() in C:\xampp\htdocs\CollaboraNexio\api\tasks.php:92
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\api\tasks.php on line 92
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[25-Sep-2025 19:50:03 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method Auth::isAuthenticated() in C:\xampp\htdocs\CollaboraNexio\api\events.php:78
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\api\events.php on line 78
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[25-Sep-2025 19:50:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 06:07:20 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method Auth::isLoggedIn() in C:\xampp\htdocs\CollaboraNexio\api\files.php:97
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\api\files.php on line 97
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 06:07:20 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method Auth::isLoggedIn() in C:\xampp\htdocs\CollaboraNexio\api\tasks.php:92
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\api\tasks.php on line 92
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 06:07:20 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method Auth::isAuthenticated() in C:\xampp\htdocs\CollaboraNexio\api\events.php:78
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\api\events.php on line 78
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 06:07:20 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 06:07:48 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 06:07:48 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 06:07:48 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 06:07:48 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 06:07:48 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 06:07:48 Europe/Rome] Get Tenants Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'plan_type' in 'field list'
+[26-Sep-2025 06:07:48 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 06:07:48 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 06:07:48 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 06:07:48 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 06:07:48 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 06:07:52 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 06:07:52 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 06:07:52 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 06:07:52 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 06:07:52 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 07:05:41 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 07:05:41 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 07:05:41 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 07:05:41 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 07:05:41 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 07:05:41 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 07:05:41 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 07:05:41 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 07:05:41 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 07:05:41 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 07:05:41 Europe/Rome] Errore logActivity: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'collaboranexio.activity_logs' doesn't exist
+[26-Sep-2025 07:05:47 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 07:05:47 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 07:05:47 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 07:05:47 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 07:05:47 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 08:33:07 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[26-Sep-2025 08:33:07 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[26-Sep-2025 08:33:07 Europe/Rome] Database error in auth_api.php: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'u.name' in 'field list'
+[26-Sep-2025 08:49:49 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[26-Sep-2025 08:49:49 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[26-Sep-2025 08:49:50 Europe/Rome] Database error in auth_api.php: SQLSTATE[42S22]: Column not found: 1054 Unknown column 't.code' in 'field list'
+[26-Sep-2025 10:28:25 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[26-Sep-2025 10:28:25 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[26-Sep-2025 10:28:25 Europe/Rome] Session saved with ID: mlp2l3usdhrc725hnsjcqpr8j1
+[26-Sep-2025 10:28:25 Europe/Rome] Session data after save: {"user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1758875305}
+[26-Sep-2025 10:28:41 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[26-Sep-2025 10:28:41 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[26-Sep-2025 10:28:41 Europe/Rome] Session saved with ID: 7j4uvfn804s77c5q8tc3ob0mke
+[26-Sep-2025 10:28:41 Europe/Rome] Session data after save: {"csrf_token":"c96b11961178350117657614dc873f0190ff54866611d7f8d3db9068e474982a","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1758875321}
+[26-Sep-2025 10:28:45 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 10:28:45 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 10:28:45 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 10:28:45 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 10:28:45 Europe/Berlin] API Error [2]: ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 10:28:45 Europe/Rome] User List Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'u.first_name' in 'field list'
+[26-Sep-2025 10:28:45 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 10:28:45 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 10:28:45 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 10:28:45 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 10:28:45 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 10:28:45 Europe/Rome] Get Tenants PDO Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'deleted_at' in 'where clause'
+[26-Sep-2025 11:21:27 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 11:21:27 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 11:21:27 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 11:21:27 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 11:21:27 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 11:21:27 Europe/Rome] PHP Warning:  session_start(): open(C:\xampp\tmp\sess_7j4uvfn804s77c5q8tc3ob0mke, O_RDWR) failed: Permission denied (13) in C:\xampp\htdocs\CollaboraNexio\includes\auth.php on line 219
+[26-Sep-2025 11:21:27 Europe/Rome] PHP Warning:  session_start(): Failed to read session data: files (path: C:\xampp\tmp) in C:\xampp\htdocs\CollaboraNexio\includes\auth.php on line 219
+[26-Sep-2025 11:21:27 Europe/Rome] PHP Warning:  session_regenerate_id(): Session ID cannot be regenerated when there is no active session in C:\xampp\htdocs\CollaboraNexio\includes\auth.php on line 220
+[26-Sep-2025 11:21:27 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 11:21:27 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 11:21:27 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 11:21:27 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 11:21:27 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 11:41:59 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[26-Sep-2025 11:41:59 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[26-Sep-2025 11:42:02 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[26-Sep-2025 11:42:02 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[26-Sep-2025 11:42:03 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[26-Sep-2025 11:42:03 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[26-Sep-2025 11:42:17 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[26-Sep-2025 11:42:17 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[26-Sep-2025 11:42:17 Europe/Rome] Session saved with ID: 5019i7a1mgmv13cjruh9bjb4g4
+[26-Sep-2025 11:42:17 Europe/Rome] Session data after save: {"csrf_token":"272b741398010f31f309226e685bcfae5b8275233d181fb437f7d53641f686f4","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1758879737}
+[26-Sep-2025 11:52:54 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 11:52:54 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 11:52:54 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 11:52:54 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 11:52:54 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 11:52:54 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 11:52:54 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 11:52:54 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 11:52:54 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 11:52:54 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 11:53:02 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 11:53:02 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 11:53:02 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 11:53:02 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 11:53:02 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 11:53:02 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 11:53:02 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 11:53:02 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 11:53:02 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 11:53:02 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 11:59:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 11:59:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 11:59:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 11:59:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 11:59:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 11:59:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 11:59:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 11:59:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 11:59:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 11:59:22 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 14:53:33 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 14:53:33 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 14:53:33 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 14:53:33 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 14:53:33 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 14:53:34 Europe/Rome] PHP Warning:  session_start(): open(C:\xampp\tmp\sess_jvun9opvo7s3paahmnkjqm4kg9, O_RDWR) failed: Permission denied (13) in C:\xampp\htdocs\CollaboraNexio\includes\auth.php on line 219
+[26-Sep-2025 14:53:34 Europe/Rome] PHP Warning:  session_start(): Failed to read session data: files (path: C:\xampp\tmp) in C:\xampp\htdocs\CollaboraNexio\includes\auth.php on line 219
+[26-Sep-2025 14:53:34 Europe/Rome] PHP Warning:  session_regenerate_id(): Session ID cannot be regenerated when there is no active session in C:\xampp\htdocs\CollaboraNexio\includes\auth.php on line 220
+[26-Sep-2025 14:53:34 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 14:53:34 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 14:53:34 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 14:53:34 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 14:53:34 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 14:54:02 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[26-Sep-2025 14:54:02 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[26-Sep-2025 14:54:02 Europe/Rome] Session saved with ID: qvod4d40goppg7kp08n2bj7smu
+[26-Sep-2025 14:54:02 Europe/Rome] Session data after save: {"csrf_token":"3499e7b086c767a641d1cee31c7adff7f6b5fbc17321a6835cb03e3a48836e72","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1758891242}
+[26-Sep-2025 14:54:05 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 14:54:05 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 14:54:05 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 14:54:05 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 14:54:05 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 14:54:05 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 14:54:05 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 14:54:05 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 14:54:05 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 14:54:05 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 14:54:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 14:54:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 14:54:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 14:54:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 14:54:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 14:54:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 14:54:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 14:54:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 14:54:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 14:54:08 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 15:42:29 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 15:42:29 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 15:42:29 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 15:42:29 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 15:42:29 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 15:42:29 Europe/Rome] PHP Warning:  session_start(): open(C:\xampp\tmp\sess_qvod4d40goppg7kp08n2bj7smu, O_RDWR) failed: Permission denied (13) in C:\xampp\htdocs\CollaboraNexio\includes\auth.php on line 219
+[26-Sep-2025 15:42:29 Europe/Rome] PHP Warning:  session_start(): Failed to read session data: files (path: C:\xampp\tmp) in C:\xampp\htdocs\CollaboraNexio\includes\auth.php on line 219
+[26-Sep-2025 15:42:29 Europe/Rome] PHP Warning:  session_regenerate_id(): Session ID cannot be regenerated when there is no active session in C:\xampp\htdocs\CollaboraNexio\includes\auth.php on line 220
+[26-Sep-2025 15:42:29 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 15:42:29 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 15:42:29 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 15:42:29 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 15:42:29 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 15:42:42 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[26-Sep-2025 15:42:42 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[26-Sep-2025 15:42:43 Europe/Rome] Session saved with ID: sahc04ara4q7lr1tbrdfdo4jlr
+[26-Sep-2025 15:42:43 Europe/Rome] Session data after save: {"csrf_token":"0a9c9d034b8eeee6cb0759af6588c3ea1920e75918a262968fcf95aa5546138e","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1758894163}
+[26-Sep-2025 16:14:20 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[26-Sep-2025 16:14:20 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[26-Sep-2025 16:14:20 Europe/Rome] Session saved with ID: fvijgo6qet79c2ols7rr7lbspl
+[26-Sep-2025 16:14:20 Europe/Rome] Session data after save: {"csrf_token":"33d9733c7d300e06d1f773ca39a9ec2fcf549cccabed84632677a19d83480092","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1758896060}
+[26-Sep-2025 16:23:11 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 16:23:11 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 16:23:11 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 16:23:11 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 16:23:11 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 18:41:00 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[26-Sep-2025 18:41:00 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[26-Sep-2025 18:41:00 Europe/Rome] Session saved with ID: 6us7spono65deaj70mg79mekre
+[26-Sep-2025 18:41:00 Europe/Rome] Session data after save: {"csrf_token":"5d903d404fe961c08fda863db959229fa965ca0b463f2f0e3700b433f301445f","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1758904860}
+[26-Sep-2025 18:41:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 18:41:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 18:41:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 18:41:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 18:41:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 18:41:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 18:41:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 18:41:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 18:41:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 18:41:03 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 18:41:03 Europe/Rome] Companies List PDO Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 't.denominazione' in 'field list'
+[26-Sep-2025 18:46:49 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 18:46:49 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 18:46:49 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 18:46:49 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 18:46:49 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 18:47:04 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 18:47:04 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 18:47:04 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 18:47:04 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 18:47:04 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[26-Sep-2025 18:47:24 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[26-Sep-2025 18:47:24 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[26-Sep-2025 18:47:24 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[26-Sep-2025 18:47:24 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[26-Sep-2025 18:47:24 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[27-Sep-2025 05:50:55 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[27-Sep-2025 05:50:55 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[27-Sep-2025 05:50:55 Europe/Rome] Session saved with ID: hl0d00akpma8jpfcvcctkob9mr
+[27-Sep-2025 05:50:55 Europe/Rome] Session data after save: {"csrf_token":"7e901861d2c213270c6359687f349b224ae553dc2b9ecaac1c8058a28fe28d59","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1758945055}
+[27-Sep-2025 05:50:58 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[27-Sep-2025 05:50:58 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[27-Sep-2025 05:50:58 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[27-Sep-2025 05:50:58 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[27-Sep-2025 05:50:58 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[27-Sep-2025 05:50:58 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[27-Sep-2025 05:50:58 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[27-Sep-2025 05:50:58 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[27-Sep-2025 05:50:58 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[27-Sep-2025 05:50:58 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[27-Sep-2025 05:52:00 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[27-Sep-2025 05:52:00 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[27-Sep-2025 05:52:00 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[27-Sep-2025 05:52:00 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[27-Sep-2025 05:52:00 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[27-Sep-2025 05:52:00 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[27-Sep-2025 05:52:00 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[27-Sep-2025 05:52:00 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[27-Sep-2025 05:52:00 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[27-Sep-2025 05:52:00 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[27-Sep-2025 06:08:28 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[27-Sep-2025 06:08:28 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[27-Sep-2025 06:08:28 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[27-Sep-2025 06:08:28 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[27-Sep-2025 06:08:28 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[27-Sep-2025 06:08:28 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[27-Sep-2025 06:08:28 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[27-Sep-2025 06:08:28 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[27-Sep-2025 06:08:28 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[27-Sep-2025 06:08:28 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[27-Sep-2025 06:08:32 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[27-Sep-2025 06:08:32 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[27-Sep-2025 06:08:32 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[27-Sep-2025 06:08:32 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[27-Sep-2025 06:08:32 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[27-Sep-2025 06:08:32 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[27-Sep-2025 06:08:32 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[27-Sep-2025 06:08:32 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[27-Sep-2025 06:08:32 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[27-Sep-2025 06:08:32 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[27-Sep-2025 06:08:40 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[27-Sep-2025 06:08:40 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[27-Sep-2025 06:08:40 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[27-Sep-2025 06:08:40 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[27-Sep-2025 06:08:40 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[27-Sep-2025 06:08:40 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[27-Sep-2025 06:08:40 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[27-Sep-2025 06:08:40 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[27-Sep-2025 06:08:40 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[27-Sep-2025 06:08:40 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[27-Sep-2025 06:51:38 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[27-Sep-2025 06:51:38 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[27-Sep-2025 06:51:38 Europe/Rome] Session saved with ID: 4incfsdiglpkjblcrt3dglecit
+[27-Sep-2025 06:51:38 Europe/Rome] Session data after save: {"csrf_token":"0e3f2f579a493dacf0db737ef0818660248c7ea20e030f1639d2b51843b52181","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1758948698}
+[27-Sep-2025 06:51:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 64
+[27-Sep-2025 06:51:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 65
+[27-Sep-2025 06:51:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 66
+[27-Sep-2025 06:51:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 67
+[27-Sep-2025 06:51:39 Europe/Berlin] PHP Warning:  ini_set(): Session ini settings cannot be changed when a session is active in C:\xampp\htdocs\CollaboraNexio\config.php on line 69
+[27-Sep-2025 06:56:47 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method CompanyFilter::renderSelector() in C:\xampp\htdocs\CollaboraNexio\ticket.php:228
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\ticket.php on line 228
+[27-Sep-2025 06:57:11 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method CompanyFilter::renderSelector() in C:\xampp\htdocs\CollaboraNexio\conformita.php:323
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\conformita.php on line 323
+[27-Sep-2025 06:57:37 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method CompanyFilter::renderSelector() in C:\xampp\htdocs\CollaboraNexio\ai.php:381
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\ai.php on line 381
+[27-Sep-2025 06:58:00 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method CompanyFilter::renderSelector() in C:\xampp\htdocs\CollaboraNexio\audit_log.php:345
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\audit_log.php on line 345
+[27-Sep-2025 06:58:25 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method CompanyFilter::renderSelector() in C:\xampp\htdocs\CollaboraNexio\profilo.php:430
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\profilo.php on line 430
+[27-Sep-2025 07:34:32 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[27-Sep-2025 07:34:32 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[27-Sep-2025 07:34:32 Europe/Rome] Session saved with ID: o0qmnsp1akh4m0e2hl921197qh
+[27-Sep-2025 07:34:32 Europe/Rome] Session data after save: {"csrf_token":"08d500664dbf80c7d1d8e6c383edd0c0e226817d8a6eb00496a9541383cc0b9e","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1758951272}
+[27-Sep-2025 10:25:55 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[27-Sep-2025 10:25:55 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[27-Sep-2025 10:25:55 Europe/Rome] Session saved with ID: mvgmdm9mtskbpkn8h5mmq4lpjn
+[27-Sep-2025 10:25:55 Europe/Rome] Session data after save: {"csrf_token":"3562fa0c54f81adf30ce4d30b7fcf7de4129a075c4b617c5249a23143c9fb82d","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1758961555}
+[27-Sep-2025 13:42:28 Europe/Rome] PHP Warning:  Undefined variable $pdo in C:\xampp\htdocs\CollaboraNexio\fix_files_table.php on line 60
+[27-Sep-2025 13:42:28 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to a member function query() on null in C:\xampp\htdocs\CollaboraNexio\fix_files_table.php:60
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\fix_files_table.php on line 60
+[27-Sep-2025 14:28:26 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[27-Sep-2025 14:28:26 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[27-Sep-2025 14:28:26 Europe/Rome] Session saved with ID: 9tl3fr002e3rojg6o9t0vkavp4
+[27-Sep-2025 14:28:26 Europe/Rome] Session data after save: {"csrf_token":"4f556c2d33e37dd43ecf68bdd96936fbf62628307cf538b56ee1774a760995d9","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1758976106}
+[27-Sep-2025 14:28:29 Europe/Rome] API Files Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'u.first_name' in 'field list'
+[27-Sep-2025 17:42:16 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[27-Sep-2025 17:42:16 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[27-Sep-2025 17:42:16 Europe/Rome] Session saved with ID: 7nj1ok93835tuj2c4njs0tq1bq
+[27-Sep-2025 17:42:16 Europe/Rome] Session data after save: {"csrf_token":"e1e3e06fc15ba2fd303b02b77cfc955167618ac36f657963a46321f6854310a4","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1758987736}
+[27-Sep-2025 17:42:18 Europe/Rome] API Files Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'u.first_name' in 'field list'
+[27-Sep-2025 17:47:26 Europe/Rome] PHP Warning:  ini_set(): Session ini settings cannot be changed after headers have already been sent in C:\xampp\htdocs\CollaboraNexio\includes\session_init.php on line 16
+[27-Sep-2025 17:47:26 Europe/Rome] PHP Warning:  ini_set(): Session ini settings cannot be changed after headers have already been sent in C:\xampp\htdocs\CollaboraNexio\includes\session_init.php on line 17
+[27-Sep-2025 17:47:26 Europe/Rome] PHP Warning:  ini_set(): Session ini settings cannot be changed after headers have already been sent in C:\xampp\htdocs\CollaboraNexio\includes\session_init.php on line 18
+[27-Sep-2025 17:47:26 Europe/Rome] PHP Warning:  ini_set(): Session ini settings cannot be changed after headers have already been sent in C:\xampp\htdocs\CollaboraNexio\includes\session_init.php on line 19
+[27-Sep-2025 17:47:26 Europe/Rome] PHP Warning:  ini_set(): Session ini settings cannot be changed after headers have already been sent in C:\xampp\htdocs\CollaboraNexio\includes\session_init.php on line 20
+[27-Sep-2025 17:47:26 Europe/Rome] PHP Warning:  session_start(): Session cannot be started after headers have already been sent in C:\xampp\htdocs\CollaboraNexio\includes\session_init.php on line 23
+[27-Sep-2025 18:34:23 Europe/Rome] API Files Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'u.first_name' in 'field list'

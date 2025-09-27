@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Sidebar</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f3f4f6;
+        }
+
+        .container {
+            padding: 20px;
+        }
+
+        button {
+            background: #3B82F6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+
+        button:hover {
+            background: #2563EB;
+        }
+
+        .file-details-sidebar {
+            position: fixed;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 400px;
+            background: #FFFFFF;
+            border-left: 1px solid #E5E7EB;
+            box-shadow: -4px 0 6px -1px rgba(0, 0, 0, 0.1);
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .file-details-sidebar.active {
+            transform: translateX(0);
+        }
+
+        .details-header {
+            padding: 20px;
+            border-bottom: 1px solid #E5E7EB;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #FFFFFF;
+        }
+
+        .details-header h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #111827;
+        }
+
+        .close-details {
+            padding: 8px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            color: #6B7280;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-details:hover {
+            background: #F3F4F6;
+        }
+
+        .details-content {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .info {
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            margin: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            background: #FEF3C7;
+            border-left: 4px solid #F59E0B;
+            border-radius: 4px;
+        }
+
+        #log {
+            margin: 20px;
+            padding: 20px;
+            background: #1F2937;
+            color: #10B981;
+            font-family: monospace;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-left: 3px solid transparent;
+        }
+
+        .log-error {
+            color: #EF4444;
+            border-left-color: #EF4444;
+        }
+
+        .log-success {
+            color: #10B981;
+            border-left-color: #10B981;
+        }
+
+        .log-info {
+            color: #3B82F6;
+            border-left-color: #3B82F6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Sidebar Functionality</h1>
+
+        <div class="info">
+            <h2>Test Controls</h2>
+            <button onclick="toggleSidebar()">Toggle Sidebar</button>
+            <button onclick="showSidebar()">Show Sidebar</button>
+            <button onclick="hideSidebar()">Hide Sidebar</button>
+            <button onclick="checkSidebarState()">Check State</button>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+
+        <div id="status" class="status">
+            <strong>Status:</strong> <span id="statusText">Ready</span>
+        </div>
+
+        <div id="log"></div>
+    </div>
+
+    <!-- Test Sidebar -->
+    <div class="file-details-sidebar" id="fileDetailsSidebar">
+        <div class="details-header">
+            <h3>File Details</h3>
+            <button class="close-details" onclick="hideSidebar()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <div class="details-content">
+            <h4>Test Content</h4>
+            <p>If you can see this, the sidebar is working!</p>
+            <ul>
+                <li>Transform: <span id="transformValue">checking...</span></li>
+                <li>Classes: <span id="classesValue">checking...</span></li>
+                <li>Display: <span id="displayValue">checking...</span></li>
+                <li>Visibility: <span id="visibilityValue">checking...</span></li>
+                <li>Z-Index: <span id="zindexValue">checking...</span></li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const log = (message, type = 'info') => {
+            const logEl = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(message);
+        };
+
+        const updateStatus = (text, color = '#111827') => {
+            const statusEl = document.getElementById('statusText');
+            statusEl.textContent = text;
+            statusEl.style.color = color;
+        };
+
+        const checkSidebarState = () => {
+            const sidebar = document.getElementById('fileDetailsSidebar');
+            if (!sidebar) {
+                log('ERROR: Sidebar element not found!', 'error');
+                updateStatus('Sidebar not found', '#EF4444');
+                return;
+            }
+
+            const styles = window.getComputedStyle(sidebar);
+            const isActive = sidebar.classList.contains('active');
+
+            log(`Sidebar found. Active class: ${isActive}`, isActive ? 'success' : 'info');
+            log(`Transform: ${styles.transform}`, 'info');
+            log(`Display: ${styles.display}`, 'info');
+            log(`Visibility: ${styles.visibility}`, 'info');
+            log(`Position: ${styles.position}`, 'info');
+            log(`Z-Index: ${styles.zIndex}`, 'info');
+            log(`Width: ${styles.width}`, 'info');
+            log(`Right: ${styles.right}`, 'info');
+
+            // Update sidebar info
+            document.getElementById('transformValue').textContent = styles.transform;
+            document.getElementById('classesValue').textContent = sidebar.className;
+            document.getElementById('displayValue').textContent = styles.display;
+            document.getElementById('visibilityValue').textContent = styles.visibility;
+            document.getElementById('zindexValue').textContent = styles.zIndex;
+
+            const isVisible = styles.transform === 'translateX(0px)' || styles.transform === 'none';
+            updateStatus(
+                isVisible ? 'Sidebar is visible' : 'Sidebar is hidden',
+                isVisible ? '#10B981' : '#F59E0B'
+            );
+        };
+
+        const toggleSidebar = () => {
+            const sidebar = document.getElementById('fileDetailsSidebar');
+            if (!sidebar) {
+                log('ERROR: Cannot toggle - sidebar not found!', 'error');
+                return;
+            }
+
+            sidebar.classList.toggle('active');
+            const isActive = sidebar.classList.contains('active');
+            log(`Toggled sidebar. Active: ${isActive}`, 'success');
+
+            setTimeout(checkSidebarState, 350); // Check after transition
+        };
+
+        const showSidebar = () => {
+            const sidebar = document.getElementById('fileDetailsSidebar');
+            if (!sidebar) {
+                log('ERROR: Cannot show - sidebar not found!', 'error');
+                return;
+            }
+
+            sidebar.classList.add('active');
+            log('Added active class to sidebar', 'success');
+
+            setTimeout(checkSidebarState, 350);
+        };
+
+        const hideSidebar = () => {
+            const sidebar = document.getElementById('fileDetailsSidebar');
+            if (!sidebar) {
+                log('ERROR: Cannot hide - sidebar not found!', 'error');
+                return;
+            }
+
+            sidebar.classList.remove('active');
+            log('Removed active class from sidebar', 'success');
+
+            setTimeout(checkSidebarState, 350);
+        };
+
+        const clearLog = () => {
+            document.getElementById('log').innerHTML = '';
+            log('Log cleared', 'info');
+        };
+
+        // Initial check
+        window.addEventListener('DOMContentLoaded', () => {
+            log('Page loaded, checking sidebar...', 'info');
+            checkSidebarState();
+        });
+    </script>
+</body>
+</html>

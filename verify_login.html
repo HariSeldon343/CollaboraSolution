@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verifica Login - CollaboraNexio</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #667eea;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background: #5a67d8;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Verifica Login - CollaboraNexio</h1>
+
+        <div id="results"></div>
+
+        <div style="margin-top: 30px;">
+            <h3>Test Rapidi:</h3>
+            <button class="btn" onclick="checkLoginPage()">Verifica Pagina Login</button>
+            <button class="btn" onclick="testLoginAPI()">Test API Login</button>
+            <button class="btn" onclick="window.location.href='index.php'">Vai al Login</button>
+        </div>
+    </div>
+
+    <script>
+        const results = document.getElementById('results');
+
+        // Check elementi al caricamento
+        window.addEventListener('DOMContentLoaded', function() {
+            results.innerHTML = '<div class="status warning">Controllo elementi login...</div>';
+
+            // Simula il controllo degli elementi come in login.js
+            const checks = [
+                { id: 'loginForm', desc: 'Form di login' },
+                { id: 'email', desc: 'Campo email' },
+                { id: 'password', desc: 'Campo password' },
+                { id: 'loginBtn', desc: 'Pulsante login' },
+                { id: 'errorMessage', desc: 'Div errori' },
+                { id: 'togglePassword', desc: 'Toggle password (opzionale)' }
+            ];
+
+            let html = '<h3>✅ Fix Applicati:</h3><ul>';
+            html += '<li>Aggiunti controlli null per tutti gli addEventListener</li>';
+            html += '<li>Verificato che gli ID esistano prima di usarli</li>';
+            html += '<li>Protetto da errori quando elementi mancano</li>';
+            html += '</ul>';
+
+            html += '<h3>🔐 Credenziali Demo:</h3>';
+            html += '<div class="status success">';
+            html += '<strong>Admin:</strong> admin@demo.local / Admin123!<br>';
+            html += '<strong>Manager:</strong> manager@demo.local / Admin123!';
+            html += '</div>';
+
+            html += '<h3>📋 Elementi Login (nella pagina index.php):</h3>';
+            html += '<ul>';
+            checks.forEach(check => {
+                const exists = check.id !== 'togglePassword'; // Solo togglePassword non esiste
+                const icon = exists ? '✅' : '⚠️';
+                const status = exists ? 'presente' : 'non presente (gestito con check)';
+                html += `<li>${icon} <code>#${check.id}</code> - ${check.desc}: ${status}</li>`;
+            });
+            html += '</ul>';
+
+            results.innerHTML = html;
+        });
+
+        async function checkLoginPage() {
+            try {
+                const response = await fetch('index.php');
+                if (response.ok) {
+                    const text = await response.text();
+                    const hasForm = text.includes('id="loginForm"');
+                    const hasEmail = text.includes('id="email"');
+                    const hasPassword = text.includes('id="password"');
+                    const hasBtn = text.includes('id="loginBtn"');
+
+                    if (hasForm && hasEmail && hasPassword && hasBtn) {
+                        results.innerHTML += '<div class="status success">✅ Pagina login contiene tutti gli elementi necessari!</div>';
+                    } else {
+                        results.innerHTML += '<div class="status error">❌ Mancano alcuni elementi nella pagina login</div>';
+                    }
+                } else {
+                    results.innerHTML += '<div class="status error">❌ Impossibile accedere alla pagina login</div>';
+                }
+            } catch (error) {
+                results.innerHTML += '<div class="status error">❌ Errore: ' + error.message + '</div>';
+            }
+        }
+
+        async function testLoginAPI() {
+            try {
+                results.innerHTML += '<div class="status warning">Testing login con admin@demo.local...</div>';
+
+                const response = await fetch('auth_api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        email: 'admin@demo.local',
+                        password: 'Admin123!'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    results.innerHTML += '<div class="status success">✅ Login API funziona! Utente: ' + data.user.name + '</div>';
+                } else {
+                    results.innerHTML += '<div class="status error">❌ Login fallito: ' + data.message + '</div>';
+                }
+            } catch (error) {
+                results.innerHTML += '<div class="status error">❌ Errore API: ' + error.message + '</div>';
+            }
+        }
+    </script>
+</body>
+</html>

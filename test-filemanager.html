@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test FileManager.js</title>
+</head>
+<body>
+    <h1>Test FileManager.js</h1>
+    <p>Apri la console per vedere se ci sono errori.</p>
+
+    <div id="filesGrid"></div>
+    <div id="filesList"></div>
+    <div id="emptyState" class="hidden"></div>
+    <div id="dropZone"></div>
+    <div id="contextMenu"></div>
+    <div id="fileDetailsSidebar"></div>
+    <div id="uploadToast" class="hidden"></div>
+    <div id="uploadItems"></div>
+
+    <button id="uploadBtn">Upload</button>
+    <button id="newFolderBtn">New Folder</button>
+    <button id="filterBtn">Filter</button>
+    <button id="sortBtn">Sort</button>
+    <button id="closeDetails">Close Details</button>
+    <button id="closeUpload">Close Upload</button>
+    <input type="checkbox" id="selectAll">
+    <button id="sidebarToggle">Toggle Sidebar</button>
+    <input type="text" id="fileSearch" placeholder="Search...">
+
+    <div class="breadcrumb-items">
+        <span class="breadcrumb-current">Test</span>
+    </div>
+
+    <!-- Test JavaScript files independently -->
+    <script src="assets/js/app.js"></script>
+    <script src="assets/js/filemanager.js"></script>
+
+    <script>
+        console.log('Test page loaded successfully');
+        console.log('window.app:', window.app);
+        console.log('window.fileManager:', window.fileManager);
+
+        // Check for any errors
+        window.addEventListener('error', function(e) {
+            console.error('Global error caught:', e.message, e.filename, e.lineno, e.colno);
+        });
+    </script>
+</body>
+</html>
