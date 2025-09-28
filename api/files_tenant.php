@@ -117,13 +117,13 @@ function listFiles() {
         $file_query = "
             SELECT
                 f.id,
-                f.filename as name,
+                COALESCE(f.filename, f.name) as name,
                 f.folder_id as parent_id,
                 f.tenant_id,
                 f.created_at,
                 f.updated_at,
                 'file' as type,
-                f.file_size as size,
+                COALESCE(f.file_size, f.size_bytes) as size,
                 f.mime_type,
                 t.name as tenant_name,
                 0 as subfolder_count,
@@ -181,7 +181,7 @@ function listFiles() {
         // Ricerca
         if (!empty($search)) {
             $folder_query .= " AND f.name LIKE :search";
-            $file_query .= " AND f.filename LIKE :search";
+            $file_query .= " AND (COALESCE(f.filename, f.name) LIKE :search)";
             $params[':search'] = '%' . $search . '%';
         }
 
@@ -225,10 +225,21 @@ function listFiles() {
             ]
         ]);
 
+    } catch (PDOException $e) {
+        error_log('ListFiles SQL Error: ' . $e->getMessage());
+        error_log('SQL State: ' . $e->getCode());
+        http_response_code(500);
+        echo json_encode([
+            'error' => 'Errore nel caricamento dei file',
+            'debug' => DEBUG_MODE ? $e->getMessage() : null
+        ]);
     } catch (Exception $e) {
         error_log('ListFiles Error: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Errore nel caricamento dei file']);
+        echo json_encode([
+            'error' => 'Errore nel caricamento dei file',
+            'debug' => DEBUG_MODE ? $e->getMessage() : null
+        ]);
     }
 }
 
@@ -519,26 +530,43 @@ function uploadFile() {
             return;
         }
 
+        // Controlla quali colonne esistono nella tabella files
+        $columns_check = $pdo->query("SHOW COLUMNS FROM files")->fetchAll(PDO::FETCH_COLUMN);
+        $has_filename = in_array('filename', $columns_check);
+        $has_name = in_array('name', $columns_check);
+        $has_file_size = in_array('file_size', $columns_check);
+        $has_size_bytes = in_array('size_bytes', $columns_check);
+        $has_file_path = in_array('file_path', $columns_check);
+        $has_storage_path = in_array('storage_path', $columns_check);
+        $has_uploaded_by = in_array('uploaded_by', $columns_check);
+        $has_owner_id = in_array('owner_id', $columns_check);
+
+        // Costruisci query dinamica basata sulle colonne esistenti
+        $name_col = $has_filename ? 'filename' : 'name';
+        $size_col = $has_file_size ? 'file_size' : 'size_bytes';
+        $path_col = $has_file_path ? 'file_path' : 'storage_path';
+        $user_col = $has_uploaded_by ? 'uploaded_by' : 'owner_id';
+
         // Salva nel database
         $stmt = $pdo->prepare("
             INSERT INTO files (
-                filename, original_name, file_path, file_size, mime_type,
-                folder_id, tenant_id, uploaded_by, status, created_at, updated_at
+                $name_col, original_name, $path_col, $size_col, mime_type,
+                folder_id, tenant_id, $user_col, status, created_at, updated_at
             ) VALUES (
-                :filename, :original_name, :file_path, :file_size, :mime_type,
-                :folder_id, :tenant_id, :uploaded_by, 'in_approvazione', NOW(), NOW()
+                :name, :original_name, :path, :size, :mime_type,
+                :folder_id, :tenant_id, :user_id, 'in_approvazione', NOW(), NOW()
             )
         ");
 
         $stmt->execute([
-            ':filename' => $original_name,
+            ':name' => $original_name,
             ':original_name' => $original_name,
-            ':file_path' => $unique_name,
-            ':file_size' => $size,
+            ':path' => $unique_name,
+            ':size' => $size,
             ':mime_type' => $mime_type,
             ':folder_id' => $folder_id,
             ':tenant_id' => $folder['tenant_id'],
-            ':uploaded_by' => $user_id
+            ':user_id' => $user_id
         ]);
 
         $file_id = $pdo->lastInsertId();
@@ -588,7 +616,8 @@ function deleteItem() {
         if ($item_type === 'file') {
             // Verifica permessi file
             $stmt = $pdo->prepare("
-                SELECT tenant_id, uploaded_by
+                SELECT tenant_id,
+                       COALESCE(uploaded_by, owner_id) as owner_id
                 FROM files
                 WHERE id = :id AND deleted_at IS NULL
             ");
@@ -609,7 +638,7 @@ function deleteItem() {
             }
 
             // Solo chi ha caricato il file, manager, admin o super_admin può eliminare
-            if ($file['uploaded_by'] != $user_id && !in_array($user_role, ['manager', 'admin', 'super_admin'])) {
+            if ($file['owner_id'] != $user_id && !in_array($user_role, ['manager', 'admin', 'super_admin'])) {
                 http_response_code(403);
                 echo json_encode(['error' => 'Non hai i permessi per eliminare questo file']);
                 return;
@@ -718,7 +747,9 @@ function renameItem() {
         if ($item_type === 'file') {
             // Verifica permessi file
             $stmt = $pdo->prepare("
-                SELECT tenant_id, uploaded_by, folder_id
+                SELECT tenant_id,
+                       COALESCE(uploaded_by, owner_id) as owner_id,
+                       folder_id
                 FROM files
                 WHERE id = :id AND deleted_at IS NULL
             ");
@@ -739,10 +770,13 @@ function renameItem() {
             }
 
             // Verifica unicità nome nella cartella
+            $columns_check = $pdo->query("SHOW COLUMNS FROM files")->fetchAll(PDO::FETCH_COLUMN);
+            $name_col = in_array('filename', $columns_check) ? 'filename' : 'name';
+
             $stmt = $pdo->prepare("
                 SELECT COUNT(*)
                 FROM files
-                WHERE filename = :name
+                WHERE $name_col = :name
                 AND folder_id = :folder_id
                 AND id != :id
                 AND deleted_at IS NULL
@@ -760,9 +794,12 @@ function renameItem() {
             }
 
             // Aggiorna nome
+            $columns_check = $pdo->query("SHOW COLUMNS FROM files")->fetchAll(PDO::FETCH_COLUMN);
+            $name_col = in_array('filename', $columns_check) ? 'filename' : 'name';
+
             $stmt = $pdo->prepare("
                 UPDATE files
-                SET filename = :name, updated_at = NOW()
+                SET $name_col = :name, updated_at = NOW()
                 WHERE id = :id
             ");
             $stmt->execute([
@@ -934,7 +971,8 @@ function downloadFile() {
         }
 
         // Costruisci percorso completo
-        $file_path = UPLOAD_PATH . '/' . $file['tenant_id'] . '/' . $file['file_path'];
+        $storage_path = isset($file['file_path']) ? $file['file_path'] : (isset($file['storage_path']) ? $file['storage_path'] : '');
+        $file_path = UPLOAD_PATH . '/' . $file['tenant_id'] . '/' . $storage_path;
 
         if (!file_exists($file_path)) {
             http_response_code(404);
@@ -942,11 +980,12 @@ function downloadFile() {
         }
 
         // Log audit
-        logAudit('download_file', 'files', $file_id, ['filename' => $file['filename']]);
+        $file_display_name = isset($file['filename']) ? $file['filename'] : (isset($file['name']) ? $file['name'] : 'download');
+        logAudit('download_file', 'files', $file_id, ['filename' => $file_display_name]);
 
         // Invia file per download
         header('Content-Type: ' . $file['mime_type']);
-        header('Content-Disposition: attachment; filename="' . $file['filename'] . '"');
+        header('Content-Disposition: attachment; filename="' . $file_display_name . '"');
         header('Content-Length: ' . filesize($file_path));
         header('Cache-Control: no-cache, must-revalidate');
 

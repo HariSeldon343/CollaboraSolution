@@ -537,3 +537,9 @@ Stack trace:
 [27-Sep-2025 20:11:14 Europe/Rome] Session saved with ID: 79d3bghb94q1c3gueci9vrobhn
 [27-Sep-2025 20:11:14 Europe/Rome] Session data after save: {"csrf_token":"50c7c9877b4023a761472488912b57f012c01fd4fad227af255e8375022b09de","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1758996674}
 [27-Sep-2025 20:11:17 Europe/Rome] ListFiles Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.filename' in 'field list'
+[28-Sep-2025 05:56:57 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[28-Sep-2025 05:56:57 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[28-Sep-2025 05:56:57 Europe/Rome] Session saved with ID: bhh8jo324bmrfbo2ttockd0k6d
+[28-Sep-2025 05:56:57 Europe/Rome] Session data after save: {"csrf_token":"382c7ff19ed7eeb98162a8873799674522a23112ed7d94ee69e893dd411b6ba5","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759031817}
+[28-Sep-2025 05:57:00 Europe/Rome] ListFiles SQL Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.filename' in 'field list'
+[28-Sep-2025 05:57:00 Europe/Rome] SQL State: 42S22
