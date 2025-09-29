@@ -1,16 +1,20 @@
 <?php
-   $pdo = new PDO("mysql:host=localhost;dbname=collabora;charset=utf8mb4", "root", "");
-   
-   $users = [
-       'asamodeo@fortibyte.it' => 'Ricord@1991',
-       'special@demo.com' => 'Special123!',
-       'user@demo.com' => 'Demo123!'
-   ];
-   
-   foreach ($users as $email => $password) {
-       $hash = password_hash($password, PASSWORD_DEFAULT);
-       $stmt = $pdo->prepare("UPDATE users SET password_hash = ? WHERE email = ?");
-       $stmt->execute([$hash, $email]);
-       echo "✓ $email configurato<br>";
-   }
-   ?>
+// Check if requesting XAMPP dashboard
+if (strpos($_SERVER['REQUEST_URI'], '/dashboard') !== false || 
+    strpos($_SERVER['REQUEST_URI'], '/phpmyadmin') !== false || 
+    strpos($_SERVER['REQUEST_URI'], '/xampp') !== false) {
+    // Let XAMPP handle it
+    if (!empty($_SERVER['HTTPS']) && ('on' == $_SERVER['HTTPS'])) {
+        $uri = 'https://';
+    } else {
+        $uri = 'http://';
+    }
+    $uri .= $_SERVER['HTTP_HOST'];
+    header('Location: '.$uri.'/dashboard/');
+    exit;
+} else {
+    // Redirect to CollaboraNexio for everything else
+    header("Location: /CollaboraNexio/");
+    exit();
+}
+?>

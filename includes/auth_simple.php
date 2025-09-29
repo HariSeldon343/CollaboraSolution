@@ -35,7 +35,7 @@ class AuthSimple {
             'id' => $_SESSION['user_id'] ?? null,
             'name' => $_SESSION['user_name'] ?? 'User',
             'email' => $_SESSION['user_email'] ?? '',
-            'role' => $_SESSION['user_role'] ?? 'user',
+            'role' => $_SESSION['role'] ?? $_SESSION['user_role'] ?? 'user',
             'tenant_id' => $_SESSION['tenant_id'] ?? null,
             'tenant_name' => $_SESSION['tenant_name'] ?? 'Default'
         ];

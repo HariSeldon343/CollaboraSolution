@@ -44,19 +44,20 @@ try {
         die(json_encode(['error' => 'Solo i Super Admin possono modificare le aziende', 'success' => false]));
     }
 
-    // Verify CSRF token from headers
-    $headers = getallheaders();
-    $csrfToken = $headers['X-CSRF-Token'] ?? '';
-    if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido', 'success' => false]));
-    }
-
     // Get input data (support both POST and JSON)
     $input = json_decode(file_get_contents('php://input'), true);
     if (json_last_error() !== JSON_ERROR_NONE) {
         $input = $_POST;
+    }
+
+    // Verify CSRF token from headers or POST data or input
+    $headers = getallheaders();
+    $csrfToken = $headers['X-CSRF-Token'] ?? $_POST['csrf_token'] ?? $input['csrf_token'] ?? '';
+
+    if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
+        ob_clean();
+        http_response_code(403);
+        die(json_encode(['error' => 'Token CSRF non valido', 'success' => false]));
     }
 
     // Validate required fields
@@ -108,9 +109,7 @@ try {
     $planType = $input['plan_type'];
     $status = $input['status'];
 
-    // Generate code from denominazione if not provided
-    $code = !empty($input['code']) ? strtoupper(trim($input['code'])) :
-            strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $denominazione), 0, 10));
+    // Code field was removed from the table, no longer needed
 
     // Validate Codice Fiscale (16 alphanumeric characters)
     if (!preg_match('/^[A-Z0-9]{16}$/', $codiceFiscale)) {
@@ -214,11 +213,19 @@ try {
         }
     }
 
-    // Update company with all fields
+    // Get existing settings and merge with plan_type
+    $getSettingsStmt = $conn->prepare("SELECT settings FROM tenants WHERE id = :id");
+    $getSettingsStmt->bindParam(':id', $companyId, PDO::PARAM_INT);
+    $getSettingsStmt->execute();
+    $existingSettings = $getSettingsStmt->fetch(PDO::FETCH_ASSOC);
+    $settings = $existingSettings['settings'] ? json_decode($existingSettings['settings'], true) : [];
+    $settings['plan_type'] = $planType;
+    $settingsJson = json_encode($settings);
+
+    // Update company with all fields (plan_type goes in settings JSON)
     $updateQuery = "UPDATE tenants
                     SET name = :name,
                         denominazione = :denominazione,
-                        code = :code,
                         codice_fiscale = :codice_fiscale,
                         partita_iva = :partita_iva,
                         sede_legale = :sede_legale,
@@ -233,14 +240,13 @@ try {
                         manager_user_id = :manager_user_id,
                         rappresentante_legale = :rappresentante_legale,
                         status = :status,
-                        plan_type = :plan_type,
+                        settings = :settings,
                         updated_at = NOW()
                     WHERE id = :id";
 
     $stmt = $conn->prepare($updateQuery);
     $stmt->bindParam(':name', $denominazione); // Use denominazione as name too
     $stmt->bindParam(':denominazione', $denominazione);
-    $stmt->bindParam(':code', $code);
     $stmt->bindParam(':codice_fiscale', $codiceFiscale);
     $stmt->bindParam(':partita_iva', $partitaIva);
     $stmt->bindParam(':sede_legale', $sedeLegale);
@@ -255,7 +261,7 @@ try {
     $stmt->bindParam(':manager_user_id', $managerUserId, PDO::PARAM_INT);
     $stmt->bindParam(':rappresentante_legale', $rappresentanteLegale);
     $stmt->bindParam(':status', $status);
-    $stmt->bindParam(':plan_type', $planType);
+    $stmt->bindParam(':settings', $settingsJson);
     $stmt->bindParam(':id', $companyId, PDO::PARAM_INT);
 
     if ($stmt->execute()) {
@@ -305,7 +311,6 @@ try {
             'id' => $companyId,
             'denominazione' => $denominazione,
             'name' => $denominazione,
-            'code' => $code,
             'codice_fiscale' => $codiceFiscale,
             'partita_iva' => $partitaIva,
             'status' => $status,

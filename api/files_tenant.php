@@ -42,6 +42,153 @@ if (in_array($action, $csrf_required)) {
     }
 }
 
+// Classe per gestione dinamica colonne database
+class DynamicColumnMapper {
+    private $pdo;
+    private $filesColumns = [];
+    private $foldersColumns = [];
+    private $columnMap = [];
+
+    public function __construct($pdo) {
+        $this->pdo = $pdo;
+        $this->detectColumns();
+        $this->buildColumnMap();
+    }
+
+    private function detectColumns() {
+        // Rileva colonne tabella files
+        $stmt = $this->pdo->query("SHOW COLUMNS FROM files");
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $this->filesColumns[$row['Field']] = $row;
+        }
+
+        // Rileva colonne tabella folders
+        $stmt = $this->pdo->query("SHOW COLUMNS FROM folders");
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $this->foldersColumns[$row['Field']] = $row;
+        }
+    }
+
+    private function buildColumnMap() {
+        // Mappatura colonne files
+        $this->columnMap['files'] = [
+            'name' => $this->detectFileNameColumn(),
+            'size' => $this->detectFileSizeColumn(),
+            'path' => $this->detectFilePathColumn(),
+            'owner' => $this->detectFileOwnerColumn(),
+            'mime_type' => $this->hasColumn('files', 'mime_type') ? 'mime_type' : null,
+            'status' => $this->hasColumn('files', 'status') ? 'status' : null,
+            'original_name' => $this->detectOriginalNameColumn()
+        ];
+
+        // Mappatura colonne folders
+        $this->columnMap['folders'] = [
+            'owner' => $this->detectFolderOwnerColumn(),
+            'path' => $this->hasColumn('folders', 'path') ? 'path' : null
+        ];
+    }
+
+    private function hasColumn($table, $column) {
+        $columns = $table === 'files' ? $this->filesColumns : $this->foldersColumns;
+        return isset($columns[$column]);
+    }
+
+    private function detectFileNameColumn() {
+        // Priorità: file_name, filename, name
+        if ($this->hasColumn('files', 'file_name')) return 'file_name';
+        if ($this->hasColumn('files', 'filename')) return 'filename';
+        if ($this->hasColumn('files', 'name')) return 'name';
+        return null;
+    }
+
+    private function detectFileSizeColumn() {
+        // Priorità: file_size, size_bytes, size
+        if ($this->hasColumn('files', 'file_size')) return 'file_size';
+        if ($this->hasColumn('files', 'size_bytes')) return 'size_bytes';
+        if ($this->hasColumn('files', 'size')) return 'size';
+        return null;
+    }
+
+    private function detectFilePathColumn() {
+        // Priorità: file_path, storage_path, path
+        if ($this->hasColumn('files', 'file_path')) return 'file_path';
+        if ($this->hasColumn('files', 'storage_path')) return 'storage_path';
+        if ($this->hasColumn('files', 'path')) return 'path';
+        return null;
+    }
+
+    private function detectFileOwnerColumn() {
+        // Priorità: uploaded_by, owner_id, created_by, user_id
+        if ($this->hasColumn('files', 'uploaded_by')) return 'uploaded_by';
+        if ($this->hasColumn('files', 'owner_id')) return 'owner_id';
+        if ($this->hasColumn('files', 'created_by')) return 'created_by';
+        if ($this->hasColumn('files', 'user_id')) return 'user_id';
+        return null;
+    }
+
+    private function detectOriginalNameColumn() {
+        // Priorità: original_name, original_filename
+        if ($this->hasColumn('files', 'original_name')) return 'original_name';
+        if ($this->hasColumn('files', 'original_filename')) return 'original_filename';
+        return null;
+    }
+
+    private function detectFolderOwnerColumn() {
+        // Priorità: created_by, owner_id, user_id
+        if ($this->hasColumn('folders', 'created_by')) return 'created_by';
+        if ($this->hasColumn('folders', 'owner_id')) return 'owner_id';
+        if ($this->hasColumn('folders', 'user_id')) return 'user_id';
+        return null;
+    }
+
+    public function getColumn($table, $type) {
+        return $this->columnMap[$table][$type] ?? null;
+    }
+
+    public function getCoalesce($table, $type, $alias = null) {
+        $col = $this->getColumn($table, $type);
+        if (!$col) {
+            // Fallback con COALESCE per sicurezza
+            if ($type === 'name' && $table === 'files') {
+                return "COALESCE(f.file_name, f.filename, f.name)" . ($alias ? " AS $alias" : "");
+            } elseif ($type === 'size' && $table === 'files') {
+                return "COALESCE(f.file_size, f.size_bytes, f.size)" . ($alias ? " AS $alias" : "");
+            } elseif ($type === 'owner' && $table === 'files') {
+                return "COALESCE(f.uploaded_by, f.owner_id, f.created_by, f.user_id)" . ($alias ? " AS $alias" : "");
+            } elseif ($type === 'path' && $table === 'files') {
+                return "COALESCE(f.file_path, f.storage_path, f.path)" . ($alias ? " AS $alias" : "");
+            }
+            return "NULL" . ($alias ? " AS $alias" : "");
+        }
+
+        $prefix = $table === 'files' ? 'f.' : 'f.';
+        return $prefix . $col . ($alias ? " AS $alias" : "");
+    }
+
+    public function hasStatusColumn() {
+        return $this->hasColumn('files', 'status');
+    }
+
+    public function hasMimeTypeColumn() {
+        return $this->hasColumn('files', 'mime_type');
+    }
+
+    public function hasDeletedByColumn($table) {
+        return $this->hasColumn($table, 'deleted_by');
+    }
+
+    public function getAvailableColumns() {
+        return [
+            'files' => array_keys($this->filesColumns),
+            'folders' => array_keys($this->foldersColumns),
+            'mapping' => $this->columnMap
+        ];
+    }
+}
+
+// Inizializza mapper colonne dinamico
+$columnMapper = new DynamicColumnMapper($pdo);
+
 try {
     switch ($action) {
         case 'list':
@@ -71,6 +218,18 @@ try {
         case 'get_folder_path':
             getFolderPath();
             break;
+        case 'debug_columns':
+            // Endpoint di debug per verificare mappatura colonne
+            if (DEBUG_MODE) {
+                echo json_encode([
+                    'success' => true,
+                    'columns' => $columnMapper->getAvailableColumns()
+                ]);
+            } else {
+                http_response_code(403);
+                echo json_encode(['error' => 'Debug mode non attivo']);
+            }
+            break;
         default:
             http_response_code(400);
             echo json_encode(['error' => 'Azione non valida']);
@@ -78,20 +237,20 @@ try {
 } catch (Exception $e) {
     error_log('Files Tenant API Error: ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => 'Errore del server']);
+    echo json_encode(['error' => 'Errore del server', 'debug' => DEBUG_MODE ? $e->getMessage() : null]);
 }
 
 /**
  * Lista files e cartelle filtrati per tenant
  */
 function listFiles() {
-    global $pdo, $user_id, $tenant_id, $user_role;
+    global $pdo, $user_id, $tenant_id, $user_role, $columnMapper;
 
     $folder_id = $_GET['folder_id'] ?? null;
     $search = $_GET['search'] ?? '';
 
     try {
-        // Costruzione query base per cartelle
+        // Costruzione query dinamica per cartelle
         $folder_query = "
             SELECT
                 f.id,
@@ -113,18 +272,22 @@ function listFiles() {
             WHERE f.deleted_at IS NULL
         ";
 
-        // Costruzione query base per files
+        // Costruzione query dinamica per files con colonne adattive
+        $nameCol = $columnMapper->getCoalesce('files', 'name', 'name');
+        $sizeCol = $columnMapper->getCoalesce('files', 'size', 'size');
+        $mimeCol = $columnMapper->hasMimeTypeColumn() ? 'f.mime_type' : "NULL as mime_type";
+
         $file_query = "
             SELECT
                 f.id,
-                COALESCE(f.filename, f.name) as name,
+                $nameCol,
                 f.folder_id as parent_id,
                 f.tenant_id,
                 f.created_at,
                 f.updated_at,
                 'file' as type,
-                COALESCE(f.file_size, f.size_bytes) as size,
-                f.mime_type,
+                $sizeCol,
+                $mimeCol,
                 t.name as tenant_name,
                 0 as subfolder_count,
                 0 as file_count
@@ -178,10 +341,18 @@ function listFiles() {
             $params[':tenant_id'] = $tenant_id;
         }
 
-        // Ricerca
+        // Ricerca con colonne adattive
         if (!empty($search)) {
             $folder_query .= " AND f.name LIKE :search";
-            $file_query .= " AND (COALESCE(f.filename, f.name) LIKE :search)";
+
+            // Query ricerca adattiva per files
+            $nameCol = $columnMapper->getColumn('files', 'name');
+            if ($nameCol) {
+                $file_query .= " AND f.$nameCol LIKE :search";
+            } else {
+                // Fallback con COALESCE
+                $file_query .= " AND COALESCE(f.file_name, f.filename, f.name) LIKE :search";
+            }
             $params[':search'] = '%' . $search . '%';
         }
 
@@ -231,7 +402,10 @@ function listFiles() {
         http_response_code(500);
         echo json_encode([
             'error' => 'Errore nel caricamento dei file',
-            'debug' => DEBUG_MODE ? $e->getMessage() : null
+            'debug' => DEBUG_MODE ? [
+                'message' => $e->getMessage(),
+                'columns' => $columnMapper->getAvailableColumns()
+            ] : null
         ]);
     } catch (Exception $e) {
         error_log('ListFiles Error: ' . $e->getMessage());
@@ -247,7 +421,7 @@ function listFiles() {
  * Crea una cartella root (solo Admin/Super Admin)
  */
 function createRootFolder() {
-    global $pdo, $input, $user_id, $tenant_id, $user_role;
+    global $pdo, $input, $user_id, $tenant_id, $user_role, $columnMapper;
 
     // Verifica permessi
     if (!in_array($user_role, ['admin', 'super_admin'])) {
@@ -312,17 +486,33 @@ function createRootFolder() {
             return;
         }
 
-        // Crea la cartella root
-        $stmt = $pdo->prepare("
-            INSERT INTO folders (name, parent_id, tenant_id, created_by, created_at, updated_at)
-            VALUES (:name, NULL, :tenant_id, :user_id, NOW(), NOW())
-        ");
+        // Costruisci query INSERT dinamica
+        $ownerCol = $columnMapper->getColumn('folders', 'owner');
+        $pathCol = $columnMapper->getColumn('folders', 'path');
 
-        $stmt->execute([
+        $columns = ['name', 'parent_id', 'tenant_id', 'created_at', 'updated_at'];
+        $values = [':name', 'NULL', ':tenant_id', 'NOW()', 'NOW()'];
+        $params = [
             ':name' => $folder_name,
-            ':tenant_id' => $target_tenant_id,
-            ':user_id' => $user_id
-        ]);
+            ':tenant_id' => $target_tenant_id
+        ];
+
+        if ($ownerCol) {
+            $columns[] = $ownerCol;
+            $values[] = ':user_id';
+            $params[':user_id'] = $user_id;
+        }
+
+        if ($pathCol) {
+            $columns[] = $pathCol;
+            $values[] = ':path';
+            $params[':path'] = '/';
+        }
+
+        $insertQuery = "INSERT INTO folders (" . implode(', ', $columns) . ") VALUES (" . implode(', ', $values) . ")";
+
+        $stmt = $pdo->prepare($insertQuery);
+        $stmt->execute($params);
 
         $folder_id = $pdo->lastInsertId();
 
@@ -341,7 +531,10 @@ function createRootFolder() {
     } catch (Exception $e) {
         error_log('CreateRootFolder Error: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Errore nella creazione della cartella root']);
+        echo json_encode([
+            'error' => 'Errore nella creazione della cartella root',
+            'debug' => DEBUG_MODE ? $e->getMessage() : null
+        ]);
     }
 }
 
@@ -349,7 +542,7 @@ function createRootFolder() {
  * Crea una sotto-cartella
  */
 function createFolder() {
-    global $pdo, $input, $user_id, $tenant_id, $user_role;
+    global $pdo, $input, $user_id, $tenant_id, $user_role, $columnMapper;
 
     $folder_name = trim($input['name'] ?? '');
     $parent_id = $input['parent_id'] ?? null;
@@ -369,7 +562,7 @@ function createFolder() {
     try {
         // Verifica che la cartella padre esista e ottieni il suo tenant_id
         $stmt = $pdo->prepare("
-            SELECT tenant_id
+            SELECT tenant_id, name
             FROM folders
             WHERE id = :id AND deleted_at IS NULL
         ");
@@ -408,18 +601,37 @@ function createFolder() {
             return;
         }
 
-        // Crea la sotto-cartella
-        $stmt = $pdo->prepare("
-            INSERT INTO folders (name, parent_id, tenant_id, created_by, created_at, updated_at)
-            VALUES (:name, :parent_id, :tenant_id, :user_id, NOW(), NOW())
-        ");
+        // Costruisci query INSERT dinamica
+        $ownerCol = $columnMapper->getColumn('folders', 'owner');
+        $pathCol = $columnMapper->getColumn('folders', 'path');
 
-        $stmt->execute([
+        $columns = ['name', 'parent_id', 'tenant_id', 'created_at', 'updated_at'];
+        $values = [':name', ':parent_id', ':tenant_id', 'NOW()', 'NOW()'];
+        $params = [
             ':name' => $folder_name,
             ':parent_id' => $parent_id,
-            ':tenant_id' => $parent['tenant_id'],
-            ':user_id' => $user_id
-        ]);
+            ':tenant_id' => $parent['tenant_id']
+        ];
+
+        if ($ownerCol) {
+            $columns[] = $ownerCol;
+            $values[] = ':user_id';
+            $params[':user_id'] = $user_id;
+        }
+
+        if ($pathCol) {
+            // Costruisci path completo
+            $parentPath = getBreadcrumb($parent_id);
+            $fullPath = '/' . implode('/', array_column($parentPath, 'name')) . '/' . $folder_name;
+            $columns[] = $pathCol;
+            $values[] = ':path';
+            $params[':path'] = $fullPath;
+        }
+
+        $insertQuery = "INSERT INTO folders (" . implode(', ', $columns) . ") VALUES (" . implode(', ', $values) . ")";
+
+        $stmt = $pdo->prepare($insertQuery);
+        $stmt->execute($params);
 
         $folder_id = $pdo->lastInsertId();
 
@@ -438,7 +650,10 @@ function createFolder() {
     } catch (Exception $e) {
         error_log('CreateFolder Error: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Errore nella creazione della cartella']);
+        echo json_encode([
+            'error' => 'Errore nella creazione della cartella',
+            'debug' => DEBUG_MODE ? $e->getMessage() : null
+        ]);
     }
 }
 
@@ -446,7 +661,7 @@ function createFolder() {
  * Upload di un file
  */
 function uploadFile() {
-    global $pdo, $user_id, $tenant_id, $user_role;
+    global $pdo, $user_id, $tenant_id, $user_role, $columnMapper;
 
     if (!isset($_FILES['file'])) {
         http_response_code(400);
@@ -530,44 +745,73 @@ function uploadFile() {
             return;
         }
 
-        // Controlla quali colonne esistono nella tabella files
-        $columns_check = $pdo->query("SHOW COLUMNS FROM files")->fetchAll(PDO::FETCH_COLUMN);
-        $has_filename = in_array('filename', $columns_check);
-        $has_name = in_array('name', $columns_check);
-        $has_file_size = in_array('file_size', $columns_check);
-        $has_size_bytes = in_array('size_bytes', $columns_check);
-        $has_file_path = in_array('file_path', $columns_check);
-        $has_storage_path = in_array('storage_path', $columns_check);
-        $has_uploaded_by = in_array('uploaded_by', $columns_check);
-        $has_owner_id = in_array('owner_id', $columns_check);
+        // Costruisci query INSERT dinamica basata sulle colonne disponibili
+        $nameCol = $columnMapper->getColumn('files', 'name');
+        $sizeCol = $columnMapper->getColumn('files', 'size');
+        $pathCol = $columnMapper->getColumn('files', 'path');
+        $ownerCol = $columnMapper->getColumn('files', 'owner');
+        $originalCol = $columnMapper->getColumn('files', 'original_name');
 
-        // Costruisci query dinamica basata sulle colonne esistenti
-        $name_col = $has_filename ? 'filename' : 'name';
-        $size_col = $has_file_size ? 'file_size' : 'size_bytes';
-        $path_col = $has_file_path ? 'file_path' : 'storage_path';
-        $user_col = $has_uploaded_by ? 'uploaded_by' : 'owner_id';
-
-        // Salva nel database
-        $stmt = $pdo->prepare("
-            INSERT INTO files (
-                $name_col, original_name, $path_col, $size_col, mime_type,
-                folder_id, tenant_id, $user_col, status, created_at, updated_at
-            ) VALUES (
-                :name, :original_name, :path, :size, :mime_type,
-                :folder_id, :tenant_id, :user_id, 'in_approvazione', NOW(), NOW()
-            )
-        ");
-
-        $stmt->execute([
-            ':name' => $original_name,
-            ':original_name' => $original_name,
-            ':path' => $unique_name,
-            ':size' => $size,
-            ':mime_type' => $mime_type,
+        $columns = ['folder_id', 'tenant_id', 'created_at', 'updated_at'];
+        $values = [':folder_id', ':tenant_id', 'NOW()', 'NOW()'];
+        $params = [
             ':folder_id' => $folder_id,
-            ':tenant_id' => $folder['tenant_id'],
-            ':user_id' => $user_id
-        ]);
+            ':tenant_id' => $folder['tenant_id']
+        ];
+
+        // Colonna nome file
+        if ($nameCol) {
+            $columns[] = $nameCol;
+            $values[] = ':name';
+            $params[':name'] = $original_name;
+        }
+
+        // Colonna dimensione
+        if ($sizeCol) {
+            $columns[] = $sizeCol;
+            $values[] = ':size';
+            $params[':size'] = $size;
+        }
+
+        // Colonna percorso
+        if ($pathCol) {
+            $columns[] = $pathCol;
+            $values[] = ':path';
+            $params[':path'] = $unique_name;
+        }
+
+        // Colonna proprietario
+        if ($ownerCol) {
+            $columns[] = $ownerCol;
+            $values[] = ':user_id';
+            $params[':user_id'] = $user_id;
+        }
+
+        // Colonna nome originale
+        if ($originalCol && $originalCol !== $nameCol) {
+            $columns[] = $originalCol;
+            $values[] = ':original_name';
+            $params[':original_name'] = $original_name;
+        }
+
+        // Colonna mime_type se esiste
+        if ($columnMapper->hasMimeTypeColumn()) {
+            $columns[] = 'mime_type';
+            $values[] = ':mime_type';
+            $params[':mime_type'] = $mime_type;
+        }
+
+        // Colonna status se esiste
+        if ($columnMapper->hasStatusColumn()) {
+            $columns[] = 'status';
+            $values[] = ':status';
+            $params[':status'] = 'in_approvazione';
+        }
+
+        $insertQuery = "INSERT INTO files (" . implode(', ', $columns) . ") VALUES (" . implode(', ', $values) . ")";
+
+        $stmt = $pdo->prepare($insertQuery);
+        $stmt->execute($params);
 
         $file_id = $pdo->lastInsertId();
 
@@ -587,7 +831,10 @@ function uploadFile() {
     } catch (Exception $e) {
         error_log('UploadFile Error: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Errore nel caricamento del file']);
+        echo json_encode([
+            'error' => 'Errore nel caricamento del file',
+            'debug' => DEBUG_MODE ? $e->getMessage() : null
+        ]);
     }
 }
 
@@ -595,7 +842,7 @@ function uploadFile() {
  * Elimina file o cartella
  */
 function deleteItem() {
-    global $pdo, $input, $user_id, $user_role;
+    global $pdo, $input, $user_id, $user_role, $columnMapper;
 
     $item_id = $input['id'] ?? null;
     $item_type = $input['type'] ?? null;
@@ -614,10 +861,13 @@ function deleteItem() {
 
     try {
         if ($item_type === 'file') {
+            // Ottieni colonna owner dinamicamente
+            $ownerCol = $columnMapper->getColumn('files', 'owner');
+            $ownerSelect = $ownerCol ? $ownerCol : 'NULL';
+
             // Verifica permessi file
             $stmt = $pdo->prepare("
-                SELECT tenant_id,
-                       COALESCE(uploaded_by, owner_id) as owner_id
+                SELECT tenant_id, $ownerSelect as owner_id
                 FROM files
                 WHERE id = :id AND deleted_at IS NULL
             ");
@@ -644,21 +894,28 @@ function deleteItem() {
                 return;
             }
 
-            // Soft delete
-            $stmt = $pdo->prepare("
-                UPDATE files
-                SET deleted_at = NOW(), deleted_by = :user_id
-                WHERE id = :id
-            ");
-            $stmt->execute([
-                ':id' => $item_id,
-                ':user_id' => $user_id
-            ]);
+            // Soft delete con controllo colonna deleted_by
+            $updateQuery = "UPDATE files SET deleted_at = NOW()";
+            $params = [':id' => $item_id];
+
+            if ($columnMapper->hasDeletedByColumn('files')) {
+                $updateQuery .= ", deleted_by = :user_id";
+                $params[':user_id'] = $user_id;
+            }
+
+            $updateQuery .= " WHERE id = :id";
+
+            $stmt = $pdo->prepare($updateQuery);
+            $stmt->execute($params);
 
         } else {
+            // Ottieni colonna owner per folders
+            $ownerCol = $columnMapper->getColumn('folders', 'owner');
+            $ownerSelect = $ownerCol ? $ownerCol : 'NULL';
+
             // Verifica permessi cartella
             $stmt = $pdo->prepare("
-                SELECT tenant_id, created_by, parent_id
+                SELECT tenant_id, $ownerSelect as created_by, parent_id
                 FROM folders
                 WHERE id = :id AND deleted_at IS NULL
             ");
@@ -700,16 +957,19 @@ function deleteItem() {
                 return;
             }
 
-            // Soft delete
-            $stmt = $pdo->prepare("
-                UPDATE folders
-                SET deleted_at = NOW(), deleted_by = :user_id
-                WHERE id = :id
-            ");
-            $stmt->execute([
-                ':id' => $item_id,
-                ':user_id' => $user_id
-            ]);
+            // Soft delete con controllo colonna deleted_by
+            $updateQuery = "UPDATE folders SET deleted_at = NOW()";
+            $params = [':id' => $item_id];
+
+            if ($columnMapper->hasDeletedByColumn('folders')) {
+                $updateQuery .= ", deleted_by = :user_id";
+                $params[':user_id'] = $user_id;
+            }
+
+            $updateQuery .= " WHERE id = :id";
+
+            $stmt = $pdo->prepare($updateQuery);
+            $stmt->execute($params);
         }
 
         // Log audit
@@ -723,7 +983,10 @@ function deleteItem() {
     } catch (Exception $e) {
         error_log('DeleteItem Error: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Errore nell\'eliminazione']);
+        echo json_encode([
+            'error' => 'Errore nell\'eliminazione',
+            'debug' => DEBUG_MODE ? $e->getMessage() : null
+        ]);
     }
 }
 
@@ -731,7 +994,7 @@ function deleteItem() {
  * Rinomina file o cartella
  */
 function renameItem() {
-    global $pdo, $input, $user_id, $user_role;
+    global $pdo, $input, $user_id, $user_role, $columnMapper;
 
     $item_id = $input['id'] ?? null;
     $item_type = $input['type'] ?? null;
@@ -745,11 +1008,13 @@ function renameItem() {
 
     try {
         if ($item_type === 'file') {
+            // Ottieni colonna owner dinamicamente
+            $ownerCol = $columnMapper->getColumn('files', 'owner');
+            $ownerSelect = $ownerCol ? $ownerCol : 'NULL';
+
             // Verifica permessi file
             $stmt = $pdo->prepare("
-                SELECT tenant_id,
-                       COALESCE(uploaded_by, owner_id) as owner_id,
-                       folder_id
+                SELECT tenant_id, $ownerSelect as owner_id, folder_id
                 FROM files
                 WHERE id = :id AND deleted_at IS NULL
             ");
@@ -770,42 +1035,51 @@ function renameItem() {
             }
 
             // Verifica unicità nome nella cartella
-            $columns_check = $pdo->query("SHOW COLUMNS FROM files")->fetchAll(PDO::FETCH_COLUMN);
-            $name_col = in_array('filename', $columns_check) ? 'filename' : 'name';
-
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*)
-                FROM files
-                WHERE $name_col = :name
-                AND folder_id = :folder_id
-                AND id != :id
-                AND deleted_at IS NULL
-            ");
-            $stmt->execute([
-                ':name' => $new_name,
-                ':folder_id' => $file['folder_id'],
-                ':id' => $item_id
-            ]);
-
-            if ($stmt->fetchColumn() > 0) {
-                http_response_code(400);
-                echo json_encode(['error' => 'Un file con questo nome esiste già']);
-                return;
+            $nameCol = $columnMapper->getColumn('files', 'name');
+            if (!$nameCol) {
+                // Fallback: prova tutte le possibili colonne nome
+                $possibleCols = ['file_name', 'filename', 'name'];
+                foreach ($possibleCols as $col) {
+                    $stmt = $pdo->query("SHOW COLUMNS FROM files LIKE '$col'");
+                    if ($stmt->rowCount() > 0) {
+                        $nameCol = $col;
+                        break;
+                    }
+                }
             }
 
-            // Aggiorna nome
-            $columns_check = $pdo->query("SHOW COLUMNS FROM files")->fetchAll(PDO::FETCH_COLUMN);
-            $name_col = in_array('filename', $columns_check) ? 'filename' : 'name';
+            if ($nameCol) {
+                $stmt = $pdo->prepare("
+                    SELECT COUNT(*)
+                    FROM files
+                    WHERE $nameCol = :name
+                    AND folder_id = :folder_id
+                    AND id != :id
+                    AND deleted_at IS NULL
+                ");
+                $stmt->execute([
+                    ':name' => $new_name,
+                    ':folder_id' => $file['folder_id'],
+                    ':id' => $item_id
+                ]);
 
-            $stmt = $pdo->prepare("
-                UPDATE files
-                SET $name_col = :name, updated_at = NOW()
-                WHERE id = :id
-            ");
-            $stmt->execute([
-                ':name' => $new_name,
-                ':id' => $item_id
-            ]);
+                if ($stmt->fetchColumn() > 0) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Un file con questo nome esiste già']);
+                    return;
+                }
+
+                // Aggiorna nome
+                $stmt = $pdo->prepare("
+                    UPDATE files
+                    SET $nameCol = :name, updated_at = NOW()
+                    WHERE id = :id
+                ");
+                $stmt->execute([
+                    ':name' => $new_name,
+                    ':id' => $item_id
+                ]);
+            }
 
         } else {
             // Verifica permessi cartella
@@ -882,7 +1156,10 @@ function renameItem() {
     } catch (Exception $e) {
         error_log('RenameItem Error: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Errore nella rinomina']);
+        echo json_encode([
+            'error' => 'Errore nella rinomina',
+            'debug' => DEBUG_MODE ? $e->getMessage() : null
+        ]);
     }
 }
 
@@ -939,7 +1216,7 @@ function getTenantList() {
  * Download di un file
  */
 function downloadFile() {
-    global $pdo, $user_id, $user_role;
+    global $pdo, $user_id, $user_role, $columnMapper;
 
     $file_id = $_GET['id'] ?? null;
 
@@ -949,9 +1226,16 @@ function downloadFile() {
     }
 
     try {
+        // Costruisci query con colonne dinamiche
+        $nameCol = $columnMapper->getCoalesce('files', 'name', 'display_name');
+        $pathCol = $columnMapper->getCoalesce('files', 'path', 'storage_path');
+
         // Recupera informazioni file
         $stmt = $pdo->prepare("
-            SELECT f.*, t.name as tenant_name
+            SELECT f.*,
+                   $nameCol,
+                   $pathCol,
+                   t.name as tenant_name
             FROM files f
             LEFT JOIN tenants t ON f.tenant_id = t.id
             WHERE f.id = :id AND f.deleted_at IS NULL
@@ -970,8 +1254,8 @@ function downloadFile() {
             die(json_encode(['error' => 'Non hai accesso a questo file']));
         }
 
-        // Costruisci percorso completo
-        $storage_path = isset($file['file_path']) ? $file['file_path'] : (isset($file['storage_path']) ? $file['storage_path'] : '');
+        // Costruisci percorso completo del file
+        $storage_path = $file['storage_path'] ?? '';
         $file_path = UPLOAD_PATH . '/' . $file['tenant_id'] . '/' . $storage_path;
 
         if (!file_exists($file_path)) {
@@ -979,12 +1263,17 @@ function downloadFile() {
             die(json_encode(['error' => 'File fisico non trovato']));
         }
 
+        // Nome del file per il download
+        $file_display_name = $file['display_name'] ?? 'download';
+
         // Log audit
-        $file_display_name = isset($file['filename']) ? $file['filename'] : (isset($file['name']) ? $file['name'] : 'download');
         logAudit('download_file', 'files', $file_id, ['filename' => $file_display_name]);
 
+        // Determina MIME type
+        $mime_type = $file['mime_type'] ?? 'application/octet-stream';
+
         // Invia file per download
-        header('Content-Type: ' . $file['mime_type']);
+        header('Content-Type: ' . $mime_type);
         header('Content-Disposition: attachment; filename="' . $file_display_name . '"');
         header('Content-Length: ' . filesize($file_path));
         header('Cache-Control: no-cache, must-revalidate');

@@ -8,7 +8,7 @@
     class FileManager {
     constructor() {
         this.config = {
-            apiBase: '/CollaboraNexio/api/files_tenant.php',
+            apiBase: '/CollaboraNexio/api/files_tenant_fixed.php',
             pollInterval: 5000,
             maxFileSize: 100 * 1024 * 1024, // 100MB
             allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'jpg', 'jpeg', 'png', 'gif', 'mp4', 'mp3', 'zip', 'rar']

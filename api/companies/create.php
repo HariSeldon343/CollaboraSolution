@@ -44,19 +44,20 @@ try {
         die(json_encode(['error' => 'Solo i Super Admin possono creare aziende', 'success' => false]));
     }
 
-    // Verify CSRF token from headers
-    $headers = getallheaders();
-    $csrfToken = $headers['X-CSRF-Token'] ?? '';
-    if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido', 'success' => false]));
-    }
-
     // Get input data (support both POST and JSON)
     $input = json_decode(file_get_contents('php://input'), true);
     if (json_last_error() !== JSON_ERROR_NONE) {
         $input = $_POST;
+    }
+
+    // Verify CSRF token from headers or POST data or input
+    $headers = getallheaders();
+    $csrfToken = $headers['X-CSRF-Token'] ?? $_POST['csrf_token'] ?? $input['csrf_token'] ?? '';
+
+    if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
+        ob_clean();
+        http_response_code(403);
+        die(json_encode(['error' => 'Token CSRF non valido', 'success' => false]));
     }
 
     // Validate required fields
@@ -98,9 +99,7 @@ try {
     $planType = $input['plan_type'];
     $status = $input['status'];
 
-    // Generate code from denominazione if not provided
-    $code = !empty($input['code']) ? strtoupper(trim($input['code'])) :
-            strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $denominazione), 0, 10));
+    // Code field was removed from the table, no longer needed
 
     // Validate Codice Fiscale (16 alphanumeric characters)
     if (!preg_match('/^[A-Z0-9]{16}$/', $codiceFiscale)) {
@@ -161,15 +160,14 @@ try {
 
     // Check if codice fiscale or partita IVA already exist
     $checkStmt = $conn->prepare("SELECT COUNT(*) as count FROM tenants
-                                  WHERE codice_fiscale = :cf OR partita_iva = :piva OR code = :code");
+                                  WHERE codice_fiscale = :cf OR partita_iva = :piva");
     $checkStmt->bindParam(':cf', $codiceFiscale);
     $checkStmt->bindParam(':piva', $partitaIva);
-    $checkStmt->bindParam(':code', $code);
     $checkStmt->execute();
     $result = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
     if ($result['count'] > 0) {
-        $response['message'] = 'Codice Fiscale, Partita IVA o codice già esistenti';
+        $response['message'] = 'Codice Fiscale o Partita IVA già esistenti';
         ob_clean();
         http_response_code(400);
         echo json_encode($response);
@@ -190,22 +188,24 @@ try {
         }
     }
 
-    // Insert new company with all fields
-    $insertQuery = "INSERT INTO tenants (name, denominazione, code, codice_fiscale, partita_iva,
+    // Prepare settings JSON with plan_type
+    $settings = json_encode(['plan_type' => $planType]);
+
+    // Insert new company with all fields (plan_type goes in settings JSON)
+    $insertQuery = "INSERT INTO tenants (name, denominazione, codice_fiscale, partita_iva,
                     sede_legale, sede_operativa, settore_merceologico, numero_dipendenti,
                     telefono, email_aziendale, pec, data_costituzione, capitale_sociale,
-                    manager_user_id, rappresentante_legale, status, plan_type,
+                    manager_user_id, rappresentante_legale, status, settings,
                     created_at, updated_at)
-                    VALUES (:name, :denominazione, :code, :codice_fiscale, :partita_iva,
+                    VALUES (:name, :denominazione, :codice_fiscale, :partita_iva,
                     :sede_legale, :sede_operativa, :settore_merceologico, :numero_dipendenti,
                     :telefono, :email_aziendale, :pec, :data_costituzione, :capitale_sociale,
-                    :manager_user_id, :rappresentante_legale, :status, :plan_type,
+                    :manager_user_id, :rappresentante_legale, :status, :settings,
                     NOW(), NOW())";
 
     $stmt = $conn->prepare($insertQuery);
     $stmt->bindParam(':name', $denominazione); // Use denominazione as name too
     $stmt->bindParam(':denominazione', $denominazione);
-    $stmt->bindParam(':code', $code);
     $stmt->bindParam(':codice_fiscale', $codiceFiscale);
     $stmt->bindParam(':partita_iva', $partitaIva);
     $stmt->bindParam(':sede_legale', $sedeLegale);
@@ -220,7 +220,7 @@ try {
     $stmt->bindParam(':manager_user_id', $managerUserId, PDO::PARAM_INT);
     $stmt->bindParam(':rappresentante_legale', $rappresentanteLegale);
     $stmt->bindParam(':status', $status);
-    $stmt->bindParam(':plan_type', $planType);
+    $stmt->bindParam(':settings', $settings);
 
     if ($stmt->execute()) {
         $companyId = $conn->lastInsertId();
@@ -254,7 +254,6 @@ try {
             'id' => $companyId,
             'denominazione' => $denominazione,
             'name' => $denominazione,
-            'code' => $code,
             'codice_fiscale' => $codiceFiscale,
             'partita_iva' => $partitaIva,
             'status' => $status,

@@ -226,7 +226,7 @@ CREATE INDEX IF NOT EXISTS idx_files_tenant_folder
 -- ============================================
 -- UPDATE MIGRATION HISTORY
 -- ============================================
-INSERT INTO migration_history (filename, executed_at)
+INSERT INTO migration_history (migration_name, executed_at)
 VALUES ('06_multi_tenant_folders.sql', NOW())
 ON DUPLICATE KEY UPDATE executed_at = NOW();
 

@@ -55,8 +55,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['user_id'] = $result['user']['id'];
                     $_SESSION['user_name'] = $result['user']['name'];
                     $_SESSION['user_email'] = $result['user']['email'];
-                    $_SESSION['user_role'] = $result['user']['role'];
-                    $_SESSION['tenant_name'] = $result['user']['tenant'];
+                    $_SESSION['role'] = $result['user']['role'];  // Use 'role' for consistency
+                    $_SESSION['user_role'] = $result['user']['role'];  // Keep for backward compatibility
+                    $_SESSION['tenant_id'] = $result['user']['tenant_id'] ?? null;  // Add tenant_id
+                    $_SESSION['tenant_name'] = $result['user']['tenant_name'] ?? $result['user']['tenant'] ?? 'Default';
 
                     // Redirect to dashboard
                     header('Location: ' . BASE_URL . '/dashboard.php');

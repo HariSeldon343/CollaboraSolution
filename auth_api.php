@@ -179,7 +179,8 @@ try {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_name'] = $user['name'];
         $_SESSION['user_email'] = $user['email'];
-        $_SESSION['user_role'] = $user['role'];
+        $_SESSION['role'] = $user['role'];  // Use 'role' as primary
+        $_SESSION['user_role'] = $user['role'];  // Keep for backward compatibility
         $_SESSION['tenant_id'] = $user['tenant_id'];
         $_SESSION['tenant_name'] = $user['tenant_name'] ?? 'Default';
         $_SESSION['tenant_code'] = 'default'; // Default code since column doesn't exist yet

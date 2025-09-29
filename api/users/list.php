@@ -25,7 +25,6 @@ try {
     // Include required files
     require_once '../../config.php';
     require_once '../../includes/db.php';
-    require_once '../../includes/auth.php';
 
     // Authentication validation
     if (!isset($_SESSION['user_id'])) {
@@ -36,15 +35,38 @@ try {
 
     // Get current user info from session
     $currentUserId = $_SESSION['user_id'];
-    $currentUserRole = $_SESSION['user_role'] ?? $_SESSION['role'] ?? 'user';
+    // Check both possible session keys for role
+    $currentUserRole = $_SESSION['role'] ?? $_SESSION['user_role'] ?? 'user';
     $tenant_id = $_SESSION['tenant_id'] ?? null;
 
-    // CSRF validation for security
-    $csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    // Debug logging
+    error_log('List API - User ID: ' . $currentUserId . ', Role: ' . $currentUserRole . ', Tenant: ' . $tenant_id);
+
+    // CSRF validation for security - check multiple header formats
+    $headers = getallheaders();
+    $csrfToken = null;
+
+    // Check various header formats (case-insensitive)
+    foreach ($headers as $key => $value) {
+        if (strtolower($key) === 'x-csrf-token') {
+            $csrfToken = $value;
+            break;
+        }
+    }
+
+    // Fallback to $_SERVER if not found
+    if (empty($csrfToken)) {
+        $csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    }
+
+    // Debug logging
+    error_log('List API - CSRF Token received: ' . substr($csrfToken, 0, 10) . '...');
+    error_log('List API - Session CSRF Token: ' . substr($_SESSION['csrf_token'] ?? '', 0, 10) . '...');
+
     if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
         ob_clean();
         http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido']));
+        die(json_encode(['error' => 'Token CSRF non valido', 'debug' => 'CSRF mismatch']));
     }
 
     // Get query parameters

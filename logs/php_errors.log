@@ -543,3 +543,47 @@ Stack trace:
 [28-Sep-2025 05:56:57 Europe/Rome] Session data after save: {"csrf_token":"382c7ff19ed7eeb98162a8873799674522a23112ed7d94ee69e893dd411b6ba5","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759031817}
 [28-Sep-2025 05:57:00 Europe/Rome] ListFiles SQL Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.filename' in 'field list'
 [28-Sep-2025 05:57:00 Europe/Rome] SQL State: 42S22
+[28-Sep-2025 06:54:31 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[28-Sep-2025 06:54:31 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[28-Sep-2025 06:54:31 Europe/Rome] Session saved with ID: 3ei2c123jla9jjcsqem22c1unr
+[28-Sep-2025 06:54:31 Europe/Rome] Session data after save: {"csrf_token":"1899a3a9bd8655c21d2a73bbc2b67e91b7ccb6ca4c5f3514a93c3e0eb211cca5","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759035271}
+[28-Sep-2025 06:54:33 Europe/Rome] ListFiles SQL Error: SQLSTATE[HY093]: Invalid parameter number
+[28-Sep-2025 06:54:33 Europe/Rome] SQL State: HY093
+[28-Sep-2025 06:54:36 Europe/Rome] ListFiles SQL Error: SQLSTATE[HY093]: Invalid parameter number
+[28-Sep-2025 06:54:36 Europe/Rome] SQL State: HY093
+[28-Sep-2025 07:39:02 Europe/Rome] Companies Delete PDO Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'denominazione' in 'field list'
+[28-Sep-2025 08:07:18 Europe/Rome] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'filename' in 'where clause' in C:\xampp\htdocs\CollaboraNexio\test_company_deletion.php:144
+Stack trace:
+#0 C:\xampp\htdocs\CollaboraNexio\test_company_deletion.php(144): PDO->prepare('SELECT * FROM m...')
+#1 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\test_company_deletion.php on line 144
+[28-Sep-2025 08:29:01 Europe/Rome] PHP Warning:  Undefined array key "audit_logs" in C:\xampp\htdocs\CollaboraNexio\execute_migration.php on line 417
+[28-Sep-2025 08:29:01 Europe/Rome] PHP Warning:  Undefined array key "notifications" in C:\xampp\htdocs\CollaboraNexio\execute_migration.php on line 423
+[28-Sep-2025 08:29:01 Europe/Rome] PHP Warning:  Undefined array key "sessions" in C:\xampp\htdocs\CollaboraNexio\execute_migration.php on line 429
+[28-Sep-2025 08:29:01 Europe/Rome] PHP Warning:  Undefined array key "user_sessions" in C:\xampp\htdocs\CollaboraNexio\execute_migration.php on line 435
+[28-Sep-2025 08:29:01 Europe/Rome] PHP Warning:  Undefined array key "DeleteCompanyAndData" in C:\xampp\htdocs\CollaboraNexio\execute_migration.php on line 441
+[28-Sep-2025 08:29:01 Europe/Rome] PHP Warning:  Undefined array key "GetCompanyDetails" in C:\xampp\htdocs\CollaboraNexio\execute_migration.php on line 447
+[28-Sep-2025 08:29:01 Europe/Rome] PHP Warning:  Undefined array key "SafeDeleteCompany" in C:\xampp\htdocs\CollaboraNexio\execute_migration.php on line 453
+[28-Sep-2025 08:29:01 Europe/Rome] PHP Warning:  Undefined variable $migrationApplied in C:\xampp\htdocs\CollaboraNexio\execute_migration.php on line 459
+[28-Sep-2025 08:29:01 Europe/Rome] PHP Warning:  Undefined variable $migrationApplied in C:\xampp\htdocs\CollaboraNexio\execute_migration.php on line 460
+[28-Sep-2025 08:34:19 Europe/Rome] PHP Fatal error:  Uncaught PDOException: There is no active transaction in C:\xampp\htdocs\CollaboraNexio\execute_migration.php:434
+Stack trace:
+#0 C:\xampp\htdocs\CollaboraNexio\execute_migration.php(434): PDO->rollBack()
+#1 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\execute_migration.php on line 434
+[28-Sep-2025 08:39:25 Europe/Rome] PHP Warning:  session_start(): open(C:\xampp\tmp\sess_433o8109nib5adh57ffrpkstp1, O_RDWR) failed: Permission denied (13) in C:\xampp\htdocs\CollaboraNexio\includes\auth.php on line 219
+[28-Sep-2025 08:39:25 Europe/Rome] PHP Warning:  session_start(): Failed to read session data: files (path: C:\xampp\tmp) in C:\xampp\htdocs\CollaboraNexio\includes\auth.php on line 219
+[28-Sep-2025 08:39:25 Europe/Rome] PHP Warning:  session_regenerate_id(): Session ID cannot be regenerated when there is no active session in C:\xampp\htdocs\CollaboraNexio\includes\auth.php on line 220
+[29-Sep-2025 06:11:56 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 39
+[29-Sep-2025 06:11:56 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 40
+[29-Sep-2025 06:11:56 Europe/Rome] Session saved with ID: vhm6v4mbbfvo5npu6n8bvth7jh
+[29-Sep-2025 06:11:56 Europe/Rome] Session data after save: {"csrf_token":"f8f3bdd9633b78bf694922d09b026a0e2114262b620dea892c2623f6c01aa55f","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759119116}
+[29-Sep-2025 06:12:02 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[29-Sep-2025 06:12:02 Europe/Rome] List API - CSRF Token received: f8f3bdd963...
+[29-Sep-2025 06:12:02 Europe/Rome] List API - Session CSRF Token: f8f3bdd963...
+[29-Sep-2025 06:12:55 Europe/Rome] GetTenantList Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'is_active' in 'field list'
+[29-Sep-2025 06:12:57 Europe/Rome] GetTenantList Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'is_active' in 'field list'
+[29-Sep-2025 06:12:58 Europe/Rome] GetTenantList Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'is_active' in 'field list'
+[29-Sep-2025 06:13:01 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[29-Sep-2025 06:13:01 Europe/Rome] List API - CSRF Token received: f8f3bdd963...
+[29-Sep-2025 06:13:01 Europe/Rome] List API - Session CSRF Token: f8f3bdd963...
