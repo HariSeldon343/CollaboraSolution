@@ -4,16 +4,51 @@
  * Handles user authentication with proper error handling and JSON responses
  */
 
-// Suppress all PHP warnings/notices that could break JSON output
-error_reporting(E_ERROR | E_PARSE);
+// CRITICAL: Suppress ALL error display to prevent HTML in JSON responses
+error_reporting(0);
 ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+
+// Start output buffering IMMEDIATELY to catch any output
+ob_start();
+
+// Set error handler to log errors instead of displaying them
+set_error_handler(function($severity, $message, $file, $line) {
+    error_log("PHP Error [$severity]: $message in $file on line $line");
+    return true; // Prevent default error handler
+});
+
+// Set exception handler for uncaught exceptions
+set_exception_handler(function($exception) {
+    error_log('Uncaught Exception: ' . $exception->getMessage());
+    ob_end_clean();
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Errore interno del server',
+        'error' => defined('DEBUG_MODE') && DEBUG_MODE ? $exception->getMessage() : null
+    ]);
+    exit;
+});
+
+// Register shutdown function to catch fatal errors
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error && ($error['type'] === E_ERROR || $error['type'] === E_PARSE)) {
+        error_log("Fatal Error: {$error['message']} in {$error['file']} on line {$error['line']}");
+        ob_end_clean();
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Errore interno del server',
+            'error' => defined('DEBUG_MODE') && DEBUG_MODE ? $error['message'] : null
+        ]);
+    }
+});
 
 // Set JSON header immediately to ensure all output is treated as JSON
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
-
-// Enable output buffering to catch any unexpected output
-ob_start();
 
 try {
     // Define missing constants that db.php expects
@@ -25,18 +60,29 @@ try {
     }
 
     // Include configuration
-    require_once __DIR__ . '/config.php';
+    $config_file = __DIR__ . '/config.php';
+    if (!file_exists($config_file)) {
+        throw new Exception('Configuration file not found');
+    }
+    require_once $config_file;
 
-    // Start session if not already started
-    if (session_status() === PHP_SESSION_NONE) {
-        // Simple session start without strict settings for compatibility
-        session_start();
+    // Initialize session with centralized configuration (includes session_start)
+    $session_file = __DIR__ . '/includes/session_init.php';
+    if (!file_exists($session_file)) {
+        // Fallback to basic session start if session_init.php doesn't exist
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+    } else {
+        require_once $session_file;
     }
 
-    // CORS headers for development
-    header('Access-Control-Allow-Origin: *');
+    // CORS headers for development and Cloudflare tunnel
+    $allowedOrigin = '*'; // You can specify specific origins if needed
+    header('Access-Control-Allow-Origin: ' . $allowedOrigin);
     header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type');
+    header('Access-Control-Allow-Credentials: true'); // Important for session cookies
 
     // Handle OPTIONS request for CORS preflight
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -187,14 +233,19 @@ try {
         $_SESSION['logged_in'] = true;
         $_SESSION['login_time'] = time();
 
+        // Genera token CSRF per la sessione
+        if (!isset($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+
         // IMPORTANTE: Forza il salvataggio della sessione immediatamente
         session_write_close();
 
         // Riapri la sessione per verificare che sia stata salvata
         session_start();
 
-        // Log session info for debugging
-        error_log('Session saved with ID: ' . session_id());
+        // Log session info for debugging (con nome cookie corretto)
+        error_log('Session saved with cookie name: ' . session_name() . ', ID: ' . session_id());
         error_log('Session data after save: ' . json_encode($_SESSION));
 
         // Update last login timestamp
@@ -258,11 +309,20 @@ try {
                 // Clear session data
                 $_SESSION = [];
 
-                // Destroy the session cookie
+                // Destroy the session cookie with proper parameters
                 if (ini_get("session.use_cookies")) {
                     $params = session_get_cookie_params();
-                    setcookie(session_name(), '', time() - 42000,
-                        $params["path"], $params["domain"],
+
+                    // Use the same cookie configuration as session_init.php
+                    $currentHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
+                    $cookieDomain = '';
+                    if (strpos($currentHost, 'nexiosolution.it') !== false) {
+                        $cookieDomain = '.nexiosolution.it';
+                    }
+
+                    // Destroy COLLAB_SID cookie
+                    setcookie('COLLAB_SID', '', time() - 42000,
+                        '/CollaboraNexio/', $cookieDomain,
                         $params["secure"], $params["httponly"]
                     );
                 }
@@ -344,9 +404,7 @@ try {
     ]);
 
 } finally {
-    // Ensure any buffered output is cleared
-    if (ob_get_level() > 0) {
-        ob_end_clean();
-    }
+    // Nothing to do here - output is already sent
+    // The ob_end_clean() is handled in the catch blocks before sending JSON
 }
 ?>

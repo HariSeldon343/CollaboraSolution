@@ -122,7 +122,8 @@ class Auth {
             // Imposta variabili di sessione
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['tenant_id'] = $user['tenant_id'];
-            $_SESSION['role'] = $user['role'];  // Cambiato da user_role a role
+            $_SESSION['role'] = $user['role'];  // Campo principale per il ruolo
+            $_SESSION['user_role'] = $user['role'];  // Mantenuto per retrocompatibilità
             $_SESSION['user_name'] = trim($user['first_name'] . ' ' . $user['last_name']);
             $_SESSION['user_email'] = $user['email'];
             $_SESSION['login_time'] = time();
@@ -387,7 +388,9 @@ class Auth {
             // Aggiorna sessione con nuovo tenant
             $oldTenantId = $_SESSION['tenant_id'];
             $_SESSION['tenant_id'] = $tenantId;
-            $_SESSION['role'] = $access['role'] ?? $_SESSION['role'];
+            $newRole = $access['role'] ?? $_SESSION['role'];
+            $_SESSION['role'] = $newRole;
+            $_SESSION['user_role'] = $newRole;  // Mantenuto per retrocompatibilità
 
             // Registra il cambio nei log
             $this->logActivity(

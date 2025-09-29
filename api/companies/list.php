@@ -1,20 +1,9 @@
 <?php
-// Suppress all PHP warnings/notices from being output
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ini_set('display_startup_errors', '0');
+// Include centralized API authentication
+require_once '../../includes/api_auth.php';
 
-// Start output buffering to catch any unexpected output
-ob_start();
-
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Set JSON headers immediately
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
+// Initialize API environment (session, headers, error handling)
+initializeApiEnvironment();
 
 try {
     // Include required files
@@ -24,27 +13,18 @@ try {
     // Initialize response
     $response = ['success' => false, 'message' => '', 'data' => null];
 
-    // Check authentication
-    if (!isset($_SESSION['user_id'])) {
-        ob_clean();
-        http_response_code(401);
-        die(json_encode(['error' => 'Non autorizzato', 'success' => false]));
-    }
+    // Verify authentication
+    verifyApiAuthentication();
 
     // Get current user details from session
-    $currentUserId = $_SESSION['user_id'];
-    $userRole = $_SESSION['user_role'] ?? $_SESSION['role'] ?? 'user';
+    $userInfo = getApiUserInfo();
+    $currentUserId = $userInfo['user_id'];
+    $userRole = $userInfo['role'];
     $isSuperAdmin = ($userRole === 'super_admin');
-    $currentTenantId = $_SESSION['tenant_id'] ?? null;
+    $currentTenantId = $userInfo['tenant_id'];
 
     // Verify CSRF token
-    $headers = getallheaders();
-    $csrfToken = $headers['X-CSRF-Token'] ?? '';
-    if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido', 'success' => false]));
-    }
+    verifyApiCsrfToken();
 
     // Get pagination and search parameters
     $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;

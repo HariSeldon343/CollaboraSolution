@@ -4,47 +4,27 @@
  * Retrieves list of available tenants/companies
  */
 
-// Suppress all PHP warnings/notices from being output
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ini_set('display_startup_errors', '0');
+// Include centralized API authentication
+require_once '../../includes/api_auth.php';
 
-// Start output buffering to catch any unexpected output
-ob_start();
-
-// Start session
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Set JSON headers immediately
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
+// Initialize API environment (session, headers, error handling)
+initializeApiEnvironment();
 
 try {
     // Include required files
     require_once '../../config.php';
     require_once '../../includes/db.php';
-    require_once '../../includes/auth.php';
 
-    // Authentication validation
-    if (!isset($_SESSION['user_id'])) {
-        ob_clean();
-        http_response_code(401);
-        die(json_encode(['error' => 'Non autorizzato']));
-    }
+    // Verify authentication
+    verifyApiAuthentication();
 
-    // Get current user role
-    $currentUserRole = $_SESSION['user_role'] ?? $_SESSION['role'] ?? 'user';
-    $tenant_id = $_SESSION['tenant_id'] ?? null;
+    // Get current user info
+    $userInfo = getApiUserInfo();
+    $currentUserRole = $userInfo['role'];
+    $tenant_id = $userInfo['tenant_id'];
 
-    // CSRF validation
-    $csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-    if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido']));
-    }
+    // Verify CSRF token
+    verifyApiCsrfToken();
 
     // Get database instance
     $db = Database::getInstance();

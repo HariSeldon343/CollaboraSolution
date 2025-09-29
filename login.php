@@ -4,7 +4,8 @@
  * Main authentication entry point
  */
 
-session_start();
+// Initialize session with centralized configuration
+require_once __DIR__ . '/includes/session_init.php';
 require_once __DIR__ . '/config.php';
 
 // Check if user is already logged in
@@ -42,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]));
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_COOKIE, session_name() . '=' . session_id());
+            curl_setopt($ch, CURLOPT_COOKIE, 'COLLAB_SID=' . session_id()); // Use correct session cookie name
 
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);

@@ -608,3 +608,55 @@ Stack trace:
 [29-Sep-2025 06:28:56 Europe/Rome] Session data after save: {"csrf_token":"a5443f21d8b09acfb0143775a62af5e0aca68f14577a43022c211f72dda7d874","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759120136}
 [29-Sep-2025 06:29:14 Europe/Rome] Session saved with ID: f2d7ap9aqilcphp8ufr47voacq
 [29-Sep-2025 06:29:14 Europe/Rome] Session data after save: {"csrf_token":"a5443f21d8b09acfb0143775a62af5e0aca68f14577a43022c211f72dda7d874","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759120154}
+[29-Sep-2025 06:30:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:30:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:30:58 Europe/Berlin] PHP Warning:  Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 59
+[29-Sep-2025 06:30:58 Europe/Berlin] PHP Warning:  Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
+[29-Sep-2025 06:30:58 Europe/Rome] Session saved with ID: icjs7a1sfe46n2d9vgph17c6sn
+[29-Sep-2025 06:30:58 Europe/Rome] Session data after save: {"csrf_token":"e2eea7aa718ab0831ef1e1005c4b362dcfc3eab83e626acda5e0d2f75738cef4","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759120258}
+[29-Sep-2025 06:30:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:30:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:46:42 Europe/Berlin] PHP Error [2]: Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 59
+[29-Sep-2025 06:46:42 Europe/Berlin] PHP Error [2]: Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
+[29-Sep-2025 06:46:42 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:46:43 Europe/Rome] Session saved with cookie name: COLLAB_SID, ID: nag5mfmqgmpl6m3ptf4n340htp
+[29-Sep-2025 06:46:43 Europe/Rome] Session data after save: {"csrf_token":"801f37bc488da0ae7cd88ebb56764947f8729edc9a11a8fd9c7d04445e6990c3","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759121203}
+[29-Sep-2025 06:46:43 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:46:47 Europe/Berlin] PHP Error [2]: Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 59
+[29-Sep-2025 06:46:47 Europe/Berlin] PHP Error [2]: Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
+[29-Sep-2025 06:46:47 Europe/Rome] Session saved with cookie name: COLLAB_SID, ID: uo28b8lsgs2mq2bj2rgn6tuicb
+[29-Sep-2025 06:46:47 Europe/Rome] Session data after save: {"csrf_token":"3583bbb2840bdb89d56740614cef88c95561e7e4c3260f9d7092a531c2e614a6","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759121207}
+[29-Sep-2025 06:46:54 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[29-Sep-2025 06:46:54 Europe/Rome] List API - CSRF Token received: 3583bbb284...
+[29-Sep-2025 06:46:54 Europe/Rome] List API - Session CSRF Token: a5443f21d8...
+[29-Sep-2025 06:46:59 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[29-Sep-2025 06:46:59 Europe/Rome] List API - CSRF Token received: 3583bbb284...
+[29-Sep-2025 06:46:59 Europe/Rome] List API - Session CSRF Token: a5443f21d8...
+[29-Sep-2025 06:47:03 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:47:03 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[29-Sep-2025 06:47:03 Europe/Rome] List API - CSRF Token received: 801f37bc48...
+[29-Sep-2025 06:47:03 Europe/Rome] List API - Session CSRF Token: e2eea7aa71...
+[29-Sep-2025 06:47:06 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:47:06 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[29-Sep-2025 06:47:06 Europe/Rome] List API - CSRF Token received: 801f37bc48...
+[29-Sep-2025 06:47:06 Europe/Rome] List API - Session CSRF Token: e2eea7aa71...
+[29-Sep-2025 06:56:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:56:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:56:54 Europe/Berlin] PHP Error [2]: Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 59
+[29-Sep-2025 06:56:54 Europe/Berlin] PHP Error [2]: Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
+[29-Sep-2025 06:56:54 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:56:54 Europe/Rome] Session saved with cookie name: COLLAB_SID, ID: m9uqpr46447v3mnn38grdvr4ee
+[29-Sep-2025 06:56:54 Europe/Rome] Session data after save: {"csrf_token":"e1c2be95c91cc2fc591beffbe08a385449e984628bc5df9dbffa33e2c046e556","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759121814}
+[29-Sep-2025 06:56:54 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:56:57 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:56:57 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:56:57 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[29-Sep-2025 06:56:57 Europe/Rome] API CSRF Check - Token received: e1c2be95c9...
+[29-Sep-2025 06:56:57 Europe/Rome] API CSRF Check - Session token: e1c2be95c9...
+[29-Sep-2025 06:56:57 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 06:56:57 Europe/Rome] API CSRF Check - Token received: e1c2be95c9...
+[29-Sep-2025 06:56:57 Europe/Rome] API CSRF Check - Session token: e1c2be95c9...
+[29-Sep-2025 06:57:20 Europe/Berlin] PHP Error [2]: Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 59
+[29-Sep-2025 06:57:20 Europe/Berlin] PHP Error [2]: Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
+[29-Sep-2025 06:57:20 Europe/Rome] Session saved with cookie name: COLLAB_SID, ID: ao6pq4f1ourkiov0p40himol8b
+[29-Sep-2025 06:57:20 Europe/Rome] Session data after save: {"csrf_token":"ddb99c2758a16836c96474bc96bd6da211cf76254c0c28c653fa2f7ce8867c70","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759121840}

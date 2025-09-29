@@ -4,61 +4,37 @@
  * Creates a new user with proper security and validation
  */
 
-// Suppress all PHP warnings/notices from being output
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ini_set('display_startup_errors', '0');
+// Include centralized API authentication
+require_once '../../includes/api_auth.php';
 
-// Start output buffering to catch any unexpected output
-ob_start();
-
-// Start session
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Set JSON headers immediately
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
+// Initialize API environment (session, headers, error handling)
+initializeApiEnvironment();
 
 try {
     // Check request method
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        ob_clean();
-        http_response_code(405);
-        die(json_encode(['error' => 'Metodo non consentito']));
+        apiError('Metodo non consentito', 405);
     }
 
     // Include required files
     require_once '../../config.php';
     require_once '../../includes/db.php';
-    require_once '../../includes/auth.php';
 
-    // Authentication validation
-    if (!isset($_SESSION['user_id'])) {
-        ob_clean();
-        http_response_code(401);
-        die(json_encode(['error' => 'Non autorizzato']));
-    }
+    // Verify authentication
+    verifyApiAuthentication();
 
     // Get current user info
-    $currentUserId = $_SESSION['user_id'];
-    $currentUserRole = $_SESSION['role'] ?? 'user';
-    $currentTenantId = $_SESSION['tenant_id'] ?? null;
+    $userInfo = getApiUserInfo();
+    $currentUserId = $userInfo['user_id'];
+    $currentUserRole = $userInfo['role'];
+    $currentTenantId = $userInfo['tenant_id'];
 
-    // Only admins can create users
-    if (!in_array($currentUserRole, ['super_admin', 'tenant_admin'])) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Non hai i permessi per creare utenti']));
-    }
+    // Verify CSRF token (checks headers, GET, POST automatically)
+    verifyApiCsrfToken();
 
-    // CSRF validation
-    $csrfToken = $_POST['csrf_token'] ?? '';
-    if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido']));
+    // Only admins can create users (checks for admin role or higher)
+    if (!hasApiRole('admin')) {
+        apiError('Non hai i permessi per creare utenti', 403);
     }
 
     // Get and validate input
@@ -88,14 +64,12 @@ try {
     }
 
     // Tenant admins can only create users in their own tenant
-    if ($currentUserRole === 'tenant_admin' && $tenantId !== $currentTenantId) {
+    if ($currentUserRole === 'admin' && $tenantId !== $currentTenantId) {
         $errors[] = 'Non puoi creare utenti in altre aziende';
     }
 
     if (!empty($errors)) {
-        ob_clean();
-        http_response_code(400);
-        die(json_encode(['error' => 'Errori di validazione', 'details' => $errors]));
+        apiError('Errori di validazione', 400, ['details' => $errors]);
     }
 
     // Get database instance
@@ -110,9 +84,7 @@ try {
     $emailExists = $checkStmt->fetch(PDO::FETCH_ASSOC)['count'] > 0;
 
     if ($emailExists) {
-        ob_clean();
-        http_response_code(409);
-        die(json_encode(['error' => 'Email già registrata']));
+        apiError('Email già registrata', 409);
     }
 
     // Check if tenant exists

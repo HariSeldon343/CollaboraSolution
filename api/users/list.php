@@ -4,70 +4,33 @@
  * Retrieves paginated list of users with search and filtering capabilities
  */
 
-// Suppress all PHP warnings/notices from being output
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ini_set('display_startup_errors', '0');
+// Include centralized API authentication
+require_once '../../includes/api_auth.php';
 
-// Start output buffering to catch any unexpected output
-ob_start();
-
-// Start session
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Set JSON headers immediately
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
+// Initialize API environment (session, headers, error handling)
+initializeApiEnvironment();
 
 try {
     // Include required files
     require_once '../../config.php';
     require_once '../../includes/db.php';
 
-    // Authentication validation
-    if (!isset($_SESSION['user_id'])) {
-        ob_clean();
-        http_response_code(401);
-        die(json_encode(['error' => 'Non autorizzato']));
-    }
+    // Verify authentication
+    verifyApiAuthentication();
 
     // Get current user info from session
-    $currentUserId = $_SESSION['user_id'];
-    // Check both possible session keys for role
-    $currentUserRole = $_SESSION['role'] ?? $_SESSION['user_role'] ?? 'user';
-    $tenant_id = $_SESSION['tenant_id'] ?? null;
+    $userInfo = getApiUserInfo();
+    $currentUserId = $userInfo['user_id'];
+    $currentUserRole = $userInfo['role'];
+    $tenant_id = $userInfo['tenant_id'];
 
     // Debug logging
-    error_log('List API - User ID: ' . $currentUserId . ', Role: ' . $currentUserRole . ', Tenant: ' . $tenant_id);
-
-    // CSRF validation for security - check multiple header formats
-    $headers = getallheaders();
-    $csrfToken = null;
-
-    // Check various header formats (case-insensitive)
-    foreach ($headers as $key => $value) {
-        if (strtolower($key) === 'x-csrf-token') {
-            $csrfToken = $value;
-            break;
-        }
+    if (defined('DEBUG_MODE') && DEBUG_MODE) {
+        error_log('List API - User ID: ' . $currentUserId . ', Role: ' . $currentUserRole . ', Tenant: ' . $tenant_id);
     }
 
-    // Fallback to $_SERVER if not found
-    if (empty($csrfToken)) {
-        $csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-    }
-
-    // Debug logging
-    error_log('List API - CSRF Token received: ' . substr($csrfToken, 0, 10) . '...');
-    error_log('List API - Session CSRF Token: ' . substr($_SESSION['csrf_token'] ?? '', 0, 10) . '...');
-
-    if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido', 'debug' => 'CSRF mismatch']));
-    }
+    // Verify CSRF token
+    verifyApiCsrfToken();
 
     // Get query parameters
     $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
