@@ -25,24 +25,8 @@ class Auth {
      */
     private function initializeSession(): void {
         if (session_status() === PHP_SESSION_NONE) {
-            // Configurazione sicura della sessione
-            ini_set('session.use_only_cookies', '1');
-            ini_set('session.use_strict_mode', '1');
-            ini_set('session.cookie_httponly', '1');
-            ini_set('session.cookie_secure', '1');
-            ini_set('session.cookie_samesite', 'Strict');
-            ini_set('session.gc_maxlifetime', (string)self::SESSION_LIFETIME);
-
-            session_set_cookie_params([
-                'lifetime' => 0,
-                'path' => '/',
-                'domain' => '',
-                'secure' => true,
-                'httponly' => true,
-                'samesite' => 'Strict'
-            ]);
-
-            session_start();
+            // Usa il file di inizializzazione centralizzato delle sessioni
+            require_once __DIR__ . '/session_init.php';
         }
 
         // Verifica timeout sessione
@@ -198,12 +182,22 @@ class Auth {
             // Invalida il cookie di sessione
             if (ini_get('session.use_cookies')) {
                 $params = session_get_cookie_params();
+
+                // Determina il dominio del cookie basato sull'ambiente
+                $cookieDomain = $params['domain'];
+                if (empty($cookieDomain)) {
+                    $currentHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
+                    if (strpos($currentHost, 'nexiosolution.it') !== false) {
+                        $cookieDomain = '.nexiosolution.it';
+                    }
+                }
+
                 setcookie(
                     session_name(),
                     '',
                     time() - 42000,
                     $params['path'],
-                    $params['domain'],
+                    $cookieDomain,
                     $params['secure'],
                     $params['httponly']
                 );
