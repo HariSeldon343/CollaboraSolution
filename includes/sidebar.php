@@ -63,6 +63,16 @@ function getUnreadCount($type) {
         font-weight: 600;
     }
 
+    .sidebar-logo .logo-img {
+        width: 40px;
+        height: 40px;
+        margin-right: 12px;
+        border-radius: 8px;
+        background: white;
+        padding: 2px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
     .sidebar-logo i {
         font-size: 1.5rem;
         margin-right: 10px;
@@ -253,7 +263,7 @@ function getUnreadCount($type) {
 <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
         <a href="/dashboard.php" class="sidebar-logo">
-            <i class="bi bi-hexagon-fill"></i>
+            <img src="/CollaboraNexio/assets/images/logo.png" alt="CollaboraNexio" class="logo-img">
             <span>CollaboraNexio</span>
         </a>
     </div>

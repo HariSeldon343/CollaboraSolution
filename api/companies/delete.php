@@ -1,54 +1,33 @@
 <?php
-// Suppress all PHP warnings/notices from being output
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ini_set('display_startup_errors', '0');
+// Include centralized API authentication
+require_once '../../includes/api_auth.php';
+require_once '../../config.php';
+require_once '../../includes/db.php';
 
-// Start output buffering to catch any unexpected output
-ob_start();
+// Initialize API environment
+initializeApiEnvironment();
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Verify authentication
+verifyApiAuthentication();
 
-// Set JSON headers immediately
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
+// Normalize session data for backward compatibility
+normalizeSessionData();
 
 try {
-    // Include required files
-    require_once '../../config.php';
-    require_once '../../includes/db.php';
-
     // Initialize response
     $response = ['success' => false, 'message' => '', 'data' => null];
 
-    // Check authentication
-    if (!isset($_SESSION['user_id'])) {
-        ob_clean();
-        http_response_code(401);
-        die(json_encode(['error' => 'Non autorizzato', 'success' => false]));
-    }
-
-    // Get current user details from session
-    $currentUserId = $_SESSION['user_id'];
-    // Check both possible session keys for role
-    $userRole = $_SESSION['role'] ?? $_SESSION['user_role'] ?? 'user';
+    // Get current user details using centralized function
+    $userInfo = getApiUserInfo();
+    $currentUserId = $userInfo['user_id'];
+    $userRole = $userInfo['role'];
     $isSuperAdmin = ($userRole === 'super_admin');
-    $currentTenantId = $_SESSION['tenant_id'] ?? null;
+    $currentTenantId = $userInfo['tenant_id'];
 
     // Debug logging
     error_log('Delete API - User ID: ' . $currentUserId . ', Role: ' . $userRole . ', Is Super Admin: ' . ($isSuperAdmin ? 'yes' : 'no'));
 
-    // Check if user is super admin
-    if (!$isSuperAdmin) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Solo i Super Admin possono eliminare le aziende', 'success' => false]));
-    }
-
-    // Get input data - FormData sends as POST parameters
+    // Get input data FIRST - FormData sends as POST parameters
     $input = $_POST;
 
     // If no POST data, try JSON body
@@ -59,39 +38,27 @@ try {
         }
     }
 
-    // Verify CSRF token from POST data (FormData) or headers
-    $csrfToken = $input['csrf_token'] ?? null;
-
-    // If not in POST, check headers
-    if (empty($csrfToken)) {
-        $headers = getallheaders();
-        $csrfToken = $headers['X-CSRF-Token'] ?? $headers['x-csrf-token'] ?? '';
+    // Make CSRF token available to $_POST for the verification function
+    // This ensures getCsrfTokenFromRequest() can find it
+    if (!empty($input['csrf_token']) && empty($_POST['csrf_token'])) {
+        $_POST['csrf_token'] = $input['csrf_token'];
     }
 
-    // Debug logging
-    error_log('Delete API - CSRF Token received: ' . substr($csrfToken, 0, 10) . '...');
-    error_log('Delete API - Session CSRF Token: ' . substr($_SESSION['csrf_token'] ?? '', 0, 10) . '...');
+    // Verify CSRF token using centralized function
+    verifyApiCsrfToken(true);
 
-    if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido', 'success' => false, 'debug' => 'CSRF mismatch']));
-    }
+    // Require super admin role
+    requireApiRole('super_admin');
 
     // Validate required fields
     $companyId = intval($input['id'] ?? $input['company_id'] ?? 0);
     if ($companyId <= 0) {
-        ob_clean();
-        http_response_code(400);
-        die(json_encode(['error' => 'ID azienda non valido', 'success' => false]));
+        apiError('ID azienda non valido', 400);
     }
 
     // Prevent deletion of company ID 1 (default/system company)
     if ($companyId === 1) {
-        $response['message'] = 'Non è possibile eliminare l\'azienda di sistema';
-        http_response_code(400);
-        echo json_encode($response);
-        exit;
+        apiError('Non è possibile eliminare l\'azienda di sistema', 400);
     }
 
     // Get database instance
@@ -116,8 +83,6 @@ try {
             // Get the output parameters
             $result = $conn->query("SELECT @success as success, @message as message")->fetch(PDO::FETCH_ASSOC);
 
-            ob_clean();
-
             if ($result['success']) {
                 // Log the deletion
                 try {
@@ -136,15 +101,13 @@ try {
                     error_log('Audit log error: ' . $logError->getMessage());
                 }
 
-                $response['success'] = true;
-                $response['message'] = $result['message'];
-                $response['data'] = ['deleted_company_id' => $companyId];
-                echo json_encode($response);
+                apiSuccess(
+                    ['deleted_company_id' => $companyId],
+                    $result['message']
+                );
             } else {
-                http_response_code(400);
-                echo json_encode(['error' => $result['message'], 'success' => false]);
+                apiError($result['message'], 400);
             }
-            exit();
 
         } catch (PDOException $e) {
             error_log('SafeDeleteCompany procedure error: ' . $e->getMessage());
@@ -169,11 +132,7 @@ try {
 
         if (!$company) {
             $conn->rollBack();
-            ob_clean();
-            $response['message'] = 'Azienda non trovata';
-            http_response_code(404);
-            echo json_encode($response);
-            exit;
+            apiError('Azienda non trovata', 404);
         }
 
         // Handle folders - reassign to Super Admin (NULL tenant_id)
@@ -325,27 +284,17 @@ try {
             // Commit transaction
             $conn->commit();
 
-            // Clean output buffer
-            ob_clean();
-
-            // Return success response
-            $response['success'] = true;
-            $response['message'] = 'Azienda eliminata con successo';
-            $response['data'] = [
+            // Return success response using centralized function
+            apiSuccess([
                 'deleted_company_id' => $companyId,
                 'folders_reassigned' => $foldersReassigned ?? 0,
                 'files_reassigned' => $filesReassigned ?? 0,
                 'users_updated' => $usersUpdated ?? 0,
                 'admins_deleted' => $adminsDeleted ?? 0
-            ];
-            echo json_encode($response);
-            exit();
+            ], 'Azienda eliminata con successo');
         } else {
             $conn->rollBack();
-            ob_clean();
-            http_response_code(500);
-            echo json_encode(['error' => 'Errore nell\'eliminazione dell\'azienda', 'success' => false]);
-            exit();
+            apiError('Errore nell\'eliminazione dell\'azienda', 500);
         }
 
     } catch (Exception $e) {
@@ -355,26 +304,16 @@ try {
 
 } catch (PDOException $e) {
     // Log the actual error for debugging
-    error_log('Companies Delete PDO Error: ' . $e->getMessage());
-
-    // Clean any output buffer
-    ob_clean();
+    logApiError('Companies Delete PDO', $e);
 
     // Return user-friendly error
-    http_response_code(500);
-    echo json_encode(['error' => 'Errore database', 'success' => false]);
-    exit();
+    apiError('Errore database', 500);
 
 } catch (Exception $e) {
     // Log the error
-    error_log('Companies Delete Error: ' . $e->getMessage());
-
-    // Clean any output buffer
-    ob_clean();
+    logApiError('Companies Delete', $e);
 
     // Return generic error
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage(), 'success' => false]);
-    exit();
+    apiError('Errore del server', 500);
 }
 ?>

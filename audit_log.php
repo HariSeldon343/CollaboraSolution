@@ -44,6 +44,16 @@ $csrfToken = $auth->generateCSRFToken();
     <link rel="stylesheet" href="assets/css/dashboard.css">
 
     <style>
+        /* Logo image style */
+        .logo-img {
+            width: 32px;
+            height: 32px;
+            background: white;
+            padding: 4px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
         /* Sidebar navigation styles */
         .nav-section {
             margin-bottom: var(--space-6);
@@ -524,7 +534,7 @@ $csrfToken = $auth->generateCSRFToken();
         <div class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
-                    <span class="logo-icon">N</span>
+                    <img src="assets/images/logo.png" alt="CollaboraNexio" class="logo-img">
                     <span class="logo-text">NEXIO</span>
                 </div>
                 <div class="sidebar-subtitle">Semplifica, Connetti, Cresci Insieme</div>

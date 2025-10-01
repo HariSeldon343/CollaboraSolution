@@ -6,53 +6,32 @@
 
 declare(strict_types=1);
 
-// Suppress all PHP warnings/notices from being output
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ini_set('display_startup_errors', '0');
+// Usa il sistema di autenticazione centralizzato
+require_once __DIR__ . '/../../includes/api_auth.php';
+require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/db.php';
+require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/company_filter.php';
+require_once __DIR__ . '/../../includes/query_helper.php';
 
-// Start output buffering to catch any unexpected output
-ob_start();
-
-// Start session
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Set JSON headers immediately
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
+// Inizializza l'ambiente API
+initializeApiEnvironment();
 
 try {
-    // Include required files
-    require_once __DIR__ . '/../../config.php';
-    require_once __DIR__ . '/../../includes/db.php';
-    require_once __DIR__ . '/../../includes/auth.php';
-    require_once __DIR__ . '/../../includes/company_filter.php';
-    require_once __DIR__ . '/../../includes/query_helper.php';
+    // Verifica autenticazione
+    verifyApiAuthentication();
 
-    // Authentication validation
+    // Verifica CSRF token
+    verifyApiCsrfToken(true);
+
+    // Get current user info
+    $userInfo = getApiUserInfo();
+
+    // Get current user object for company filter
     $auth = new Auth();
-    if (!$auth->checkAuth()) {
-        ob_clean();
-        http_response_code(401);
-        die(json_encode(['error' => 'Non autorizzato']));
-    }
-
-    // Get current user
     $currentUser = $auth->getCurrentUser();
     if (!$currentUser) {
-        ob_clean();
-        http_response_code(401);
-        die(json_encode(['error' => 'Utente non trovato']));
-    }
-
-    // CSRF validation
-    $csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-    if (empty($csrfToken) || !$auth->verifyCSRFToken($csrfToken)) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido']));
+        apiError('Utente non trovato', 401);
     }
 
     // Get query parameters
@@ -190,25 +169,14 @@ try {
         ]
     ];
 
-    // Clean output buffer and send response
-    ob_clean();
-    echo json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    // Send success response using centralized helper
+    apiSuccess($response);
 
 } catch (Exception $e) {
     // Log error
     error_log('Error in users/list_v2.php: ' . $e->getMessage());
 
-    // Clean output buffer
-    ob_clean();
-
-    // Return error response
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error' => 'Errore nel recupero degli utenti',
-        'message' => DEBUG_MODE ? $e->getMessage() : 'Si è verificato un errore interno'
-    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    // Log and return error using centralized helper
+    logApiError('list_v2.php', $e);
+    apiError('Errore nel recupero degli utenti', 500);
 }
-
-// End output buffering
-ob_end_flush();

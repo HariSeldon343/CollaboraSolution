@@ -660,3 +660,174 @@ Stack trace:
 [29-Sep-2025 06:57:20 Europe/Berlin] PHP Error [2]: Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
 [29-Sep-2025 06:57:20 Europe/Rome] Session saved with cookie name: COLLAB_SID, ID: ao6pq4f1ourkiov0p40himol8b
 [29-Sep-2025 06:57:20 Europe/Rome] Session data after save: {"csrf_token":"ddb99c2758a16836c96474bc96bd6da211cf76254c0c28c653fa2f7ce8867c70","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759121840}
+[29-Sep-2025 07:10:18 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:10:18 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:10:18 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[29-Sep-2025 07:10:18 Europe/Rome] API CSRF Check - Token received: e1c2be95c9...
+[29-Sep-2025 07:10:18 Europe/Rome] API CSRF Check - Session token: e1c2be95c9...
+[29-Sep-2025 07:10:18 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:10:18 Europe/Rome] API CSRF Check - Token received: e1c2be95c9...
+[29-Sep-2025 07:10:18 Europe/Rome] API CSRF Check - Session token: e1c2be95c9...
+[29-Sep-2025 07:10:24 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:10:24 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:10:24 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[29-Sep-2025 07:10:24 Europe/Rome] API CSRF Check - Token received: e1c2be95c9...
+[29-Sep-2025 07:10:24 Europe/Rome] API CSRF Check - Session token: e1c2be95c9...
+[29-Sep-2025 07:10:24 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:10:24 Europe/Rome] API CSRF Check - Token received: e1c2be95c9...
+[29-Sep-2025 07:10:24 Europe/Rome] API CSRF Check - Session token: e1c2be95c9...
+[29-Sep-2025 07:10:37 Europe/Rome] GetTenantList Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'is_active' in 'field list'
+[29-Sep-2025 07:11:54 Europe/Rome] Delete API - User ID: 1, Role: super_admin, Is Super Admin: yes
+[29-Sep-2025 07:11:54 Europe/Rome] Delete API - CSRF Token received: e1c2be95c9...
+[29-Sep-2025 07:11:54 Europe/Rome] Delete API - Session CSRF Token: e2eea7aa71...
+[29-Sep-2025 07:12:06 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:12:06 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:12:13 Europe/Berlin] PHP Error [2]: Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 59
+[29-Sep-2025 07:12:13 Europe/Berlin] PHP Error [2]: Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
+[29-Sep-2025 07:12:13 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:12:13 Europe/Rome] Session saved with cookie name: COLLAB_SID, ID: v6ctqbdju18h8ktks1eubmhj7g
+[29-Sep-2025 07:12:13 Europe/Rome] Session data after save: {"csrf_token":"e18dbc54d8b57432e5f8606c239f689841fe93bef99d1eacf1b2acbc451cca90","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759122733}
+[29-Sep-2025 07:12:13 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:12:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:12:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:12:15 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[29-Sep-2025 07:12:15 Europe/Rome] API CSRF Check - Token received: e18dbc54d8...
+[29-Sep-2025 07:12:15 Europe/Rome] API CSRF Check - Session token: e18dbc54d8...
+[29-Sep-2025 07:12:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:12:15 Europe/Rome] API CSRF Check - Token received: e18dbc54d8...
+[29-Sep-2025 07:12:15 Europe/Rome] API CSRF Check - Session token: e18dbc54d8...
+[29-Sep-2025 07:12:20 Europe/Rome] Delete API - User ID: 1, Role: super_admin, Is Super Admin: yes
+[29-Sep-2025 07:12:20 Europe/Rome] Delete API - CSRF Token received: e18dbc54d8...
+[29-Sep-2025 07:12:20 Europe/Rome] Delete API - Session CSRF Token: e2eea7aa71...
+[29-Sep-2025 07:13:05 Europe/Rome] Delete API - User ID: 1, Role: super_admin, Is Super Admin: yes
+[29-Sep-2025 07:13:05 Europe/Rome] Delete API - CSRF Token received: e18dbc54d8...
+[29-Sep-2025 07:13:05 Europe/Rome] Delete API - Session CSRF Token: e2eea7aa71...
+[29-Sep-2025 07:35:48 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\migrate_audit_logs.php on line 69
+[29-Sep-2025 07:35:48 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method PDO::real_escape_string() in C:\xampp\htdocs\CollaboraNexio\migrate_audit_logs.php:245
+Stack trace:
+#0 C:\xampp\htdocs\CollaboraNexio\migrate_audit_logs.php(330): runMigration()
+#1 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\migrate_audit_logs.php on line 245
+[29-Sep-2025 07:37:30 Europe/Rome] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'success' in 'field list' in C:\xampp\htdocs\CollaboraNexio\migrate_audit_logs.php:263
+Stack trace:
+#0 C:\xampp\htdocs\CollaboraNexio\migrate_audit_logs.php(263): PDO->query('INSERT IGNORE I...')
+#1 C:\xampp\htdocs\CollaboraNexio\migrate_audit_logs.php(347): runMigration()
+#2 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\migrate_audit_logs.php on line 263
+[29-Sep-2025 07:39:25 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method PDOStatement::bind_param() in C:\xampp\htdocs\CollaboraNexio\includes\audit_logger.php:141
+Stack trace:
+#0 C:\xampp\htdocs\CollaboraNexio\includes\audit_logger.php(173): AuditLogger->log(Array)
+#1 C:\xampp\htdocs\CollaboraNexio\test_audit_logger.php(20): AuditLogger->logSimple('view', 'file', 123, 'User viewed fil...')
+#2 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\includes\audit_logger.php on line 141
+[29-Sep-2025 07:41:40 Europe/Rome] GetTenantList Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'is_active' in 'field list'
+[29-Sep-2025 07:41:43 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:41:43 Europe/Rome] Delete API - User ID: 1, Role: super_admin, Is Super Admin: yes
+[29-Sep-2025 07:41:43 Europe/Rome] API CSRF Check - Token received: e2eea7aa71...
+[29-Sep-2025 07:41:43 Europe/Rome] API CSRF Check - Session token: e18dbc54d8...
+[29-Sep-2025 07:42:07 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:42:07 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:42:07 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[29-Sep-2025 07:42:07 Europe/Rome] API CSRF Check - Token received: e18dbc54d8...
+[29-Sep-2025 07:42:07 Europe/Rome] API CSRF Check - Session token: e18dbc54d8...
+[29-Sep-2025 07:42:07 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:42:07 Europe/Rome] API CSRF Check - Token received: e18dbc54d8...
+[29-Sep-2025 07:42:07 Europe/Rome] API CSRF Check - Session token: e18dbc54d8...
+[29-Sep-2025 07:42:10 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:42:10 Europe/Rome] Delete API - User ID: 1, Role: super_admin, Is Super Admin: yes
+[29-Sep-2025 07:42:10 Europe/Rome] API CSRF Check - Token received: e18dbc54d8...
+[29-Sep-2025 07:42:10 Europe/Rome] API CSRF Check - Session token: e18dbc54d8...
+[29-Sep-2025 07:55:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:55:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:55:15 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[29-Sep-2025 07:55:15 Europe/Rome] API CSRF Check - Token received: e18dbc54d8...
+[29-Sep-2025 07:55:15 Europe/Rome] API CSRF Check - Session token: e18dbc54d8...
+[29-Sep-2025 07:55:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:55:15 Europe/Rome] API CSRF Check - Token received: e18dbc54d8...
+[29-Sep-2025 07:55:15 Europe/Rome] API CSRF Check - Session token: e18dbc54d8...
+[29-Sep-2025 07:55:21 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:55:21 Europe/Rome] Delete API - User ID: 1, Role: super_admin, Is Super Admin: yes
+[29-Sep-2025 07:55:21 Europe/Rome] API CSRF Check - Token received: e18dbc54d8...
+[29-Sep-2025 07:55:21 Europe/Rome] API CSRF Check - Session token: e18dbc54d8...
+[29-Sep-2025 07:55:21 Europe/Rome] Audit log error: SQLSTATE[23000]: Integrity constraint violation: 4025 CONSTRAINT `chk_audit_entity` failed for `collaboranexio`.`audit_logs`
+[29-Sep-2025 07:55:21 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:55:21 Europe/Rome] API CSRF Check - Token received: e18dbc54d8...
+[29-Sep-2025 07:55:21 Europe/Rome] API CSRF Check - Session token: e18dbc54d8...
+[29-Sep-2025 07:55:24 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[29-Sep-2025 07:55:26 Europe/Rome] PHP Warning:  Undefined variable $stmt in C:\xampp\htdocs\CollaboraNexio\api\files_tenant_fixed.php on line 618
+[29-Sep-2025 07:55:26 Europe/Rome] PHP Warning:  Attempt to read property "queryString" on null in C:\xampp\htdocs\CollaboraNexio\api\files_tenant_fixed.php on line 618
+[29-Sep-2025 07:55:26 Europe/Rome] GetTenantList SQL Error: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'is_active' in 'field list' - Query: 
+[29-Sep-2025 08:03:46 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[30-Sep-2025 17:14:47 Europe/Berlin] PHP Error [2]: Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 59
+[30-Sep-2025 17:14:47 Europe/Berlin] PHP Error [2]: Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
+[30-Sep-2025 17:14:47 Europe/Rome] Session saved with cookie name: COLLAB_SID, ID: gol9upq3ha97gb6agp8j3s17um
+[30-Sep-2025 17:14:47 Europe/Rome] Session data after save: {"csrf_token":"1401b826a2c4a9744502cc3811c38139536c058a91e6ee879099677ccd7b430c","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759245287}
+[30-Sep-2025 17:58:37 Europe/Rome] [2025-09-30 17:58:37] API Error in create_v2.php: Errore durante l'inserimento del record
+[30-Sep-2025 18:19:50 Europe/Rome] [CREATE_USER] Starting user creation for email: asamodeo@fortibyte.it
+[30-Sep-2025 18:19:50 Europe/Rome] [CREATE_USER] Role: super_admin
+[30-Sep-2025 18:19:50 Europe/Rome] [CREATE_USER] Current user role: super_admin
+[30-Sep-2025 18:19:50 Europe/Rome] [2025-09-30 18:19:50] API Error in create_v2.php: Errore durante l'inserimento del record
+[30-Sep-2025 19:07:21 Europe/Rome] Create user input received: {"first_name":"Antonio Silvestro","last_name":"Amodeo","email":"asamodeo@fortibyte.it","role":"super_admin","csrf_token":"1401b826a2c4a9744502cc3811c38139536c058a91e6ee879099677ccd7b430c"}
+[30-Sep-2025 19:07:21 Europe/Rome] Database error in create_simple.php: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'deleted_at' in 'where clause'
+[01-Oct-2025 06:19:22 Europe/Berlin] PHP Error [2]: Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 59
+[01-Oct-2025 06:19:22 Europe/Berlin] PHP Error [2]: Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
+[01-Oct-2025 06:19:22 Europe/Rome] Session saved with cookie name: COLLAB_SID, ID: tcpfd323pvq8qpqeuauialvahd
+[01-Oct-2025 06:19:22 Europe/Rome] Session data after save: {"csrf_token":"7b9ead53ae59400ed702f70a088ca61f7f723d3e0b451797fbd7243283e3e190","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759292362}
+[01-Oct-2025 06:19:36 Europe/Rome] Create user input received: {"first_name":"Antonio Silvestro","last_name":"Amodeo","email":"asamodeo@fortibyte.it","role":"super_admin","csrf_token":"7b9ead53ae59400ed702f70a088ca61f7f723d3e0b451797fbd7243283e3e190"}
+[01-Oct-2025 06:19:36 Europe/Rome] Database error in create_simple.php: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'created_at' in 'field list'
+[01-Oct-2025 06:23:57 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:24:52 Europe/Berlin] PHP Error [2]: Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 59
+[01-Oct-2025 06:24:52 Europe/Berlin] PHP Error [2]: Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
+[01-Oct-2025 06:24:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:24:52 Europe/Rome] Session saved with cookie name: COLLAB_SID, ID: bg1r8cutpnu9elnvgib8qf07i2
+[01-Oct-2025 06:24:52 Europe/Rome] Session data after save: {"csrf_token":"a9ddee5d166681ee0b0f68750f314e1bd7387bdef8453001168ac54becab645c","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759292692}
+[01-Oct-2025 06:24:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:06 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:06 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:06 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[01-Oct-2025 06:25:06 Europe/Rome] API CSRF Check - Token received: a9ddee5d16...
+[01-Oct-2025 06:25:06 Europe/Rome] API CSRF Check - Session token: a9ddee5d16...
+[01-Oct-2025 06:25:06 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:06 Europe/Rome] API CSRF Check - Token received: a9ddee5d16...
+[01-Oct-2025 06:25:06 Europe/Rome] API CSRF Check - Session token: a9ddee5d16...
+[01-Oct-2025 06:25:12 Europe/Rome] Create user input received: {"first_name":"Antonio Silvestro","last_name":"Amodeo","email":"asamodeo@fortibyte.it","role":"super_admin","csrf_token":"a9ddee5d166681ee0b0f68750f314e1bd7387bdef8453001168ac54becab645c"}
+[01-Oct-2025 06:25:12 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:12 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[01-Oct-2025 06:25:12 Europe/Rome] API CSRF Check - Token received: a9ddee5d16...
+[01-Oct-2025 06:25:12 Europe/Rome] API CSRF Check - Session token: a9ddee5d16...
+[01-Oct-2025 06:25:47 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:47 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:25:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:39:42 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:39:54 Europe/Berlin] PHP Error [2]: Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 59
+[01-Oct-2025 06:39:54 Europe/Berlin] PHP Error [2]: Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
+[01-Oct-2025 06:39:54 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:39:54 Europe/Rome] Session saved with cookie name: COLLAB_SID, ID: ertsf53vdhoi2u5qo1tfloaqai
+[01-Oct-2025 06:39:54 Europe/Rome] Session data after save: {"csrf_token":"684073405660842e2411fc097e42e362f59f8360be6e1e88f6b5b0885041e0eb","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759293594}
+[01-Oct-2025 06:39:55 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:42:01 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:42:01 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:42:01 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[01-Oct-2025 06:42:01 Europe/Rome] API CSRF Check - Token received: 6840734056...
+[01-Oct-2025 06:42:01 Europe/Rome] API CSRF Check - Session token: 6840734056...
+[01-Oct-2025 06:42:01 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:42:01 Europe/Rome] API CSRF Check - Token received: 6840734056...
+[01-Oct-2025 06:42:01 Europe/Rome] API CSRF Check - Session token: 6840734056...
+[01-Oct-2025 06:50:26 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:50:26 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:50:29 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:50:55 Europe/Berlin] PHP Error [2]: Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 59
+[01-Oct-2025 06:50:55 Europe/Berlin] PHP Error [2]: Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
+[01-Oct-2025 06:50:55 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:50:55 Europe/Rome] Session saved with cookie name: COLLAB_SID, ID: 9mn8is7el4ptosj5bu6q6p35o5
+[01-Oct-2025 06:50:55 Europe/Rome] Session data after save: {"csrf_token":"e9a0da4468939b597c62e7733d5723beae57fbf972f0c50fd1a90ddb14b9f54b","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759294255}
+[01-Oct-2025 06:50:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false

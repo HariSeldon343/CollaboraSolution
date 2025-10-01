@@ -85,11 +85,31 @@ if (isset($_GET['logout'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - CollaboraNexio</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="<?php echo BASE_URL; ?>/assets/images/favicon.svg">
+    <link rel="alternate icon" href="<?php echo BASE_URL; ?>/assets/images/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?php echo BASE_URL; ?>/assets/images/logo.png">
+    <meta name="theme-color" content="#2563eb">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        html {
+            /* Global Interface Scale - Set to 90% for better visibility */
+            zoom: 0.9;
+        }
+
+        /* Firefox-specific scaling */
+        @supports (-moz-appearance: none) and (not (zoom: 1)) {
+            html {
+                transform: scale(0.9);
+                transform-origin: 0 0;
+                width: 111.11%;
+                height: 111.11%;
+            }
         }
 
         body {
@@ -116,6 +136,22 @@ if (isset($_GET['logout'])) {
             padding: 40px 30px;
             text-align: center;
             color: white;
+        }
+
+        .login-logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: white;
+            border-radius: 16px;
+            padding: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .login-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         .login-header h1 {
@@ -158,6 +194,10 @@ if (isset($_GET['logout'])) {
             border-color: #667eea;
         }
 
+        .form-group input::placeholder {
+            color: #6b7280;
+        }
+
         .alert {
             padding: 12px 15px;
             border-radius: 10px;
@@ -166,15 +206,15 @@ if (isset($_GET['logout'])) {
         }
 
         .alert-error {
-            background: #fee;
-            color: #c33;
-            border: 1px solid #fcc;
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.2);
         }
 
         .alert-success {
-            background: #efe;
-            color: #3c3;
-            border: 1px solid #cfc;
+            background: rgba(16, 185, 129, 0.1);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.2);
         }
 
         .btn-login {
@@ -257,6 +297,9 @@ if (isset($_GET['logout'])) {
 <body>
     <div class="login-container">
         <div class="login-header">
+            <div class="login-logo">
+                <img src="<?php echo BASE_URL; ?>/assets/images/logo.png" alt="CollaboraNexio Logo">
+            </div>
             <h1>CollaboraNexio</h1>
             <p>Enterprise Collaboration Platform</p>
         </div>

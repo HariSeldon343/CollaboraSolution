@@ -1,52 +1,46 @@
 <?php
-session_start();
-header('Content-Type: application/json');
-header('X-Content-Type-Options: nosniff');
+/**
+ * API per la creazione di nuovi utenti
+ * Supporta il sistema di prima password con invio email di benvenuto
+ */
 
+// Usa il sistema di autenticazione centralizzato
+require_once '../../includes/api_auth.php';
 require_once '../../config.php';
 require_once '../../includes/db.php';
-require_once '../../includes/auth.php';
+require_once '../../includes/EmailSender.php';
 
-// Start output buffering for clean error handling
-ob_start();
+// Inizializza l'ambiente API (gestisce sessione, headers, output buffering)
+initializeApiEnvironment();
 
 try {
-    // Authentication validation
-    if (!isset($_SESSION['user_id'])) {
-        ob_clean();
-        http_response_code(401);
-        die(json_encode(['error' => 'Non autorizzato']));
-    }
+    // Verifica autenticazione
+    verifyApiAuthentication();
 
-    // Tenant isolation
-    $tenant_id = $_SESSION['tenant_id'];
-    $current_user_role = $_SESSION['role'];
+    // Verifica CSRF token
+    verifyApiCsrfToken(true);
 
-    // Check permissions - only super_admin and admin can create users
-    if (!in_array($current_user_role, ['super_admin', 'admin'])) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Non autorizzato a creare utenti']));
-    }
+    // Ottieni informazioni utente
+    $userInfo = getApiUserInfo();
+    $tenant_id = $userInfo['tenant_id'];
+    $current_user_role = $userInfo['role'];
 
-    // Input sanitization
+    // Verifica permessi - solo super_admin e admin possono creare utenti
+    requireApiRole('admin');
+
+    // Input sanitization - supporta sia JSON che FormData
     $input = json_decode(file_get_contents('php://input'), true);
-
-    // CSRF token validation
-    $csrf_token = $input['csrf_token'] ?? '';
-    $auth = new Auth();
-    if (!$auth->verifyCSRFToken($csrf_token)) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido']));
+    if (!$input) {
+        // Se non è JSON, prova a leggere da $_POST (FormData)
+        $input = $_POST;
     }
 
     // Extract and validate input
-    $first_name = filter_var(trim($input['first_name'] ?? ''), FILTER_SANITIZE_STRING);
-    $last_name = filter_var(trim($input['last_name'] ?? ''), FILTER_SANITIZE_STRING);
+    $first_name = htmlspecialchars(trim($input['first_name'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $last_name = htmlspecialchars(trim($input['last_name'] ?? ''), ENT_QUOTES, 'UTF-8');
     $email = filter_var(trim($input['email'] ?? ''), FILTER_SANITIZE_EMAIL);
-    $password = $input['password'] ?? '';
-    $role = filter_var(trim($input['role'] ?? 'user'), FILTER_SANITIZE_STRING);
+    // Password non più richiesta - verrà generato un token
+    $role = htmlspecialchars(trim($input['role'] ?? 'user'), ENT_QUOTES, 'UTF-8');
     $single_tenant_id = isset($input['tenant_id']) ? intval($input['tenant_id']) : null;
     $tenant_ids = $input['tenant_ids'] ?? [];
 
@@ -61,9 +55,7 @@ try {
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Email non valida';
     }
-    if (strlen($password) < 8) {
-        $errors[] = 'La password deve contenere almeno 8 caratteri';
-    }
+    // Password non più validata - verrà impostata dall'utente
     if (!in_array($role, ['super_admin', 'admin', 'manager', 'user'])) {
         $errors[] = 'Ruolo non valido';
     }
@@ -106,12 +98,15 @@ try {
     }
 
     if (!empty($errors)) {
-        ob_clean();
-        http_response_code(400);
-        die(json_encode(['error' => 'Errori di validazione', 'errors' => $errors]));
+        apiError('Errori di validazione', 400, ['errors' => $errors]);
     }
 
     $db = Database::getInstance();
+
+    // Debug logging
+    error_log('[CREATE_USER] Starting user creation for email: ' . $email);
+    error_log('[CREATE_USER] Role: ' . $role);
+    error_log('[CREATE_USER] Current user role: ' . $current_user_role);
 
     // Begin transaction
     $db->beginTransaction();
@@ -127,18 +122,22 @@ try {
             throw new Exception('Email già registrata');
         }
 
-        // Hash password
-        $password_hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
+        // Genera token sicuro per il reset password
+        $reset_token = EmailSender::generateSecureToken();
+        $reset_expires = date('Y-m-d H:i:s', strtotime('+24 hours'));
 
-        // Insert new user
+        // Insert new user con token per primo accesso
         $user_data = [
             'first_name' => $first_name,
             'last_name' => $last_name,
             'email' => $email,
-            'password_hash' => $password_hash,
+            'password_hash' => null, // Nessuna password iniziale
             'role' => $role,
             'tenant_id' => $single_tenant_id,
             'status' => 'active',
+            'password_reset_token' => $reset_token,
+            'password_reset_expires' => $reset_expires,
+            'first_login' => 1,
             'created_at' => date('Y-m-d H:i:s')
         ];
 
@@ -190,8 +189,8 @@ try {
             }
         }
 
-        // Log the activity
-        $db->insert('activity_logs', [
+        // Log the activity - usa audit_logs non activity_logs
+        $db->insert('audit_logs', [
             'tenant_id' => $tenant_id,
             'user_id' => $_SESSION['user_id'],
             'action' => 'user_create',
@@ -204,14 +203,80 @@ try {
         // Commit transaction
         $db->commit();
 
-        ob_clean();
-        echo json_encode([
-            'success' => true,
-            'data' => [
-                'user_id' => $new_user_id,
-                'message' => 'Utente creato con successo'
-            ]
-        ]);
+        // Ottieni il nome del tenant per l'email
+        $tenant_name = '';
+        if ($single_tenant_id) {
+            $tenant_data = $db->fetchOne(
+                "SELECT name FROM tenants WHERE id = :id",
+                [':id' => $single_tenant_id]
+            );
+            if ($tenant_data) {
+                $tenant_name = $tenant_data['name'];
+            }
+        } elseif ($role === 'admin' && !empty($tenant_ids)) {
+            // Per gli admin, usa la prima azienda
+            $first_tenant = $db->fetchOne(
+                "SELECT name FROM tenants WHERE id = :id",
+                [':id' => $tenant_ids[0]]
+            );
+            if ($first_tenant) {
+                $tenant_name = $first_tenant['name'];
+            }
+        }
+
+        // Invia email di benvenuto - gestione errori migliorata
+        $email_sent = false;
+        $email_error = '';
+
+        // Su Windows/XAMPP l'invio email potrebbe non funzionare
+        if (stripos(PHP_OS, 'WIN') !== false) {
+            error_log('[CREATE_USER] Windows detected - Email might not work without proper SMTP configuration');
+        }
+
+        try {
+            // Verifica che la classe EmailSender esista
+            if (!class_exists('EmailSender')) {
+                throw new Exception('Classe EmailSender non trovata');
+            }
+
+            $emailSender = new EmailSender();
+            $full_name = trim($first_name . ' ' . $last_name);
+
+            error_log('[CREATE_USER] Attempting to send welcome email to: ' . $email);
+            $email_sent = $emailSender->sendWelcomeEmail($email, $full_name, $reset_token, $tenant_name);
+
+            if ($email_sent) {
+                // Aggiorna timestamp invio email
+                $db->query(
+                    "UPDATE users SET welcome_email_sent_at = NOW() WHERE id = :user_id",
+                    [':user_id' => $new_user_id]
+                );
+                error_log('[CREATE_USER] Welcome email sent successfully');
+            } else {
+                $email_error = 'Utente creato ma email non inviata. L\'utente dovrà richiedere un nuovo link.';
+                error_log('[CREATE_USER] Email send failed but user created');
+            }
+        } catch (Exception $e) {
+            error_log('[CREATE_USER] Email sending exception: ' . $e->getMessage());
+            $email_error = 'Utente creato. Email non configurata su questo server.';
+            // Non fallire l'intera operazione per un errore email
+        }
+
+        // Prepara la risposta
+        $responseData = [
+            'user_id' => $new_user_id,
+            'email_sent' => $email_sent,
+            'message' => 'Utente creato con successo'
+        ];
+
+        if ($email_error) {
+            $responseData['warning'] = $email_error;
+            $responseData['reset_link'] = BASE_URL . '/set_password.php?token=' . urlencode($reset_token);
+        } else {
+            $responseData['message'] .= '. Email di benvenuto inviata.';
+        }
+
+        apiSuccess($responseData, $responseData['message']);
 
     } catch (Exception $e) {
         $db->rollback();
@@ -219,21 +284,15 @@ try {
     }
 
 } catch (Exception $e) {
-    ob_clean();
-    error_log('Create User V2 Error: ' . $e->getMessage());
+    logApiError('create_v2.php', $e);
 
     // Check for specific error types
     if (strpos($e->getMessage(), 'Email già registrata') !== false) {
-        http_response_code(409);
-        die(json_encode(['error' => 'Email già registrata']));
+        apiError('Email già registrata', 409);
     } elseif (strpos($e->getMessage(), 'Non hai accesso') !== false) {
-        http_response_code(403);
-        die(json_encode(['error' => $e->getMessage()]));
+        apiError($e->getMessage(), 403);
     } else {
-        http_response_code(500);
-        die(json_encode(['error' => 'Errore nella creazione dell\'utente']));
+        apiError('Errore nella creazione dell\'utente', 500);
     }
 }
-
-ob_end_flush();
 ?>

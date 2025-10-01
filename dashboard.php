@@ -32,6 +32,8 @@ $csrfToken = $auth->generateCSRFToken();
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Dashboard - CollaboraNexio</title>
 
+    <?php require_once __DIR__ . '/includes/favicon.php'; ?>
+
     <!-- Main CSS -->
     <link rel="stylesheet" href="assets/css/styles.css">
     <!-- Page specific CSS -->
@@ -141,6 +143,16 @@ $csrfToken = $auth->generateCSRFToken();
             font-style: normal;
             color: var(--color-sidebar-text);
             position: relative;
+        }
+
+        /* Logo image style */
+        .logo-img {
+            width: 32px;
+            height: 32px;
+            background: white;
+            padding: 4px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         /* White icon styles using CSS */
@@ -300,7 +312,7 @@ $csrfToken = $auth->generateCSRFToken();
         <div class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
-                    <span class="logo-icon">N</span>
+                    <img src="assets/images/logo.png" alt="CollaboraNexio" class="logo-img">
                     <span class="logo-text">NEXIO</span>
                 </div>
                 <div class="sidebar-subtitle">Semplifica, Connetti, Cresci Insieme</div>

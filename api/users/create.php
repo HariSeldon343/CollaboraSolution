@@ -37,10 +37,13 @@ try {
         apiError('Non hai i permessi per creare utenti', 403);
     }
 
+    // Include EmailSender class
+    require_once '../../includes/EmailSender.php';
+
     // Get and validate input
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
+    // Password non più richiesta - verrà generato un token
     $role = $_POST['role'] ?? 'user';
     $tenantId = intval($_POST['tenant_id'] ?? $currentTenantId);
     $isActive = isset($_POST['is_active']) ? (bool)$_POST['is_active'] : true;
@@ -53,9 +56,7 @@ try {
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Email non valida';
     }
-    if (strlen($password) < 8) {
-        $errors[] = 'La password deve contenere almeno 8 caratteri';
-    }
+    // Password non più validata - verrà impostata dall'utente
     if (!in_array($role, ['super_admin', 'tenant_admin', 'manager', 'user', 'guest'])) {
         $errors[] = 'Ruolo non valido';
     }
@@ -106,10 +107,14 @@ try {
         die(json_encode(['error' => 'Azienda non attiva']));
     }
 
-    // Hash password
-    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+    // Genera token sicuro per il reset password
+    $resetToken = EmailSender::generateSecureToken();
+    $resetExpires = date('Y-m-d H:i:s', strtotime('+24 hours'));
 
-    // Insert new user
+    // Password temporanea (l'utente dovrà cambiarla)
+    $passwordHash = null; // Nessuna password iniziale
+
+    // Insert new user con token per primo accesso
     $insertQuery = "
         INSERT INTO users (
             tenant_id,
@@ -117,14 +122,20 @@ try {
             password_hash,
             name,
             role,
-            is_active
+            is_active,
+            password_reset_token,
+            password_reset_expires,
+            first_login
         ) VALUES (
             :tenant_id,
             :email,
             :password_hash,
             :name,
             :role,
-            :is_active
+            :is_active,
+            :reset_token,
+            :reset_expires,
+            TRUE
         )
     ";
 
@@ -135,6 +146,8 @@ try {
     $stmt->bindParam(':name', $name);
     $stmt->bindParam(':role', $role);
     $stmt->bindParam(':is_active', $isActive, PDO::PARAM_BOOL);
+    $stmt->bindParam(':reset_token', $resetToken);
+    $stmt->bindParam(':reset_expires', $resetExpires);
 
     if (!$stmt->execute()) {
         ob_clean();
@@ -144,17 +157,57 @@ try {
 
     $newUserId = $conn->lastInsertId();
 
+    // Ottieni il nome del tenant per l'email
+    $tenantQuery = "SELECT name FROM tenants WHERE id = :tenant_id";
+    $tenantStmt = $conn->prepare($tenantQuery);
+    $tenantStmt->bindParam(':tenant_id', $tenantId, PDO::PARAM_INT);
+    $tenantStmt->execute();
+    $tenantData = $tenantStmt->fetch(PDO::FETCH_ASSOC);
+    $tenantName = $tenantData ? ' per ' . $tenantData['name'] : '';
+
+    // Invia email di benvenuto
+    $emailSender = new EmailSender();
+    $emailSent = false;
+    $emailError = '';
+
+    try {
+        $emailSent = $emailSender->sendWelcomeEmail($email, $name, $resetToken, $tenantName);
+
+        if ($emailSent) {
+            // Aggiorna timestamp invio email
+            $updateEmailQuery = "UPDATE users SET welcome_email_sent_at = NOW() WHERE id = :user_id";
+            $updateStmt = $conn->prepare($updateEmailQuery);
+            $updateStmt->bindParam(':user_id', $newUserId);
+            $updateStmt->execute();
+        } else {
+            $emailError = 'Utente creato ma email non inviata. L\'utente dovrà richiedere un nuovo link.';
+        }
+    } catch (Exception $e) {
+        error_log('Email sending error: ' . $e->getMessage());
+        $emailError = 'Utente creato ma email non inviata. Errore: ' . $e->getMessage();
+    }
+
     // Clean any output buffer
     ob_clean();
 
-    // Success response
-    echo json_encode([
+    // Success response con info email
+    $responseData = [
         'success' => true,
         'data' => [
-            'user_id' => (int)$newUserId
+            'user_id' => (int)$newUserId,
+            'email_sent' => $emailSent
         ],
         'message' => 'Utente creato con successo'
-    ]);
+    ];
+
+    if ($emailError) {
+        $responseData['warning'] = $emailError;
+        $responseData['reset_link'] = BASE_URL . '/set_password.php?token=' . urlencode($resetToken);
+    } else {
+        $responseData['message'] .= '. Email di benvenuto inviata.';
+    }
+
+    echo json_encode($responseData);
     exit();
 
 } catch (PDOException $e) {

@@ -92,33 +92,11 @@ function listFiles() {
     $search = $_GET['search'] ?? '';
 
     try {
-        // Prima verifichiamo quali colonne esistono nelle tabelle
-        $stmt = $pdo->query("SHOW COLUMNS FROM files");
-        $file_columns = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $file_columns[] = $row['Field'];
-        }
-
-        $stmt = $pdo->query("SHOW COLUMNS FROM folders");
-        $folder_columns = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $folder_columns[] = $row['Field'];
-        }
-
-        // Determina quali colonne usare per files
-        $file_name_col = 'name'; // default
-        if (in_array('file_name', $file_columns)) {
-            $file_name_col = 'file_name';
-        } elseif (in_array('filename', $file_columns)) {
-            $file_name_col = 'filename';
-        }
-
-        $file_size_col = 'size'; // default
-        if (in_array('file_size', $file_columns)) {
-            $file_size_col = 'file_size';
-        } elseif (in_array('size_bytes', $file_columns)) {
-            $file_size_col = 'size_bytes';
-        }
+        // Usa i nomi delle colonne corretti basati sullo schema del database
+        // Files table usa: name, size_bytes, mime_type
+        // Folders table usa: name, parent_id
+        $file_name_col = 'name';
+        $file_size_col = 'size_bytes';
 
         // Array per risultati
         $items = [];
@@ -225,9 +203,7 @@ function listFiles() {
         if ($folder_id !== null && $folder_id !== '') {
             $file_params = [':folder_id' => $folder_id];
 
-            // Costruisci query con colonne disponibili
-            $mime_select = in_array('mime_type', $file_columns) ? 'f.mime_type' : 'NULL as mime_type';
-
+            // Files table ha sempre mime_type secondo lo schema
             $file_query = "
                 SELECT
                     f.id,
@@ -238,7 +214,7 @@ function listFiles() {
                     f.updated_at,
                     'file' as type,
                     f.$file_size_col as size,
-                    $mime_select,
+                    f.mime_type,
                     t.name as tenant_name,
                     0 as subfolder_count,
                     0 as file_count
@@ -570,9 +546,10 @@ function renameItem() {
 }
 
 function getTenantList() {
-    global $pdo, $user_id, $user_role;
+    global $pdo, $user_id, $user_role, $tenant_id;
 
     if (!in_array($user_role, ['admin', 'super_admin'])) {
+        ob_clean();
         http_response_code(403);
         echo json_encode(['error' => 'Non autorizzato']);
         return;
@@ -580,20 +557,30 @@ function getTenantList() {
 
     try {
         if ($user_role === 'super_admin') {
+            // Super Admin vede tutti i tenant
             $stmt = $pdo->prepare("
-                SELECT id, name, is_active
+                SELECT id, name,
+                       CASE WHEN status = 'active' THEN '1' ELSE '0' END as is_active,
+                       status
                 FROM tenants
-                WHERE deleted_at IS NULL
+                WHERE status != 'suspended'
                 ORDER BY name
             ");
             $stmt->execute();
         } else {
+            // Admin vede solo i tenant a cui ha accesso esplicito + il proprio tenant corrente
+            // Usando UNION per evitare problemi con LEFT JOIN e WHERE
             $stmt = $pdo->prepare("
-                SELECT DISTINCT t.id, t.name, t.is_active
+                SELECT DISTINCT t.id, t.name,
+                       CASE WHEN t.status = 'active' THEN '1' ELSE '0' END as is_active,
+                       t.status
                 FROM tenants t
-                LEFT JOIN user_tenant_access uta ON t.id = uta.tenant_id
-                WHERE (uta.user_id = :user_id OR t.id = :tenant_id)
-                AND t.deleted_at IS NULL
+                WHERE t.id IN (
+                    SELECT tenant_id FROM user_tenant_access WHERE user_id = :user_id
+                    UNION
+                    SELECT :tenant_id
+                )
+                AND t.status != 'suspended'
                 ORDER BY t.name
             ");
             $stmt->execute([':user_id' => $user_id, ':tenant_id' => $tenant_id]);
@@ -607,6 +594,18 @@ function getTenantList() {
             'data' => $tenants
         ]);
 
+    } catch (PDOException $e) {
+        $errorMsg = 'GetTenantList SQL Error: ' . $e->getMessage();
+        if (isset($stmt)) {
+            $errorMsg .= ' - Query: ' . $stmt->queryString;
+        }
+        error_log($errorMsg);
+        ob_clean();
+        http_response_code(500);
+        echo json_encode([
+            'error' => 'Errore nel caricamento dei tenant',
+            'details' => DEBUG_MODE ? $e->getMessage() : null
+        ]);
     } catch (Exception $e) {
         error_log('GetTenantList Error: ' . $e->getMessage());
         ob_clean();

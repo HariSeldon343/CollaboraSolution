@@ -32,7 +32,7 @@ $csrfToken = $auth->generateCSRFToken();
             <!-- Logo and Branding -->
             <div class="login-header">
                 <div class="login-logo">
-                    <span class="logo-icon">◆</span>
+                    <img src="assets/images/logo.png" alt="CollaboraNexio Logo" class="logo-img">
                     <h1 class="logo-text">NEXIO</h1>
                 </div>
                 <p class="login-subtitle">Collaboration Suite</p>
@@ -95,9 +95,9 @@ $csrfToken = $auth->generateCSRFToken();
 
             <!-- Footer Links -->
             <div class="login-footer">
-                <a href="#" class="footer-link">Forgot Password?</a>
+                <a href="forgot_password.php" class="footer-link">Password dimenticata?</a>
                 <span class="footer-separator">•</span>
-                <a href="#" class="footer-link">Contact Support</a>
+                <a href="mailto:support@collaboranexio.com" class="footer-link">Contatta Supporto</a>
             </div>
         </div>
 

@@ -1,53 +1,45 @@
 <?php
-session_start();
-header('Content-Type: application/json');
-header('X-Content-Type-Options: nosniff');
+/**
+ * API per l'aggiornamento degli utenti
+ */
 
+// Usa il sistema di autenticazione centralizzato
+require_once '../../includes/api_auth.php';
 require_once '../../config.php';
 require_once '../../includes/db.php';
-require_once '../../includes/auth.php';
 
-// Start output buffering for clean error handling
-ob_start();
+// Inizializza l'ambiente API
+initializeApiEnvironment();
 
 try {
-    // Authentication validation
-    if (!isset($_SESSION['user_id'])) {
-        ob_clean();
-        http_response_code(401);
-        die(json_encode(['error' => 'Non autorizzato']));
-    }
+    // Verifica autenticazione
+    verifyApiAuthentication();
 
-    // Tenant isolation
-    $tenant_id = $_SESSION['tenant_id'];
-    $current_user_role = $_SESSION['role'];
+    // Ottieni informazioni utente
+    $userInfo = getApiUserInfo();
+    $tenant_id = $userInfo['tenant_id'];
+    $current_user_role = $userInfo['role'];
 
-    // Check permissions - only super_admin and admin can update users
-    if (!in_array($current_user_role, ['super_admin', 'admin'])) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Non autorizzato a modificare utenti']));
-    }
+    // Verifica permessi - solo super_admin e admin possono modificare utenti
+    requireApiRole('admin');
 
-    // Input sanitization
+    // Input sanitization - supporta sia JSON che FormData
     $input = json_decode(file_get_contents('php://input'), true);
-
-    // CSRF token validation
-    $csrf_token = $input['csrf_token'] ?? '';
-    $auth = new Auth();
-    if (!$auth->verifyCSRFToken($csrf_token)) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido']));
+    if (!$input) {
+        // Se non è JSON, prova a leggere da $_POST (FormData)
+        $input = $_POST;
     }
+
+    // Verifica CSRF token
+    verifyApiCsrfToken(true);
 
     // Extract and validate input
     $user_id = isset($input['user_id']) ? intval($input['user_id']) : 0;
-    $first_name = filter_var(trim($input['first_name'] ?? ''), FILTER_SANITIZE_STRING);
-    $last_name = filter_var(trim($input['last_name'] ?? ''), FILTER_SANITIZE_STRING);
+    $first_name = htmlspecialchars(trim($input['first_name'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $last_name = htmlspecialchars(trim($input['last_name'] ?? ''), ENT_QUOTES, 'UTF-8');
     $email = filter_var(trim($input['email'] ?? ''), FILTER_SANITIZE_EMAIL);
     $password = $input['password'] ?? '';
-    $role = filter_var(trim($input['role'] ?? ''), FILTER_SANITIZE_STRING);
+    $role = htmlspecialchars(trim($input['role'] ?? ''), ENT_QUOTES, 'UTF-8');
     $single_tenant_id = isset($input['tenant_id']) ? intval($input['tenant_id']) : null;
     $tenant_ids = $input['tenant_ids'] ?? [];
 
@@ -73,9 +65,7 @@ try {
     }
 
     if (!empty($errors)) {
-        ob_clean();
-        http_response_code(400);
-        die(json_encode(['error' => 'Errori di validazione', 'errors' => $errors]));
+        apiError('Errori di validazione', 400, ['errors' => $errors]);
     }
 
     $db = Database::getInstance();
@@ -87,25 +77,19 @@ try {
     );
 
     if (!$current_user) {
-        ob_clean();
-        http_response_code(404);
-        die(json_encode(['error' => 'Utente non trovato']));
+        apiError('Utente non trovato', 404);
     }
 
     // Role-specific permission checks
     if ($current_user_role === 'admin') {
         // Admin cannot modify super_admin users
         if ($current_user['role'] === 'super_admin') {
-            ob_clean();
-            http_response_code(403);
-            die(json_encode(['error' => 'Non puoi modificare un super admin']));
+            apiError('Non puoi modificare un super admin', 403);
         }
 
         // Admin cannot promote to super_admin
         if ($role === 'super_admin') {
-            ob_clean();
-            http_response_code(403);
-            die(json_encode(['error' => 'Non puoi promuovere a super admin']));
+            apiError('Non puoi promuovere a super admin', 403);
         }
 
         // Admin can only modify users in their tenants
@@ -116,9 +100,7 @@ try {
                 [':admin_id' => $_SESSION['user_id'], ':tenant_id' => $current_user['tenant_id']]
             );
             if (!$has_access && $current_user['tenant_id'] !== null) {
-                ob_clean();
-                http_response_code(403);
-                die(json_encode(['error' => 'Non hai accesso a questo utente']));
+                apiError('Non hai accesso a questo utente', 403);
             }
         }
     }
@@ -155,9 +137,7 @@ try {
     }
 
     if (!empty($errors)) {
-        ob_clean();
-        http_response_code(400);
-        die(json_encode(['error' => 'Errori di validazione', 'errors' => $errors]));
+        apiError('Errori di validazione', 400, ['errors' => $errors]);
     }
 
     // Begin transaction
@@ -282,13 +262,7 @@ try {
         // Commit transaction
         $db->commit();
 
-        ob_clean();
-        echo json_encode([
-            'success' => true,
-            'data' => [
-                'message' => 'Utente aggiornato con successo'
-            ]
-        ]);
+        apiSuccess(['message' => 'Utente aggiornato con successo'], 'Utente aggiornato con successo');
 
     } catch (Exception $e) {
         $db->rollback();
@@ -296,21 +270,15 @@ try {
     }
 
 } catch (Exception $e) {
-    ob_clean();
-    error_log('Update User V2 Error: ' . $e->getMessage());
+    logApiError('update_v2.php', $e);
 
     // Check for specific error types
     if (strpos($e->getMessage(), 'Email già utilizzata') !== false) {
-        http_response_code(409);
-        die(json_encode(['error' => 'Email già utilizzata da un altro utente']));
+        apiError('Email già utilizzata da un altro utente', 409);
     } elseif (strpos($e->getMessage(), 'Non hai accesso') !== false) {
-        http_response_code(403);
-        die(json_encode(['error' => $e->getMessage()]));
+        apiError($e->getMessage(), 403);
     } else {
-        http_response_code(500);
-        die(json_encode(['error' => 'Errore nell\'aggiornamento dell\'utente']));
+        apiError('Errore nell\'aggiornamento dell\'utente', 500);
     }
 }
-
-ob_end_flush();
 ?>

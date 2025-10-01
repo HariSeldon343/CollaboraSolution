@@ -7,6 +7,14 @@
    1. CSS CUSTOM PROPERTIES
    ======================================== */
 :root {
+    /* Global Scale Factor - Easy to adjust (0.9 = 90%, 1.0 = 100%, etc.) */
+    /* To change the interface size, modify this value:
+       - 0.8 = 80% (smaller interface)
+       - 0.9 = 90% (current setting - more compact)
+       - 1.0 = 100% (original size)
+       - 1.1 = 110% (larger interface) */
+    --global-scale: 0.9;
+
     /* Core Colors - Minimal Palette */
     --color-primary: #2563EB;
     --color-primary-dark: #1e40af;
@@ -130,11 +138,32 @@
     padding: 0;
 }
 
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
 html {
     font-size: 16px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    height: 100%;
+
+    /* Global Interface Scale - Set to 90% for better visibility */
+    /* Using zoom for Webkit/Blink browsers (Chrome, Safari, Edge) */
+    zoom: var(--global-scale);
+}
+
+/* Firefox-specific scaling using @supports */
+@supports (-moz-appearance: none) and (not (zoom: 1)) {
+    html {
+        transform: scale(var(--global-scale));
+        transform-origin: 0 0;
+        width: calc(100% / var(--global-scale));
+        height: calc(100% / var(--global-scale));
+    }
 }
 
 body {
@@ -145,6 +174,10 @@ body {
     color: var(--color-gray-900);
     background-color: var(--color-gray-50);
     min-height: 100vh;
+    height: 100vh;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
 }
 
 /* ========================================
@@ -943,11 +976,17 @@ select.form-control {
 .app-container {
     display: flex;
     min-height: 100vh;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
 }
 
 .main-layout {
     display: flex;
     min-height: 100vh;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
 }
 
 .main-content {
@@ -955,6 +994,11 @@ select.form-control {
     margin-left: var(--sidebar-width);
     background-color: var(--color-gray-50);
     transition: margin-left var(--transition-base);
+    min-height: 100vh;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .top-bar,
@@ -1050,6 +1094,8 @@ select.form-control {
 .page-content {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
+    background-color: var(--color-gray-50);
 }
 
 .user-menu {
@@ -1104,7 +1150,9 @@ select.form-control {
 }
 
 .page-content {
-    padding: var(--space-8) var(--space-6);
+    padding: var(--space-6);
+    height: 100%;
+    box-sizing: border-box;
 }
 
 .page-header {
@@ -1290,6 +1338,8 @@ select.form-control {
 
     .main-content {
         margin-left: 0;
+        height: 100vh;
+        min-height: 100vh;
     }
 
     .container {
@@ -1298,6 +1348,7 @@ select.form-control {
 
     .page-content {
         padding: var(--space-6) var(--space-4);
+        height: 100%;
     }
 }
 

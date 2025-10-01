@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate PNG Logos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2563eb;
+        }
+        .logo-preview {
+            display: inline-block;
+            margin: 10px;
+            text-align: center;
+        }
+        .logo-preview canvas {
+            border: 1px solid #e0e0e0;
+            margin-bottom: 10px;
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1e40af;
+        }
+        .instructions {
+            background: #f0f9ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CollaboraNexio Logo PNG Generator</h1>
+
+        <div class="instructions">
+            <h3>Instructions:</h3>
+            <ol>
+                <li>Open this file in a browser</li>
+                <li>Right-click on each canvas and select "Save image as..."</li>
+                <li>Save with the indicated filename in the same directory</li>
+            </ol>
+        </div>
+
+        <div id="logos"></div>
+    </div>
+
+    <script>
+        // Logo configurations
+        const sizes = [
+            { size: 16, name: 'favicon-16x16.png' },
+            { size: 32, name: 'favicon-32x32.png' },
+            { size: 48, name: 'favicon-48x48.png' },
+            { size: 64, name: 'logo-64x64.png' },
+            { size: 128, name: 'logo-128x128.png' },
+            { size: 256, name: 'logo-256x256.png' },
+            { size: 512, name: 'logo.png' }
+        ];
+
+        function drawLogo(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            canvas.width = size;
+            canvas.height = size;
+
+            // Draw background
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#2563eb');
+            gradient.addColorStop(1, '#1e40af');
+
+            // Draw rounded rectangle background
+            const radius = size * 0.15;
+            ctx.beginPath();
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(size - radius, 0);
+            ctx.quadraticCurveTo(size, 0, size, radius);
+            ctx.lineTo(size, size - radius);
+            ctx.quadraticCurveTo(size, size, size - radius, size);
+            ctx.lineTo(radius, size);
+            ctx.quadraticCurveTo(0, size, 0, size - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // Draw star
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const outerRadius = size * 0.3;
+            const innerRadius = size * 0.15;
+            const points = 5;
+
+            ctx.beginPath();
+            ctx.fillStyle = 'white';
+
+            for (let i = 0; i < points * 2; i++) {
+                const angle = (i / (points * 2)) * Math.PI * 2 - Math.PI / 2;
+                const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+
+            ctx.closePath();
+            ctx.fill();
+
+            // Add center dot for larger sizes
+            if (size >= 64) {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, size * 0.04, 0, Math.PI * 2);
+                ctx.fillStyle = '#2563eb';
+                ctx.fill();
+            }
+        }
+
+        // Create canvases for each size
+        const container = document.getElementById('logos');
+
+        sizes.forEach(config => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'logo-preview';
+
+            const canvas = document.createElement('canvas');
+            drawLogo(canvas, config.size);
+
+            const label = document.createElement('div');
+            label.innerHTML = `<strong>${config.name}</strong><br>${config.size}x${config.size}px`;
+
+            const button = document.createElement('button');
+            button.textContent = 'Download';
+            button.onclick = () => {
+                const link = document.createElement('a');
+                link.download = config.name;
+                link.href = canvas.toDataURL();
+                link.click();
+            };
+
+            wrapper.appendChild(canvas);
+            wrapper.appendChild(label);
+            wrapper.appendChild(button);
+            container.appendChild(wrapper);
+        });
+    </script>
+</body>
+</html>

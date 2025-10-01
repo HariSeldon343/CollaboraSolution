@@ -4,72 +4,37 @@
  * Deletes a user (hard delete for this simplified version)
  */
 
-// Suppress all PHP warnings/notices from being output
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ini_set('display_startup_errors', '0');
+// Usa il sistema di autenticazione centralizzato
+require_once '../../includes/api_auth.php';
+require_once '../../config.php';
+require_once '../../includes/db.php';
 
-// Start output buffering to catch any unexpected output
-ob_start();
-
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Set JSON headers immediately
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
+// Inizializza l'ambiente API
+initializeApiEnvironment();
 
 try {
-    // Include required files
-    require_once '../../config.php';
-    require_once '../../includes/db.php';
-
-    // Authentication validation
-    if (!isset($_SESSION['user_id'])) {
-        ob_clean();
-        http_response_code(401);
-        die(json_encode(['error' => 'Non autorizzato']));
-    }
+    // Verifica autenticazione
+    verifyApiAuthentication();
 
     // Check request method
     if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'DELETE') {
+        apiError('Metodo non consentito', 405);
+    }
+
+    // Ottieni informazioni utente
+    $userInfo = getApiUserInfo();
+    $currentUserId = $userInfo['user_id'];
+    $currentUserRole = $userInfo['role'];
+    $currentTenantId = $userInfo['tenant_id'];
+
+    // Verifica permessi - solo manager, admin e super_admin possono eliminare utenti
+    if (!hasApiRole('manager')) {
         ob_clean();
-        http_response_code(405);
-        die(json_encode(['error' => 'Metodo non consentito']));
+        apiError('Permessi insufficienti per eliminare utenti', 403);
     }
 
-    // Get current user from session
-    $currentUserId = $_SESSION['user_id'];
-    $currentUserRole = $_SESSION['user_role'] ?? $_SESSION['role'] ?? 'user';
-    $currentTenantId = $_SESSION['tenant_id'] ?? null;
-
-    // Permission check - managers, admins and super_admins can delete users
-    $allowedRoles = ['manager', 'admin', 'tenant_admin', 'super_admin'];
-    if (!in_array($currentUserRole, $allowedRoles)) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Permessi insufficienti per eliminare utenti']));
-    }
-
-    // CSRF validation
-    // Get CSRF token from various sources
-    $csrfToken = '';
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        // For POST request, check both body and header
-        $input = json_decode(file_get_contents('php://input'), true);
-        $csrfToken = $_POST['csrf_token'] ?? $input['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-    } else {
-        // For DELETE request, check header
-        $csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-    }
-
-    if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido']));
-    }
+    // Verifica CSRF token
+    verifyApiCsrfToken(true);
 
     // Get and validate input
     $userId = 0;
@@ -86,15 +51,13 @@ try {
     // Validation
     if ($userId <= 0) {
         ob_clean();
-        http_response_code(400);
-        die(json_encode(['error' => 'ID utente non valido']));
+        apiError('ID utente non valido', 400);
     }
 
     // Prevent self-deletion
     if ($userId == $currentUserId) {
         ob_clean();
-        http_response_code(400);
-        die(json_encode(['error' => 'Non puoi eliminare il tuo stesso account']));
+        apiError('Non puoi eliminare il tuo stesso account', 400);
     }
 
     // Get database instance
@@ -118,8 +81,7 @@ try {
 
     if (!$userToDelete) {
         ob_clean();
-        http_response_code(404);
-        die(json_encode(['error' => 'Utente non trovato']));
+        apiError('Utente non trovato', 404);
     }
 
     // Check role hierarchy permissions
@@ -137,8 +99,7 @@ try {
     // Users can only delete users with lower or equal roles
     if ($targetLevel > $currentLevel) {
         ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Non puoi eliminare un utente con ruolo superiore al tuo']));
+        apiError('Non puoi eliminare un utente con ruolo superiore al tuo', 403);
     }
 
     // Perform hard delete (no soft delete in this simplified version)
@@ -148,47 +109,23 @@ try {
 
     if (!$deleteStmt->execute()) {
         ob_clean();
-        http_response_code(500);
-        die(json_encode(['error' => 'Errore durante l\'eliminazione dell\'utente']));
+        apiError('Errore durante l\'eliminazione dell\'utente', 500);
     }
 
-    // Clean any output buffer
-    ob_clean();
-
     // Success response
-    echo json_encode([
-        'success' => true,
-        'message' => 'Utente eliminato con successo',
+    apiSuccess([
         'deleted_user' => [
             'id' => $userToDelete['id'],
             'email' => $userToDelete['email'],
             'name' => $userToDelete['name']
         ]
-    ]);
-    exit();
+    ], 'Utente eliminato con successo');
 
 } catch (PDOException $e) {
-    // Log the actual error for debugging
-    error_log('Delete User PDO Error: ' . $e->getMessage());
-
-    // Clean any output buffer
-    ob_clean();
-
-    // Return user-friendly error
-    http_response_code(500);
-    echo json_encode(['error' => 'Errore database durante l\'eliminazione']);
-    exit();
-
+    logApiError('delete.php', $e);
+    apiError('Errore database durante l\'eliminazione', 500);
 } catch (Exception $e) {
-    // Log the error
-    error_log('Delete User Error: ' . $e->getMessage());
-
-    // Clean any output buffer
-    ob_clean();
-
-    // Return generic error
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
-    exit();
+    logApiError('delete.php', $e);
+    apiError('Errore durante l\'eliminazione dell\'utente', 500);
 }
 ?>

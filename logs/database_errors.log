@@ -154,3 +154,19 @@
 [2025-09-22 21:12:11] [INFO] Connessione al database stabilita con successo
 [2025-09-23 06:25:51] [INFO] Connessione al database stabilita con successo
 [2025-09-23 06:25:55] [INFO] Connessione al database stabilita con successo
+[2025-09-30 17:58:37] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'first_name' in 'field list' - SQL: INSERT INTO `users` (`first_name`, `last_name`, `email`, `password_hash`, `role`, `tenant_id`, `status`, `password_reset_token`, `password_reset_expires`, `first_login`, `created_at`) VALUES (:first_name, :last_name, :email, :password_hash, :role, :tenant_id, :status, :password_reset_token, :password_reset_expires, :first_login, :created_at)
+[2025-09-30 17:58:37] [ERROR] Errore insert in users: Errore durante l'operazione sul database
+[2025-09-30 18:19:50] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'first_name' in 'field list' - SQL: INSERT INTO `users` (`first_name`, `last_name`, `email`, `password_hash`, `role`, `tenant_id`, `status`, `password_reset_token`, `password_reset_expires`, `first_login`, `created_at`) VALUES (:first_name, :last_name, :email, :password_hash, :role, :tenant_id, :status, :password_reset_token, :password_reset_expires, :first_login, :created_at)
+[2025-09-30 18:19:50] [ERROR] Errore insert in users: Errore durante l'operazione sul database
+[2025-09-30 18:27:00] [ERROR] Errore query: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'collaboranexio.user_companies' doesn't exist - SQL: SELECT 1 FROM user_companies LIMIT 1
+[2025-09-30 18:27:00] [ERROR] Errore query: SQLSTATE[HY000]: General error: 1005 Can't create table `collaboranexio`.`user_companies` (errno: 150 "Foreign key constraint is incorrectly formed") - SQL: CREATE TABLE user_companies (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            company_id INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_user_company (user_id, company_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (company_id) REFERENCES tenants(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+[2025-09-30 18:27:00] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'first_name' in 'field list' - SQL: INSERT INTO `users` (`first_name`, `last_name`, `email`, `password_hash`, `role`, `tenant_id`, `status`, `password_reset_token`, `password_reset_expires`, `first_login`, `created_at`) VALUES (:first_name, :last_name, :email, :password_hash, :role, :tenant_id, :status, :password_reset_token, :password_reset_expires, :first_login, :created_at)
+[2025-09-30 18:27:00] [ERROR] Errore insert in users: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'first_name' in 'field list'

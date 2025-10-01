@@ -32,6 +32,8 @@ $csrfToken = $auth->generateCSRFToken();
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Gestione Utenti - CollaboraNexio</title>
 
+    <?php require_once __DIR__ . '/includes/favicon.php'; ?>
+
     <!-- Main CSS -->
     <link rel="stylesheet" href="assets/css/styles.css">
     <!-- Page specific CSS -->
@@ -679,6 +681,12 @@ $csrfToken = $auth->generateCSRFToken();
             font-weight: var(--font-bold);
         }
 
+        .logo-img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+
         .logo-text {
             font-size: var(--text-xl);
             font-weight: var(--font-bold);
@@ -779,7 +787,7 @@ $csrfToken = $auth->generateCSRFToken();
         <div class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
-                    <span class="logo-icon">N</span>
+                    <img src="assets/images/logo.png" alt="CollaboraNexio" class="logo-img">
                     <span class="logo-text">NEXIO</span>
                 </div>
                 <div class="sidebar-subtitle">Semplifica, Connetti, Cresci Insieme</div>
@@ -903,10 +911,7 @@ $csrfToken = $auth->generateCSRFToken();
                     <div class="form-group">
                         <label for="addEmail">Email</label>
                         <input type="email" id="addEmail" name="email" required />
-                    </div>
-                    <div class="form-group">
-                        <label for="addPassword">Password</label>
-                        <input type="password" id="addPassword" name="password" required />
+                        <div class="form-help-text">L'utente riceverà un'email con le istruzioni per impostare la password</div>
                     </div>
                     <div class="form-group">
                         <label for="addRole">Ruolo</label>
@@ -1391,7 +1396,7 @@ $csrfToken = $auth->generateCSRFToken();
                 formData.append('first_name', form.first_name.value);
                 formData.append('last_name', form.last_name.value);
                 formData.append('email', form.email.value);
-                formData.append('password', form.password.value);
+                // Password non più necessaria - verrà inviata email all'utente
                 formData.append('role', role);
                 formData.append('csrf_token', document.getElementById('csrfToken').value);
 
@@ -1418,15 +1423,34 @@ $csrfToken = $auth->generateCSRFToken();
                 }
 
                 try {
-                    const response = await fetch('api/users/create_v2.php', {
+                    const response = await fetch('api/users/create_simple.php', {
                         method: 'POST',
                         body: formData
                     });
 
                     const data = await response.json();
 
+                    // Debug: log della risposta
+                    console.log('Create user response:', data);
+
                     if (data.success) {
-                        this.showToast('Utente creato con successo', 'success');
+                        let message = 'Utente creato con successo';
+                        if (data.data && data.data.email_sent) {
+                            message += '. Email di benvenuto inviata.';
+                        } else if (data.warning) {
+                            message += '. ATTENZIONE: ' + data.warning;
+                            if (data.reset_link) {
+                                console.log('Link manuale per impostare password:', data.reset_link);
+                                // Mostra il link in caso di errore email
+                                setTimeout(() => {
+                                    if (confirm('Email non inviata. Vuoi copiare il link per impostare la password?')) {
+                                        navigator.clipboard.writeText(data.reset_link);
+                                        this.showToast('Link copiato negli appunti', 'info');
+                                    }
+                                }, 1000);
+                            }
+                        }
+                        this.showToast(message, 'success');
                         closeModal('addModal');
                         form.reset();
                         this.loadUsers();

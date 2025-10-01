@@ -1,0 +1,204 @@
+/**
+ * CollaboraNexio - Logo Styling
+ * Custom styles for logo implementation across the platform
+ */
+
+/* Logo Container Styles */
+.logo-container {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Main Logo Styles */
+.logo-img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+.logo-img:hover {
+    transform: scale(1.05);
+}
+
+/* Sidebar Logo Specific */
+.sidebar-logo .logo-img {
+    width: 40px;
+    height: 40px;
+    margin-right: 12px;
+    border-radius: 8px;
+    background: white;
+    padding: 2px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* Login Page Logo */
+.login-logo {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 20px;
+    background: white;
+    border-radius: 16px;
+    padding: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    animation: logoFadeIn 0.6s ease-out;
+}
+
+.login-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* Navigation Bar Logo */
+.navbar-logo {
+    height: 32px;
+    width: auto;
+    margin-right: 10px;
+}
+
+/* Footer Logo */
+.footer-logo {
+    width: 30px;
+    height: 30px;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+}
+
+.footer-logo:hover {
+    opacity: 1;
+}
+
+/* Logo Loading Animation */
+@keyframes logoFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Logo Pulse Animation (for loading states) */
+@keyframes logoPulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.logo-pulse {
+    animation: logoPulse 2s infinite;
+}
+
+/* Responsive Logo Sizes */
+@media (max-width: 768px) {
+    .sidebar-logo .logo-img {
+        width: 32px;
+        height: 32px;
+        margin-right: 10px;
+    }
+
+    .login-logo {
+        width: 64px;
+        height: 64px;
+    }
+
+    .navbar-logo {
+        height: 28px;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .sidebar-logo .logo-img {
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+
+    .login-logo {
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+}
+
+/* Logo Badge (for notifications) */
+.logo-badge {
+    position: relative;
+}
+
+.logo-badge::after {
+    content: attr(data-count);
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #ef4444;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 5px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+}
+
+.logo-badge[data-count="0"]::after {
+    display: none;
+}
+
+/* Logo with Text */
+.logo-with-text {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-text {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: inherit;
+    letter-spacing: -0.5px;
+}
+
+/* Small Logo Variant */
+.logo-small {
+    width: 24px;
+    height: 24px;
+}
+
+/* Large Logo Variant */
+.logo-large {
+    width: 120px;
+    height: 120px;
+}
+
+/* Logo Placeholder (for loading states) */
+.logo-placeholder {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+/* Favicon specific styles */
+.favicon-preview {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 5px;
+}

@@ -1,0 +1,219 @@
+<?php
+/**
+ * API per richiedere il reset della password
+ * Può essere usata sia per utenti che hanno dimenticato la password
+ * sia per amministratori che vogliono re-inviare il link di benvenuto
+ */
+
+session_start();
+header('Content-Type: application/json');
+header('X-Content-Type-Options: nosniff');
+
+require_once '../../config.php';
+require_once '../../includes/db.php';
+require_once '../../includes/EmailSender.php';
+
+// Gestione errori
+error_reporting(E_ALL);
+ini_set('display_errors', '0');
+ob_start();
+
+try {
+    // Verifica metodo richiesta
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        http_response_code(405);
+        die(json_encode(['error' => 'Metodo non consentito']));
+    }
+
+    // Ottieni input
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!$input) {
+        $input = $_POST;
+    }
+
+    $email = filter_var(trim($input['email'] ?? ''), FILTER_SANITIZE_EMAIL);
+    $admin_request = isset($input['admin_request']) ? (bool)$input['admin_request'] : false;
+
+    // Se è una richiesta admin, verifica autenticazione e permessi
+    if ($admin_request) {
+        if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['super_admin', 'admin'])) {
+            http_response_code(403);
+            die(json_encode(['error' => 'Non autorizzato']));
+        }
+
+        // Verifica CSRF token
+        require_once '../../includes/auth.php';
+        $auth = new Auth();
+        $csrf_token = $input['csrf_token'] ?? '';
+        if (!$auth->verifyCSRFToken($csrf_token)) {
+            http_response_code(403);
+            die(json_encode(['error' => 'Token CSRF non valido']));
+        }
+    }
+
+    // Validazione email
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        die(json_encode(['error' => 'Email non valida']));
+    }
+
+    // Rate limiting - verifica tentativi recenti
+    $ip_address = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+    $db = Database::getInstance();
+    $conn = $db->getConnection();
+
+    // Controlla tentativi negli ultimi 5 minuti
+    $rate_check = $conn->prepare("
+        SELECT COUNT(*) as attempts
+        FROM password_reset_attempts
+        WHERE (email = :email OR ip_address = :ip)
+        AND attempted_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+    ");
+    $rate_check->execute([
+        ':email' => $email,
+        ':ip' => $ip_address
+    ]);
+    $attempts = $rate_check->fetch(PDO::FETCH_ASSOC);
+
+    if ($attempts['attempts'] >= 3) {
+        http_response_code(429);
+        die(json_encode(['error' => 'Troppi tentativi. Riprova tra 5 minuti.']));
+    }
+
+    // Registra il tentativo
+    $log_attempt = $conn->prepare("
+        INSERT INTO password_reset_attempts (email, ip_address, attempted_at, success)
+        VALUES (:email, :ip, NOW(), FALSE)
+    ");
+    $log_attempt->execute([
+        ':email' => $email,
+        ':ip' => $ip_address
+    ]);
+    $attempt_id = $conn->lastInsertId();
+
+    // Cerca l'utente
+    $user_query = $conn->prepare("
+        SELECT id, name, first_name, last_name, email, tenant_id, role, status
+        FROM users
+        WHERE email = :email
+    ");
+    $user_query->execute([':email' => $email]);
+    $user = $user_query->fetch(PDO::FETCH_ASSOC);
+
+    if (!$user) {
+        // Non rivelare se l'email esiste o meno per sicurezza
+        ob_clean();
+        echo json_encode([
+            'success' => true,
+            'message' => 'Se l\'email è registrata, riceverai le istruzioni per il reset.'
+        ]);
+        exit();
+    }
+
+    // Verifica che l'utente sia attivo
+    if ($user['status'] !== 'active') {
+        ob_clean();
+        echo json_encode([
+            'success' => true,
+            'message' => 'Se l\'email è registrata, riceverai le istruzioni per il reset.'
+        ]);
+        exit();
+    }
+
+    // Genera nuovo token
+    $reset_token = EmailSender::generateSecureToken();
+    $reset_expires = date('Y-m-d H:i:s', strtotime('+24 hours'));
+
+    // Aggiorna utente con nuovo token
+    $update_query = $conn->prepare("
+        UPDATE users
+        SET password_reset_token = :token,
+            password_reset_expires = :expires
+        WHERE id = :user_id
+    ");
+    $update_query->execute([
+        ':token' => $reset_token,
+        ':expires' => $reset_expires,
+        ':user_id' => $user['id']
+    ]);
+
+    // Ottieni nome tenant se presente
+    $tenant_name = '';
+    if ($user['tenant_id']) {
+        $tenant_query = $conn->prepare("SELECT name FROM tenants WHERE id = :id");
+        $tenant_query->execute([':id' => $user['tenant_id']]);
+        $tenant_data = $tenant_query->fetch(PDO::FETCH_ASSOC);
+        if ($tenant_data) {
+            $tenant_name = $tenant_data['name'];
+        }
+    }
+
+    // Prepara il nome completo
+    $user_name = $user['name'] ?? trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
+
+    // Invia email
+    $emailSender = new EmailSender();
+    $email_sent = false;
+
+    try {
+        $email_sent = $emailSender->sendPasswordResetEmail($email, $user_name, $reset_token, $tenant_name);
+
+        if (!$email_sent) {
+            // Se sendPasswordResetEmail non esiste, usa sendWelcomeEmail
+            $email_sent = $emailSender->sendWelcomeEmail($email, $user_name, $reset_token, $tenant_name);
+        }
+
+        if ($email_sent) {
+            // Aggiorna tentativo come successo
+            $update_attempt = $conn->prepare("
+                UPDATE password_reset_attempts
+                SET success = TRUE
+                WHERE id = :id
+            ");
+            $update_attempt->execute([':id' => $attempt_id]);
+
+            // Log attività
+            if (isset($_SESSION['user_id'])) {
+                $log_query = $conn->prepare("
+                    INSERT INTO activity_logs (tenant_id, user_id, action, details, created_at)
+                    VALUES (:tenant_id, :user_id, 'password_reset_request', :details, NOW())
+                ");
+                $log_query->execute([
+                    ':tenant_id' => $_SESSION['tenant_id'] ?? null,
+                    ':user_id' => $_SESSION['user_id'],
+                    ':details' => "Reset password richiesto per: $email"
+                ]);
+            }
+        }
+    } catch (Exception $e) {
+        error_log('Password reset email error: ' . $e->getMessage());
+    }
+
+    ob_clean();
+
+    // Risposta generica per sicurezza (non rivelare se l'email esiste)
+    if ($admin_request && $email_sent) {
+        // Per gli admin, conferma l'invio
+        echo json_encode([
+            'success' => true,
+            'message' => 'Email di reset password inviata con successo.',
+            'reset_link' => BASE_URL . '/set_password.php?token=' . urlencode($reset_token)
+        ]);
+    } else {
+        // Per richieste pubbliche, messaggio generico
+        echo json_encode([
+            'success' => true,
+            'message' => 'Se l\'email è registrata, riceverai le istruzioni per il reset.'
+        ]);
+    }
+
+} catch (Exception $e) {
+    ob_clean();
+    error_log('Password reset error: ' . $e->getMessage());
+
+    http_response_code(500);
+    echo json_encode(['error' => 'Si è verificato un errore. Riprova più tardi.']);
+}
+
+ob_end_flush();
+?>

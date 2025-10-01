@@ -4,78 +4,52 @@
  * Toggles user active/inactive status
  */
 
-// Suppress all PHP warnings/notices from being output
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ini_set('display_startup_errors', '0');
+// Usa il sistema di autenticazione centralizzato
+require_once '../../includes/api_auth.php';
+require_once '../../config.php';
+require_once '../../includes/db.php';
 
-// Start output buffering to catch any unexpected output
-ob_start();
-
-// Start session
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Set JSON headers immediately
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
+// Inizializza l'ambiente API
+initializeApiEnvironment();
 
 try {
     // Check request method
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        ob_clean();
-        http_response_code(405);
-        die(json_encode(['error' => 'Metodo non consentito']));
+        apiError('Metodo non consentito', 405);
     }
 
-    // Include required files
-    require_once '../../config.php';
-    require_once '../../includes/db.php';
-    require_once '../../includes/auth.php';
+    // Verifica autenticazione
+    verifyApiAuthentication();
 
-    // Authentication validation
-    if (!isset($_SESSION['user_id'])) {
-        ob_clean();
-        http_response_code(401);
-        die(json_encode(['error' => 'Non autorizzato']));
-    }
-
-    // Get current user from session
-    $currentUserId = $_SESSION['user_id'];
-    $currentUserRole = $_SESSION['role'] ?? 'user';
-    $tenant_id = $_SESSION['tenant_id'] ?? null;
+    // Ottieni informazioni utente
+    $userInfo = getApiUserInfo();
+    $currentUserId = $userInfo['user_id'];
+    $currentUserRole = $userInfo['role'];
+    $tenant_id = $userInfo['tenant_id'];
 
     // Permission check - only admins can toggle status
-    if (!in_array($currentUserRole, ['super_admin', 'tenant_admin'])) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Permessi insufficienti']));
+    if (!in_array($currentUserRole, ['super_admin', 'admin'])) {
+        apiError('Permessi insufficienti', 403);
     }
 
-    // CSRF validation
-    $csrfToken = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-    if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido']));
-    }
+    // Verifica CSRF token
+    verifyApiCsrfToken(true);
 
     // Get and validate input
-    $userId = intval($_POST['user_id'] ?? 0);
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!$input) {
+        $input = $_POST;
+    }
+    $userId = intval($input['user_id'] ?? 0);
 
     // Validation
     if ($userId <= 0) {
-        ob_clean();
-        http_response_code(400);
-        die(json_encode(['error' => 'ID utente non valido']));
+        apiError('ID utente non valido', 400);
     }
 
     // Prevent self status change
     if ($userId == $currentUserId) {
-        ob_clean();
-        http_response_code(400);
-        die(json_encode(['error' => 'Non puoi cambiare il tuo stesso stato']));
+        apiError('Non puoi cambiare il tuo stesso stato', 400);
     }
 
     // Get database instance
@@ -99,9 +73,7 @@ try {
     $userToToggle = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$userToToggle) {
-        ob_clean();
-        http_response_code(404);
-        die(json_encode(['error' => 'Utente non trovato']));
+        apiError('Utente non trovato', 404);
     }
 
     // Check role hierarchy permissions
@@ -110,9 +82,7 @@ try {
     $targetLevel = $roleHierarchy[$userToToggle['role']] ?? 1;
 
     if ($targetLevel >= $currentLevel && $currentUserRole !== 'super_admin') {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Non hai i permessi per modificare questo utente']));
+        apiError('Non hai i permessi per modificare questo utente', 403);
     }
 
     // Determine new status
@@ -126,44 +96,19 @@ try {
     $updateStmt->bindParam(':user_id', $userId, PDO::PARAM_INT);
 
     if (!$updateStmt->execute()) {
-        ob_clean();
-        http_response_code(500);
-        die(json_encode(['error' => 'Errore nel cambio di stato dell\'utente']));
+        apiError('Errore nel cambio di stato dell\'utente', 500);
     }
 
-    // Clean any output buffer
-    ob_clean();
-
     // Success response
-    echo json_encode([
-        'success' => true,
-        'message' => $newStatus ? 'Utente attivato con successo' : 'Utente disattivato con successo',
+    apiSuccess([
         'new_status' => $newStatus ? 'active' : 'inactive',
         'is_active' => $newStatus
-    ]);
-    exit();
+    ], $newStatus ? 'Utente attivato con successo' : 'Utente disattivato con successo');
 
 } catch (PDOException $e) {
-    // Log the actual error for debugging
-    error_log('Toggle User Status PDO Error: ' . $e->getMessage());
-
-    // Clean any output buffer
-    ob_clean();
-
-    // Return user-friendly error
-    http_response_code(500);
-    echo json_encode(['error' => 'Errore database']);
-    exit();
-
+    logApiError('toggle-status.php', $e);
+    apiError('Errore database', 500);
 } catch (Exception $e) {
-    // Log the error
-    error_log('Toggle User Status Error: ' . $e->getMessage());
-
-    // Clean any output buffer
-    ob_clean();
-
-    // Return generic error
-    http_response_code(500);
-    echo json_encode(['error' => 'Errore interno del server']);
-    exit();
+    logApiError('toggle-status.php', $e);
+    apiError('Errore interno del server', 500);
 }
