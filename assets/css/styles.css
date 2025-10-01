@@ -995,10 +995,9 @@ select.form-control {
     background-color: var(--color-gray-50);
     transition: margin-left var(--transition-base);
     min-height: 100vh;
-    height: 100vh;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    /* Allow natural height extension and scrolling */
 }
 
 .top-bar,
@@ -1096,6 +1095,9 @@ select.form-control {
     overflow-y: auto;
     overflow-x: hidden;
     background-color: var(--color-gray-50);
+    padding-bottom: var(--space-8);
+    /* Ensure smooth scrolling */
+    -webkit-overflow-scrolling: touch;
 }
 
 .user-menu {
@@ -1151,8 +1153,8 @@ select.form-control {
 
 .page-content {
     padding: var(--space-6);
-    height: 100%;
     box-sizing: border-box;
+    /* Remove fixed height to allow natural expansion */
 }
 
 .page-header {
@@ -1338,8 +1340,8 @@ select.form-control {
 
     .main-content {
         margin-left: 0;
-        height: 100vh;
         min-height: 100vh;
+        /* Allow natural height extension on mobile too */
     }
 
     .container {
@@ -1348,7 +1350,7 @@ select.form-control {
 
     .page-content {
         padding: var(--space-6) var(--space-4);
-        height: 100%;
+        /* Remove fixed height on mobile too */
     }
 }
 

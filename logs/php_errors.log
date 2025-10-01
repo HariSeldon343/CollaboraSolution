@@ -831,3 +831,13 @@ Stack trace:
 [01-Oct-2025 06:50:55 Europe/Rome] Session saved with cookie name: COLLAB_SID, ID: 9mn8is7el4ptosj5bu6q6p35o5
 [01-Oct-2025 06:50:55 Europe/Rome] Session data after save: {"csrf_token":"e9a0da4468939b597c62e7733d5723beae57fbf972f0c50fd1a90ddb14b9f54b","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759294255}
 [01-Oct-2025 06:50:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 06:53:04 Europe/Berlin] PHP Error [2]: Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 59
+[01-Oct-2025 06:53:04 Europe/Berlin] PHP Error [2]: Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
+[01-Oct-2025 06:53:04 Europe/Rome] Session saved with cookie name: COLLAB_SID, ID: 3uhh2tv6uhniojigrpujk57gdc
+[01-Oct-2025 06:53:04 Europe/Rome] Session data after save: {"csrf_token":"b96b9f8c4747d20a57296841de657e7acf58e23d5c49c83ef08beb19784beec8","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759294384}
+[01-Oct-2025 11:12:37 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 11:12:37 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[01-Oct-2025 11:12:58 Europe/Berlin] PHP Error [2]: Constant DB_PERSISTENT already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 59
+[01-Oct-2025 11:12:58 Europe/Berlin] PHP Error [2]: Constant LOG_LEVEL already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 60
+[01-Oct-2025 11:12:58 Europe/Rome] Session saved with cookie name: COLLAB_SID, ID: nri2a8g6lsnuei83o5tdrsrlif
+[01-Oct-2025 11:12:58 Europe/Rome] Session data after save: {"csrf_token":"293d81c88db427a114597fd7e71fbc863bfc12505cc4e7d4e30540f98f02555e","user_id":1,"user_name":"Admin User","user_email":"admin@demo.local","role":"super_admin","user_role":"super_admin","tenant_id":1,"tenant_name":"Demo Company","tenant_code":"default","logged_in":true,"login_time":1759309978}
