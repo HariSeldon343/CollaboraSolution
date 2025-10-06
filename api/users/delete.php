@@ -64,9 +64,9 @@ try {
     $db = Database::getInstance();
     $conn = $db->getConnection();
 
-    // Check if user exists
+    // Check if user exists and is not already deleted
     // For super_admin, check across all tenants. For others, check within tenant
-    $checkQuery = "SELECT id, email, name, tenant_id, role FROM users WHERE id = :user_id";
+    $checkQuery = "SELECT id, email, name, tenant_id, role FROM users WHERE id = :user_id AND deleted_at IS NULL";
     if ($currentUserRole !== 'super_admin') {
         $checkQuery .= " AND tenant_id = :tenant_id";
     }
@@ -102,14 +102,19 @@ try {
         apiError('Non puoi eliminare un utente con ruolo superiore al tuo', 403);
     }
 
-    // Perform hard delete (no soft delete in this simplified version)
-    $deleteQuery = "DELETE FROM users WHERE id = :user_id";
+    // Perform soft delete by setting deleted_at timestamp
+    $deleteQuery = "UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = :user_id";
     $deleteStmt = $conn->prepare($deleteQuery);
     $deleteStmt->bindParam(':user_id', $userId, PDO::PARAM_INT);
 
     if (!$deleteStmt->execute()) {
         ob_clean();
         apiError('Errore durante l\'eliminazione dell\'utente', 500);
+    }
+
+    // Log the soft delete action
+    if (defined('DEBUG_MODE') && DEBUG_MODE) {
+        error_log("User ID $userId soft deleted by user ID $currentUserId");
     }
 
     // Success response

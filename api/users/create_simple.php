@@ -4,6 +4,10 @@
  * Senza invio email, solo creazione in database
  */
 
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../../includes/session_init.php';
+
+
 // Disabilita output errori
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
@@ -19,12 +23,30 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST');
 header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token');
 
-// Funzione output JSON
+// Funzione output JSON - Garantisce sempre output JSON valido
 function jsonOut($data, $code = 200) {
-    while (ob_get_level()) ob_end_clean();
+    // Pulisce completamente il buffer di output
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+
+    // Imposta codice di risposta e headers
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
-    die(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    header('X-Content-Type-Options: nosniff');
+
+    // Codifica JSON e verifica validità
+    $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    if ($json === false) {
+        // Fallback se la codifica JSON fallisce
+        $json = json_encode([
+            'success' => false,
+            'error' => 'Errore nella codifica JSON',
+            'json_error' => json_last_error_msg()
+        ]);
+    }
+
+    die($json);
 }
 
 try {
@@ -33,14 +55,8 @@ try {
     require_once __DIR__ . '/../../includes/db.php';
     require_once __DIR__ . '/../../includes/EmailSender.php';
 
-    // 2. Gestione sessione
-    if (session_status() === PHP_SESSION_NONE) {
-        ini_set('session.cookie_httponly', '1');
-        ini_set('session.use_only_cookies', '1');
-        ini_set('session.cookie_samesite', 'Lax');
-        session_name('COLLAB_SID');
-        session_start();
-    }
+    // 2. Sessione già gestita da session_init.php (incluso all'inizio)
+    // Non è necessario fare nulla qui, la sessione è già attiva
 
     // 3. Verifica autenticazione
     if (!isset($_SESSION['user_id'])) {
@@ -140,11 +156,22 @@ try {
     $db = Database::getInstance();
     $conn = $db->getConnection();
 
-    // 13. Verifica email non esistente
-    $stmt = $conn->prepare("SELECT id FROM users WHERE email = ? AND deleted_at IS NULL");
+    // 13. Verifica email non esistente (controlla anche utenti eliminati per sicurezza)
+    $stmt = $conn->prepare("SELECT id, deleted_at FROM users WHERE email = ?");
     $stmt->execute([$email]);
-    if ($stmt->fetch()) {
-        jsonOut(['success' => false, 'error' => 'Email già esistente'], 409);
+    $existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($existingUser) {
+        if ($existingUser['deleted_at'] === null) {
+            jsonOut(['success' => false, 'error' => 'Email già esistente'], 409);
+        } else {
+            // Email esiste ma utente eliminato - hard delete per permettere riutilizzo
+            error_log("Email $email found in deleted user ID " . $existingUser['id'] . ", performing hard delete to allow reuse");
+
+            $deleteStmt = $conn->prepare("DELETE FROM users WHERE id = ? AND deleted_at IS NOT NULL");
+            $deleteStmt->execute([$existingUser['id']]);
+
+            error_log("Deleted user ID " . $existingUser['id'] . " permanently to reuse email $email");
+        }
     }
 
     // 14. Verifica che i tenant esistano (solo se non super_admin senza tenant)
@@ -180,6 +207,9 @@ try {
             password_reset_token, password_reset_expires,
             first_login, role, is_active, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, 1, ?)";
+
+        // Note: password_expires_at will be set when user sets their first password
+        // in set_password.php (90 days from password setup date)
 
         $stmt = $conn->prepare($sql);
         $result = $stmt->execute([
@@ -251,8 +281,12 @@ try {
                 $tenantName = $tenant ? (' per ' . $tenant['name']) : '';
             }
 
-            // Inizializza EmailSender
-            $emailSender = new EmailSender();
+            // Inizializza EmailSender con configurazione da database
+            // Il costruttore ora carica automaticamente da database se non si passa config
+            // Ma è meglio essere espliciti per chiarezza e performance (evita doppio require)
+            require_once __DIR__ . '/../../includes/email_config.php';
+            $emailConfig = getEmailConfigFromDatabase();
+            $emailSender = new EmailSender($emailConfig);
 
             // Invia email di benvenuto
             $emailSent = $emailSender->sendWelcomeEmail($email, $fullName, $resetToken, $tenantName);
@@ -277,18 +311,18 @@ try {
                 'email' => $email,
                 'role' => $role,
                 'tenant_ids' => $tenantIds,
-                'reset_link' => $resetLink
+                'reset_link' => $resetLink,
+                'email_sent' => $emailSent // Spostato dentro data per consistenza
             ]
         ];
 
         // Aggiungi informazioni sull'email
         if ($emailSent) {
-            $response['email_sent'] = true;
             $response['info'] = 'Email di benvenuto inviata con successo.';
         } else {
-            $response['email_sent'] = false;
-            $response['email_error'] = $emailError ?: 'Invio email fallito (possibile problema di configurazione SMTP su Windows/XAMPP)';
-            $response['info'] = 'Utente creato ma email non inviata. Fornisci manualmente il link all\'utente: ' . $resetLink;
+            $response['warning'] = $emailError ?: 'Invio email fallito (possibile problema di configurazione SMTP su Windows/XAMPP)';
+            $response['info'] = 'Utente creato ma email non inviata. Fornisci manualmente il link all\'utente.';
+            $response['data']['manual_link_required'] = true;
         }
 
         jsonOut($response, 201);
@@ -300,8 +334,10 @@ try {
 
 } catch (PDOException $e) {
     error_log("Database error in create_simple.php: " . $e->getMessage());
-    jsonOut(['success' => false, 'error' => 'Errore database: ' . $e->getMessage()], 500);
+    error_log("Stack trace: " . $e->getTraceAsString());
+    jsonOut(['success' => false, 'error' => 'Errore database', 'debug' => DEBUG_MODE ? $e->getMessage() : null], 500);
 } catch (Exception $e) {
     error_log("Error in create_simple.php: " . $e->getMessage());
-    jsonOut(['success' => false, 'error' => $e->getMessage()], 500);
+    error_log("Stack trace: " . $e->getTraceAsString());
+    jsonOut(['success' => false, 'error' => 'Errore server', 'debug' => DEBUG_MODE ? $e->getMessage() : null], 500);
 }

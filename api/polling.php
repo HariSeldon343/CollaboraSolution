@@ -8,7 +8,8 @@
  * @version 1.0.0
  */
 
-session_start();
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../includes/session_init.php';
 header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
 

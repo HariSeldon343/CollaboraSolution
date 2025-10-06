@@ -47,6 +47,9 @@ try {
     $whereConditions = [];
     $params = [];
 
+    // CRITICAL: Only show non-deleted users (soft delete filter)
+    $whereConditions[] = "u.deleted_at IS NULL";
+
     // Add tenant isolation (unless super admin viewing all)
     if ($currentUserRole !== 'super_admin' && $tenant_id) {
         $whereConditions[] = "u.tenant_id = :tenant_id";

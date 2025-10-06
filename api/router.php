@@ -5,6 +5,10 @@
  * Gestisce tutte le richieste API e le instrada ai controller appropriati
  */
 
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../includes/session_init.php';
+
+
 // Headers CORS e JSON
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -389,9 +393,7 @@ function performLogin(array $data): array {
         'exp' => time() + 3600
     ]));
 
-    // Salva sessione
-    session_start();
-    $_SESSION['user'] = $user;
+    // Salva sessione$_SESSION['user'] = $user;
     $_SESSION['token'] = $token;
 
     return [
@@ -434,10 +436,11 @@ function getDashboardStats(int $tenant_id, int $user_id): array {
     $tasks = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // Files
+    // Schema: files table uses file_size (not size_bytes)
     $stmt = $pdo->prepare("
         SELECT
             COUNT(*) as total,
-            SUM(size_bytes) as total_size
+            SUM(file_size) as total_size
         FROM files
         WHERE tenant_id = ?
     ");

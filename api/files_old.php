@@ -26,6 +26,10 @@
  * @since PHP 8.0
  */
 
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../includes/session_init.php';
+
+
 declare(strict_types=1);
 
 // Error reporting configuration
@@ -33,14 +37,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
-// Session configuration with security settings
-ini_set('session.cookie_httponly', '1');
-ini_set('session.cookie_samesite', 'Strict');
-ini_set('session.use_only_cookies', '1');
-ini_set('session.use_strict_mode', '1');
-session_start();
-
-// Required security headers
+// Session configuration with security settings// Required security headers
 header('Content-Type: application/json; charset=UTF-8');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');

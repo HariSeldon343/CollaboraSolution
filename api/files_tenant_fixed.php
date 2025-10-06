@@ -1,5 +1,8 @@
 <?php
-session_start();
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../includes/session_init.php';
+
+// POI: Headers (DOPO session_start di session_init.php)
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 
@@ -16,10 +19,13 @@ require_once '../includes/auth_simple.php';
 // Clean any output that might have been generated
 ob_clean();
 
-// Authentication validation
-if (!isset($_SESSION['user_id'])) {
+// Initialize authentication
+$auth = new AuthSimple();
+
+// Check if user is authenticated
+if (!$auth->checkAuth()) {
     http_response_code(401);
-    die(json_encode(['error' => 'Non autorizzato']));
+    die(json_encode(['success' => false, 'error' => 'Non autorizzato']));
 }
 
 // Get database connection
@@ -32,10 +38,17 @@ try {
     die(json_encode(['error' => 'Errore connessione database']));
 }
 
+// Get current user data
+$currentUser = $auth->getCurrentUser();
+if (!$currentUser) {
+    http_response_code(401);
+    die(json_encode(['success' => false, 'error' => 'Utente non trovato']));
+}
+
 // User session data
-$user_id = $_SESSION['user_id'];
-$tenant_id = $_SESSION['tenant_id'];
-$user_role = $_SESSION['role'] ?? 'user';
+$user_id = $currentUser['id'];
+$tenant_id = $currentUser['tenant_id'];
+$user_role = $currentUser['role'] ?? 'user';
 
 // Input handling
 $action = $_GET['action'] ?? '';
@@ -91,12 +104,14 @@ function listFiles() {
     $folder_id = $_GET['folder_id'] ?? null;
     $search = $_GET['search'] ?? '';
 
+    // Inizializza array accessible_tenants per tutti i ruoli
+    $accessible_tenants = [];
+
     try {
-        // Usa i nomi delle colonne corretti basati sullo schema del database
-        // Files table usa: name, size_bytes, mime_type
-        // Folders table usa: name, parent_id
+        // ACTUAL database columns (verificato con DESCRIBE files)
+        // La tabella reale usa file_size, NON size_bytes
+        $file_size_col = 'file_size';
         $file_name_col = 'name';
-        $file_size_col = 'size_bytes';
 
         // Array per risultati
         $items = [];
@@ -131,7 +146,8 @@ function listFiles() {
 
         // Filtro per tenant basato sul ruolo
         if ($user_role === 'super_admin') {
-            // Super Admin vede tutto
+            // Super Admin vede tutto, incluse cartelle di sistema con tenant_id NULL
+            // Nessun filtro aggiuntivo necessario
         } elseif ($user_role === 'admin') {
             // Admin vede i tenant a cui ha accesso
             $accessible_query = "
@@ -207,13 +223,13 @@ function listFiles() {
             $file_query = "
                 SELECT
                     f.id,
-                    f.$file_name_col as name,
+                    f.{$file_name_col} as name,
                     f.folder_id as parent_id,
                     f.tenant_id,
                     f.created_at,
                     f.updated_at,
                     'file' as type,
-                    f.$file_size_col as size,
+                    f.{$file_size_col} as size,
                     f.mime_type,
                     t.name as tenant_name,
                     0 as subfolder_count,
@@ -226,7 +242,8 @@ function listFiles() {
 
             // Applica stesso filtro tenant delle cartelle
             if ($user_role === 'super_admin') {
-                // Super Admin vede tutto
+                // Super Admin vede tutto, inclusi file di sistema con tenant_id NULL
+                // Nessun filtro aggiuntivo necessario
             } elseif ($user_role === 'admin' && !empty($accessible_tenants)) {
                 $placeholders = [];
                 foreach ($accessible_tenants as $i => $tid) {
@@ -242,11 +259,11 @@ function listFiles() {
 
             // Ricerca nei files
             if (!empty($search)) {
-                $file_query .= " AND f.$file_name_col LIKE :search";
+                $file_query .= " AND f.{$file_name_col} LIKE :search";
                 $file_params[':search'] = '%' . $search . '%';
             }
 
-            $file_query .= " ORDER BY f.$file_name_col ASC";
+            $file_query .= " ORDER BY f.{$file_name_col} ASC";
 
             // Esegui query files
             $stmt = $pdo->prepare($file_query);

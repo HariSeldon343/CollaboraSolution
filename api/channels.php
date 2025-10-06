@@ -15,8 +15,8 @@
  * @version 2.0.0
  */
 
-session_start();
-
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../includes/session_init.php';
 // CORS headers for web clients
 header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');

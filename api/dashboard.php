@@ -9,12 +9,13 @@
  * @author CollaboraNexio Development Team
  */
 
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../includes/session_init.php';
+
+
 declare(strict_types=1);
 
-// Initialize session and headers
-session_start();
-
-// CORS and content type headers
+// Initialize session and headers// CORS and content type headers
 header('Content-Type: application/json; charset=UTF-8');
 header('Access-Control-Allow-Origin: ' . ($_SERVER['HTTP_ORIGIN'] ?? '*'));
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');

@@ -10,10 +10,10 @@
     /* Global Scale Factor - Easy to adjust (0.9 = 90%, 1.0 = 100%, etc.) */
     /* To change the interface size, modify this value:
        - 0.8 = 80% (smaller interface)
-       - 0.9 = 90% (current setting - more compact)
-       - 1.0 = 100% (original size)
+       - 0.9 = 90% (more compact)
+       - 1.0 = 100% (original size - current setting)
        - 1.1 = 110% (larger interface) */
-    --global-scale: 0.9;
+    --global-scale: 1;
 
     /* Core Colors - Minimal Palette */
     --color-primary: #2563EB;
@@ -139,9 +139,11 @@
 }
 
 html, body {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
 html {
@@ -149,7 +151,8 @@ html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    height: 100%;
+    overflow: hidden;
+    /* Removed height: 100% to allow content to expand */
 
     /* Global Interface Scale - Set to 90% for better visibility */
     /* Using zoom for Webkit/Blink browsers (Chrome, Safari, Edge) */
@@ -162,7 +165,8 @@ html {
         transform: scale(var(--global-scale));
         transform-origin: 0 0;
         width: calc(100% / var(--global-scale));
-        height: calc(100% / var(--global-scale));
+        /* Removed fixed height calculation to allow expansion */
+        min-height: calc(100vh / var(--global-scale));
     }
 }
 
@@ -172,12 +176,12 @@ body {
     font-weight: var(--font-normal);
     line-height: var(--leading-normal);
     color: var(--color-gray-900);
-    background-color: var(--color-gray-50);
-    min-height: 100vh;
-    height: 100vh;
-    overflow-x: hidden;
+    background-color: #111827; /* Match sidebar dark color to avoid gaps */
+    height: 100vh; /* Use viewport height instead of percentage */
     margin: 0;
+    overflow: hidden;
     padding: 0;
+    box-sizing: border-box;
 }
 
 /* ========================================
@@ -476,6 +480,7 @@ pre code {
     background-color: var(--color-white);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
+    /* Keep overflow: hidden only for border-radius clipping */
     overflow: hidden;
     transition: box-shadow var(--transition-fast);
 }
@@ -519,6 +524,7 @@ pre code {
     position: fixed;
     left: 0;
     top: 0;
+    bottom: 0;
     width: var(--sidebar-width);
     height: 100vh;
     background: linear-gradient(180deg, var(--color-sidebar-bg-start) 0%, var(--color-sidebar-bg-end) 100%);
@@ -527,6 +533,8 @@ pre code {
     transition: width var(--transition-base);
     overflow-y: auto;
     overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .sidebar-header {
@@ -546,6 +554,8 @@ pre code {
 
 .sidebar-nav {
     padding: var(--space-4) 0;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .sidebar-section {
@@ -686,6 +696,7 @@ pre code {
     margin-top: auto;
     padding: var(--space-4);
     border-top: 1px solid var(--color-sidebar-border);
+    flex-shrink: 0;
 }
 
 /* Additional sidebar classes for compatibility */
@@ -975,7 +986,6 @@ select.form-control {
    ======================================== */
 .app-container {
     display: flex;
-    min-height: 100vh;
     height: 100vh;
     width: 100%;
     overflow: hidden;
@@ -983,7 +993,6 @@ select.form-control {
 
 .main-layout {
     display: flex;
-    min-height: 100vh;
     height: 100vh;
     width: 100%;
     overflow: hidden;
@@ -994,10 +1003,12 @@ select.form-control {
     margin-left: var(--sidebar-width);
     background-color: var(--color-gray-50);
     transition: margin-left var(--transition-base);
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     flex-direction: column;
-    /* Allow natural height extension and scrolling */
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
 }
 
 .top-bar,
@@ -1092,11 +1103,10 @@ select.form-control {
 
 .page-content {
     flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
+    /* Removed overflow restrictions to use natural document flow */
     background-color: var(--color-gray-50);
     padding-bottom: var(--space-8);
-    /* Ensure smooth scrolling */
+    /* Allow content to expand naturally */
     -webkit-overflow-scrolling: touch;
 }
 
@@ -1380,7 +1390,7 @@ select.form-control {
     height: 1px;
     padding: 0;
     margin: -1px;
-    overflow: hidden;
+    overflow: hidden; /* This is fine - it's for accessibility */
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border-width: 0;

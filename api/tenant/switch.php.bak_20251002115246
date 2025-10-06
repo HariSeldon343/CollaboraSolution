@@ -1,0 +1,136 @@
+<?php
+session_start();
+header('Content-Type: application/json');
+header('X-Content-Type-Options: nosniff');
+
+require_once '../../config.php';
+require_once '../../includes/db.php';
+require_once '../../includes/auth.php';
+
+// Authentication validation
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    die(json_encode(['error' => 'Non autorizzato']));
+}
+
+// Input sanitization
+$input = json_decode(file_get_contents('php://input'), true);
+$tenant_id = $input['tenant_id'] ?? null;
+
+try {
+    // Get current user role
+    $user_id = $_SESSION['user_id'];
+    $user_role = $_SESSION['role'] ?? 'user';
+
+    // Only admin and super_admin can switch tenants
+    if (!in_array($user_role, ['admin', 'super_admin'])) {
+        throw new Exception('Non hai i permessi per cambiare tenant');
+    }
+
+    // Get database connection
+    $db = Database::getInstance();
+    $pdo = $db->getConnection();
+
+    // Handle "all tenants" option
+    if ($tenant_id === 'all') {
+        if ($user_role !== 'super_admin') {
+            throw new Exception('Solo i Super Admin possono visualizzare tutti i tenant');
+        }
+
+        $_SESSION['view_all_tenants'] = true;
+        $_SESSION['selected_tenant_id'] = null;
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Visualizzazione di tutti i tenant attivata',
+            'data' => [
+                'tenant_id' => 'all',
+                'tenant_name' => 'Tutte le aziende',
+                'view_mode' => 'all'
+            ]
+        ]);
+        exit;
+    }
+
+    // Validate tenant_id
+    $tenant_id = filter_var($tenant_id, FILTER_VALIDATE_INT);
+    if (!$tenant_id) {
+        throw new Exception('ID tenant non valido');
+    }
+
+    // Check if tenant exists and user has access
+    if ($user_role === 'super_admin') {
+        // Super admin can access any active tenant
+        $query = "SELECT id, name, domain, status FROM tenants
+                  WHERE id = :tenant_id AND status = 'active'";
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([':tenant_id' => $tenant_id]);
+    } else {
+        // Admin must have explicit access
+        $query = "SELECT t.id, t.name, t.domain, t.status
+                  FROM tenants t
+                  WHERE t.id = :tenant_id
+                  AND t.status = 'active'
+                  AND (
+                      EXISTS (SELECT 1 FROM user_tenant_access
+                              WHERE user_id = :user_id AND tenant_id = t.id)
+                      OR
+                      EXISTS (SELECT 1 FROM users
+                              WHERE id = :user_id2 AND tenant_id = t.id)
+                  )";
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([
+            ':tenant_id' => $tenant_id,
+            ':user_id' => $user_id,
+            ':user_id2' => $user_id
+        ]);
+    }
+
+    $tenant = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$tenant) {
+        throw new Exception('Tenant non trovato o non hai accesso');
+    }
+
+    // Update session
+    $_SESSION['selected_tenant_id'] = $tenant_id;
+    $_SESSION['view_all_tenants'] = false;
+
+    // Log the action
+    $logQuery = "INSERT INTO audit_logs
+                 (tenant_id, user_id, action, entity_type, entity_id, details, ip_address)
+                 VALUES (:tenant_id, :user_id, 'switch_tenant', 'tenant', :entity_id,
+                         :details, :ip_address)";
+
+    $details = json_encode([
+        'from_tenant' => $_SESSION['tenant_id'] ?? null,
+        'to_tenant' => $tenant_id,
+        'tenant_name' => $tenant['name']
+    ]);
+
+    $stmt = $pdo->prepare($logQuery);
+    $stmt->execute([
+        ':tenant_id' => $tenant_id,
+        ':user_id' => $user_id,
+        ':entity_id' => $tenant_id,
+        ':details' => $details,
+        ':ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
+    ]);
+
+    // Success response
+    echo json_encode([
+        'success' => true,
+        'message' => "Passato al tenant: {$tenant['name']}",
+        'data' => [
+            'tenant_id' => $tenant['id'],
+            'tenant_name' => $tenant['name'],
+            'tenant_domain' => $tenant['domain'],
+            'view_mode' => 'single'
+        ]
+    ]);
+
+} catch (Exception $e) {
+    error_log('Tenant Switch Error: ' . $e->getMessage());
+    http_response_code(500);
+    die(json_encode(['error' => $e->getMessage()]));
+}

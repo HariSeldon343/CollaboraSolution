@@ -219,12 +219,13 @@ function listFiles(): array {
     $folders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Query per i file
+    // Schema: files table uses uploaded_by (not owner_id)
     $files_sql = "
         SELECT f.*, u.display_name as owner_name,
                COALESCE(fv.version_count, 0) as version_count,
                COALESCE(fs.share_count, 0) as share_count
         FROM files f
-        LEFT JOIN users u ON f.owner_id = u.id
+        LEFT JOIN users u ON f.uploaded_by = u.id
         LEFT JOIN (
             SELECT file_id, COUNT(*) as version_count
             FROM file_versions
@@ -251,7 +252,7 @@ function listFiles(): array {
 
     // Ordinamento
     $order_clause = match($sort) {
-        'size' => "f.size_bytes",
+        'size' => "f.file_size", // Schema: files table uses file_size, not size_bytes
         'modified' => "f.updated_at",
         'created' => "f.created_at",
         default => "f.name"
@@ -268,7 +269,7 @@ function listFiles(): array {
 
     // Formatta dimensioni file
     foreach ($files as &$file) {
-        $file['size_formatted'] = formatFileSize($file['size_bytes']);
+        $file['size_formatted'] = formatFileSize($file['file_size']); // Schema: files.file_size
         $file['icon'] = getFileIcon($file['mime_type']);
     }
 
@@ -299,7 +300,7 @@ function listFiles(): array {
     // Storage usage
     $stmt = $pdo->prepare("
         SELECT
-            SUM(size_bytes) as used_bytes,
+            SUM(file_size) as used_bytes, -- Schema: files.file_size
             COUNT(*) as total_files
         FROM files
         WHERE tenant_id = ? AND deleted_at IS NULL
@@ -380,10 +381,11 @@ function uploadFile(): array {
     }
 
     // Inserisci record nel database
+    // Schema: files table uses file_size (not size_bytes), file_path (not storage_path), uploaded_by (not owner_id)
     $stmt = $pdo->prepare("
         INSERT INTO files (
             tenant_id, folder_id, name, original_name, mime_type,
-            size_bytes, storage_path, file_hash, owner_id,
+            file_size, file_path, file_hash, uploaded_by,
             description, tags
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
@@ -443,7 +445,8 @@ function downloadFile(int $file_id): void {
     }
 
     // Verifica accesso
-    if ($file['owner_id'] != $user_id && !$file['is_shared']) {
+    // Schema: files table uses uploaded_by (not owner_id)
+    if ($file['uploaded_by'] != $user_id && !$file['is_shared']) {
         // Verifica se l'utente ha accesso alla cartella
         if ($file['folder_id']) {
             $has_access = checkFolderAccess($file['folder_id'], $user_id);
@@ -455,7 +458,8 @@ function downloadFile(int $file_id): void {
         }
     }
 
-    $full_path = $storage_base . '/' . $file['storage_path'];
+    // Schema: files table uses file_path (not storage_path)
+    $full_path = $storage_base . '/' . $file['file_path'];
 
     if (!file_exists($full_path)) {
         throw new Exception('File fisico non trovato', 404);
@@ -477,7 +481,7 @@ function downloadFile(int $file_id): void {
     // Invia file
     header('Content-Type: ' . $file['mime_type']);
     header('Content-Disposition: attachment; filename="' . $file['name'] . '"');
-    header('Content-Length: ' . $file['size_bytes']);
+    header('Content-Length: ' . $file['file_size']); // Schema: files.file_size
     header('Cache-Control: no-cache, must-revalidate');
 
     readfile($full_path);
@@ -571,9 +575,10 @@ function shareFile(array $data): array {
     $message = $data['message'] ?? '';
 
     // Verifica proprietà
+    // Schema: files table uses uploaded_by (not owner_id)
     $stmt = $pdo->prepare("
         SELECT * FROM files
-        WHERE id = ? AND tenant_id = ? AND owner_id = ?
+        WHERE id = ? AND tenant_id = ? AND uploaded_by = ?
     ");
     $stmt->execute([$file_id, $tenant_id, $user_id]);
     $file = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -742,10 +747,11 @@ function checkFolderAccess(int $folder_id, int $user_id): bool {
 function searchFiles(string $query): array {
     global $pdo, $tenant_id;
 
+    // Schema: files table uses uploaded_by (not owner_id)
     $stmt = $pdo->prepare("
         SELECT f.*, u.display_name as owner_name
         FROM files f
-        LEFT JOIN users u ON f.owner_id = u.id
+        LEFT JOIN users u ON f.uploaded_by = u.id
         WHERE f.tenant_id = ?
         AND f.deleted_at IS NULL
         AND (f.name LIKE ? OR f.description LIKE ? OR f.tags LIKE ?)
@@ -762,12 +768,13 @@ function searchFiles(string $query): array {
 function getSharedFiles(): array {
     global $pdo, $tenant_id, $user_id;
 
+    // Schema: files table uses uploaded_by (not owner_id)
     $stmt = $pdo->prepare("
         SELECT f.*, u.display_name as owner_name,
                fs.permissions, fs.shared_by, fs.created_at as shared_at
         FROM file_shares fs
         JOIN files f ON fs.file_id = f.id
-        LEFT JOIN users u ON f.owner_id = u.id
+        LEFT JOIN users u ON f.uploaded_by = u.id
         WHERE fs.tenant_id = ?
         AND fs.user_id = ?
         AND f.deleted_at IS NULL
@@ -783,12 +790,13 @@ function getSharedFiles(): array {
 function getRecentFiles(): array {
     global $pdo, $tenant_id, $user_id;
 
+    // Schema: files table uses uploaded_by (not owner_id)
     $stmt = $pdo->prepare("
         SELECT f.*, u.display_name as owner_name
         FROM files f
-        LEFT JOIN users u ON f.owner_id = u.id
+        LEFT JOIN users u ON f.uploaded_by = u.id
         WHERE f.tenant_id = ?
-        AND (f.owner_id = ? OR EXISTS(
+        AND (f.uploaded_by = ? OR EXISTS(
             SELECT 1 FROM file_shares
             WHERE file_id = f.id AND user_id = ?
         ))
@@ -806,10 +814,11 @@ function deleteFile(int $file_id): array {
     global $pdo, $tenant_id, $user_id;
 
     // Soft delete
+    // Schema: files table uses uploaded_by (not owner_id)
     $stmt = $pdo->prepare("
         UPDATE files
         SET deleted_at = NOW(), deleted_by = ?
-        WHERE id = ? AND tenant_id = ? AND owner_id = ?
+        WHERE id = ? AND tenant_id = ? AND uploaded_by = ?
     ");
 
     $stmt->execute([$user_id, $file_id, $tenant_id, $user_id]);
@@ -824,10 +833,11 @@ function deleteFile(int $file_id): array {
 function renameFile(int $file_id, string $new_name): array {
     global $pdo, $tenant_id, $user_id;
 
+    // Schema: files table uses uploaded_by (not owner_id)
     $stmt = $pdo->prepare("
         UPDATE files
         SET name = ?, updated_at = NOW()
-        WHERE id = ? AND tenant_id = ? AND owner_id = ?
+        WHERE id = ? AND tenant_id = ? AND uploaded_by = ?
     ");
 
     $stmt->execute([$new_name, $file_id, $tenant_id, $user_id]);

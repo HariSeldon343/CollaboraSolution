@@ -5,7 +5,8 @@
  * sia per amministratori che vogliono re-inviare il link di benvenuto
  */
 
-session_start();
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../../includes/session_init.php';
 header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
 
@@ -151,8 +152,10 @@ try {
     // Prepara il nome completo
     $user_name = $user['name'] ?? trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
 
-    // Invia email
-    $emailSender = new EmailSender();
+    // Invia email con configurazione da database
+    require_once __DIR__ . '/../../includes/email_config.php';
+    $emailConfig = getEmailConfigFromDatabase();
+    $emailSender = new EmailSender($emailConfig);
     $email_sent = false;
 
     try {

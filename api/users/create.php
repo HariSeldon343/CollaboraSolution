@@ -165,8 +165,10 @@ try {
     $tenantData = $tenantStmt->fetch(PDO::FETCH_ASSOC);
     $tenantName = $tenantData ? ' per ' . $tenantData['name'] : '';
 
-    // Invia email di benvenuto
-    $emailSender = new EmailSender();
+    // Invia email di benvenuto con configurazione da database
+    require_once __DIR__ . '/../../includes/email_config.php';
+    $emailConfig = getEmailConfigFromDatabase();
+    $emailSender = new EmailSender($emailConfig);
     $emailSent = false;
     $emailError = '';
 

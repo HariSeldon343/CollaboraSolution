@@ -4,6 +4,10 @@
  * Risolve il problema dell'errore 500
  */
 
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../../includes/session_init.php';
+
+
 // Disabilita completamente l'output degli errori
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
@@ -46,11 +50,7 @@ try {
 
     // Gestione sessione
     if (session_status() === PHP_SESSION_NONE) {
-        // Configura la sessione prima di avviarla
-        ini_set('session.cookie_httponly', '1');
-        ini_set('session.use_only_cookies', '1');
-        session_start();
-    }
+        // Configura la sessione prima di avviarla}
 
     // Verifica autenticazione
     if (!isset($_SESSION['user_id'])) {
@@ -230,7 +230,10 @@ try {
             try {
                 require_once $emailSenderPath;
                 if (class_exists('EmailSender')) {
-                    $emailSender = new EmailSender();
+                    // Carica configurazione email da database
+                    require_once __DIR__ . '/../../includes/email_config.php';
+                    $emailConfig = getEmailConfigFromDatabase();
+                    $emailSender = new EmailSender($emailConfig);
                     $full_name = trim($first_name . ' ' . $last_name);
 
                     // Ottieni nome tenant

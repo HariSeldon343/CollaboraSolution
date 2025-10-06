@@ -1,5 +1,8 @@
 <?php
-session_start();
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../../includes/session_init.php';
+
+// POI: Headers (DOPO session_start di session_init.php)
 header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
 
@@ -33,9 +36,11 @@ try {
     $pdo = $db->getConnection();
 
     // Build query based on user role
-    $query = "SELECT f.id, f.name, f.original_name, f.mime_type, f.size_bytes,
+    // Schema: files table uses file_size (not size_bytes), uploaded_by (not owner_id)
+    $query = "SELECT f.id, f.name, f.original_name, f.mime_type, f.file_size,
                      f.status, f.created_at, f.updated_at,
                      f.approved_by, f.approved_at, f.rejection_reason,
+                     f.uploaded_by,
                      u.first_name as owner_first_name,
                      u.last_name as owner_last_name,
                      u.email as owner_email,
@@ -43,7 +48,7 @@ try {
                      au.first_name as approver_first_name,
                      au.last_name as approver_last_name
               FROM files f
-              INNER JOIN users u ON f.owner_id = u.id
+              INNER JOIN users u ON f.uploaded_by = u.id
               INNER JOIN tenants t ON f.tenant_id = t.id
               LEFT JOIN users au ON f.approved_by = au.id
               WHERE f.deleted_at IS NULL";
@@ -105,7 +110,8 @@ try {
 
         // Regular users can only see their own files
         if ($user_role === 'user') {
-            $query .= " AND f.owner_id = :owner_id";
+            // Schema: files table uses uploaded_by (not owner_id)
+            $query .= " AND f.uploaded_by = :owner_id";
             $params[':owner_id'] = $user_id;
         }
     }
@@ -150,7 +156,8 @@ try {
 
     // Format file sizes and dates
     foreach ($files as &$file) {
-        $file['size_formatted'] = formatFileSize($file['size_bytes']);
+        // Schema: files table uses file_size (not size_bytes)
+        $file['size_formatted'] = formatFileSize($file['file_size']);
         $file['created_at_formatted'] = date('d/m/Y H:i', strtotime($file['created_at']));
         $file['owner_name'] = $file['owner_first_name'] . ' ' . $file['owner_last_name'];
 
@@ -163,7 +170,8 @@ try {
         $file['can_approve'] = in_array($user_role, ['manager', 'admin', 'super_admin'])
                                && $file['status'] === 'in_approvazione';
         $file['can_reject'] = $file['can_approve'];
-        $file['can_edit'] = $file['owner_id'] == $user_id ||
+        // Schema: files table uses uploaded_by for ownership check
+        $file['can_edit'] = $file['uploaded_by'] == $user_id ||
                             in_array($user_role, ['admin', 'super_admin']);
     }
 

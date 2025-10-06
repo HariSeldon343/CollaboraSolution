@@ -4,6 +4,10 @@
  * Updates an existing user's information
  */
 
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../../includes/session_init.php';
+
+
 // Suppress all PHP warnings/notices from being output
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
@@ -13,9 +17,7 @@ ini_set('display_startup_errors', '0');
 ob_start();
 
 // Start session
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+if (session_status() === PHP_SESSION_NONE) {}
 
 // Set JSON headers immediately
 header('Content-Type: application/json; charset=utf-8');

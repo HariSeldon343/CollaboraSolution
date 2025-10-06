@@ -61,6 +61,29 @@ if ($action === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && password_verify($password, $user['password_hash'])) {
+            // Check if password has expired (90-day policy)
+            if (!empty($user['password_expires_at'])) {
+                $expiryDate = strtotime($user['password_expires_at']);
+                $now = time();
+
+                if ($expiryDate < $now) {
+                    // Password expired - redirect to change password
+                    http_response_code(403);
+                    echo json_encode([
+                        'success' => false,
+                        'password_expired' => true,
+                        'message' => 'La tua password è scaduta. Devi cambiarla prima di accedere.',
+                        'redirect' => 'change_password.php?user_id=' . $user['id']
+                    ]);
+                    exit;
+                }
+
+                // Warn if password expires soon (within 7 days)
+                $daysUntilExpiry = floor(($expiryDate - $now) / 86400);
+                if ($daysUntilExpiry <= 7 && $daysUntilExpiry > 0) {
+                    $user['password_expiry_warning'] = "La tua password scadrà tra $daysUntilExpiry giorni";
+                }
+            }
             // Check if user can login based on role and tenant assignment
             $canLogin = true;
             $loginMessage = '';
@@ -132,7 +155,7 @@ if ($action === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateStmt = $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
             $updateStmt->execute([$user['id']]);
 
-            echo json_encode([
+            $response = [
                 'success' => true,
                 'message' => 'Login effettuato con successo',
                 'user' => [
@@ -144,7 +167,14 @@ if ($action === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     'has_tenant' => !empty($user['tenant_id']),
                     'accessible_tenants' => $_SESSION['accessible_tenants'] ?? []
                 ]
-            ]);
+            ];
+
+            // Add password expiry warning if present
+            if (!empty($user['password_expiry_warning'])) {
+                $response['warning'] = $user['password_expiry_warning'];
+            }
+
+            echo json_encode($response);
         } else {
             // Login fallito
             http_response_code(401);

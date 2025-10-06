@@ -70,14 +70,14 @@ try {
 
     $db = Database::getInstance();
 
-    // Get current user data
+    // Get current user data (only if not deleted)
     $current_user = $db->fetchOne(
-        "SELECT * FROM users WHERE id = :id",
+        "SELECT * FROM users WHERE id = :id AND deleted_at IS NULL",
         [':id' => $user_id]
     );
 
     if (!$current_user) {
-        apiError('Utente non trovato', 404);
+        apiError('Utente non trovato o già eliminato', 404);
     }
 
     // Role-specific permission checks

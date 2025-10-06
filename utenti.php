@@ -925,9 +925,7 @@ $csrfToken = $auth->generateCSRFToken();
                     <div class="form-group" id="addTenantGroup">
                         <label for="addTenant" id="addTenantLabel">Azienda</label>
                         <div id="addTenantContainer">
-                            <select id="addTenant" name="tenant_id">
-                                <!-- Tenants will be loaded here for single selection -->
-                            </select>
+                            <!-- Tenant selector will be dynamically generated here -->
                         </div>
                         <div class="form-help-text" id="addTenantHelp"></div>
                     </div>
@@ -978,9 +976,7 @@ $csrfToken = $auth->generateCSRFToken();
                     <div class="form-group" id="editTenantGroup">
                         <label for="editTenant" id="editTenantLabel">Azienda</label>
                         <div id="editTenantContainer">
-                            <select id="editTenant" name="tenant_id">
-                                <!-- Tenants will be loaded here for single selection -->
-                            </select>
+                            <!-- Tenant selector will be dynamically generated here -->
                         </div>
                         <div class="form-help-text" id="editTenantHelp"></div>
                     </div>
@@ -1020,6 +1016,7 @@ $csrfToken = $auth->generateCSRFToken();
     <script>
         class UserManager {
             constructor() {
+                console.log('=== INITIALIZING USER MANAGER ===');
                 this.users = [];
                 this.currentPage = 1;
                 this.itemsPerPage = 10;
@@ -1027,11 +1024,15 @@ $csrfToken = $auth->generateCSRFToken();
                 this.deleteUserId = null;
                 this.tenantsList = [];
                 this.init();
+                console.log('UserManager initialized successfully');
             }
 
             init() {
+                console.log('Binding events...');
                 this.bindEvents();
+                console.log('Loading users...');
                 this.loadUsers();
+                console.log('Loading tenants...');
                 this.loadTenants();
             }
 
@@ -1047,16 +1048,40 @@ $csrfToken = $auth->generateCSRFToken();
                 }
 
                 // Add user form
-                document.getElementById('addUserForm').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.addUser();
-                });
+                const addForm = document.getElementById('addUserForm');
+                if (addForm) {
+                    // Rimuovi la validazione HTML5 per gestirla manualmente
+                    addForm.setAttribute('novalidate', 'novalidate');
+
+                    addForm.addEventListener('submit', (e) => {
+                        console.log('=== FORM SUBMIT EVENT TRIGGERED ===');
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.addUser();
+                    });
+
+                    console.log('Add user form submit listener registered successfully');
+                } else {
+                    console.error('ERROR: addUserForm not found in DOM');
+                }
 
                 // Edit user form
-                document.getElementById('editUserForm').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.updateUser();
-                });
+                const editForm = document.getElementById('editUserForm');
+                if (editForm) {
+                    // Rimuovi la validazione HTML5 per gestirla manualmente
+                    editForm.setAttribute('novalidate', 'novalidate');
+
+                    editForm.addEventListener('submit', (e) => {
+                        console.log('=== EDIT FORM SUBMIT EVENT TRIGGERED ===');
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.updateUser();
+                    });
+
+                    console.log('Edit user form submit listener registered successfully');
+                } else {
+                    console.error('ERROR: editUserForm not found in DOM');
+                }
 
                 // Role change listeners for dynamic tenant field
                 document.getElementById('addRole').addEventListener('change', (e) => {
@@ -1388,14 +1413,49 @@ $csrfToken = $auth->generateCSRFToken();
             }
 
             async addUser() {
+                console.log('=== ADD USER FUNCTION CALLED ===');
                 const form = document.getElementById('addUserForm');
                 const role = document.getElementById('addRole').value;
+                console.log('Form element:', form);
+                console.log('Selected role:', role);
+
+                // Validazione manuale dei campi required
+                const firstName = form.first_name.value.trim();
+                const lastName = form.last_name.value.trim();
+                const email = form.email.value.trim();
+
+                if (!firstName) {
+                    this.showToast('Inserisci il nome', 'error');
+                    document.getElementById('addFirstName').focus();
+                    return;
+                }
+
+                if (!lastName) {
+                    this.showToast('Inserisci il cognome', 'error');
+                    document.getElementById('addLastName').focus();
+                    return;
+                }
+
+                if (!email) {
+                    this.showToast('Inserisci l\'email', 'error');
+                    document.getElementById('addEmail').focus();
+                    return;
+                }
+
+                // Validazione formato email
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    this.showToast('Inserisci un\'email valida', 'error');
+                    document.getElementById('addEmail').focus();
+                    return;
+                }
+
                 const formData = new FormData();
 
                 // Add basic fields
-                formData.append('first_name', form.first_name.value);
-                formData.append('last_name', form.last_name.value);
-                formData.append('email', form.email.value);
+                formData.append('first_name', firstName);
+                formData.append('last_name', lastName);
+                formData.append('email', email);
                 // Password non più necessaria - verrà inviata email all'utente
                 formData.append('role', role);
                 formData.append('csrf_token', document.getElementById('csrfToken').value);
@@ -1422,13 +1482,34 @@ $csrfToken = $auth->generateCSRFToken();
                     }
                 }
 
+                let response;
                 try {
-                    const response = await fetch('api/users/create_simple.php', {
+                    console.log('Sending user creation request...');
+                    response = await fetch('api/users/create_simple.php', {
                         method: 'POST',
                         body: formData
                     });
 
-                    const data = await response.json();
+                    console.log('Response status:', response.status, response.statusText);
+
+                    // Check if response is OK before parsing
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Server error response:', errorText);
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}. Response: ${errorText.substring(0, 200)}`);
+                    }
+
+                    // Try to parse JSON with detailed error handling
+                    let data;
+                    try {
+                        const responseText = await response.text();
+                        console.log('Raw response:', responseText.substring(0, 500));
+                        data = JSON.parse(responseText);
+                    } catch (jsonError) {
+                        console.error('JSON parsing error:', jsonError.message);
+                        console.error('JSON error stack:', jsonError.stack);
+                        throw new Error(`Invalid JSON response: ${jsonError.message}`);
+                    }
 
                     // Debug: log della risposta
                     console.log('Create user response:', data);
@@ -1455,11 +1536,31 @@ $csrfToken = $auth->generateCSRFToken();
                         form.reset();
                         this.loadUsers();
                     } else {
-                        this.showToast(data.message || 'Errore nella creazione utente', 'error');
+                        const errorMsg = data.message || data.error || 'Errore nella creazione utente';
+                        console.error('API returned error:', errorMsg, data);
+                        this.showToast(errorMsg, 'error');
                     }
                 } catch (error) {
-                    console.error('Error adding user:', error);
-                    this.showToast('Errore di connessione', 'error');
+                    // Enhanced error logging with full details
+                    console.error('=== ERROR ADDING USER ===');
+                    console.error('Error type:', error.constructor.name);
+                    console.error('Error message:', error.message);
+                    console.error('Error stack:', error.stack);
+                    if (response) {
+                        console.error('Response status:', response.status);
+                        console.error('Response headers:', [...response.headers.entries()]);
+                    }
+                    console.error('Full error object:', error);
+                    console.error('========================');
+
+                    // User-friendly error message
+                    let userMessage = 'Errore di connessione';
+                    if (error.message.includes('HTTP')) {
+                        userMessage = 'Errore del server: ' + error.message;
+                    } else if (error.message.includes('JSON')) {
+                        userMessage = 'Risposta non valida dal server';
+                    }
+                    this.showToast(userMessage, 'error');
                 }
             }
 
@@ -1597,24 +1698,65 @@ $csrfToken = $auth->generateCSRFToken();
                     }
                 }
 
+                let response;
                 try {
-                    const response = await fetch('api/users/update_v2.php', {
+                    console.log('Sending user update request...');
+                    response = await fetch('api/users/update_v2.php', {
                         method: 'POST',
                         body: formData
                     });
 
-                    const data = await response.json();
+                    console.log('Response status:', response.status, response.statusText);
+
+                    // Check if response is OK before parsing
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Server error response:', errorText);
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}. Response: ${errorText.substring(0, 200)}`);
+                    }
+
+                    // Try to parse JSON with detailed error handling
+                    let data;
+                    try {
+                        const responseText = await response.text();
+                        console.log('Raw response:', responseText.substring(0, 500));
+                        data = JSON.parse(responseText);
+                    } catch (jsonError) {
+                        console.error('JSON parsing error:', jsonError.message);
+                        console.error('JSON error stack:', jsonError.stack);
+                        throw new Error(`Invalid JSON response: ${jsonError.message}`);
+                    }
 
                     if (data.success) {
                         this.showToast('Utente aggiornato con successo', 'success');
                         closeModal('editModal');
                         this.loadUsers();
                     } else {
-                        this.showToast(data.message || 'Errore nell\'aggiornamento utente', 'error');
+                        const errorMsg = data.message || data.error || 'Errore nell\'aggiornamento utente';
+                        console.error('API returned error:', errorMsg, data);
+                        this.showToast(errorMsg, 'error');
                     }
                 } catch (error) {
-                    console.error('Error updating user:', error);
-                    this.showToast('Errore di connessione', 'error');
+                    // Enhanced error logging with full details
+                    console.error('=== ERROR UPDATING USER ===');
+                    console.error('Error type:', error.constructor.name);
+                    console.error('Error message:', error.message);
+                    console.error('Error stack:', error.stack);
+                    if (response) {
+                        console.error('Response status:', response.status);
+                        console.error('Response headers:', [...response.headers.entries()]);
+                    }
+                    console.error('Full error object:', error);
+                    console.error('===========================');
+
+                    // User-friendly error message
+                    let userMessage = 'Errore di connessione';
+                    if (error.message.includes('HTTP')) {
+                        userMessage = 'Errore del server: ' + error.message;
+                    } else if (error.message.includes('JSON')) {
+                        userMessage = 'Risposta non valida dal server';
+                    }
+                    this.showToast(userMessage, 'error');
                 }
             }
 
@@ -1630,24 +1772,65 @@ $csrfToken = $auth->generateCSRFToken();
                 formData.append('user_id', this.deleteUserId);
                 formData.append('csrf_token', document.getElementById('csrfToken').value);
 
+                let response;
                 try {
-                    const response = await fetch('api/users/delete.php', {
+                    console.log('Sending user delete request...');
+                    response = await fetch('api/users/delete.php', {
                         method: 'POST',
                         body: formData
                     });
 
-                    const data = await response.json();
+                    console.log('Response status:', response.status, response.statusText);
+
+                    // Check if response is OK before parsing
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Server error response:', errorText);
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}. Response: ${errorText.substring(0, 200)}`);
+                    }
+
+                    // Try to parse JSON with detailed error handling
+                    let data;
+                    try {
+                        const responseText = await response.text();
+                        console.log('Raw response:', responseText.substring(0, 500));
+                        data = JSON.parse(responseText);
+                    } catch (jsonError) {
+                        console.error('JSON parsing error:', jsonError.message);
+                        console.error('JSON error stack:', jsonError.stack);
+                        throw new Error(`Invalid JSON response: ${jsonError.message}`);
+                    }
 
                     if (data.success) {
                         this.showToast('Utente eliminato con successo', 'success');
                         closeModal('deleteModal');
                         this.loadUsers();
                     } else {
-                        this.showToast(data.message || 'Errore nell\'eliminazione utente', 'error');
+                        const errorMsg = data.message || data.error || 'Errore nell\'eliminazione utente';
+                        console.error('API returned error:', errorMsg, data);
+                        this.showToast(errorMsg, 'error');
                     }
                 } catch (error) {
-                    console.error('Error deleting user:', error);
-                    this.showToast('Errore di connessione', 'error');
+                    // Enhanced error logging with full details
+                    console.error('=== ERROR DELETING USER ===');
+                    console.error('Error type:', error.constructor.name);
+                    console.error('Error message:', error.message);
+                    console.error('Error stack:', error.stack);
+                    if (response) {
+                        console.error('Response status:', response.status);
+                        console.error('Response headers:', [...response.headers.entries()]);
+                    }
+                    console.error('Full error object:', error);
+                    console.error('===========================');
+
+                    // User-friendly error message
+                    let userMessage = 'Errore di connessione';
+                    if (error.message.includes('HTTP')) {
+                        userMessage = 'Errore del server: ' + error.message;
+                    } else if (error.message.includes('JSON')) {
+                        userMessage = 'Risposta non valida dal server';
+                    }
+                    this.showToast(userMessage, 'error');
                 }
 
                 this.deleteUserId = null;
@@ -1658,23 +1841,64 @@ $csrfToken = $auth->generateCSRFToken();
                 formData.append('user_id', userId);
                 formData.append('csrf_token', document.getElementById('csrfToken').value);
 
+                let response;
                 try {
-                    const response = await fetch('api/users/toggle-status.php', {
+                    console.log('Sending toggle status request...');
+                    response = await fetch('api/users/toggle-status.php', {
                         method: 'POST',
                         body: formData
                     });
 
-                    const data = await response.json();
+                    console.log('Response status:', response.status, response.statusText);
+
+                    // Check if response is OK before parsing
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Server error response:', errorText);
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}. Response: ${errorText.substring(0, 200)}`);
+                    }
+
+                    // Try to parse JSON with detailed error handling
+                    let data;
+                    try {
+                        const responseText = await response.text();
+                        console.log('Raw response:', responseText.substring(0, 500));
+                        data = JSON.parse(responseText);
+                    } catch (jsonError) {
+                        console.error('JSON parsing error:', jsonError.message);
+                        console.error('JSON error stack:', jsonError.stack);
+                        throw new Error(`Invalid JSON response: ${jsonError.message}`);
+                    }
 
                     if (data.success) {
                         this.showToast('Stato utente aggiornato', 'success');
                         this.loadUsers();
                     } else {
-                        this.showToast(data.message || 'Errore nell\'aggiornamento stato', 'error');
+                        const errorMsg = data.message || data.error || 'Errore nell\'aggiornamento stato';
+                        console.error('API returned error:', errorMsg, data);
+                        this.showToast(errorMsg, 'error');
                     }
                 } catch (error) {
-                    console.error('Error toggling status:', error);
-                    this.showToast('Errore di connessione', 'error');
+                    // Enhanced error logging with full details
+                    console.error('=== ERROR TOGGLING STATUS ===');
+                    console.error('Error type:', error.constructor.name);
+                    console.error('Error message:', error.message);
+                    console.error('Error stack:', error.stack);
+                    if (response) {
+                        console.error('Response status:', response.status);
+                        console.error('Response headers:', [...response.headers.entries()]);
+                    }
+                    console.error('Full error object:', error);
+                    console.error('=============================');
+
+                    // User-friendly error message
+                    let userMessage = 'Errore di connessione';
+                    if (error.message.includes('HTTP')) {
+                        userMessage = 'Errore del server: ' + error.message;
+                    } else if (error.message.includes('JSON')) {
+                        userMessage = 'Risposta non valida dal server';
+                    }
+                    this.showToast(userMessage, 'error');
                 }
             }
 
@@ -1748,11 +1972,16 @@ $csrfToken = $auth->generateCSRFToken();
         }
 
         function openAddModal() {
-            document.getElementById('addUserForm').reset();
+            console.log('=== OPENING ADD USER MODAL ===');
+            const form = document.getElementById('addUserForm');
+            console.log('Form found:', form);
+            form.reset();
             // Set default role and trigger tenant field update
             document.getElementById('addRole').value = 'user';
+            console.log('Triggering role change for: user');
             userManager.handleRoleChange('user', 'add');
             openModal('addModal');
+            console.log('Modal opened successfully');
         }
 
         function confirmDelete() {

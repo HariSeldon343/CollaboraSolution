@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Creazione Utente - CollaboraNexio</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #667eea;
+            padding-left: 10px;
+        }
+        .log-entry.error {
+            border-left-color: #e53e3e;
+            color: #e53e3e;
+        }
+        .log-entry.success {
+            border-left-color: #48bb78;
+            color: #48bb78;
+        }
+        .info {
+            background: #e6f3ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Creazione Utente</h1>
+
+        <div class="info">
+            <strong>Test Standalone per Debug</strong><br>
+            Questa pagina testa direttamente l'API di creazione utente senza la complessità della UI completa.
+        </div>
+
+        <form id="testForm">
+            <div class="form-group">
+                <label for="firstName">Nome *</label>
+                <input type="text" id="firstName" name="first_name" value="Mario" required>
+            </div>
+
+            <div class="form-group">
+                <label for="lastName">Cognome *</label>
+                <input type="text" id="lastName" name="last_name" value="Rossi" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email *</label>
+                <input type="email" id="email" name="email" value="mario.rossi@test.it" required>
+            </div>
+
+            <div class="form-group">
+                <label for="role">Ruolo *</label>
+                <select id="role" name="role" required>
+                    <option value="user">Utente</option>
+                    <option value="manager">Manager</option>
+                    <option value="admin">Admin</option>
+                    <option value="super_admin" selected>Super Admin</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="tenantGroup" style="display: none;">
+                <label for="tenant">Azienda</label>
+                <select id="tenant" name="tenant_id">
+                    <option value="1">Tenant 1</option>
+                </select>
+            </div>
+
+            <button type="submit" id="submitBtn">🚀 Crea Utente</button>
+        </form>
+
+        <div class="log" id="log">
+            <div class="log-entry">Console di debug - pronto per il test...</div>
+        </div>
+    </div>
+
+    <script>
+        const log = document.getElementById('log');
+        const form = document.getElementById('testForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const roleSelect = document.getElementById('role');
+        const tenantGroup = document.getElementById('tenantGroup');
+
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+            console.log(message);
+        }
+
+        // Show/hide tenant field based on role
+        roleSelect.addEventListener('change', function() {
+            if (this.value === 'super_admin') {
+                tenantGroup.style.display = 'none';
+            } else {
+                tenantGroup.style.display = 'block';
+            }
+        });
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            addLog('=== INIZIO TEST CREAZIONE UTENTE ===');
+
+            const formData = new FormData();
+            formData.append('first_name', document.getElementById('firstName').value);
+            formData.append('last_name', document.getElementById('lastName').value);
+            formData.append('email', document.getElementById('email').value);
+            formData.append('role', document.getElementById('role').value);
+
+            // Add tenant if not super_admin
+            if (document.getElementById('role').value !== 'super_admin') {
+                formData.append('tenant_id', document.getElementById('tenant').value);
+            }
+
+            // Get CSRF token from session
+            addLog('Step 1: Ottenendo CSRF token dalla sessione...');
+
+            try {
+                // First get CSRF token
+                const sessionResponse = await fetch('/CollaboraNexio/index.php');
+                const sessionText = await sessionResponse.text();
+
+                // Try to extract CSRF token from page
+                const csrfMatch = sessionText.match(/id="csrfToken"[^>]*value="([^"]+)"/);
+                const csrfToken = csrfMatch ? csrfMatch[1] : null;
+
+                if (!csrfToken) {
+                    addLog('⚠️ CSRF token non trovato! Tentativo senza token...', 'error');
+                } else {
+                    addLog('✓ CSRF token ottenuto: ' + csrfToken.substring(0, 20) + '...');
+                    formData.append('csrf_token', csrfToken);
+                }
+
+                addLog('Step 2: Inviando richiesta POST a api/users/create_simple.php...');
+                submitBtn.disabled = true;
+                submitBtn.textContent = '⏳ Creazione in corso...';
+
+                const response = await fetch('/CollaboraNexio/api/users/create_simple.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                addLog(`Step 3: Risposta ricevuta - Status: ${response.status} ${response.statusText}`);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    addLog('❌ Errore HTTP: ' + errorText.substring(0, 200), 'error');
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                const responseText = await response.text();
+                addLog('Step 4: Response body (primi 500 caratteri):');
+                addLog(responseText.substring(0, 500));
+
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                    addLog('✓ JSON parsing riuscito');
+                } catch (jsonError) {
+                    addLog('❌ Errore parsing JSON: ' + jsonError.message, 'error');
+                    throw jsonError;
+                }
+
+                if (data.success) {
+                    addLog('✅ UTENTE CREATO CON SUCCESSO!', 'success');
+                    addLog('User ID: ' + data.data.id, 'success');
+                    addLog('Email: ' + data.data.email, 'success');
+                    addLog('Nome: ' + data.data.name, 'success');
+
+                    if (data.data.email_sent) {
+                        addLog('✓ Email di benvenuto inviata', 'success');
+                    } else {
+                        addLog('⚠️ Email non inviata: ' + (data.warning || 'motivo sconosciuto'));
+                        if (data.data.reset_link) {
+                            addLog('🔗 Link manuale: ' + data.data.reset_link);
+                        }
+                    }
+
+                    // Reset form
+                    form.reset();
+                    document.getElementById('email').value = 'test' + Date.now() + '@example.com';
+                } else {
+                    addLog('❌ API ha ritornato errore: ' + (data.error || data.message), 'error');
+                    if (data.debug) {
+                        addLog('Debug info: ' + data.debug, 'error');
+                    }
+                }
+
+            } catch (error) {
+                addLog('❌ ERRORE CATTURATO:', 'error');
+                addLog('Type: ' + error.constructor.name, 'error');
+                addLog('Message: ' + error.message, 'error');
+                if (error.stack) {
+                    addLog('Stack: ' + error.stack.substring(0, 200), 'error');
+                }
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Crea Utente';
+                addLog('=== FINE TEST ===');
+            }
+        });
+
+        addLog('✓ Pagina caricata, form pronto');
+        addLog('ℹ️ Compilare i campi e cliccare "Crea Utente" per testare');
+    </script>
+</body>
+</html>

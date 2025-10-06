@@ -1,5 +1,8 @@
 <?php
-session_start();
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../../includes/session_init.php';
+
+// POI: Headers (DOPO session_start di session_init.php)
 header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
 
@@ -53,9 +56,10 @@ try {
     $pdo->beginTransaction();
 
     // Check if file exists and belongs to accessible tenant
+    // Schema: files table uses uploaded_by (not owner_id)
     $fileQuery = "SELECT f.*, u.first_name, u.last_name, u.email
                   FROM files f
-                  LEFT JOIN users u ON f.owner_id = u.id
+                  LEFT JOIN users u ON f.uploaded_by = u.id
                   WHERE f.id = :file_id AND f.deleted_at IS NULL";
 
     // Add tenant check for non-super_admin users
@@ -157,11 +161,12 @@ try {
                                 VALUES (:tenant_id, :file_id, :requested_by,
                                         :reviewed_by, NOW(), 'rifiutato', :comments)";
 
+        // Schema: files table uses uploaded_by (not owner_id)
         $stmt = $pdo->prepare($createApprovalQuery);
         $stmt->execute([
             ':tenant_id' => $file['tenant_id'],
             ':file_id' => $file_id,
-            ':requested_by' => $file['owner_id'],
+            ':requested_by' => $file['uploaded_by'],
             ':reviewed_by' => $user_id,
             ':comments' => $fullComments
         ]);
@@ -183,10 +188,11 @@ try {
         'comments' => $comments
     ]);
 
+    // Schema: files table uses uploaded_by (not owner_id)
     $stmt = $pdo->prepare($ownerNotifQuery);
     $stmt->execute([
         ':tenant_id' => $file['tenant_id'],
-        ':user_id' => $file['owner_id'],
+        ':user_id' => $file['uploaded_by'],
         ':message' => $message,
         ':data' => $data
     ]);

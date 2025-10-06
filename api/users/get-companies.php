@@ -1,5 +1,8 @@
 <?php
-session_start();
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../../includes/session_init.php';
+
+// POI: Headers (DOPO session_start di session_init.php)
 header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
 
@@ -50,16 +53,16 @@ try {
 
     $db = Database::getInstance();
 
-    // First check if the user exists and get their role
+    // First check if the user exists and get their role (only non-deleted users)
     $user = $db->fetchOne(
-        "SELECT id, role, email, tenant_id FROM users WHERE id = :id",
+        "SELECT id, role, email, tenant_id FROM users WHERE id = :id AND deleted_at IS NULL",
         [':id' => $user_id]
     );
 
     if (!$user) {
         ob_clean();
         http_response_code(404);
-        die(json_encode(['error' => 'Utente non trovato']));
+        die(json_encode(['error' => 'Utente non trovato o eliminato']));
     }
 
     // If current user is admin, verify they have permission to view this user

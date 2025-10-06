@@ -7,6 +7,15 @@ declare(strict_types=1);
  * Comprehensive file versioning system with efficient storage and version management
  * Supports delta storage, compression, branching, and enterprise-grade version control
  *
+ * ⚠️ IMPORTANT SCHEMA NOTE:
+ * The file_versions table intentionally uses DIFFERENT column naming than the files table:
+ * - file_versions.size_bytes (archival size) vs files.file_size (current size)
+ * - file_versions.storage_path (archival storage) vs files.file_path (current path)
+ *
+ * This semantic distinction between "historical snapshot" vs "current file" is intentional.
+ * The file_versions table maintains archival semantics for historical data.
+ * See: /database/SCHEMA_DRIFT_ANALYSIS_REPORT.md for details.
+ *
  * @author CollaboraNexio Development Team
  * @version 1.0.0
  * @since PHP 8.3

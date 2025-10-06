@@ -4,7 +4,10 @@
  * Utile per debugging
  */
 
-session_start();
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../includes/session_init.php';
+
+// POI: Headers (DOPO session_start di session_init.php)
 header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
 

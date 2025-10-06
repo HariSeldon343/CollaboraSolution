@@ -239,7 +239,10 @@ try {
                 throw new Exception('Classe EmailSender non trovata');
             }
 
-            $emailSender = new EmailSender();
+            // Carica configurazione email da database
+            require_once __DIR__ . '/../../includes/email_config.php';
+            $emailConfig = getEmailConfigFromDatabase();
+            $emailSender = new EmailSender($emailConfig);
             $full_name = trim($first_name . ' ' . $last_name);
 
             error_log('[CREATE_USER] Attempting to send welcome email to: ' . $email);

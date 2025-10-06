@@ -79,21 +79,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tokenValid) {
             $db = Database::getInstance();
             $conn = $db->getConnection();
 
+            // Calculate password expiration: 90 days from now
+            $passwordExpiresAt = date('Y-m-d H:i:s', strtotime('+90 days'));
+
             // Hash della password
             $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
-            // Aggiorna utente
+            // Aggiorna utente con password e data scadenza (90 giorni)
             $updateQuery = "UPDATE users
                           SET password_hash = :password_hash,
                               password_reset_token = NULL,
                               password_reset_expires = NULL,
                               first_login = FALSE,
                               password_set_at = NOW(),
+                              password_expires_at = :password_expires_at,
                               is_active = TRUE
                           WHERE id = :user_id";
 
             $updateStmt = $conn->prepare($updateQuery);
             $updateStmt->bindParam(':password_hash', $passwordHash);
+            $updateStmt->bindParam(':password_expires_at', $passwordExpiresAt);
             $updateStmt->bindParam(':user_id', $userData['id']);
 
             if ($updateStmt->execute()) {

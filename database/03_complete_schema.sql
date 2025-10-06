@@ -216,6 +216,9 @@ CREATE TABLE folders (
 
 -- ============================================
 -- TABLE: FILES
+-- ACTUAL SCHEMA: Updated to match production database structure
+-- Note: This reflects the current implementation with file reassignment,
+-- public sharing, and approval workflow features.
 -- ============================================
 CREATE TABLE files (
     tenant_id INT UNSIGNED NOT NULL,
@@ -224,14 +227,28 @@ CREATE TABLE files (
     name VARCHAR(255) NOT NULL,
     original_name VARCHAR(255) NOT NULL,
     mime_type VARCHAR(100) NOT NULL,
-    size_bytes BIGINT UNSIGNED NOT NULL,
-    storage_path VARCHAR(500) NOT NULL,
-    checksum VARCHAR(64) NULL,
-    owner_id INT UNSIGNED NOT NULL,
+    file_size BIGINT NOT NULL,  -- ACTUAL: Not size_bytes, no UNSIGNED
+    file_path VARCHAR(500) NOT NULL,  -- ACTUAL: Not storage_path
+    uploaded_by INT UNSIGNED NOT NULL,  -- ACTUAL: Not owner_id
+
+    -- Multi-tenant and sharing features
+    original_tenant_id INT UNSIGNED NULL,  -- Track original tenant for reassignments
     is_public BOOLEAN DEFAULT FALSE,
+    public_token VARCHAR(64) NULL,  -- Token for public sharing
+    shared_with TEXT NULL,  -- Comma-separated user IDs or JSON
+
+    -- Usage tracking
     download_count INT UNSIGNED DEFAULT 0,
-    tags JSON NULL,
-    metadata JSON NULL,
+    last_accessed_at TIMESTAMP NULL,
+
+    -- File reassignment tracking
+    reassigned_at TIMESTAMP NULL,
+    reassigned_by INT UNSIGNED NULL,
+
+    -- Approval workflow status
+    status ENUM('in_approvazione', 'approvato', 'rifiutato', 'draft') DEFAULT 'in_approvazione',
+
+    -- Audit fields
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
@@ -239,17 +256,26 @@ CREATE TABLE files (
     PRIMARY KEY (id),
     FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
     FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE,
-    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (original_tenant_id) REFERENCES tenants(id) ON DELETE SET NULL,
+    FOREIGN KEY (reassigned_by) REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE KEY uk_public_token (public_token),
     INDEX idx_file_tenant_folder (tenant_id, folder_id),
     INDEX idx_file_name (name),
-    INDEX idx_file_owner (owner_id),
+    INDEX idx_file_uploaded_by (uploaded_by),
     INDEX idx_file_mime (mime_type),
-    INDEX idx_file_checksum (checksum),
+    INDEX idx_file_status (status),
+    INDEX idx_file_public (is_public, public_token),
     INDEX idx_file_deleted (deleted_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================
 -- TABLE: FILE_VERSIONS
+-- NOTE: This table intentionally uses DIFFERENT naming convention than files table
+-- Rationale: Versions are "historical snapshots" with archival semantics
+-- - size_bytes (NOT file_size) - emphasizes archived historical size
+-- - storage_path (NOT file_path) - emphasizes separate archival storage
+-- The main files table uses: file_size, file_path, uploaded_by
 -- ============================================
 CREATE TABLE file_versions (
     tenant_id INT UNSIGNED NOT NULL,
@@ -257,9 +283,9 @@ CREATE TABLE file_versions (
     file_id INT UNSIGNED NOT NULL,
     version_number INT UNSIGNED NOT NULL,
     name VARCHAR(255) NOT NULL,
-    size_bytes BIGINT UNSIGNED NOT NULL,
-    storage_path VARCHAR(500) NOT NULL,
-    checksum VARCHAR(64) NULL,
+    size_bytes BIGINT UNSIGNED NOT NULL,  -- Historical size (archival semantics)
+    storage_path VARCHAR(500) NOT NULL,  -- Archive storage location
+    checksum VARCHAR(64) NULL,  -- File integrity verification
     uploaded_by INT UNSIGNED NOT NULL,
     comment TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -693,10 +719,10 @@ INSERT INTO folders (tenant_id, id, parent_id, name, path, owner_id, is_public) 
     (1, 3, NULL, 'Public', '/Public', 1, TRUE)
 ON DUPLICATE KEY UPDATE name=VALUES(name);
 
--- Sample files
-INSERT INTO files (tenant_id, id, folder_id, name, original_name, mime_type, size_bytes, storage_path, owner_id) VALUES
-    (1, 1, 2, 'project_plan.pdf', 'Project Plan 2025.pdf', 'application/pdf', 2048000, '/storage/tenant_1/files/abc123.pdf', 1),
-    (1, 2, 2, 'budget.xlsx', 'Budget Spreadsheet.xlsx', 'application/vnd.ms-excel', 512000, '/storage/tenant_1/files/def456.xlsx', 2)
+-- Sample files (using ACTUAL schema: file_size, file_path, uploaded_by)
+INSERT INTO files (tenant_id, id, folder_id, name, original_name, mime_type, file_size, file_path, uploaded_by, status) VALUES
+    (1, 1, 2, 'project_plan.pdf', 'Project Plan 2025.pdf', 'application/pdf', 2048000, '/storage/tenant_1/files/abc123.pdf', 1, 'approvato'),
+    (1, 2, 2, 'budget.xlsx', 'Budget Spreadsheet.xlsx', 'application/vnd.ms-excel', 512000, '/storage/tenant_1/files/def456.xlsx', 2, 'approvato')
 ON DUPLICATE KEY UPDATE name=VALUES(name);
 
 -- Sample chat channels

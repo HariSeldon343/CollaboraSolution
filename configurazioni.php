@@ -29,6 +29,20 @@ $companyFilter = new CompanyFilter($currentUser);
 
 // Generate CSRF token for any forms
 $csrfToken = $auth->generateCSRFToken();
+
+// Load email configuration from database
+require_once __DIR__ . '/includes/email_config.php';
+$emailConfig = getEmailConfigFromDatabase();
+
+// Prepare email config for JavaScript
+$emailConfigJson = json_encode([
+    'smtp_host' => $emailConfig['smtpHost'] ?? 'mail.infomaniak.com',
+    'smtp_port' => $emailConfig['smtpPort'] ?? 465,
+    'smtp_username' => $emailConfig['smtpUsername'] ?? 'info@fortibyte.it',
+    'from_email' => $emailConfig['fromEmail'] ?? 'info@fortibyte.it',
+    'from_name' => $emailConfig['fromName'] ?? 'CollaboraNexio',
+    'reply_to' => $emailConfig['replyTo'] ?? 'info@fortibyte.it'
+]);
 ?>
 <!DOCTYPE html>
 <html lang="it">
@@ -36,7 +50,10 @@ $csrfToken = $auth->generateCSRFToken();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Configurazioni - CollaboraNexio</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Configurazioni - CollaboraNexio (v<?php echo time(); ?>)</title>
 
     <!-- Main CSS -->
     <link rel="stylesheet" href="assets/css/styles.css">
@@ -557,54 +574,55 @@ $csrfToken = $auth->generateCSRFToken();
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label class="form-label required">Server SMTP</label>
-                                        <input type="text" class="form-control" value="smtp.gmail.com">
+                                        <input type="text" class="form-control" id="smtp_host" value="<?php echo htmlspecialchars($emailConfig['smtpHost'] ?? 'mail.infomaniak.com'); ?>">
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label required">Porta SMTP</label>
-                                        <input type="text" class="form-control" value="587">
+                                        <input type="text" class="form-control" id="smtp_port" value="<?php echo htmlspecialchars((string)($emailConfig['smtpPort'] ?? 465)); ?>">
                                     </div>
                                 </div>
 
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label class="form-label required">Email Mittente</label>
-                                        <input type="email" class="form-control" value="noreply@collaboranexio.com">
+                                        <input type="email" class="form-control" id="from_email" value="<?php echo htmlspecialchars($emailConfig['fromEmail'] ?? 'info@fortibyte.it'); ?>">
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">Nome Mittente</label>
-                                        <input type="text" class="form-control" value="CollaboraNexio">
+                                        <input type="text" class="form-control" id="from_name" value="<?php echo htmlspecialchars($emailConfig['fromName'] ?? 'CollaboraNexio'); ?>">
                                     </div>
                                 </div>
 
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label class="form-label">Username SMTP</label>
-                                        <input type="text" class="form-control" value="smtp_user">
+                                        <input type="text" class="form-control" id="smtp_username" value="<?php echo htmlspecialchars($emailConfig['smtpUsername'] ?? 'info@fortibyte.it'); ?>">
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">Password SMTP</label>
-                                        <input type="password" class="form-control" placeholder="••••••••">
+                                        <input type="password" class="form-control" id="smtp_password" placeholder="••••••••" data-has-value="<?php echo !empty($emailConfig['smtpPassword']) ? '1' : '0'; ?>">
+                                        <small class="form-text text-muted">Lascia vuoto per mantenere la password esistente</small>
                                     </div>
                                 </div>
 
                                 <div class="toggle-group">
                                     <div class="toggle-info">
                                         <div class="toggle-label">Usa TLS/SSL</div>
-                                        <div class="toggle-description">Abilita la crittografia per le comunicazioni email</div>
+                                        <div class="toggle-description">Abilita la crittografia per le comunicazioni email (porta 465 richiede SSL)</div>
                                     </div>
                                     <label class="toggle-switch">
-                                        <input type="checkbox" checked>
+                                        <input type="checkbox" id="use_tls" checked>
                                         <span class="toggle-slider"></span>
                                     </label>
                                 </div>
 
                                 <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4)">
-                                    <button type="button" class="btn btn--secondary">Test Connessione</button>
+                                    <button type="button" class="btn btn--secondary" id="testEmailBtn">Test Connessione</button>
                                 </div>
 
                                 <div class="config-actions">
-                                    <button type="button" class="btn btn--secondary">Annulla</button>
-                                    <button type="submit" class="btn btn--primary">Salva Modifiche</button>
+                                    <button type="button" class="btn btn--secondary" onclick="window.location.reload()">Annulla</button>
+                                    <button type="button" class="btn btn--primary" id="saveEmailConfigBtn">Salva Modifiche</button>
                                 </div>
                             </form>
                         </div>
@@ -840,6 +858,154 @@ $csrfToken = $auth->generateCSRFToken();
             // Add active class to clicked button
             event.target.classList.add('active');
         }
+
+        // Email configuration functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const testEmailBtn = document.getElementById('testEmailBtn');
+            const saveEmailConfigBtn = document.getElementById('saveEmailConfigBtn');
+
+            // Test email connection
+            if (testEmailBtn) {
+                testEmailBtn.addEventListener('click', async function() {
+                    const email = prompt('Inserisci l\'email a cui inviare il test:');
+
+                    if (!email) {
+                        return;
+                    }
+
+                    // Validate email
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailRegex.test(email)) {
+                        alert('Email non valida');
+                        return;
+                    }
+
+                    // Get email configuration from form
+                    const smtpHost = document.getElementById('smtp_host').value;
+                    const smtpPort = document.getElementById('smtp_port').value;
+                    const fromEmail = document.getElementById('from_email').value;
+                    const fromName = document.getElementById('from_name').value;
+                    const smtpUsername = document.getElementById('smtp_username').value;
+                    const smtpPassword = document.getElementById('smtp_password').value;
+                    const useTLS = document.getElementById('use_tls').checked;
+
+                    testEmailBtn.disabled = true;
+                    testEmailBtn.textContent = 'Invio in corso...';
+
+                    try {
+                        // Cache buster to force fresh request
+                        const timestamp = new Date().getTime();
+                        const response = await fetch('/CollaboraNexio/api/system/config.php?action=test_email&_t=' + timestamp, {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-Token': '<?php echo $csrfToken; ?>'
+                            },
+                            body: JSON.stringify({
+                                to_email: email,
+                                smtp_host: smtpHost,
+                                smtp_port: parseInt(smtpPort),
+                                from_email: fromEmail,
+                                from_name: fromName,
+                                smtp_username: smtpUsername,
+                                smtp_password: smtpPassword,
+                                use_tls: useTLS
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            alert('Email di test inviata con successo! Controlla la casella di posta.');
+                        } else if (data.warning) {
+                            // Development environment warning
+                            alert('⚠️ ' + data.message + '\n\n' + (data.details || ''));
+                        } else {
+                            alert('Errore: ' + (data.error || data.message || 'Invio fallito') + '\n\n' + (data.details || ''));
+                        }
+                    } catch (error) {
+                        console.error('Error testing email:', error);
+                        alert('Errore di rete durante il test email');
+                    } finally {
+                        testEmailBtn.disabled = false;
+                        testEmailBtn.textContent = 'Test Connessione';
+                    }
+                });
+            }
+
+            // Save email configuration
+            if (saveEmailConfigBtn) {
+                saveEmailConfigBtn.addEventListener('click', async function() {
+                    if (!confirm('Salvare le configurazioni email?')) {
+                        return;
+                    }
+
+                    // Get email configuration from form
+                    const smtpHost = document.getElementById('smtp_host').value;
+                    const smtpPort = document.getElementById('smtp_port').value;
+                    const fromEmail = document.getElementById('from_email').value;
+                    const fromName = document.getElementById('from_name').value;
+                    const smtpUsername = document.getElementById('smtp_username').value;
+                    const smtpPassword = document.getElementById('smtp_password').value;
+                    const useTLS = document.getElementById('use_tls').checked;
+
+                    // Validation
+                    if (!smtpHost || !smtpPort || !fromEmail || !smtpUsername) {
+                        alert('Compila tutti i campi obbligatori');
+                        return;
+                    }
+
+                    saveEmailConfigBtn.disabled = true;
+                    saveEmailConfigBtn.textContent = 'Salvataggio...';
+
+                    try {
+                        // Prepare settings object - use correct field names matching database schema
+                        const settings = {
+                            smtp_host: smtpHost,
+                            smtp_port: parseInt(smtpPort),
+                            from_email: fromEmail,
+                            from_name: fromName,
+                            smtp_username: smtpUsername,
+                            reply_to: fromEmail  // Use same email for reply-to
+                        };
+
+                        // Only include password if it was changed (not empty)
+                        if (smtpPassword && smtpPassword.trim() !== '') {
+                            settings.smtp_password = smtpPassword;
+                        }
+
+                        // Cache buster to force fresh request
+                        const timestamp = new Date().getTime();
+                        const response = await fetch('/CollaboraNexio/api/system/config.php?action=save&_t=' + timestamp, {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-Token': '<?php echo $csrfToken; ?>'
+                            },
+                            body: JSON.stringify({
+                                settings: settings
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            alert('Configurazioni salvate con successo!');
+                        } else {
+                            alert('Errore: ' + (data.error || 'Salvataggio fallito'));
+                        }
+                    } catch (error) {
+                        console.error('Error saving config:', error);
+                        alert('Errore di rete durante il salvataggio');
+                    } finally {
+                        saveEmailConfigBtn.disabled = false;
+                        saveEmailConfigBtn.textContent = 'Salva Modifiche';
+                    }
+                });
+            }
+        });
     </script>
 </body>
 </html>

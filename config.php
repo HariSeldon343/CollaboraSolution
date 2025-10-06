@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 // Rileva automaticamente l'ambiente basandosi sull'hostname
 $currentHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
+// Rimuovi la porta da HTTP_HOST per evitare duplicazione in BASE_URL
+$currentHost = preg_replace('/:\d+$/', '', $currentHost);
 $isProduction = false;
 
 if (strpos($currentHost, 'nexiosolution.it') !== false) {

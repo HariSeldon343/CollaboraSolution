@@ -1,8 +1,28 @@
+-- ============================================
+-- ⚠️ OBSOLETE - DO NOT RUN THIS MIGRATION ⚠️
+-- ============================================
+-- This migration is OBSOLETE and should NOT be executed.
+--
+-- Reason: The production database already has the correct schema:
+-- - file_size (correct)
+-- - file_path (correct)
+-- - uploaded_by (correct)
+--
+-- This migration attempted to migrate TO those columns, but the database
+-- already has them. Running this would destroy working data.
+--
+-- Date Obsoleted: 2025-10-03
+-- Schema Drift Fix: Code was updated to match existing database schema
+-- See: /database/SCHEMA_DRIFT_ANALYSIS_REPORT.md
+-- ============================================
+
+-- ORIGINAL HEADER (for reference):
 -- Module: Files Table Migration
 -- Version: 2025-09-27
 -- Author: Database Architect
 -- Description: Safe migration script to fix the files table structure
 
+-- WRONG DATABASE NAME (should be collaboranexio, not collabora)
 USE collabora;
 
 -- ============================================

@@ -1,0 +1,517 @@
+<?php declare(strict_types=1);
+
+/**
+ * CollaboraNexio - API Router Centrale
+ * Gestisce tutte le richieste API e le instrada ai controller appropriati
+ */
+
+// Headers CORS e JSON
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Content-Type: application/json; charset=UTF-8');
+
+// Gestione preflight CORS
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+// Configurazione e autoload
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/auth.php';
+
+// Parsing del path API
+$request_uri = $_SERVER['REQUEST_URI'];
+$base_path = '/api/';
+$path = str_replace($base_path, '', parse_url($request_uri, PHP_URL_PATH));
+$path_parts = explode('/', trim($path, '/'));
+
+$resource = $path_parts[0] ?? '';
+$action = $path_parts[1] ?? '';
+$id = $path_parts[2] ?? null;
+
+// Metodo HTTP
+$method = $_SERVER['REQUEST_METHOD'];
+
+// Verifica autenticazione per tutte le route tranne login/register
+$public_routes = ['auth/login', 'auth/register', 'auth/refresh', 'system/health'];
+$current_route = $resource . '/' . $action;
+
+$auth = new Auth();
+$user = null;
+
+if (!in_array($current_route, $public_routes) && $resource !== 'auth') {
+    $user = $auth->getCurrentUser();
+    if (!$user) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Non autenticato', 'code' => 'UNAUTHORIZED']);
+        exit;
+    }
+}
+
+// Router principale
+try {
+    $response = match($resource) {
+        // Autenticazione
+        'auth' => handleAuth($action, $method),
+
+        // Dashboard
+        'dashboard' => handleDashboard($action, $method, $user),
+
+        // Progetti
+        'projects' => handleProjects($action, $method, $user, $id),
+
+        // Tasks
+        'tasks' => handleTasks($action, $method, $user, $id),
+
+        // File Manager
+        'files' => handleFiles($action, $method, $user, $id),
+
+        // Calendario
+        'calendar' => handleCalendar($action, $method, $user, $id),
+
+        // Chat
+        'chat' => handleChat($action, $method, $user, $id),
+
+        // Utenti
+        'users' => handleUsers($action, $method, $user, $id),
+
+        // Notifiche
+        'notifications' => handleNotifications($action, $method, $user, $id),
+
+        // Sistema
+        'system' => handleSystem($action, $method, $user),
+
+        // Default
+        default => throw new Exception('Risorsa non trovata', 404)
+    };
+
+    echo json_encode($response);
+
+} catch (Exception $e) {
+    http_response_code($e->getCode() ?: 500);
+    echo json_encode([
+        'error' => $e->getMessage(),
+        'code' => $e->getCode() ?: 500
+    ]);
+}
+
+/**
+ * Handler Autenticazione
+ */
+function handleAuth(string $action, string $method): array {
+    if ($method !== 'POST') {
+        throw new Exception('Metodo non supportato', 405);
+    }
+
+    $data = json_decode(file_get_contents('php://input'), true);
+
+    return match($action) {
+        'login' => performLogin($data),
+        'register' => performRegister($data),
+        'logout' => performLogout(),
+        'refresh' => refreshToken($data),
+        'verify-email' => verifyEmail($data),
+        'forgot-password' => forgotPassword($data),
+        'reset-password' => resetPassword($data),
+        default => throw new Exception('Azione non valida', 400)
+    };
+}
+
+/**
+ * Handler Dashboard
+ */
+function handleDashboard(string $action, string $method, ?array $user): array {
+    if ($method !== 'GET') {
+        throw new Exception('Metodo non supportato', 405);
+    }
+
+    global $pdo;
+    $tenant_id = $user['tenant_id'];
+    $user_id = $user['id'];
+
+    return match($action) {
+        '', 'stats' => getDashboardStats($tenant_id, $user_id),
+        'activities' => getRecentActivities($tenant_id, $user_id),
+        'widgets' => getDashboardWidgets($tenant_id, $user_id),
+        'charts' => getChartData($tenant_id, $user_id),
+        default => throw new Exception('Azione non valida', 400)
+    };
+}
+
+/**
+ * Handler Progetti
+ */
+function handleProjects(string $action, string $method, ?array $user, ?string $id): array {
+    // Includi il file completo dei progetti
+    require_once __DIR__ . '/projects_complete.php';
+
+    // Il file projects_complete.php gestirà la richiesta
+    return ['delegated' => 'projects_complete.php'];
+}
+
+/**
+ * Handler Tasks
+ */
+function handleTasks(string $action, string $method, ?array $user, ?string $id): array {
+    global $pdo;
+    $tenant_id = $user['tenant_id'];
+    $user_id = $user['id'];
+
+    switch ($method) {
+        case 'GET':
+            if ($id) {
+                return getTaskDetail($id, $tenant_id);
+            }
+            return match($action) {
+                '', 'list' => getTasksList($tenant_id, $user_id),
+                'my' => getMyTasks($tenant_id, $user_id),
+                'calendar' => getTasksCalendar($tenant_id, $user_id),
+                'overdue' => getOverdueTasks($tenant_id, $user_id),
+                default => throw new Exception('Azione non valida', 400)
+            };
+
+        case 'POST':
+            $data = json_decode(file_get_contents('php://input'), true);
+            return createTask($data, $tenant_id, $user_id);
+
+        case 'PUT':
+            if (!$id) throw new Exception('ID task richiesto', 400);
+            $data = json_decode(file_get_contents('php://input'), true);
+            return updateTask($id, $data, $tenant_id, $user_id);
+
+        case 'DELETE':
+            if (!$id) throw new Exception('ID task richiesto', 400);
+            return deleteTask($id, $tenant_id, $user_id);
+
+        default:
+            throw new Exception('Metodo non supportato', 405);
+    }
+}
+
+/**
+ * Handler Files
+ */
+function handleFiles(string $action, string $method, ?array $user, ?string $id): array {
+    // Includi il file completo dei files
+    require_once __DIR__ . '/files_complete.php';
+
+    // Il file files_complete.php gestirà la richiesta
+    return ['delegated' => 'files_complete.php'];
+}
+
+/**
+ * Handler Calendar
+ */
+function handleCalendar(string $action, string $method, ?array $user, ?string $id): array {
+    global $pdo;
+    $tenant_id = $user['tenant_id'];
+    $user_id = $user['id'];
+
+    switch ($method) {
+        case 'GET':
+            if ($id) {
+                return getEventDetail($id, $tenant_id);
+            }
+            return match($action) {
+                '', 'events' => getCalendarEvents($tenant_id, $user_id),
+                'month' => getMonthEvents($tenant_id, $user_id),
+                'week' => getWeekEvents($tenant_id, $user_id),
+                'day' => getDayEvents($tenant_id, $user_id),
+                default => throw new Exception('Azione non valida', 400)
+            };
+
+        case 'POST':
+            $data = json_decode(file_get_contents('php://input'), true);
+            return createCalendarEvent($data, $tenant_id, $user_id);
+
+        case 'PUT':
+            if (!$id) throw new Exception('ID evento richiesto', 400);
+            $data = json_decode(file_get_contents('php://input'), true);
+            return updateCalendarEvent($id, $data, $tenant_id, $user_id);
+
+        case 'DELETE':
+            if (!$id) throw new Exception('ID evento richiesto', 400);
+            return deleteCalendarEvent($id, $tenant_id, $user_id);
+
+        default:
+            throw new Exception('Metodo non supportato', 405);
+    }
+}
+
+/**
+ * Handler Chat
+ */
+function handleChat(string $action, string $method, ?array $user, ?string $id): array {
+    global $pdo;
+    $tenant_id = $user['tenant_id'];
+    $user_id = $user['id'];
+
+    return match($action) {
+        'channels' => handleChatChannels($method, $tenant_id, $user_id, $id),
+        'messages' => handleChatMessages($method, $tenant_id, $user_id, $id),
+        'users' => getChatUsers($tenant_id, $user_id),
+        'search' => searchChatMessages($tenant_id, $user_id),
+        default => throw new Exception('Azione non valida', 400)
+    };
+}
+
+/**
+ * Handler Utenti
+ */
+function handleUsers(string $action, string $method, ?array $user, ?string $id): array {
+    global $pdo;
+    $tenant_id = $user['tenant_id'];
+    $user_id = $user['id'];
+    $user_role = $user['role'];
+
+    // Solo admin può gestire utenti
+    if ($user_role !== 'admin' && $user_role !== 'manager') {
+        throw new Exception('Non autorizzato', 403);
+    }
+
+    switch ($method) {
+        case 'GET':
+            if ($id) {
+                return getUserDetail($id, $tenant_id);
+            }
+            return match($action) {
+                '', 'list' => getUsersList($tenant_id),
+                'roles' => getUserRoles(),
+                'departments' => getDepartments($tenant_id),
+                default => throw new Exception('Azione non valida', 400)
+            };
+
+        case 'POST':
+            if ($user_role !== 'admin') {
+                throw new Exception('Solo admin può creare utenti', 403);
+            }
+            $data = json_decode(file_get_contents('php://input'), true);
+            return createUser($data, $tenant_id);
+
+        case 'PUT':
+            if (!$id) throw new Exception('ID utente richiesto', 400);
+            $data = json_decode(file_get_contents('php://input'), true);
+            return updateUser($id, $data, $tenant_id, $user_role);
+
+        case 'DELETE':
+            if ($user_role !== 'admin') {
+                throw new Exception('Solo admin può eliminare utenti', 403);
+            }
+            if (!$id) throw new Exception('ID utente richiesto', 400);
+            return deleteUser($id, $tenant_id);
+
+        default:
+            throw new Exception('Metodo non supportato', 405);
+    }
+}
+
+/**
+ * Handler Notifiche
+ */
+function handleNotifications(string $action, string $method, ?array $user, ?string $id): array {
+    global $pdo;
+    $tenant_id = $user['tenant_id'];
+    $user_id = $user['id'];
+
+    switch ($method) {
+        case 'GET':
+            return match($action) {
+                '', 'list' => getNotifications($tenant_id, $user_id),
+                'unread' => getUnreadNotifications($tenant_id, $user_id),
+                'count' => getNotificationCount($tenant_id, $user_id),
+                default => throw new Exception('Azione non valida', 400)
+            };
+
+        case 'PUT':
+            if ($id) {
+                return markNotificationRead($id, $tenant_id, $user_id);
+            } else if ($action === 'mark-all-read') {
+                return markAllNotificationsRead($tenant_id, $user_id);
+            }
+            throw new Exception('Azione non valida', 400);
+
+        case 'DELETE':
+            if (!$id) throw new Exception('ID notifica richiesto', 400);
+            return deleteNotification($id, $tenant_id, $user_id);
+
+        default:
+            throw new Exception('Metodo non supportato', 405);
+    }
+}
+
+/**
+ * Handler Sistema
+ */
+function handleSystem(string $action, string $method, ?array $user): array {
+    return match($action) {
+        'health' => ['status' => 'ok', 'timestamp' => time()],
+        'info' => getSystemInfo($user),
+        'stats' => getSystemStats($user),
+        'logs' => getSystemLogs($user),
+        default => throw new Exception('Azione non valida', 400)
+    };
+}
+
+// ===================================
+// Funzioni di supporto stub
+// ===================================
+
+function performLogin(array $data): array {
+    global $pdo;
+
+    $email = $data['email'] ?? '';
+    $password = $data['password'] ?? '';
+
+    if (empty($email) || empty($password)) {
+        throw new Exception('Email e password richiesti', 400);
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT u.*, t.name as tenant_name
+        FROM users u
+        JOIN tenants t ON u.tenant_id = t.id
+        WHERE u.email = ? AND u.status = 'active'
+    ");
+    $stmt->execute([$email]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$user || !password_verify($password, $user['password_hash'])) {
+        throw new Exception('Credenziali non valide', 401);
+    }
+
+    // Genera token JWT (simulato)
+    $token = base64_encode(json_encode([
+        'user_id' => $user['id'],
+        'tenant_id' => $user['tenant_id'],
+        'role' => $user['role'],
+        'exp' => time() + 3600
+    ]));
+
+    // Salva sessione
+    session_start();
+    $_SESSION['user'] = $user;
+    $_SESSION['token'] = $token;
+
+    return [
+        'success' => true,
+        'token' => $token,
+        'user' => [
+            'id' => $user['id'],
+            'email' => $user['email'],
+            'display_name' => $user['display_name'],
+            'role' => $user['role'],
+            'tenant_name' => $user['tenant_name']
+        ]
+    ];
+}
+
+function getDashboardStats(int $tenant_id, int $user_id): array {
+    global $pdo;
+
+    // Progetti
+    $stmt = $pdo->prepare("
+        SELECT
+            COUNT(*) as total,
+            COUNT(CASE WHEN status = 'active' THEN 1 END) as active
+        FROM projects
+        WHERE tenant_id = ?
+    ");
+    $stmt->execute([$tenant_id]);
+    $projects = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Tasks
+    $stmt = $pdo->prepare("
+        SELECT
+            COUNT(*) as total,
+            COUNT(CASE WHEN status = 'done' THEN 1 END) as completed,
+            COUNT(CASE WHEN assigned_to = ? THEN 1 END) as my_tasks
+        FROM tasks
+        WHERE tenant_id = ?
+    ");
+    $stmt->execute([$user_id, $tenant_id]);
+    $tasks = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Files
+    $stmt = $pdo->prepare("
+        SELECT
+            COUNT(*) as total,
+            SUM(size_bytes) as total_size
+        FROM files
+        WHERE tenant_id = ?
+    ");
+    $stmt->execute([$tenant_id]);
+    $files = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Utenti attivi
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) as total
+        FROM users
+        WHERE tenant_id = ? AND status = 'active'
+    ");
+    $stmt->execute([$tenant_id]);
+    $users = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return [
+        'projects' => $projects,
+        'tasks' => $tasks,
+        'files' => $files,
+        'users' => $users['total']
+    ];
+}
+
+// Implementazioni base per le altre funzioni
+function getTasksList(int $tenant_id, int $user_id): array {
+    global $pdo;
+    $stmt = $pdo->prepare("
+        SELECT t.*, p.name as project_name, u.display_name as assigned_to_name
+        FROM tasks t
+        LEFT JOIN projects p ON t.project_id = p.id
+        LEFT JOIN users u ON t.assigned_to = u.id
+        WHERE t.tenant_id = ?
+        ORDER BY t.priority DESC, t.due_date ASC
+        LIMIT 100
+    ");
+    $stmt->execute([$tenant_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function getCalendarEvents(int $tenant_id, int $user_id): array {
+    global $pdo;
+    $stmt = $pdo->prepare("
+        SELECT e.*, u.display_name as organizer_name
+        FROM calendar_events e
+        LEFT JOIN users u ON e.organizer_id = u.id
+        WHERE e.tenant_id = ?
+        AND e.start_datetime >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+        ORDER BY e.start_datetime ASC
+    ");
+    $stmt->execute([$tenant_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function getUsersList(int $tenant_id): array {
+    global $pdo;
+    $stmt = $pdo->prepare("
+        SELECT id, email, display_name, role, status, department, position, last_login_at
+        FROM users
+        WHERE tenant_id = ?
+        ORDER BY display_name ASC
+    ");
+    $stmt->execute([$tenant_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function getNotifications(int $tenant_id, int $user_id): array {
+    global $pdo;
+    $stmt = $pdo->prepare("
+        SELECT *
+        FROM notifications
+        WHERE tenant_id = ? AND user_id = ?
+        ORDER BY created_at DESC
+        LIMIT 50
+    ");
+    $stmt->execute([$tenant_id, $user_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}

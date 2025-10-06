@@ -4,6 +4,10 @@
  * Mostra esattamente cosa viene ricevuto dal form
  */
 
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../../includes/session_init.php';
+
+
 // Disabilita output errori
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
@@ -28,9 +32,7 @@ function jsonOut($data, $code = 200) {
 try {
     // Gestione sessione
     if (session_status() === PHP_SESSION_NONE) {
-        session_name('COLLAB_SID');
-        session_start();
-    }
+        session_name('COLLAB_SID');}
 
     // Raccogli tutti i dati di input possibili
     $debugInfo = [

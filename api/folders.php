@@ -15,10 +15,11 @@
  * - GET ?action=recent: Cartelle recenti
  */
 
-declare(strict_types=1);
+// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
+require_once __DIR__ . '/../includes/session_init.php';
 
-session_start();
-header('Content-Type: application/json');
+
+declare(strict_types=1);header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
 
 require_once '../config.php';

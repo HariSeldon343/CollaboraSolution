@@ -55,7 +55,7 @@
 
                 try {
                     // Make API call
-                    const response = await fetch('auth_api.php', {
+                    const response = await fetch('api/auth.php?action=login', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -70,8 +70,22 @@
                     const data = await response.json();
                     console.log('Login response:', data);
 
+                    // Check if password expired
+                    if (data.password_expired) {
+                        showMessage(data.message || 'Password scaduta. Reindirizzamento...', 'error');
+                        setTimeout(() => {
+                            window.location.href = data.redirect || 'change_password.php';
+                        }, 1000);
+                        return;
+                    }
+
                     if (data.success) {
-                        showMessage('Login successful! Redirecting...', 'success');
+                        // Show password warning if present
+                        if (data.warning) {
+                            showMessage('Login effettuato. ' + data.warning, 'warning');
+                        } else {
+                            showMessage('Login successful! Redirecting...', 'success');
+                        }
 
                         // Clear form
                         if (elements.emailInput) elements.emailInput.value = '';
@@ -80,7 +94,7 @@
                         // Redirect after short delay
                         setTimeout(() => {
                             window.location.href = data.redirect || 'dashboard.php';
-                        }, 500);
+                        }, 1000);
                     } else {
                         showMessage(data.message || 'Invalid credentials', 'error');
                         resetButton();

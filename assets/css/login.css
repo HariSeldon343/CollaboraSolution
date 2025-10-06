@@ -10,7 +10,7 @@
    ======================================== */
 body.login-page {
     font-family: var(--font-sans);
-    background: linear-gradient(135deg, var(--color-sidebar-bg-start) 0%, var(--color-sidebar-bg-end) 100%);
+    background: #ffffff;
     min-height: 100vh;
     display: flex;
     align-items: center;
