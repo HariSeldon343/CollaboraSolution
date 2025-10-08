@@ -1,0 +1,66 @@
+# CollaboraNexio - Git Ignore
+
+# ================================
+# CREDENZIALI E CONFIGURAZIONI SENSIBILI
+# ================================
+includes/config_email.php
+config_email.php
+
+# ================================
+# LOGS
+# ================================
+logs/*.log
+logs/mailer_error.log*
+logs/php_errors.log*
+logs/*.log.*
+
+# ================================
+# UPLOADS E FILES UTENTE
+# ================================
+uploads/*
+!uploads/.gitkeep
+
+# ================================
+# CACHE E TEMPORANEI
+# ================================
+cache/*
+tmp/*
+temp/*
+*.tmp
+
+# ================================
+# BACKUP
+# ================================
+backups/*
+*.sql.gz
+*.sql.zip
+*.backup
+
+# ================================
+# IDE E EDITOR
+# ================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ================================
+# DIPENDENZE (se si usa Composer in futuro)
+# ================================
+vendor/
+composer.lock
+
+# ================================
+# AMBIENTE LOCALE
+# ================================
+.env
+.env.local
+.env.*.local
+
+# ================================
+# WINDOWS
+# ================================
+Thumbs.db
+desktop.ini

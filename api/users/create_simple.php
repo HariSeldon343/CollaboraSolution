@@ -93,7 +93,7 @@ try {
     error_log("Create user input received: " . json_encode($input));
 
     // 8. Validazione campi base richiesti
-    $required = ['first_name', 'last_name', 'email', 'role'];
+    $required = ['name', 'email', 'role'];
     foreach ($required as $field) {
         if (empty($input[$field])) {
             jsonOut(['success' => false, 'error' => "Campo obbligatorio: $field"], 400);
@@ -101,10 +101,14 @@ try {
     }
 
     // 9. Sanitizza input base
-    $firstName = trim($input['first_name']);
-    $lastName = trim($input['last_name']);
+    $name = trim($input['name']);
     $email = trim(strtolower($input['email']));
     $role = $input['role'];
+
+    // Validazione lunghezza nome
+    if (strlen($name) < 2) {
+        jsonOut(['success' => false, 'error' => 'Il nome completo deve essere almeno 2 caratteri'], 400);
+    }
 
     // 10. Gestione tenant in base al ruolo
     $tenantIds = [];
@@ -199,7 +203,6 @@ try {
 
     try {
         // 18. Inserimento utente
-        $fullName = $firstName . ' ' . $lastName;
         $now = date('Y-m-d H:i:s');
 
         $sql = "INSERT INTO users (
@@ -213,7 +216,7 @@ try {
 
         $stmt = $conn->prepare($sql);
         $result = $stmt->execute([
-            $defaultTenantId, $fullName, $email, $passwordHash,
+            $defaultTenantId, $name, $email, $passwordHash,
             $resetToken, $tokenExpiry, $role, $now
         ]);
 
@@ -289,7 +292,7 @@ try {
             $emailSender = new EmailSender($emailConfig);
 
             // Invia email di benvenuto
-            $emailSent = $emailSender->sendWelcomeEmail($email, $fullName, $resetToken, $tenantName);
+            $emailSent = $emailSender->sendWelcomeEmail($email, $name, $resetToken, $tenantName);
 
             if (!$emailSent) {
                 $emailError = 'Errore durante l\'invio dell\'email di benvenuto';
@@ -307,7 +310,7 @@ try {
             'message' => 'Utente creato con successo',
             'data' => [
                 'id' => $userId,
-                'name' => $fullName,
+                'name' => $name,
                 'email' => $email,
                 'role' => $role,
                 'tenant_ids' => $tenantIds,

@@ -36,6 +36,8 @@ $csrfToken = $auth->generateCSRFToken();
 
     <!-- Main CSS -->
     <link rel="stylesheet" href="assets/css/styles.css">
+    <!-- Sidebar Responsive Optimization CSS -->
+    <link rel="stylesheet" href="assets/css/sidebar-responsive.css">
     <!-- Page specific CSS -->
     <link rel="stylesheet" href="assets/css/filemanager.css">
 

@@ -12,6 +12,9 @@ if ($auth->checkAuth()) {
 
 // Generate CSRF token
 $csrfToken = $auth->generateCSRFToken();
+
+// Check if timeout parameter is present
+$showTimeoutMessage = isset($_GET['timeout']) && $_GET['timeout'] == '1';
 ?>
 <!DOCTYPE html>
 <html lang="it">
@@ -25,6 +28,25 @@ $csrfToken = $auth->generateCSRFToken();
     <link rel="stylesheet" href="assets/css/styles.css">
     <!-- Page specific CSS -->
     <link rel="stylesheet" href="assets/css/login.css">
+    <style>
+        .timeout-message {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .timeout-message svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+    </style>
 </head>
 <body class="login-page">
     <div class="login-container">
@@ -37,6 +59,18 @@ $csrfToken = $auth->generateCSRFToken();
                 </div>
                 <p class="login-subtitle">Collaboration Suite</p>
             </div>
+
+            <?php if ($showTimeoutMessage): ?>
+            <!-- Timeout Warning Message -->
+            <div class="timeout-message">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span><strong>Sessione scaduta per inattivita.</strong> Effettua nuovamente il login per continuare.</span>
+            </div>
+            <?php endif; ?>
 
             <!-- Login Form -->
             <form class="login-form" id="loginForm">
@@ -76,21 +110,6 @@ $csrfToken = $auth->generateCSRFToken();
 
                 <!-- Error Message Container -->
                 <div class="error-message hidden" id="errorMessage"></div>
-
-                <!-- Demo Credentials -->
-                <div class="demo-info">
-                    <p class="demo-title">Demo Credentials</p>
-                    <div class="demo-credentials">
-                        <div class="credential-item">
-                            <span class="credential-label">Admin:</span>
-                            <span class="credential-value">admin@demo.local / Admin123!</span>
-                        </div>
-                        <div class="credential-item">
-                            <span class="credential-label">Manager:</span>
-                            <span class="credential-value">manager@demo.local / Admin123!</span>
-                        </div>
-                    </div>
-                </div>
             </form>
 
             <!-- Footer Links -->

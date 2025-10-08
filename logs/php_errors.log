@@ -8003,3 +8003,157 @@ Stack trace:
 [05-Oct-2025 07:49:22 Europe/Rome] EmailSender: Ambiente Windows/XAMPP rilevato - Skip SMTP per performance
 [05-Oct-2025 07:49:22 Europe/Rome] EmailSender: Email a a.oedoma@gmail.com non inviata (SMTP non configurato su XAMPP)
 [05-Oct-2025 07:49:22 Europe/Rome] EmailSender: L'utente riceverà il link manuale nella risposta API
+[06-Oct-2025 07:42:00 Europe/Rome] EmailConfig: Errore salvataggio configurazione - SQLSTATE[HY093]: Invalid parameter number
+[06-Oct-2025 07:44:30 Europe/Rome] EmailConfig: Configurazione caricata da database - Host: mail.nexiosolution.it, Port: 465, From: info@nexiosolution.it
+[06-Oct-2025 08:51:38 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[06-Oct-2025 08:51:42 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[06-Oct-2025 08:51:42 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[06-Oct-2025 08:51:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[06-Oct-2025 08:51:50 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[06-Oct-2025 08:51:54 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[06-Oct-2025 08:51:54 Europe/Rome] EmailConfig: Configurazione caricata da database - Host: mail.nexiosolution.it, Port: 465, From: info@nexiosolution.it
+[06-Oct-2025 08:51:54 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[06-Oct-2025 16:44:19 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[06-Oct-2025 16:44:19 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[06-Oct-2025 16:44:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[06-Oct-2025 16:44:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false
+[07-Oct-2025 06:38:06 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:38:07 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:38:12 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:38:12 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:38:12 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[07-Oct-2025 06:38:12 Europe/Rome] API CSRF Check - Token received: 5b93d1e78d...
+[07-Oct-2025 06:38:12 Europe/Rome] API CSRF Check - Session token: 5b93d1e78d...
+[07-Oct-2025 06:38:12 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:38:12 Europe/Rome] API CSRF Check - Token received: 5b93d1e78d...
+[07-Oct-2025 06:38:12 Europe/Rome] API CSRF Check - Session token: 5b93d1e78d...
+[07-Oct-2025 06:38:16 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:38:16 Europe/Rome] API CSRF Check - Token received: 5b93d1e78d...
+[07-Oct-2025 06:38:16 Europe/Rome] API CSRF Check - Session token: 5b93d1e78d...
+[07-Oct-2025 06:38:16 Europe/Rome] User ID 18 soft deleted by user ID 1
+[07-Oct-2025 06:38:16 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:38:16 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[07-Oct-2025 06:38:16 Europe/Rome] API CSRF Check - Token received: 5b93d1e78d...
+[07-Oct-2025 06:38:16 Europe/Rome] API CSRF Check - Session token: 5b93d1e78d...
+[07-Oct-2025 06:38:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:38:23 Europe/Rome] Create user input received: {"first_name":"Antonio Silvestro","last_name":"Amodeo","email":"asamodeo@fortibyte.it","role":"super_admin","csrf_token":"5b93d1e78d9f7e80c6db554cba4c242596d9fa330d84f8a5873aba067abb75a8"}
+[07-Oct-2025 06:38:23 Europe/Rome] Email asamodeo@fortibyte.it found in deleted user ID 18, performing hard delete to allow reuse
+[07-Oct-2025 06:38:23 Europe/Rome] Deleted user ID 18 permanently to reuse email asamodeo@fortibyte.it
+[07-Oct-2025 06:38:23 Europe/Rome] EmailConfig: Configurazione caricata da database - Host: mail.nexiosolution.it, Port: 465, From: info@nexiosolution.it
+[07-Oct-2025 06:38:23 Europe/Rome] EmailSender: Configurazione passata al costruttore è deprecata. Usa includes/config_email.php
+[07-Oct-2025 06:38:24 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:38:24 Europe/Rome] List API - User ID: 1, Role: super_admin, Tenant: 1
+[07-Oct-2025 06:38:24 Europe/Rome] API CSRF Check - Token received: 5b93d1e78d...
+[07-Oct-2025 06:38:24 Europe/Rome] API CSRF Check - Session token: 5b93d1e78d...
+[07-Oct-2025 06:39:36 Europe/Rome] Password update error: SQLSTATE[HY093]: Invalid parameter number
+[07-Oct-2025 06:39:37 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:39:37 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:39:40 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:39:40 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:39:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:39:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:40:03 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:40:03 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:40:03 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 1
+[07-Oct-2025 06:40:03 Europe/Rome] API CSRF Check - Token received: 2b356f5c7c...
+[07-Oct-2025 06:40:03 Europe/Rome] API CSRF Check - Session token: 2b356f5c7c...
+[07-Oct-2025 06:40:03 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:40:03 Europe/Rome] API CSRF Check - Token received: 2b356f5c7c...
+[07-Oct-2025 06:40:03 Europe/Rome] API CSRF Check - Session token: 2b356f5c7c...
+[07-Oct-2025 06:49:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:49:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:49:51 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 1
+[07-Oct-2025 06:49:51 Europe/Rome] API CSRF Check - Token received: 2b356f5c7c...
+[07-Oct-2025 06:49:51 Europe/Rome] API CSRF Check - Session token: 2b356f5c7c...
+[07-Oct-2025 06:49:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 06:49:51 Europe/Rome] API CSRF Check - Token received: 2b356f5c7c...
+[07-Oct-2025 06:49:51 Europe/Rome] API CSRF Check - Session token: 2b356f5c7c...
+[07-Oct-2025 07:24:16 Europe/Rome] Session initialized - Host: localhost, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 07:28:24 Europe/Rome] Session initialized - Host: localhost, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 07:33:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 07:33:53 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 07:33:54 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 07:33:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 07:33:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 07:33:56 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 
+[07-Oct-2025 07:33:56 Europe/Rome] API CSRF Check - Token received: 6ebf6ec76c...
+[07-Oct-2025 07:33:56 Europe/Rome] API CSRF Check - Session token: 6ebf6ec76c...
+[07-Oct-2025 07:33:57 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 07:33:57 Europe/Rome] API CSRF Check - Token received: 6ebf6ec76c...
+[07-Oct-2025 07:33:57 Europe/Rome] API CSRF Check - Session token: 6ebf6ec76c...
+[07-Oct-2025 13:00:42 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 13:00:48 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 13:00:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 13:00:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 13:00:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 13:06:38 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 13:06:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 13:36:34 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 13:36:37 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 13:36:38 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 13:36:43 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 13:36:43 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 13:36:43 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 
+[07-Oct-2025 13:36:43 Europe/Rome] API CSRF Check - Token received: 481c835fb1...
+[07-Oct-2025 13:36:43 Europe/Rome] API CSRF Check - Session token: 481c835fb1...
+[07-Oct-2025 13:36:43 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 15:12:16 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 15:12:18 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 15:12:19 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 15:12:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 15:12:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 15:12:23 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 
+[07-Oct-2025 15:12:23 Europe/Rome] API CSRF Check - Token received: 92bfb4a1dc...
+[07-Oct-2025 15:12:23 Europe/Rome] API CSRF Check - Session token: 92bfb4a1dc...
+[07-Oct-2025 15:12:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 15:12:27 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 15:24:26 Europe/Rome] PHP Warning:  Array to string conversion in C:\xampp\htdocs\CollaboraNexio\includes\db.php on line 218
+[07-Oct-2025 15:24:26 Europe/Rome] PHP Warning:  Array to string conversion in C:\xampp\htdocs\CollaboraNexio\includes\db.php on line 218
+[07-Oct-2025 15:24:26 Europe/Rome] PHP Warning:  Array to string conversion in C:\xampp\htdocs\CollaboraNexio\includes\db.php on line 218
+[07-Oct-2025 15:24:57 Europe/Rome] PHP Warning:  Array to string conversion in C:\xampp\htdocs\CollaboraNexio\includes\db.php on line 218
+[07-Oct-2025 15:24:57 Europe/Rome] PHP Warning:  Array to string conversion in C:\xampp\htdocs\CollaboraNexio\includes\db.php on line 218
+[07-Oct-2025 15:24:57 Europe/Rome] PHP Warning:  Array to string conversion in C:\xampp\htdocs\CollaboraNexio\includes\db.php on line 218
+[07-Oct-2025 15:24:57 Europe/Rome] PHP Warning:  Array to string conversion in C:\xampp\htdocs\CollaboraNexio\includes\db.php on line 218
+[07-Oct-2025 16:56:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 16:56:57 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 16:56:58 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 16:57:01 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 16:57:01 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 16:57:01 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 
+[07-Oct-2025 16:57:01 Europe/Rome] API CSRF Check - Token received: b0ff0e214c...
+[07-Oct-2025 16:57:01 Europe/Rome] API CSRF Check - Session token: b0ff0e214c...
+[07-Oct-2025 16:57:01 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 16:57:03 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 16:57:03 Europe/Rome] API CSRF Check - Token received: b0ff0e214c...
+[07-Oct-2025 16:57:03 Europe/Rome] API CSRF Check - Session token: b0ff0e214c...
+[07-Oct-2025 17:23:44 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 17:23:46 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 17:23:47 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 17:23:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 17:23:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 17:23:51 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 
+[07-Oct-2025 17:23:51 Europe/Rome] API CSRF Check - Token received: c3aaf6dc4e...
+[07-Oct-2025 17:23:51 Europe/Rome] API CSRF Check - Session token: c3aaf6dc4e...
+[07-Oct-2025 17:23:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 17:24:05 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[07-Oct-2025 17:24:05 Europe/Rome] API CSRF Check - Token received: c3aaf6dc4e...
+[07-Oct-2025 17:24:05 Europe/Rome] API CSRF Check - Session token: c3aaf6dc4e...
+[07-Oct-2025 17:24:05 Europe/Rome] [2025-10-07 17:24:05] API Error in tenants/delete: Errore durante l'inserimento del record
+[07-Oct-2025 17:24:05 Europe/Rome] Stack trace: #0 C:\xampp\htdocs\CollaboraNexio\api\tenants\delete.php(135): Database->insert('audit_logs', Array)
+#1 {main}
+[07-Oct-2025 17:30:59 Europe/Rome] Session initialized - Host: localhost, Domain: , Secure: false, Timeout: 600s
+[08-Oct-2025 05:59:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[08-Oct-2025 05:59:47 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[08-Oct-2025 05:59:48 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[08-Oct-2025 05:59:50 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[08-Oct-2025 05:59:50 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[08-Oct-2025 05:59:50 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 
+[08-Oct-2025 05:59:50 Europe/Rome] API CSRF Check - Token received: 327295ce14...
+[08-Oct-2025 05:59:50 Europe/Rome] API CSRF Check - Session token: 327295ce14...
+[08-Oct-2025 05:59:50 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[08-Oct-2025 06:00:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[08-Oct-2025 06:00:00 Europe/Rome] API CSRF Check - Token received: 327295ce14...
+[08-Oct-2025 06:00:00 Europe/Rome] API CSRF Check - Session token: 327295ce14...
+[08-Oct-2025 06:00:00 Europe/Rome] [2025-10-08 06:00:00] API Error in tenants/delete: Errore durante l'inserimento del record
+[08-Oct-2025 06:00:00 Europe/Rome] Stack trace: #0 C:\xampp\htdocs\CollaboraNexio\api\tenants\delete.php(149): Database->insert('audit_logs', Array)
+#1 {main}

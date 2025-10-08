@@ -36,11 +36,14 @@ if (session_status() === PHP_SESSION_NONE) {
     }
 
     // Configura le impostazioni della sessione PRIMA di avviarla
-    ini_set('session.cookie_lifetime', '0');  // Session cookie
+    // Timeout inattivita: 10 minuti (600 secondi)
+    $inactivity_timeout = 600;
+
+    ini_set('session.cookie_lifetime', '0');  // Session cookie - scade alla chiusura browser
     ini_set('session.cookie_httponly', '1');
     ini_set('session.use_only_cookies', '1');
     ini_set('session.use_strict_mode', '0');  // Disabled to avoid regeneration issues
-    ini_set('session.gc_maxlifetime', (string)SESSION_LIFETIME);
+    ini_set('session.gc_maxlifetime', (string)$inactivity_timeout);  // 10 minuti
     ini_set('session.cookie_secure', $cookieSecure ? '1' : '0');
     ini_set('session.cookie_samesite', 'Lax'); // Lax per permettere navigazione cross-domain
 
@@ -68,8 +71,36 @@ if (session_status() === PHP_SESSION_NONE) {
     // Avvia la sessione
     session_start();
 
+    // Gestione timeout inattivita (10 minuti)
+    if (isset($_SESSION['last_activity'])) {
+        $elapsed = time() - $_SESSION['last_activity'];
+        if ($elapsed > $inactivity_timeout) {
+            // Timeout scaduto - distruggi sessione e reindirizza
+            $_SESSION = array();
+
+            // Distruggi il cookie di sessione
+            if (ini_get("session.use_cookies")) {
+                $params = session_get_cookie_params();
+                setcookie(session_name(), '', time() - 42000,
+                    $cookiePath, $cookieDomain,
+                    $cookieSecure, true
+                );
+            }
+
+            // Distruggi la sessione
+            session_destroy();
+
+            // Reindirizza a index.php con parametro timeout
+            header('Location: /CollaboraNexio/index.php?timeout=1');
+            exit();
+        }
+    }
+
+    // Aggiorna last_activity ad ogni request
+    $_SESSION['last_activity'] = time();
+
     // Log per debug (solo in development)
     if (!$isProduction && defined('DEBUG_MODE') && DEBUG_MODE) {
-        error_log("Session initialized - Host: $currentHost, Domain: $cookieDomain, Secure: " . ($cookieSecure ? 'true' : 'false'));
+        error_log("Session initialized - Host: $currentHost, Domain: $cookieDomain, Secure: " . ($cookieSecure ? 'true' : 'false') . ", Timeout: {$inactivity_timeout}s");
     }
 }

@@ -57,6 +57,8 @@ $emailConfigJson = json_encode([
 
     <!-- Main CSS -->
     <link rel="stylesheet" href="assets/css/styles.css">
+    <!-- Sidebar Responsive Optimization CSS -->
+    <link rel="stylesheet" href="assets/css/sidebar-responsive.css">
 
     <style>
         .config-container {

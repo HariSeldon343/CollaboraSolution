@@ -11,8 +11,8 @@ $baseUrl = defined('BASE_URL') ? BASE_URL : '';
 <link rel="icon" type="image/svg+xml" href="<?php echo $baseUrl; ?>/assets/images/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="<?php echo $baseUrl; ?>/assets/images/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="<?php echo $baseUrl; ?>/assets/images/favicon-16x16.png">
-<link rel="apple-touch-icon" sizes="180x180" href="<?php echo $baseUrl; ?>/assets/images/logo.png">
-<meta name="theme-color" content="#2563eb">
+<link rel="apple-touch-icon" sizes="180x180" href="<?php echo $baseUrl; ?>/assets/images/apple-touch-icon.png">
+<meta name="theme-color" content="#2f5aa0">
 <!-- Open Graph / Social Media -->
 <meta property="og:image" content="<?php echo $baseUrl; ?>/assets/images/logo.png">
 <meta property="og:image:type" content="image/svg+xml">

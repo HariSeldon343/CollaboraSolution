@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Aziende Form Updates</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-title {
+            font-size: 18px;
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        .test-result {
+            background: #f8f9fa;
+            padding: 10px;
+            border-left: 3px solid #28a745;
+            margin: 10px 0;
+        }
+        .test-result.warning {
+            border-left-color: #ffc107;
+        }
+        .test-result.error {
+            border-left-color: #dc3545;
+        }
+        pre {
+            background: #263238;
+            color: #aed581;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        code {
+            background: #f1f1f1;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #d73502;
+        }
+        ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .warning {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Report: Aziende Form Updates</h1>
+
+    <div class="test-section">
+        <div class="test-title">📋 Summary of Changes</div>
+        <div class="test-result">
+            <p><strong>Files Modified:</strong></p>
+            <ul>
+                <li><code>/mnt/c/xampp/htdocs/CollaboraNexio/aziende.php</code> - Updated forms and JavaScript</li>
+                <li><code>/mnt/c/xampp/htdocs/CollaboraNexio/includes/italian_provinces.php</code> - New file with province data</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">✅ New Form Structure - Add Company Modal</div>
+        <div class="test-result">
+            <p><strong>Sede Legale (Required):</strong></p>
+            <ul>
+                <li>✅ Indirizzo - Text field (required)</li>
+                <li>✅ Civico - Text field (required)</li>
+                <li>✅ CAP - Text field with pattern [0-9]{5} (required)</li>
+                <li>✅ Comune - Text field (required)</li>
+                <li>✅ Provincia - Select dropdown with 110 Italian provinces (required)</li>
+            </ul>
+        </div>
+        <div class="test-result">
+            <p><strong>Sedi Operative (Optional, Multiple):</strong></p>
+            <ul>
+                <li>✅ Dynamic card-based interface</li>
+                <li>✅ Add up to 20 sedi operative</li>
+                <li>✅ Each sede has same 5 fields as sede legale</li>
+                <li>✅ Remove button for each sede</li>
+                <li>✅ Numbered cards (#1, #2, etc.)</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">✅ New Form Structure - Edit Company Modal</div>
+        <div class="test-result">
+            <p><strong>Features:</strong></p>
+            <ul>
+                <li>✅ Same structure as Add modal</li>
+                <li>✅ Auto-populates existing sede legale data</li>
+                <li>✅ Auto-populates existing sedi operative</li>
+                <li>✅ Can add/remove sedi operative during edit</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">🔧 JavaScript Functions Added</div>
+        <div class="test-result">
+            <pre>// New functions for managing sedi operative
+addSedeOperativa(modalType)     // Add new sede operativa card
+removeSedeOperativa(modalType, index)  // Remove specific sede
+collectSediOperative(modalType)  // Collect all sedi data
+getProvinceOptions(selected)     // Generate province dropdown options
+addSedeOperativaForEdit(sede)    // Add prepopulated sede in edit mode</pre>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">📊 Data Structure Sent to API</div>
+        <div class="test-result">
+            <p><strong>sede_legale (JSON object):</strong></p>
+            <pre>{
+    "indirizzo": "Via Roma",
+    "civico": "123",
+    "cap": "00100",
+    "comune": "Roma",
+    "provincia": "RM"
+}</pre>
+            <p><strong>sedi_operative (JSON array):</strong></p>
+            <pre>[
+    {
+        "indirizzo": "Via Milano",
+        "civico": "45",
+        "cap": "20100",
+        "comune": "Milano",
+        "provincia": "MI"
+    },
+    {
+        "indirizzo": "Via Napoli",
+        "civico": "78",
+        "cap": "80100",
+        "comune": "Napoli",
+        "provincia": "NA"
+    }
+]</pre>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">🎨 CSS Styling Added</div>
+        <div class="test-result">
+            <ul>
+                <li>✅ <code>.sede-card</code> - Gray background cards for sedi operative</li>
+                <li>✅ <code>.sede-card-header</code> - Header with title and remove button</li>
+                <li>✅ <code>.btn-remove</code> - Red remove button with hover effect</li>
+                <li>✅ <code>.btn-add-sede</code> - Blue add button</li>
+                <li>✅ <code>.form-group.span-2</code> - Spans 2 columns for address field</li>
+                <li>✅ <code>#sediOperativeContainer</code> - Scrollable container for many sedi</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">🚀 How to Test</div>
+        <div class="test-result">
+            <ol>
+                <li>Navigate to <a href="http://localhost:8888/CollaboraNexio/aziende.php" target="_blank">http://localhost:8888/CollaboraNexio/aziende.php</a></li>
+                <li>Login as Super Admin (only super admins can manage companies)</li>
+                <li>Click "Aggiungi Azienda" button</li>
+                <li>Fill in company details with separate fields for sede legale</li>
+                <li>Click "Aggiungi Sede Operativa" to add multiple operational locations</li>
+                <li>Submit the form to create company</li>
+                <li>Edit an existing company to verify data loads correctly</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">⚠️ Important Notes</div>
+        <div class="test-result warning">
+            <ul>
+                <li>⚠️ API endpoints <code>api/tenants/create.php</code> and <code>api/tenants/update.php</code> must handle the new JSON structure</li>
+                <li>⚠️ Database table <code>tenant_locations</code> should be created if not exists</li>
+                <li>⚠️ Old string-format sede data will be automatically parsed into new structure</li>
+                <li>⚠️ Maximum 20 sedi operative per company (configurable in JavaScript)</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">✨ Benefits of New Structure</div>
+        <div class="test-result">
+            <ul>
+                <li class="success">✅ Structured data entry with separate fields</li>
+                <li class="success">✅ Proper validation for CAP (5 digits) and provincia (dropdown)</li>
+                <li class="success">✅ Support for unlimited operational locations (up to 20)</li>
+                <li class="success">✅ Clean, intuitive user interface</li>
+                <li class="success">✅ Easy to add/remove locations dynamically</li>
+                <li class="success">✅ Backward compatible with old string format</li>
+                <li class="success">✅ Ready for integration with tenant_locations table</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">📝 Next Steps</div>
+        <div class="test-result">
+            <ol>
+                <li>Update <code>api/tenants/create.php</code> to handle new JSON structure and save to tenant_locations table</li>
+                <li>Update <code>api/tenants/update.php</code> to handle updates to tenant_locations</li>
+                <li>Update <code>api/tenants/list.php</code> to return sedi_operative array from tenant_locations</li>
+                <li>Consider adding fields for telefono, email, and manager_nome to each sede operativa</li>
+                <li>Add validation to ensure at least sede legale is complete before submission</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        console.log('Test report loaded successfully');
+        console.log('Forms have been updated with new structure for multiple operational locations');
+    </script>
+</body>
+</html>

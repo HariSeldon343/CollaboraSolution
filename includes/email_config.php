@@ -27,15 +27,15 @@ function getEmailConfigFromDatabase() {
         return $cachedConfig;
     }
 
-    // Valori di fallback hardcoded (Infomaniak - valori originali di EmailSender.php)
+    // Valori di fallback hardcoded (Nexio Solution - credenziali aggiornate)
     $fallbackConfig = [
-        'smtpHost' => 'mail.infomaniak.com',
+        'smtpHost' => 'mail.nexiosolution.it',
         'smtpPort' => 465,
-        'smtpUsername' => 'info@fortibyte.it',
-        'smtpPassword' => 'Cartesi@1987',
-        'fromEmail' => 'info@fortibyte.it',
+        'smtpUsername' => 'info@nexiosolution.it',
+        'smtpPassword' => 'Ricord@1991',
+        'fromEmail' => 'info@nexiosolution.it',
         'fromName' => 'CollaboraNexio',
-        'replyTo' => 'info@fortibyte.it'
+        'replyTo' => 'info@nexiosolution.it'
     ];
 
     try {
@@ -68,7 +68,7 @@ function getEmailConfigFromDatabase() {
         // Verifica che almeno smtp_host sia presente dal database
         // Se mancante, significa che il database non ha impostazioni email configurate
         if (empty($dbSettings['smtp_host'])) {
-            error_log("EmailConfig: Nessuna configurazione email trovata nel database, utilizzo fallback Infomaniak");
+            error_log("EmailConfig: Nessuna configurazione email trovata nel database, utilizzo fallback Nexio Solution");
             $cachedConfig = $fallbackConfig;
             return $fallbackConfig;
         }
@@ -85,7 +85,7 @@ function getEmailConfigFromDatabase() {
     } catch (Exception $e) {
         // In caso di errore database, usa fallback e logga l'errore
         error_log("EmailConfig: Errore caricamento da database - " . $e->getMessage());
-        error_log("EmailConfig: Utilizzo configurazione fallback Infomaniak");
+        error_log("EmailConfig: Utilizzo configurazione fallback Nexio Solution");
 
         $cachedConfig = $fallbackConfig;
         return $fallbackConfig;

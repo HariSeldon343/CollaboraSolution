@@ -36,6 +36,8 @@ $csrfToken = $auth->generateCSRFToken();
 
     <!-- Main CSS -->
     <link rel="stylesheet" href="assets/css/styles.css">
+    <!-- Sidebar Responsive Optimization CSS -->
+    <link rel="stylesheet" href="assets/css/sidebar-responsive.css">
     <!-- Page specific CSS -->
     <link rel="stylesheet" href="assets/css/dashboard.css">
 
@@ -263,46 +265,54 @@ $csrfToken = $auth->generateCSRFToken();
         .user-info {
             display: flex;
             align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3);
+            gap: 10px; /* Optimized: reduced gap */
+            padding: 8px; /* Optimized: reduced padding */
             background-color: rgba(255, 255, 255, 0.05);
             border-radius: var(--radius-lg);
+            margin-bottom: 0; /* Optimized: no margin needed */
         }
 
         .user-avatar {
-            width: 40px;
-            height: 40px;
+            width: 32px; /* Optimized: reduced from 40px */
+            height: 32px; /* Optimized: reduced from 40px */
             background: var(--color-sidebar-active);
             color: var(--color-white);
             border-radius: var(--radius-full);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: var(--text-sm);
+            font-size: 12px; /* Optimized: reduced for smaller avatar */
             font-weight: var(--font-semibold);
+            flex-shrink: 0;
         }
 
         .user-details {
             flex: 1;
+            min-width: 0; /* Allow text truncation */
         }
 
         .user-name {
-            font-size: var(--text-sm);
+            font-size: 13px; /* Optimized: reduced from 14px */
             font-weight: var(--font-medium);
             color: var(--color-sidebar-text);
+            line-height: 1.3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .user-badge {
-            font-size: 10px;
+            font-size: 9px; /* Optimized: reduced from 10px */
             color: var(--color-white);
             background: var(--color-primary);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-top: 4px;
-            padding: 2px 6px;
+            letter-spacing: 0.04em; /* Optimized: tighter spacing */
+            margin-top: 2px; /* Optimized: reduced from 4px */
+            padding: 1px 4px; /* Optimized: minimal padding */
             border-radius: var(--radius-sm);
             display: inline-block;
             font-weight: var(--font-semibold);
+            line-height: 1.3;
         }
     </style>
 </head>

@@ -1377,16 +1377,166 @@ For licensing inquiries, contact: licensing@collaboranexio.com
 
 ## Acknowledgments
 
+## Email Configuration
+
+CollaboraNexio uses **PHPMailer** for reliable SMTP email delivery. All transactional emails (user registration, password reset, notifications, approvals) are sent via SMTP.
+
+### Setup Email System
+
+#### 1. Configuration File
+
+Create the configuration file with your SMTP credentials:
+
+```bash
+# Copy the sample configuration
+cp includes/config_email.sample.php includes/config_email.php
+
+# Edit and add your SMTP password
+nano includes/config_email.php
+```
+
+#### 2. SMTP Settings (Infomaniak)
+
+Configure the following settings in `includes/config_email.php`:
+
+```php
+define('EMAIL_SMTP_HOST', 'mail.infomaniak.com');
+define('EMAIL_SMTP_PORT', 465); // 465 for SSL, 587 for TLS
+define('EMAIL_SMTP_USERNAME', 'info@fortibyte.it');
+define('EMAIL_SMTP_PASSWORD', 'YOUR_SMTP_PASSWORD_HERE'); // CHANGE THIS!
+define('EMAIL_FROM_EMAIL', 'info@fortibyte.it');
+define('EMAIL_FROM_NAME', 'CollaboraNexio');
+```
+
+#### 3. Enable OpenSSL Extension
+
+Ensure OpenSSL is enabled in `php.ini`:
+
+```ini
+extension=openssl
+```
+
+On XAMPP, uncomment the line in `C:\xampp\php\php.ini`.
+
+#### 4. Development vs Production
+
+**Development** (XAMPP on Windows):
+- Set `EMAIL_SMTP_VERIFY_SSL = false` to bypass SSL verification issues
+- Set `EMAIL_DEBUG_MODE = true` for detailed SMTP logs
+
+**Production** (Linux server):
+- **Always** set `EMAIL_SMTP_VERIFY_SSL = true`
+- Set `EMAIL_DEBUG_MODE = false` to disable verbose logging
+
+#### 5. Test Email Setup
+
+Run the test script to verify email configuration:
+
+```
+http://localhost:8888/CollaboraNexio/test_mailer_smtp.php
+```
+
+This will:
+- Verify PHPMailer installation
+- Check OpenSSL extension
+- Test SMTP connection
+- Send a test email
+- Display recent logs
+
+### Email Functions
+
+The centralized mailer (`includes/mailer.php`) provides these functions:
+
+```php
+// Send generic email
+sendEmail($to, $subject, $htmlBody, $textBody, $options);
+
+// Send welcome email (user registration)
+sendWelcomeEmail($to, $userName, $resetToken, $tenantName);
+
+// Send password reset email
+sendPasswordResetEmail($to, $userName, $resetToken, $tenantName);
+```
+
+### Logging
+
+All email operations are logged in `logs/mailer_error.log` with:
+- Timestamp
+- Success/failure status
+- Recipient, subject
+- Error messages (if failed)
+- Tenant and user context
+
+**Log format**: JSON for easy parsing
+
+```json
+{"timestamp":"2024-01-15 10:30:45","status":"success","to":"user@example.com","subject":"Welcome","tenant_id":1,"user_id":5}
+{"timestamp":"2024-01-15 10:31:20","status":"error","error_type":"send_failed","error":"SMTP connection failed","tenant_id":1}
+```
+
+### Troubleshooting
+
+#### Email not sending
+
+1. **Check configuration**: Verify `includes/config_email.php` exists and has correct credentials
+2. **Check OpenSSL**: Ensure `extension=openssl` is enabled in `php.ini`
+3. **Check logs**: Review `logs/mailer_error.log` for detailed error messages
+4. **Test SMTP**: Use `test_mailer_smtp.php` to verify SMTP connection
+5. **Firewall**: Ensure port 465 (SSL) or 587 (TLS) is not blocked
+
+#### SSL Certificate Errors (Development)
+
+If you get SSL verification errors on local XAMPP:
+
+```php
+// In includes/config_email.php (DEV ONLY!)
+define('EMAIL_SMTP_VERIFY_SSL', false);
+```
+
+**WARNING**: Never use `EMAIL_SMTP_VERIFY_SSL = false` in production!
+
+#### Slow API responses
+
+Email sending is non-blocking. If email fails, the API continues without error. Check logs to verify delivery.
+
+### Security Best Practices
+
+✅ **DO**:
+- Keep `config_email.php` out of Git (it's in `.gitignore`)
+- Use strong SMTP passwords
+- Enable SSL/TLS in production
+- Rotate passwords regularly
+- Monitor `mailer_error.log` for suspicious activity
+
+❌ **DON'T**:
+- Commit SMTP passwords to Git
+- Disable SSL verification in production
+- Use the same password across environments
+- Share SMTP credentials
+
+### Rollback Strategy
+
+If email system has issues, you can quickly rollback:
+
+1. **Disable email sending**: Comment out email calls in API endpoints
+2. **Restore old EmailSender**: Restore `includes/EmailSender.php` from backups
+3. **Use manual links**: API still returns password reset links even if email fails
+
+The system is designed to degrade gracefully - **email failures never block core operations** (user creation, password reset, etc.).
+
+---
+
 Special thanks to:
 - The PHP development team for PHP 8.3
 - MySQL team for the robust database engine
 - Open-source community for inspiration and tools
+- PHPMailer team for the excellent email library
 - All contributors and beta testers
 - Our clients for valuable feedback
 
 ---
 
-**Version**: 1.7.0
-**Last Updated**: January 2024
+**Version**: 1.8.0
+**Last Updated**: October 2025
 **Status**: Production Ready
 **Build**: Stable

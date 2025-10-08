@@ -19,6 +19,21 @@ class AuthSimple {
             require_once __DIR__ . '/session_init.php';
         }
 
+        // Verifica timeout inattivita (10 minuti)
+        $inactivity_timeout = 600; // 10 minuti
+        if (isset($_SESSION['last_activity'])) {
+            $elapsed = time() - $_SESSION['last_activity'];
+            if ($elapsed > $inactivity_timeout) {
+                // Timeout scaduto - effettua logout
+                $this->logout();
+                header('Location: /CollaboraNexio/index.php?timeout=1');
+                exit();
+            }
+        }
+
+        // Aggiorna last_activity
+        $_SESSION['last_activity'] = time();
+
         // Verifica se user_id è presente nella sessione
         return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
     }
@@ -42,7 +57,7 @@ class AuthSimple {
     }
 
     /**
-     * Effettua il logout
+     * Effettua il logout e distrugge completamente la sessione
      */
     public function logout(): void {
         if (session_status() === PHP_SESSION_NONE) {
@@ -50,7 +65,7 @@ class AuthSimple {
         }
 
         // Pulisci tutte le variabili di sessione
-        $_SESSION = [];
+        $_SESSION = array();
 
         // Distruggi il cookie di sessione
         if (ini_get("session.use_cookies")) {
@@ -65,10 +80,15 @@ class AuthSimple {
                 }
             }
 
-            setcookie(session_name(), '', time() - 42000,
-                $params["path"], $cookieDomain,
-                $params["secure"], $params["httponly"]
-            );
+            // Cancella il cookie di sessione impostandolo nel passato
+            setcookie(session_name(), '', [
+                'expires' => time() - 42000,
+                'path' => $params["path"],
+                'domain' => $cookieDomain,
+                'secure' => $params["secure"],
+                'httponly' => $params["httponly"],
+                'samesite' => $params["samesite"] ?? 'Lax'
+            ]);
         }
 
         // Distruggi la sessione

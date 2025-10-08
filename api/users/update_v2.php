@@ -35,8 +35,7 @@ try {
 
     // Extract and validate input
     $user_id = isset($input['user_id']) ? intval($input['user_id']) : 0;
-    $first_name = htmlspecialchars(trim($input['first_name'] ?? ''), ENT_QUOTES, 'UTF-8');
-    $last_name = htmlspecialchars(trim($input['last_name'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $name = htmlspecialchars(trim($input['name'] ?? ''), ENT_QUOTES, 'UTF-8');
     $email = filter_var(trim($input['email'] ?? ''), FILTER_SANITIZE_EMAIL);
     $password = $input['password'] ?? '';
     $role = htmlspecialchars(trim($input['role'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -48,11 +47,11 @@ try {
     if ($user_id <= 0) {
         $errors[] = 'ID utente non valido';
     }
-    if (empty($first_name)) {
-        $errors[] = 'Nome richiesto';
+    if (empty($name)) {
+        $errors[] = 'Nome completo richiesto';
     }
-    if (empty($last_name)) {
-        $errors[] = 'Cognome richiesto';
+    if (strlen($name) < 2) {
+        $errors[] = 'Il nome completo deve essere almeno 2 caratteri';
     }
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Email non valida';
@@ -156,8 +155,7 @@ try {
 
         // Prepare update data
         $update_data = [
-            'first_name' => $first_name,
-            'last_name' => $last_name,
+            'name' => $name,
             'email' => $email,
             'role' => $role,
             'tenant_id' => $single_tenant_id,

@@ -3,6 +3,8 @@
 require_once __DIR__ . '/includes/session_init.php';
 // Authentication check - redirect to login if not authenticated
 require_once __DIR__ . '/includes/auth_simple.php';
+// Include Italian provinces data
+require_once __DIR__ . '/includes/italian_provinces.php';
 $auth = new Auth();
 
 if (!$auth->checkAuth()) {
@@ -34,6 +36,8 @@ $csrfToken = $auth->generateCSRFToken();
 
     <!-- Main CSS -->
     <link rel="stylesheet" href="assets/css/styles.css">
+    <!-- Sidebar Responsive Optimization CSS -->
+    <link rel="stylesheet" href="assets/css/sidebar-responsive.css">
     <!-- Page specific CSS -->
     <link rel="stylesheet" href="assets/css/dashboard.css">
 
@@ -78,6 +82,76 @@ $csrfToken = $auth->generateCSRFToken();
 
         .form-row.single {
             grid-template-columns: 1fr;
+        }
+
+        .form-group.span-2 {
+            grid-column: span 2;
+        }
+
+        /* Styles for Sedi Operative cards */
+        .sede-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .sede-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .sede-card-header h4 {
+            margin: 0;
+            font-size: 14px;
+            color: #495057;
+            font-weight: 600;
+        }
+
+        .btn-remove {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.2s;
+        }
+
+        .btn-remove:hover {
+            background: #c82333;
+        }
+
+        #sediOperativeContainer {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 12px;
+        }
+
+        .btn-add-sede {
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: var(--text-sm);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .btn-add-sede:hover {
+            background: var(--color-primary-dark);
         }
 
         .currency-input {
@@ -823,12 +897,11 @@ $csrfToken = $auth->generateCSRFToken();
                         <table>
                             <thead>
                                 <tr>
+                                    <th>ID</th>
                                     <th>Denominazione</th>
-                                    <th>Codice Fiscale</th>
-                                    <th>Partita IVA</th>
-                                    <th>Settore</th>
+                                    <th>Codice Fiscale / Partita IVA</th>
+                                    <th>Comune (Sede Legale)</th>
                                     <th>Manager</th>
-                                    <th>Dipendenti</th>
                                     <th>Stato</th>
                                     <th>Azioni</th>
                                 </tr>
@@ -893,19 +966,50 @@ $csrfToken = $auth->generateCSRFToken();
                         </div>
                     </div>
 
-                    <!-- Sedi -->
+                    <!-- Sede Legale -->
                     <div class="form-section">
-                        <h3 class="form-section-title">Sedi</h3>
-                        <div class="form-group">
-                            <label for="addSedeLegale">Sede Legale *</label>
-                            <input type="text" id="addSedeLegale" name="sede_legale"
-                                   placeholder="Via/Piazza, numero civico, CAP, Città (Provincia)" required />
+                        <h3 class="form-section-title">Sede Legale *</h3>
+                        <div class="form-row">
+                            <div class="form-group span-2">
+                                <label for="addSedeLegaleIndirizzo">Indirizzo *</label>
+                                <input type="text" id="addSedeLegaleIndirizzo" name="sede_legale_indirizzo"
+                                       placeholder="Via Roma" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="addSedeLegaleCivico">Civico *</label>
+                                <input type="text" id="addSedeLegaleCivico" name="sede_legale_civico"
+                                       placeholder="123" required />
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="addSedeOperativa">Sede Operativa</label>
-                            <input type="text" id="addSedeOperativa" name="sede_operativa"
-                                   placeholder="Via/Piazza, numero civico, CAP, Città (Provincia)" />
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="addSedeLegaleCap">CAP *</label>
+                                <input type="text" id="addSedeLegaleCap" name="sede_legale_cap"
+                                       pattern="[0-9]{5}" maxlength="5" placeholder="00100" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="addSedeLegaleComune">Comune *</label>
+                                <input type="text" id="addSedeLegaleComune" name="sede_legale_comune"
+                                       placeholder="Roma" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="addSedeLegaleProvincia">Provincia *</label>
+                                <select id="addSedeLegaleProvincia" name="sede_legale_provincia" required>
+                                    <?php echo getProvinceOptions(); ?>
+                                </select>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Sedi Operative -->
+                    <div class="form-section">
+                        <h3 class="form-section-title">Sedi Operative</h3>
+                        <div id="addSediOperativeContainer">
+                            <!-- Dynamic locations will be added here -->
+                        </div>
+                        <button type="button" class="btn-add-sede" onclick="addSedeOperativa('add')">
+                            + Aggiungi Sede Operativa
+                        </button>
                     </div>
 
                     <!-- Informazioni Aziendali -->
@@ -997,24 +1101,13 @@ $csrfToken = $auth->generateCSRFToken();
                                 <input type="text" id="addRappresentante" name="rappresentante_legale" required />
                             </div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="addStatus">Stato *</label>
-                                <select id="addStatus" name="status" required>
-                                    <option value="active">Attivo</option>
-                                    <option value="pending">In attesa</option>
-                                    <option value="suspended">Sospeso</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="addPlan">Piano *</label>
-                                <select id="addPlan" name="plan_type" required>
-                                    <option value="trial">Trial</option>
-                                    <option value="starter">Starter</option>
-                                    <option value="professional">Professional</option>
-                                    <option value="enterprise">Enterprise</option>
-                                </select>
-                            </div>
+                        <div class="form-group">
+                            <label for="addStatus">Stato *</label>
+                            <select id="addStatus" name="status" required>
+                                <option value="active">Attivo</option>
+                                <option value="pending">In attesa</option>
+                                <option value="suspended">Sospeso</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -1060,19 +1153,50 @@ $csrfToken = $auth->generateCSRFToken();
                         </div>
                     </div>
 
-                    <!-- Sedi -->
+                    <!-- Sede Legale -->
                     <div class="form-section">
-                        <h3 class="form-section-title">Sedi</h3>
-                        <div class="form-group">
-                            <label for="editSedeLegale">Sede Legale *</label>
-                            <input type="text" id="editSedeLegale" name="sede_legale"
-                                   placeholder="Via/Piazza, numero civico, CAP, Città (Provincia)" required />
+                        <h3 class="form-section-title">Sede Legale *</h3>
+                        <div class="form-row">
+                            <div class="form-group span-2">
+                                <label for="editSedeLegaleIndirizzo">Indirizzo *</label>
+                                <input type="text" id="editSedeLegaleIndirizzo" name="sede_legale_indirizzo"
+                                       placeholder="Via Roma" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="editSedeLegaleCivico">Civico *</label>
+                                <input type="text" id="editSedeLegaleCivico" name="sede_legale_civico"
+                                       placeholder="123" required />
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="editSedeOperativa">Sede Operativa</label>
-                            <input type="text" id="editSedeOperativa" name="sede_operativa"
-                                   placeholder="Via/Piazza, numero civico, CAP, Città (Provincia)" />
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editSedeLegaleCap">CAP *</label>
+                                <input type="text" id="editSedeLegaleCap" name="sede_legale_cap"
+                                       pattern="[0-9]{5}" maxlength="5" placeholder="00100" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="editSedeLegaleComune">Comune *</label>
+                                <input type="text" id="editSedeLegaleComune" name="sede_legale_comune"
+                                       placeholder="Roma" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="editSedeLegaleProvincia">Provincia *</label>
+                                <select id="editSedeLegaleProvincia" name="sede_legale_provincia" required>
+                                    <?php echo getProvinceOptions(); ?>
+                                </select>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Sedi Operative -->
+                    <div class="form-section">
+                        <h3 class="form-section-title">Sedi Operative</h3>
+                        <div id="editSediOperativeContainer">
+                            <!-- Dynamic locations will be loaded here -->
+                        </div>
+                        <button type="button" class="btn-add-sede" onclick="addSedeOperativa('edit')">
+                            + Aggiungi Sede Operativa
+                        </button>
                     </div>
 
                     <!-- Informazioni Aziendali -->
@@ -1164,24 +1288,13 @@ $csrfToken = $auth->generateCSRFToken();
                                 <input type="text" id="editRappresentante" name="rappresentante_legale" required />
                             </div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="editStatus">Stato *</label>
-                                <select id="editStatus" name="status" required>
-                                    <option value="active">Attivo</option>
-                                    <option value="pending">In attesa</option>
-                                    <option value="suspended">Sospeso</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="editPlan">Piano *</label>
-                                <select id="editPlan" name="plan_type" required>
-                                    <option value="trial">Trial</option>
-                                    <option value="starter">Starter</option>
-                                    <option value="professional">Professional</option>
-                                    <option value="enterprise">Enterprise</option>
-                                </select>
-                            </div>
+                        <div class="form-group">
+                            <label for="editStatus">Stato *</label>
+                            <select id="editStatus" name="status" required>
+                                <option value="active">Attivo</option>
+                                <option value="pending">In attesa</option>
+                                <option value="suspended">Sospeso</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -1203,6 +1316,9 @@ $csrfToken = $auth->generateCSRFToken();
             <div class="modal-body">
                 <p>Sei sicuro di voler eliminare questa azienda?</p>
                 <p class="text-muted text-sm">Questa azione eliminerà anche tutti gli utenti e i dati associati. Questa azione non può essere annullata.</p>
+                <p class="text-warning text-sm" style="margin-top: 12px; padding: 8px; background: #FEF3C7; border-left: 3px solid #F59E0B; border-radius: 4px;">
+                    <strong>Nota:</strong> L'azienda Demo Company (ID 1) è protetta dal sistema e non può essere eliminata.
+                </p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('deleteModal')">Annulla</button>
@@ -1353,7 +1469,7 @@ $csrfToken = $auth->generateCSRFToken();
 
             async loadCompanies() {
                 try {
-                    const response = await fetch(`api/companies/list.php?page=${this.currentPage}&search=${encodeURIComponent(this.searchQuery)}`, {
+                    const response = await fetch(`api/tenants/list.php?page=${this.currentPage}&search=${encodeURIComponent(this.searchQuery)}`, {
                         headers: {
                             'X-CSRF-Token': document.getElementById('csrfToken').value
                         }
@@ -1362,7 +1478,7 @@ $csrfToken = $auth->generateCSRFToken();
                     const data = await response.json();
 
                     if (data.success) {
-                        this.companies = data.data?.companies || [];
+                        this.companies = data.data?.tenants || data.data?.companies || [];
                         this.renderCompanies();
                         this.renderPagination(data.data?.total_pages || 1);
                     } else {
@@ -1391,33 +1507,50 @@ $csrfToken = $auth->generateCSRFToken();
                     const initials = this.getInitials(company.denominazione || company.name || 'AZ');
                     const status = company.status || 'active';
                     const managerName = company.manager_name || '-';
-                    const settore = this.getSettoreLabel(company.settore_merceologico);
+
+                    // Estrai il comune dalla sede legale
+                    let comune = '-';
+                    if (company.sede_legale) {
+                        // Se è un oggetto con proprietà comune
+                        if (typeof company.sede_legale === 'object' && company.sede_legale.comune) {
+                            comune = company.sede_legale.comune;
+                        }
+                        // Se è una stringa, prova a estrarre il comune (formato: indirizzo, civico, CAP, Città (Provincia))
+                        else if (typeof company.sede_legale === 'string') {
+                            const parts = company.sede_legale.split(',');
+                            if (parts.length >= 3) {
+                                // Il comune è solitamente l'ultima parte o penultima se c'è la provincia
+                                comune = parts[parts.length - 1].trim().replace(/\([^)]*\)/g, '').trim();
+                            } else {
+                                comune = company.sede_legale;
+                            }
+                        }
+                    }
 
                     return `
                     <tr>
+                        <td style="text-align: center;">
+                            <strong>${company.id}</strong>
+                        </td>
                         <td>
                             <div class="company-info-cell">
                                 <div class="company-avatar-table">${initials}</div>
                                 <div class="company-details-table">
                                     <div class="company-name-table">${company.denominazione || company.name || '-'}</div>
-                                    <div class="company-code-table">${company.sede_legale || ''}</div>
                                 </div>
                             </div>
                         </td>
                         <td>
-                            <code style="font-size: 11px;">${company.codice_fiscale || '-'}</code>
+                            <div>
+                                <code style="font-size: 11px;">${company.codice_fiscale || '-'}</code><br/>
+                                <code style="font-size: 11px;">${company.partita_iva || '-'}</code>
+                            </div>
                         </td>
                         <td>
-                            <code>${company.partita_iva || '-'}</code>
-                        </td>
-                        <td>
-                            <span style="font-size: var(--text-xs);">${settore}</span>
+                            <span style="font-size: var(--text-sm);">${comune}</span>
                         </td>
                         <td>
                             <span style="font-size: var(--text-sm);">${managerName}</span>
-                        </td>
-                        <td style="text-align: center;">
-                            <strong>${company.numero_dipendenti || 0}</strong>
                         </td>
                         <td>
                             <span class="status-badge ${status}">
@@ -1477,8 +1610,40 @@ $csrfToken = $auth->generateCSRFToken();
                 const formData = new FormData(form);
                 formData.append('csrf_token', document.getElementById('csrfToken').value);
 
+                // Collect sede legale as object with separate fields
+                const sedeLegaleObj = {
+                    indirizzo: document.getElementById('addSedeLegaleIndirizzo').value.trim(),
+                    civico: document.getElementById('addSedeLegaleCivico').value.trim(),
+                    cap: document.getElementById('addSedeLegaleCap').value.trim(),
+                    comune: document.getElementById('addSedeLegaleComune').value.trim(),
+                    provincia: document.getElementById('addSedeLegaleProvincia').value
+                };
+
+                // Remove individual fields and add as JSON
+                formData.delete('sede_legale_indirizzo');
+                formData.delete('sede_legale_civico');
+                formData.delete('sede_legale_cap');
+                formData.delete('sede_legale_comune');
+                formData.delete('sede_legale_provincia');
+                formData.set('sede_legale', JSON.stringify(sedeLegaleObj));
+
+                // Collect sedi operative
+                const sediOperative = collectSediOperative('add');
+                if (sediOperative.length > 0) {
+                    formData.set('sedi_operative', JSON.stringify(sediOperative));
+                }
+
+                // Clean up form data from sede operativa fields
+                const keysToDelete = [];
+                for (let pair of formData.entries()) {
+                    if (pair[0].startsWith('so_')) {
+                        keysToDelete.push(pair[0]);
+                    }
+                }
+                keysToDelete.forEach(key => formData.delete(key));
+
                 try {
-                    const response = await fetch('api/companies/create.php', {
+                    const response = await fetch('api/tenants/create.php', {
                         method: 'POST',
                         body: formData
                     });
@@ -1489,6 +1654,9 @@ $csrfToken = $auth->generateCSRFToken();
                         this.showToast('Azienda creata con successo', 'success');
                         closeModal('addModal');
                         form.reset();
+                        // Clear sedi operative
+                        document.getElementById('addSediOperativeContainer').innerHTML = '';
+                        sediOperativeCounters.add = 0;
                         this.loadCompanies();
                     } else {
                         this.showToast(data.message || 'Errore nella creazione azienda', 'error');
@@ -1503,13 +1671,41 @@ $csrfToken = $auth->generateCSRFToken();
                 const company = this.companies.find(c => c.id === companyId);
                 if (!company) return;
 
+                // Clear previous sedi operative
+                document.getElementById('editSediOperativeContainer').innerHTML = '';
+                sediOperativeCounters.edit = 0;
+
                 // Populate all fields
                 document.getElementById('editCompanyId').value = company.id;
                 document.getElementById('editDenominazione').value = company.denominazione || company.name || '';
                 document.getElementById('editCodiceFiscale').value = company.codice_fiscale || '';
                 document.getElementById('editPartitaIva').value = company.partita_iva || '';
-                document.getElementById('editSedeLegale').value = company.sede_legale || '';
-                document.getElementById('editSedeOperativa').value = company.sede_operativa || '';
+
+                // Handle sede_legale - può essere string o object
+                if (typeof company.sede_legale === 'object' && company.sede_legale) {
+                    const sl = company.sede_legale;
+                    document.getElementById('editSedeLegaleIndirizzo').value = sl.indirizzo || '';
+                    document.getElementById('editSedeLegaleCivico').value = sl.civico || '';
+                    document.getElementById('editSedeLegaleCap').value = sl.cap || '';
+                    document.getElementById('editSedeLegaleComune').value = sl.comune || '';
+                    document.getElementById('editSedeLegaleProvincia').value = sl.provincia || '';
+                } else if (typeof company.sede_legale === 'string') {
+                    // Try to parse old format string
+                    const parts = company.sede_legale.split(',').map(p => p.trim());
+                    document.getElementById('editSedeLegaleIndirizzo').value = parts[0] || '';
+                    document.getElementById('editSedeLegaleCivico').value = parts[1] || '';
+                    document.getElementById('editSedeLegaleCap').value = parts[2] || '';
+                    document.getElementById('editSedeLegaleComune').value = parts[3] ? parts[3].replace(/\([^)]*\)/g, '').trim() : '';
+                    document.getElementById('editSedeLegaleProvincia').value = parts[3] ? parts[3].match(/\(([^)]+)\)/)?.[1] || '' : '';
+                }
+
+                // Handle sedi operative
+                if (company.sedi_operative && Array.isArray(company.sedi_operative)) {
+                    company.sedi_operative.forEach(sede => {
+                        this.addSedeOperativaForEdit(sede);
+                    });
+                }
+
                 document.getElementById('editSettore').value = company.settore_merceologico || '';
                 document.getElementById('editNumeroDipendenti').value = company.numero_dipendenti || 0;
                 document.getElementById('editDataCostituzione').value = company.data_costituzione || '';
@@ -1520,9 +1716,77 @@ $csrfToken = $auth->generateCSRFToken();
                 document.getElementById('editManager').value = company.manager_user_id || '';
                 document.getElementById('editRappresentante').value = company.rappresentante_legale || '';
                 document.getElementById('editStatus').value = company.status || 'active';
-                document.getElementById('editPlan').value = company.plan_type || 'starter';
 
                 openModal('editModal');
+            }
+
+            addSedeOperativaForEdit(sede) {
+                const maxSedi = 20;
+                if (sediOperativeCounters.edit >= maxSedi) {
+                    return;
+                }
+
+                sediOperativeCounters.edit++;
+                const counter = sediOperativeCounters.edit;
+                const container = document.getElementById('editSediOperativeContainer');
+
+                const html = `
+                    <div class="sede-card" id="editSedeOp${counter}">
+                        <div class="sede-card-header">
+                            <h4>Sede Operativa #${counter}</h4>
+                            <button type="button" class="btn-remove" onclick="removeSedeOperativa('edit', ${counter})">
+                                Rimuovi
+                            </button>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group span-2">
+                                <label>Indirizzo</label>
+                                <input type="text" id="edit_so_indirizzo_${counter}"
+                                       name="so_indirizzo_${counter}"
+                                       class="sede-operativa-field"
+                                       value="${sede.indirizzo || ''}"
+                                       placeholder="Via Milano">
+                            </div>
+                            <div class="form-group">
+                                <label>Civico</label>
+                                <input type="text" id="edit_so_civico_${counter}"
+                                       name="so_civico_${counter}"
+                                       class="sede-operativa-field"
+                                       value="${sede.civico || ''}"
+                                       placeholder="45">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>CAP</label>
+                                <input type="text" id="edit_so_cap_${counter}"
+                                       name="so_cap_${counter}"
+                                       pattern="[0-9]{5}"
+                                       maxlength="5"
+                                       class="sede-operativa-field"
+                                       value="${sede.cap || ''}"
+                                       placeholder="20100">
+                            </div>
+                            <div class="form-group">
+                                <label>Comune</label>
+                                <input type="text" id="edit_so_comune_${counter}"
+                                       name="so_comune_${counter}"
+                                       class="sede-operativa-field"
+                                       value="${sede.comune || ''}"
+                                       placeholder="Milano">
+                            </div>
+                            <div class="form-group">
+                                <label>Provincia</label>
+                                <select id="edit_so_provincia_${counter}"
+                                        name="so_provincia_${counter}"
+                                        class="sede-operativa-field">
+                                    ${getProvinceOptions(sede.provincia || '')}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', html);
             }
 
             async updateCompany() {
@@ -1530,8 +1794,47 @@ $csrfToken = $auth->generateCSRFToken();
                 const formData = new FormData(form);
                 formData.append('csrf_token', document.getElementById('csrfToken').value);
 
+                // Collect sede legale as object with separate fields
+                const sedeLegaleObj = {
+                    indirizzo: document.getElementById('editSedeLegaleIndirizzo').value.trim(),
+                    civico: document.getElementById('editSedeLegaleCivico').value.trim(),
+                    cap: document.getElementById('editSedeLegaleCap').value.trim(),
+                    comune: document.getElementById('editSedeLegaleComune').value.trim(),
+                    provincia: document.getElementById('editSedeLegaleProvincia').value
+                };
+
+                // Remove individual fields and add as JSON
+                formData.delete('sede_legale_indirizzo');
+                formData.delete('sede_legale_civico');
+                formData.delete('sede_legale_cap');
+                formData.delete('sede_legale_comune');
+                formData.delete('sede_legale_provincia');
+                formData.set('sede_legale', JSON.stringify(sedeLegaleObj));
+
+                // Collect sedi operative
+                const sediOperative = collectSediOperative('edit');
+                if (sediOperative.length > 0) {
+                    formData.set('sedi_operative', JSON.stringify(sediOperative));
+                }
+
+                // Clean up form data from sede operativa fields
+                const keysToDelete = [];
+                for (let pair of formData.entries()) {
+                    if (pair[0].startsWith('so_')) {
+                        keysToDelete.push(pair[0]);
+                    }
+                }
+                keysToDelete.forEach(key => formData.delete(key));
+
+                // Rename company_id to tenant_id
+                const tenantId = formData.get('company_id');
+                if (tenantId) {
+                    formData.set('tenant_id', tenantId);
+                    formData.delete('company_id');
+                }
+
                 try {
-                    const response = await fetch('api/companies/update.php', {
+                    const response = await fetch('api/tenants/update.php', {
                         method: 'POST',
                         body: formData
                     });
@@ -1560,27 +1863,43 @@ $csrfToken = $auth->generateCSRFToken();
                 if (!this.deleteCompanyId) return;
 
                 const formData = new FormData();
-                formData.append('company_id', this.deleteCompanyId);
+                formData.append('tenant_id', this.deleteCompanyId);
                 formData.append('csrf_token', document.getElementById('csrfToken').value);
 
                 try {
-                    const response = await fetch('api/companies/delete.php', {
+                    const response = await fetch('api/tenants/delete.php', {
                         method: 'POST',
                         body: formData
                     });
 
-                    const data = await response.json();
+                    // Prova a parsare il JSON
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (jsonError) {
+                        console.error('JSON parse error:', jsonError);
+                        this.showToast('Errore nel formato della risposta del server', 'error');
+                        closeModal('deleteModal');
+                        this.deleteCompanyId = null;
+                        return;
+                    }
+
+                    // Chiudi sempre il modal
+                    closeModal('deleteModal');
 
                     if (data.success) {
                         this.showToast('Azienda eliminata con successo', 'success');
-                        closeModal('deleteModal');
                         this.loadCompanies();
                     } else {
-                        this.showToast(data.message || 'Errore nell\'eliminazione azienda', 'error');
+                        // Mostra l'errore specifico dal server
+                        const errorMessage = data.message || data.error || 'Errore nell\'eliminazione azienda';
+                        this.showToast(errorMessage, 'error');
+                        console.error('API Error:', data);
                     }
                 } catch (error) {
                     console.error('Error deleting company:', error);
-                    this.showToast('Errore di connessione', 'error');
+                    this.showToast('Errore di connessione al server', 'error');
+                    closeModal('deleteModal');
                 }
 
                 this.deleteCompanyId = null;
@@ -1680,14 +1999,131 @@ $csrfToken = $auth->generateCSRFToken();
 
         function openAddModal() {
             document.getElementById('addCompanyForm').reset();
+            // Clear sedi operative
+            document.getElementById('addSediOperativeContainer').innerHTML = '';
+            sediOperativeCounters.add = 0;
             // Set default values
             document.getElementById('addStatus').value = 'active';
-            document.getElementById('addPlan').value = 'starter';
             openModal('addModal');
         }
 
         function confirmDelete() {
             companyManager.confirmDelete();
+        }
+
+        // Sedi Operative Management
+        let sediOperativeCounters = { add: 0, edit: 0 };
+        const provinces = <?php echo getProvincesJS(); ?>;
+
+        function getProvinceOptions(selected = '') {
+            let html = '<option value="">Seleziona provincia</option>';
+            for (const [code, name] of Object.entries(provinces)) {
+                const isSelected = code === selected ? 'selected' : '';
+                html += `<option value="${code}" ${isSelected}>${name} (${code})</option>`;
+            }
+            return html;
+        }
+
+        function addSedeOperativa(modalType = 'add') {
+            const maxSedi = 20;
+            if (sediOperativeCounters[modalType] >= maxSedi) {
+                companyManager.showToast(`Massimo ${maxSedi} sedi operative`, 'warning');
+                return;
+            }
+
+            sediOperativeCounters[modalType]++;
+            const counter = sediOperativeCounters[modalType];
+            const container = document.getElementById(`${modalType}SediOperativeContainer`);
+            const prefix = modalType === 'add' ? 'add' : 'edit';
+
+            const html = `
+                <div class="sede-card" id="${prefix}SedeOp${counter}">
+                    <div class="sede-card-header">
+                        <h4>Sede Operativa #${counter}</h4>
+                        <button type="button" class="btn-remove" onclick="removeSedeOperativa('${modalType}', ${counter})">
+                            Rimuovi
+                        </button>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group span-2">
+                            <label>Indirizzo</label>
+                            <input type="text" id="${prefix}_so_indirizzo_${counter}"
+                                   name="so_indirizzo_${counter}"
+                                   class="sede-operativa-field"
+                                   placeholder="Via Milano">
+                        </div>
+                        <div class="form-group">
+                            <label>Civico</label>
+                            <input type="text" id="${prefix}_so_civico_${counter}"
+                                   name="so_civico_${counter}"
+                                   class="sede-operativa-field"
+                                   placeholder="45">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>CAP</label>
+                            <input type="text" id="${prefix}_so_cap_${counter}"
+                                   name="so_cap_${counter}"
+                                   pattern="[0-9]{5}"
+                                   maxlength="5"
+                                   class="sede-operativa-field"
+                                   placeholder="20100">
+                        </div>
+                        <div class="form-group">
+                            <label>Comune</label>
+                            <input type="text" id="${prefix}_so_comune_${counter}"
+                                   name="so_comune_${counter}"
+                                   class="sede-operativa-field"
+                                   placeholder="Milano">
+                        </div>
+                        <div class="form-group">
+                            <label>Provincia</label>
+                            <select id="${prefix}_so_provincia_${counter}"
+                                    name="so_provincia_${counter}"
+                                    class="sede-operativa-field">
+                                ${getProvinceOptions()}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+        function removeSedeOperativa(modalType, index) {
+            const prefix = modalType === 'add' ? 'add' : 'edit';
+            const element = document.getElementById(`${prefix}SedeOp${index}`);
+            if (element) {
+                element.remove();
+            }
+        }
+
+        function collectSediOperative(modalType = 'add') {
+            const prefix = modalType === 'add' ? 'add' : 'edit';
+            const container = document.getElementById(`${modalType}SediOperativeContainer`);
+            const sedi = [];
+
+            container.querySelectorAll('.sede-card').forEach((card) => {
+                const indirizzo = card.querySelector('[name^="so_indirizzo"]').value.trim();
+                const civico = card.querySelector('[name^="so_civico"]').value.trim();
+                const cap = card.querySelector('[name^="so_cap"]').value.trim();
+                const comune = card.querySelector('[name^="so_comune"]').value.trim();
+                const provincia = card.querySelector('[name^="so_provincia"]').value.trim();
+
+                // Only add if at minimum indirizzo and comune are provided
+                if (indirizzo && comune) {
+                    sedi.push({
+                        indirizzo,
+                        civico,
+                        cap,
+                        comune,
+                        provincia
+                    });
+                }
+            });
+
+            return sedi;
         }
 
         // Initialize when DOM is ready

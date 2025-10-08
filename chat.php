@@ -1,5 +1,6 @@
 <?php
-session_start();
+// Initialize session with proper configuration
+require_once __DIR__ . '/includes/session_init.php';
 // Authentication check - redirect to login if not authenticated
 require_once __DIR__ . '/includes/auth_simple.php';
 $auth = new Auth();
@@ -29,6 +30,8 @@ $csrfToken = $auth->generateCSRFToken();
 
     <!-- Main CSS -->
     <link rel="stylesheet" href="assets/css/styles.css">
+    <!-- Sidebar Responsive Optimization CSS -->
+    <link rel="stylesheet" href="assets/css/sidebar-responsive.css">
     <!-- Page specific CSS -->
     <link rel="stylesheet" href="assets/css/chat.css">
 

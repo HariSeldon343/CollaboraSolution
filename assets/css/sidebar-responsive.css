@@ -1,0 +1,366 @@
+/* ========================================
+   CollaboraNexio - Sidebar Responsive Optimization
+   Ensures all elements are visible without scrollbar
+   ======================================== */
+
+/* ========================================
+   OPTIMIZED SPACING VARIABLES
+   Reduced vertical spacing for better visibility
+   ======================================== */
+:root {
+    /* Compact spacing for sidebar elements */
+    --sidebar-header-padding: 12px 16px;  /* reduced from 24px 16px */
+    --sidebar-nav-padding: 6px 0;          /* reduced from 16px 0 */
+    --sidebar-footer-padding: 10px 16px;   /* reduced from 16px */
+
+    /* Section spacing */
+    --nav-section-margin: 12px;            /* reduced from 24px */
+    --nav-section-title-padding: 6px 16px; /* reduced from 8px 16px */
+    --nav-section-title-margin: 4px;       /* reduced from 8px */
+
+    /* Item spacing */
+    --nav-item-padding: 8px 16px;          /* reduced from 12px 16px */
+    --nav-item-margin: 0 8px;              /* reduced from 0 8px */
+    --nav-item-gap: 10px;                  /* reduced from 12px */
+
+    /* Typography sizes */
+    --sidebar-logo-size: 22px;             /* reduced from 24px */
+    --sidebar-tagline-size: 10px;          /* reduced from 12px */
+    --nav-section-title-size: 10px;        /* reduced from 11px */
+    --nav-item-size: 13px;                 /* reduced from 14px */
+    --nav-icon-size: 16px;                 /* reduced from 18px */
+
+    /* User badge sizes */
+    --user-avatar-size: 32px;              /* reduced from 40px */
+    --user-name-size: 13px;                /* reduced from 14px */
+    --user-role-size: 10px;                /* reduced from 11px */
+}
+
+/* ========================================
+   SIDEBAR CONTAINER OPTIMIZATION
+   ======================================== */
+.sidebar {
+    /* Ensure sidebar uses full height efficiently */
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Prevent overall scrollbar */
+}
+
+/* ========================================
+   SIDEBAR HEADER - MORE COMPACT
+   ======================================== */
+.sidebar-header {
+    padding: var(--sidebar-header-padding) !important;
+    border-bottom: 1px solid var(--color-sidebar-border);
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+.sidebar-logo {
+    gap: 10px !important; /* Reduced from 12px */
+}
+
+.logo-img {
+    width: 28px !important;  /* Reduced from 32px */
+    height: 28px !important;
+}
+
+.logo-text {
+    font-size: var(--sidebar-logo-size) !important;
+    line-height: 1.2 !important;
+}
+
+.sidebar-tagline {
+    font-size: var(--sidebar-tagline-size) !important;
+    margin-top: 2px !important;
+    line-height: 1.2 !important;
+}
+
+/* ========================================
+   SIDEBAR NAVIGATION - COMPACT LAYOUT
+   ======================================== */
+.sidebar-nav {
+    padding: var(--sidebar-nav-padding) !important;
+    flex: 1;
+    overflow-y: auto; /* Allow scrolling only if absolutely necessary */
+    overflow-x: hidden;
+
+    /* Thin scrollbar if needed */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background-color: rgba(255,255,255,0.2);
+    border-radius: 2px;
+}
+
+/* ========================================
+   NAVIGATION SECTIONS - TIGHTER SPACING
+   ======================================== */
+.nav-section {
+    margin-bottom: var(--nav-section-margin) !important;
+}
+
+.nav-section:last-child {
+    margin-bottom: 0 !important;
+}
+
+.nav-section-title {
+    padding: var(--nav-section-title-padding) !important;
+    margin-bottom: var(--nav-section-title-margin) !important;
+    font-size: var(--nav-section-title-size) !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.04em !important; /* Slightly tighter */
+}
+
+/* ========================================
+   NAVIGATION ITEMS - COMPACT SIZE
+   ======================================== */
+.nav-item {
+    padding: var(--nav-item-padding) !important;
+    margin: 0 var(--nav-item-margin) 2px !important; /* Added small bottom margin */
+    gap: var(--nav-item-gap) !important;
+    font-size: var(--nav-item-size) !important;
+    line-height: 1.3 !important;
+    min-height: auto !important; /* Remove any minimum height */
+}
+
+/* Compact icon sizing */
+.nav-item .icon,
+.nav-item i {
+    width: var(--nav-icon-size) !important;
+    height: var(--nav-icon-size) !important;
+    font-size: var(--nav-icon-size) !important;
+    flex-shrink: 0;
+}
+
+/* Active indicator more compact */
+.nav-item.active::before {
+    height: 60% !important; /* Reduced from 70% */
+    width: 2px !important;  /* Thinner indicator */
+}
+
+/* ========================================
+   SIDEBAR FOOTER - MINIMAL PADDING
+   ======================================== */
+.sidebar-footer {
+    padding: var(--sidebar-footer-padding) !important;
+    border-top: 1px solid var(--color-sidebar-border);
+    flex-shrink: 0; /* Prevent shrinking */
+    margin-top: auto !important;
+}
+
+/* ========================================
+   USER INFO SECTION - COMPACT
+   ======================================== */
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px !important; /* Reduced gap */
+    margin-bottom: 0 !important;
+}
+
+.user-avatar {
+    width: var(--user-avatar-size) !important;
+    height: var(--user-avatar-size) !important;
+    font-size: calc(var(--user-avatar-size) * 0.4) !important;
+    flex-shrink: 0;
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0; /* Allow text truncation */
+}
+
+.user-name {
+    font-size: var(--user-name-size) !important;
+    line-height: 1.3 !important;
+    margin: 0 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-badge {
+    font-size: var(--user-role-size) !important;
+    padding: 1px 4px !important;
+    margin-top: 2px !important;
+    line-height: 1.3 !important;
+}
+
+/* ========================================
+   RESPONSIVE ADJUSTMENTS
+   For different screen heights
+   ======================================== */
+
+/* Very tall screens (> 1080px) - can use slightly more spacing */
+@media (min-height: 1081px) {
+    :root {
+        --nav-section-margin: 16px;
+        --nav-item-padding: 10px 16px;
+        --sidebar-header-padding: 16px;
+    }
+}
+
+/* Standard Full HD (1080px) - optimized spacing */
+@media (max-height: 1080px) and (min-height: 901px) {
+    /* Use default compact values defined above */
+}
+
+/* Smaller screens (900px and below) - ultra compact */
+@media (max-height: 900px) {
+    :root {
+        --sidebar-header-padding: 10px 14px;
+        --sidebar-nav-padding: 4px 0;
+        --nav-section-margin: 10px;
+        --nav-section-title-padding: 5px 14px;
+        --nav-section-title-margin: 3px;
+        --nav-item-padding: 7px 14px;
+        --nav-item-gap: 8px;
+
+        --sidebar-logo-size: 20px;
+        --nav-section-title-size: 9px;
+        --nav-item-size: 12px;
+        --nav-icon-size: 14px;
+
+        --user-avatar-size: 28px;
+        --user-name-size: 12px;
+        --user-role-size: 9px;
+    }
+
+    .logo-img {
+        width: 24px !important;
+        height: 24px !important;
+    }
+}
+
+/* Very small screens (< 768px height) - minimal spacing */
+@media (max-height: 768px) {
+    :root {
+        --sidebar-header-padding: 8px 12px;
+        --nav-section-margin: 8px;
+        --nav-section-title-padding: 4px 12px;
+        --nav-item-padding: 6px 12px;
+        --nav-item-size: 11px;
+        --nav-icon-size: 14px;
+    }
+
+    /* Hide tagline on very small screens */
+    .sidebar-tagline {
+        display: none !important;
+    }
+}
+
+/* ========================================
+   COLLAPSIBLE SECTIONS (Optional Enhancement)
+   For extremely limited vertical space
+   ======================================== */
+.nav-section.collapsible .nav-section-title {
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+}
+
+.nav-section.collapsible .nav-section-title::after {
+    content: '▼';
+    position: absolute;
+    right: 16px;
+    font-size: 8px;
+    transition: transform 0.2s ease;
+    opacity: 0.5;
+}
+
+.nav-section.collapsed .nav-section-title::after {
+    transform: rotate(-90deg);
+}
+
+.nav-section.collapsed .nav-item {
+    display: none;
+}
+
+/* ========================================
+   SIDEBAR OPTIMIZATION UTILITIES
+   ======================================== */
+
+/* Remove any unnecessary margins/paddings that might add up */
+.sidebar * {
+    margin-block-start: 0;
+    margin-block-end: 0;
+}
+
+/* Ensure consistent box model */
+.sidebar,
+.sidebar * {
+    box-sizing: border-box;
+}
+
+/* Optimize text rendering for small sizes */
+.nav-section-title,
+.nav-item {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========================================
+   PRINT STYLES
+   Hide sidebar when printing
+   ======================================== */
+@media print {
+    .sidebar {
+        display: none;
+    }
+}
+
+/* ========================================
+   ACCESSIBILITY IMPROVEMENTS
+   ======================================== */
+
+/* Ensure sufficient contrast for small text */
+.nav-section-title {
+    opacity: 0.8; /* Slightly less muted for better readability */
+}
+
+/* Larger click areas for better usability despite smaller visual size */
+.nav-item {
+    position: relative;
+}
+
+.nav-item::after {
+    content: '';
+    position: absolute;
+    inset: -2px -8px;
+    z-index: -1;
+}
+
+/* Focus styles for keyboard navigation */
+.nav-item:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+/* ========================================
+   PERFORMANCE OPTIMIZATIONS
+   ======================================== */
+
+/* Use GPU acceleration for smooth transitions */
+.sidebar {
+    will-change: transform;
+}
+
+.nav-item {
+    will-change: background-color;
+}
+
+/* Contain layout calculations */
+.sidebar {
+    contain: layout style;
+}

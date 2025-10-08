@@ -1,15 +1,25 @@
 <?php
-session_start();
-require_once 'config.php';
-require_once 'includes/db.php';
-require_once 'includes/auth.php';
+// Initialize session with proper configuration
+require_once __DIR__ . '/includes/session_init.php';
+// Authentication check - redirect to login if not authenticated
+require_once __DIR__ . '/includes/auth_simple.php';
+$auth = new Auth();
 
-// Check authentication
-requireAuth();
+if (!$auth->checkAuth()) {
+    header('Location: index.php');
+    exit;
+}
+
+// Get current user data
+$currentUser = $auth->getCurrentUser();
+if (!$currentUser) {
+    header('Location: index.php');
+    exit;
+}
 
 // Get user role
-$user_role = $_SESSION['role'] ?? 'user';
-$user_id = $_SESSION['user_id'];
+$user_role = $currentUser['role'] ?? 'user';
+$user_id = $currentUser['id'];
 $tenant_id = $_SESSION['selected_tenant_id'] ?? $_SESSION['tenant_id'];
 
 // Only managers, admins and super_admins can access this page

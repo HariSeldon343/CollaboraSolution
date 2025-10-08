@@ -36,6 +36,8 @@ $csrfToken = $auth->generateCSRFToken();
 
     <!-- Main CSS -->
     <link rel="stylesheet" href="assets/css/styles.css">
+    <!-- Sidebar Responsive Optimization CSS -->
+    <link rel="stylesheet" href="assets/css/sidebar-responsive.css">
     <!-- Page specific CSS -->
     <link rel="stylesheet" href="assets/css/dashboard.css">
 
@@ -901,12 +903,8 @@ $csrfToken = $auth->generateCSRFToken();
             <form id="addUserForm">
                 <div class="modal-body">
                     <div class="form-group">
-                        <label for="addFirstName">Nome</label>
-                        <input type="text" id="addFirstName" name="first_name" required />
-                    </div>
-                    <div class="form-group">
-                        <label for="addLastName">Cognome</label>
-                        <input type="text" id="addLastName" name="last_name" required />
+                        <label for="addName">Nome Completo *</label>
+                        <input type="text" id="addName" name="name" required placeholder="es. Mario Rossi" />
                     </div>
                     <div class="form-group">
                         <label for="addEmail">Email</label>
@@ -949,12 +947,8 @@ $csrfToken = $auth->generateCSRFToken();
                 <input type="hidden" id="editUserId" name="user_id" />
                 <div class="modal-body">
                     <div class="form-group">
-                        <label for="editFirstName">Nome</label>
-                        <input type="text" id="editFirstName" name="first_name" required />
-                    </div>
-                    <div class="form-group">
-                        <label for="editLastName">Cognome</label>
-                        <input type="text" id="editLastName" name="last_name" required />
+                        <label for="editName">Nome Completo *</label>
+                        <input type="text" id="editName" name="name" required />
                     </div>
                     <div class="form-group">
                         <label for="editEmail">Email</label>
@@ -1420,19 +1414,12 @@ $csrfToken = $auth->generateCSRFToken();
                 console.log('Selected role:', role);
 
                 // Validazione manuale dei campi required
-                const firstName = form.first_name.value.trim();
-                const lastName = form.last_name.value.trim();
+                const name = form.name.value.trim();
                 const email = form.email.value.trim();
 
-                if (!firstName) {
-                    this.showToast('Inserisci il nome', 'error');
-                    document.getElementById('addFirstName').focus();
-                    return;
-                }
-
-                if (!lastName) {
-                    this.showToast('Inserisci il cognome', 'error');
-                    document.getElementById('addLastName').focus();
+                if (!name || name.length < 2) {
+                    this.showToast('Inserisci il nome completo (almeno 2 caratteri)', 'error');
+                    document.getElementById('addName').focus();
                     return;
                 }
 
@@ -1453,8 +1440,7 @@ $csrfToken = $auth->generateCSRFToken();
                 const formData = new FormData();
 
                 // Add basic fields
-                formData.append('first_name', firstName);
-                formData.append('last_name', lastName);
+                formData.append('name', name);
                 formData.append('email', email);
                 // Password non più necessaria - verrà inviata email all'utente
                 formData.append('role', role);
@@ -1569,13 +1555,10 @@ $csrfToken = $auth->generateCSRFToken();
                 if (!user) return;
 
                 // Handle both formats: single 'name' field or 'first_name'/'last_name'
-                const nameParts = user.name ? user.name.split(' ') : null;
-                const firstName = user.first_name || (nameParts ? nameParts[0] : '');
-                const lastName = user.last_name || (nameParts ? nameParts.slice(1).join(' ') : '');
+                const userName = user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || '';
 
                 document.getElementById('editUserId').value = user.id;
-                document.getElementById('editFirstName').value = firstName;
-                document.getElementById('editLastName').value = lastName;
+                document.getElementById('editName').value = userName;
                 document.getElementById('editEmail').value = user.email;
                 document.getElementById('editRole').value = user.role;
                 document.getElementById('editPassword').value = '';
@@ -1663,12 +1646,21 @@ $csrfToken = $auth->generateCSRFToken();
             async updateUser() {
                 const form = document.getElementById('editUserForm');
                 const role = document.getElementById('editRole').value;
+
+                // Validazione manuale dei campi required
+                const name = form.name.value.trim();
+
+                if (!name || name.length < 2) {
+                    this.showToast('Inserisci il nome completo (almeno 2 caratteri)', 'error');
+                    document.getElementById('editName').focus();
+                    return;
+                }
+
                 const formData = new FormData();
 
                 // Add basic fields
                 formData.append('user_id', form.user_id.value);
-                formData.append('first_name', form.first_name.value);
-                formData.append('last_name', form.last_name.value);
+                formData.append('name', name);
                 formData.append('email', form.email.value);
                 if (form.password.value) {
                     formData.append('password', form.password.value);

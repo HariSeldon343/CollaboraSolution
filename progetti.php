@@ -1,16 +1,24 @@
 <?php
-session_start();
-require_once 'config/config.php';
-require_once 'includes/auth.php';
-
-// Verifica autenticazione
+// Initialize session with proper configuration
+require_once __DIR__ . '/includes/session_init.php';
+// Authentication check - redirect to login if not authenticated
+require_once __DIR__ . '/includes/auth_simple.php';
 $auth = new Auth();
-if (!$auth->isLoggedIn()) {
-    header('Location: login.php');
+
+if (!$auth->checkAuth()) {
+    header('Location: index.php');
     exit;
 }
 
-$user = $auth->getCurrentUser();
+// Get current user data
+$currentUser = $auth->getCurrentUser();
+if (!$currentUser) {
+    header('Location: index.php');
+    exit;
+}
+
+// Generate CSRF token for any forms
+$csrfToken = $auth->generateCSRFToken();
 ?>
 <!DOCTYPE html>
 <html lang="it">
