@@ -26,9 +26,21 @@ define('ONLYOFFICE_JWT_HEADER', 'Authorization');
 define('ONLYOFFICE_JWT_ENABLED', true);
 
 // Document Server Endpoints
-define('ONLYOFFICE_DOWNLOAD_URL', BASE_URL . '/api/documents/download_for_editor.php');
-// Use host.docker.internal for callback so Docker can reach XAMPP on Windows
-define('ONLYOFFICE_CALLBACK_URL', 'http://host.docker.internal:8888/CollaboraNexio/api/documents/save_document.php');
+// ONLYOFFICE_DOWNLOAD_URL - Must be reachable from Docker container
+if (defined('PRODUCTION_MODE') && PRODUCTION_MODE) {
+    // Production: BASE_URL should be publicly accessible domain
+    define('ONLYOFFICE_DOWNLOAD_URL', BASE_URL . '/api/documents/download_for_editor.php');
+} else {
+    // Development (Docker on Windows): Use host.docker.internal to reach XAMPP on host
+    define('ONLYOFFICE_DOWNLOAD_URL', 'http://host.docker.internal:8888/CollaboraNexio/api/documents/download_for_editor.php');
+}
+
+// Use host.docker.internal for callback so Docker can reach XAMPP on Windows (Development)
+if (defined('PRODUCTION_MODE') && PRODUCTION_MODE) {
+    define('ONLYOFFICE_CALLBACK_URL', BASE_URL . '/api/documents/save_document.php');
+} else {
+    define('ONLYOFFICE_CALLBACK_URL', 'http://host.docker.internal:8888/CollaboraNexio/api/documents/save_document.php');
+}
 
 // Editor Configuration
 define('ONLYOFFICE_LANG', 'it'); // Italian language

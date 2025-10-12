@@ -75,7 +75,7 @@ class CompanyFilter {
                 $stmt = $this->pdo->prepare("
                     SELECT id, name, status, domain
                     FROM tenants
-                    WHERE status = 'active'
+                    WHERE status = 'active' AND deleted_at IS NULL
                     ORDER BY name ASC
                 ");
                 $stmt->execute();
@@ -85,7 +85,7 @@ class CompanyFilter {
                     SELECT DISTINCT t.id, t.name, t.status, t.domain
                     FROM tenants t
                     LEFT JOIN user_companies uc ON uc.company_id = t.id
-                    WHERE t.status = 'active'
+                    WHERE t.status = 'active' AND t.deleted_at IS NULL
                     AND (
                         t.id = :tenant_id
                         OR (uc.user_id = :user_id AND uc.company_id = t.id)

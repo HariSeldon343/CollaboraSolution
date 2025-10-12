@@ -29,7 +29,7 @@ $tenants = [];
 try {
     if ($user_role === 'super_admin') {
         // Super admin can access all active tenants
-        $query = "SELECT id, name, domain FROM tenants WHERE status = 'active' ORDER BY name";
+        $query = "SELECT id, name, domain FROM tenants WHERE status = 'active' AND deleted_at IS NULL ORDER BY name";
         $stmt = $pdo->prepare($query);
         $stmt->execute();
         $tenants = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -43,6 +43,7 @@ try {
                       SELECT tenant_id FROM users WHERE id = :user_id2
                   )
                   AND t.status = 'active'
+                  AND t.deleted_at IS NULL
                   ORDER BY t.name";
         $stmt = $pdo->prepare($query);
         $stmt->execute([':user_id' => $user_id, ':user_id2' => $user_id]);
