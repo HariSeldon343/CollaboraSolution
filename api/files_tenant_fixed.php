@@ -574,13 +574,14 @@ function getTenantList() {
 
     try {
         if ($user_role === 'super_admin') {
-            // Super Admin vede tutti i tenant
+            // Super Admin vede tutti i tenant non eliminati
             $stmt = $pdo->prepare("
                 SELECT id, name,
                        CASE WHEN status = 'active' THEN '1' ELSE '0' END as is_active,
                        status
                 FROM tenants
-                WHERE status != 'suspended'
+                WHERE deleted_at IS NULL
+                AND status != 'suspended'
                 ORDER BY name
             ");
             $stmt->execute();
@@ -597,6 +598,7 @@ function getTenantList() {
                     UNION
                     SELECT :tenant_id
                 )
+                AND t.deleted_at IS NULL
                 AND t.status != 'suspended'
                 ORDER BY t.name
             ");

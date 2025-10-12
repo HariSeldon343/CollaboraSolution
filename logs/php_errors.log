@@ -8157,3 +8157,1028 @@ Stack trace:
 [08-Oct-2025 06:00:00 Europe/Rome] [2025-10-08 06:00:00] API Error in tenants/delete: Errore durante l'inserimento del record
 [08-Oct-2025 06:00:00 Europe/Rome] Stack trace: #0 C:\xampp\htdocs\CollaboraNexio\api\tenants\delete.php(149): Database->insert('audit_logs', Array)
 #1 {main}
+[08-Oct-2025 06:01:18 Europe/Rome] [2025-10-08 06:01:18] API Error in tenants/delete: Errore durante l'inserimento del record
+[08-Oct-2025 17:33:38 Europe/Rome] [2025-10-08 17:33:38] API Error in tenants/delete: Error during tenant soft-delete: 1
+[08-Oct-2025 17:48:04 Europe/Rome] [2025-10-08 17:48:04] API Error in tenants/delete: Cannot delete system tenant (ID 1)
+[10-Oct-2025 06:36:22 Europe/Rome] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'DELETE_RULE' in 'field list' in C:\xampp\htdocs\CollaboraNexio\verify_all_migrations.php:162
+Stack trace:
+#0 C:\xampp\htdocs\CollaboraNexio\verify_all_migrations.php(162): PDO->query('\r\n    SELECT\r\n ...')
+#1 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\verify_all_migrations.php on line 162
+[10-Oct-2025 06:37:17 Europe/Rome] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'm.postal_code' in 'field list' in C:\xampp\htdocs\CollaboraNexio\test_migrations_sql.php:42
+Stack trace:
+#0 C:\xampp\htdocs\CollaboraNexio\test_migrations_sql.php(42): PDO->prepare('\r\n    SELECT m....')
+#1 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\test_migrations_sql.php on line 42
+[10-Oct-2025 06:37:30 Europe/Rome] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'm.zip_code' in 'field list' in C:\xampp\htdocs\CollaboraNexio\test_migrations_sql.php:42
+Stack trace:
+#0 C:\xampp\htdocs\CollaboraNexio\test_migrations_sql.php(42): PDO->prepare('\r\n    SELECT m....')
+#1 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\test_migrations_sql.php on line 42
+[10-Oct-2025 06:42:41 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\quick_system_check.php on line 178
+[10-Oct-2025 06:52:16 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\quick_system_check.php on line 178
+[12-Oct-2025 06:22:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:22:53 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:22:54 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:22:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:22:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:22:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:22:57 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:22:58 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:22:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:22:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:23:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:23:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:23:02 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:23:02 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:23:02 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:23:02 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 06:23:02 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 
+[12-Oct-2025 06:23:02 Europe/Rome] API CSRF Check - Token received: 6bd6444de3...
+[12-Oct-2025 06:23:02 Europe/Rome] API CSRF Check - Session token: 6bd6444de3...
+[12-Oct-2025 06:23:02 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 07:03:55 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 07:03:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 07:03:58 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 07:03:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 07:03:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 07:03:59 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 
+[12-Oct-2025 07:03:59 Europe/Rome] API CSRF Check - Token received: 887ba3fd3b...
+[12-Oct-2025 07:03:59 Europe/Rome] API CSRF Check - Session token: 887ba3fd3b...
+[12-Oct-2025 07:03:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 07:08:17 Europe/Rome] PHP Warning:  Undefined array key "code" in Command line code on line 28
+[12-Oct-2025 07:08:17 Europe/Rome] PHP Warning:  Undefined array key "code" in Command line code on line 28
+[12-Oct-2025 07:08:17 Europe/Rome] PHP Warning:  Undefined array key "code" in Command line code on line 28
+[12-Oct-2025 07:08:17 Europe/Rome] PHP Warning:  Undefined array key "code" in Command line code on line 28
+[12-Oct-2025 07:08:17 Europe/Rome] PHP Warning:  Undefined array key "code" in Command line code on line 28
+[12-Oct-2025 08:07:35 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:07:36 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:07:37 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:07:38 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:07:38 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:07:38 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 
+[12-Oct-2025 08:07:38 Europe/Rome] API CSRF Check - Token received: c178508cb8...
+[12-Oct-2025 08:07:38 Europe/Rome] API CSRF Check - Session token: c178508cb8...
+[12-Oct-2025 08:07:38 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:21:28 Europe/Rome] Session initialized - Host: localhost, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:24:09 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:24:10 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:24:11 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:24:17 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:24:17 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:24:17 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 
+[12-Oct-2025 08:24:17 Europe/Rome] API CSRF Check - Token received: a6f33f59cb...
+[12-Oct-2025 08:24:17 Europe/Rome] API CSRF Check - Session token: a6f33f59cb...
+[12-Oct-2025 08:24:17 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:24:33 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:24:33 Europe/Rome] API CSRF Check - Token received: a6f33f59cb...
+[12-Oct-2025 08:24:33 Europe/Rome] API CSRF Check - Session token: a6f33f59cb...
+[12-Oct-2025 08:30:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:30:51 Europe/Rome] API CSRF Check - Token received: a6f33f59cb...
+[12-Oct-2025 08:30:51 Europe/Rome] API CSRF Check - Session token: a6f33f59cb...
+[12-Oct-2025 08:30:58 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:30:58 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:30:58 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 
+[12-Oct-2025 08:30:58 Europe/Rome] API CSRF Check - Token received: a6f33f59cb...
+[12-Oct-2025 08:30:58 Europe/Rome] API CSRF Check - Session token: a6f33f59cb...
+[12-Oct-2025 08:30:58 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:31:09 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:31:09 Europe/Rome] API CSRF Check - Token received: a6f33f59cb...
+[12-Oct-2025 08:31:09 Europe/Rome] API CSRF Check - Session token: a6f33f59cb...
+[12-Oct-2025 08:31:09 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:31:14 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:31:14 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:31:14 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:31:27 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:31:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:32:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:32:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:33:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:33:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:34:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:35:08 Europe/Rome] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 't.tenant_id' in 'on clause' in C:\xampp\htdocs\CollaboraNexio\verify_tenants_status.php:83
+Stack trace:
+#0 C:\xampp\htdocs\CollaboraNexio\verify_tenants_status.php(83): PDO->query('\r\n    SELECT f....')
+#1 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\verify_tenants_status.php on line 83
+[12-Oct-2025 08:35:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:36:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:37:21 Europe/Rome] Session initialized - Host: localhost, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:37:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:38:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:39:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:40:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:41:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:42:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:42:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:42:50 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:42:50 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:42:50 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:42:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:43:21 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:43:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:44:21 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:44:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:45:21 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:45:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:46:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:47:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:48:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:49:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:50:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:51:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:52:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:53:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:38 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:38 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:38 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:40 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:40 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:41 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:42 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:43 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:43 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:43 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:57 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:54:57 Europe/Rome] Audit log failed: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'details' in 'field list'
+[12-Oct-2025 08:54:57 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:55:13 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:55:44 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:56:14 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:56:44 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:57:14 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:57:44 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:58:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 08:59:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:00:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:01:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:02:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:03:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:04:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:05:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:06:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:07:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:08:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:09:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:10:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:11:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:12:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:13:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:14:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:15:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:16:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:17:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:18:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:19:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:20:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:21:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:22:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:23:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:24:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:25:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:26:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:27:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:28:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:29:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:30:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:31:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:32:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:33:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:34:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:35:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:36:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:37:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:38:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:39:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:40:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:41:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:42:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:43:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:44:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:45:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:46:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:47:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:48:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:49:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:50:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:51:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:52:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:53:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 09:54:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 10:05:08 Europe/Rome] Session initialized - Host: localhost, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 10:05:08 Europe/Rome] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'u.username' in 'field list' in C:\xampp\htdocs\CollaboraNexio\test_document_editor_integration.php:107
+Stack trace:
+#0 C:\xampp\htdocs\CollaboraNexio\test_document_editor_integration.php(107): PDO->prepare('\r\n        SELEC...')
+#1 C:\xampp\htdocs\CollaboraNexio\test_document_editor_integration.php(387): getTestUser(Object(PDO), 'manager')
+#2 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\test_document_editor_integration.php on line 107
+[12-Oct-2025 11:41:44 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined method Database::execute() in C:\xampp\htdocs\CollaboraNexio\run_document_editor_migration.php:38
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\run_document_editor_migration.php on line 38
+[12-Oct-2025 11:52:08 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:52:09 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:52:09 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:52:10 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:52:12 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:52:14 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:52:14 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:52:14 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:52:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:53:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:53:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:54:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:54:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:55:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:56:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:57:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:58:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 11:59:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:00:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:01:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:02:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:02:58 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:03:06 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:03:06 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:03:07 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:03:08 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:03:10 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:03:10 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:03:10 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:03:41 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:04:11 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:04:41 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:05:11 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:05:41 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:06:11 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:07:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:08:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:09:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:10:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:11:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:12:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:13:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:14:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:15:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:16:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:17:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:18:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:19:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:20:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:21:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:22:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:23:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:24:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:25:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:26:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:27:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:28:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:29:20 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:29:41 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:29:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:29:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:29:53 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:29:54 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:30:03 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:30:03 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:30:03 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:30:09 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:30:28 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:30:33 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:30:36 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:31:04 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:31:34 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:32:04 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:32:34 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:33:04 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:34:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:35:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:36:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:37:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:38:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:39:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:40:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:41:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:42:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:43:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:44:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:45:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:46:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:47:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:48:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:49:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:50:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:51:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:52:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:53:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:54:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:55:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:56:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:57:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:58:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 12:59:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:00:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:01:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:02:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:03:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:04:21 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:04:22 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:04:22 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:04:22 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:04:32 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:04:32 Europe/Rome] [2025-10-12 13:04:32] API Error in ListFiles SQL: SQLSTATE[HY093]: Invalid parameter number
+[12-Oct-2025 13:04:32 Europe/Rome] Stack trace: #0 C:\xampp\htdocs\CollaboraNexio\api\files_tenant.php(218): PDOStatement->execute(Array)
+#1 C:\xampp\htdocs\CollaboraNexio\api\files_tenant.php(60): listFiles()
+#2 {main}
+[12-Oct-2025 13:04:32 Europe/Rome] SQL State: HY093
+[12-Oct-2025 13:04:34 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:04:34 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:04:34 Europe/Rome] [2025-10-12 13:04:34] API Error in ListFiles SQL: SQLSTATE[HY093]: Invalid parameter number
+[12-Oct-2025 13:04:34 Europe/Rome] Stack trace: #0 C:\xampp\htdocs\CollaboraNexio\api\files_tenant.php(218): PDOStatement->execute(Array)
+#1 C:\xampp\htdocs\CollaboraNexio\api\files_tenant.php(60): listFiles()
+#2 {main}
+[12-Oct-2025 13:04:34 Europe/Rome] SQL State: HY093
+[12-Oct-2025 13:04:53 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:05:04 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:05:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:05:53 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:06:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:06:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:06:53 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:07:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:07:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:08:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:08:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:09:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:09:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:10:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:10:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:11:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:11:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:12:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:12:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:12:59 Europe/Berlin] PHP Warning:  Constant UPLOAD_PATH already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 119
+[12-Oct-2025 13:12:59 Europe/Berlin] PHP Warning:  Constant MAX_FILE_SIZE already defined in C:\xampp\htdocs\CollaboraNexio\config.php on line 131
+[12-Oct-2025 13:12:59 Europe/Rome] PHP Fatal error:  Cannot redeclare initializeApiEnvironment() (previously declared in C:\xampp\htdocs\CollaboraNexio\verify_api_fix.php:16) in C:\xampp\htdocs\CollaboraNexio\includes\api_auth.php on line 27
+[12-Oct-2025 13:13:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:13:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:14:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:14:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:15:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:15:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:16:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:16:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:17:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:17:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:18:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:18:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:19:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:19:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:20:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:20:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:21:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:21:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:22:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:22:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:23:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:23:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:24:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:24:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:25:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:25:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:26:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:26:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:27:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:27:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:28:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:28:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:29:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:29:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:30:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:30:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:31:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:32:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:33:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:34:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:35:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:36:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:37:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:38:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:39:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:40:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:41:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:42:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:43:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:44:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:45:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:46:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:47:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:48:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:49:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:50:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:51:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:52:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:53:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:54:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:55:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:56:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:57:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:58:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 13:59:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:00:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:01:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:02:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:03:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:04:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:30:40 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:30:40 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:30:42 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:30:43 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:30:44 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:30:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:30:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:30:47 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:30:53 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:31:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:31:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:31:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:32:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:32:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:32:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:33:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:33:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:33:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:34:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:34:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:35:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:35:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:36:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:36:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:37:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:37:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:38:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:38:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:39:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:39:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:39:48 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:39:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:39:49 Europe/Rome] API CSRF Check - Token received: bf54c37a37...
+[12-Oct-2025 14:39:49 Europe/Rome] API CSRF Check - Session token: bf54c37a37...
+[12-Oct-2025 14:39:49 Europe/Rome] PHP Deprecated:  ZipArchive::open(): Using empty file as ZipArchive is deprecated in C:\xampp\htdocs\CollaboraNexio\api\files\create_document.php on line 249
+[12-Oct-2025 14:40:15 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:40:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:40:45 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:41:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:41:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:42:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:42:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:43:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:43:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:44:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:44:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:45:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:45:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:46:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:46:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:47:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:47:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:48:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:48:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:49:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:49:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:50:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:50:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:50:28 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:50:28 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:50:28 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:50:30 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:50:36 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:50:36 Europe/Rome] API CSRF Check - Token received: bf54c37a37...
+[12-Oct-2025 14:50:36 Europe/Rome] API CSRF Check - Session token: bf54c37a37...
+[12-Oct-2025 14:50:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:51:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:51:29 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:51:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:52:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:52:29 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:52:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:53:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:53:29 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:54:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:54:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:55:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:55:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:56:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:56:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:57:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:57:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:58:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:58:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:59:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 14:59:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:00:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:00:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:01:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:01:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:02:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:02:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:03:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:03:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:04:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:04:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:05:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:05:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:06:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:06:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:07:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:07:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:08:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:08:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:09:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:09:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:10:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:10:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:11:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:11:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:12:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:12:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:13:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:13:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:14:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:14:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:15:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:15:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:16:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:16:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:17:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:17:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:18:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:18:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:19:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:19:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:20:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:20:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:21:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:21:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:22:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:22:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:22:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:22:55 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:22:55 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:22:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:22:57 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:22:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:22:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:22:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:23:01 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:23:20 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:23:20 Europe/Rome] API CSRF Check - Token received: 7c2ad815ce...
+[12-Oct-2025 15:23:20 Europe/Rome] API CSRF Check - Session token: 7c2ad815ce...
+[12-Oct-2025 15:23:20 Europe/Rome] Audit log failed: Errore durante l'inserimento del record
+[12-Oct-2025 15:23:20 Europe/Rome] PHP Fatal error:  Uncaught Error: Call to undefined function string() in C:\xampp\htdocs\CollaboraNexio\includes\file_helper.php:198
+Stack trace:
+#0 C:\xampp\htdocs\CollaboraNexio\api\files\create_document.php(196): FileHelper::formatFileSize(1200)
+#1 C:\xampp\htdocs\CollaboraNexio\api\files\create_document.php(95): createDocument('docx', 'trse.docx', 1, 32, 19, Object(Database))
+#2 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\includes\file_helper.php on line 198
+[12-Oct-2025 15:23:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:23:30 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:24:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:24:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:24:30 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:25:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:25:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:25:30 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:26:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:26:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:27:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:27:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:28:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:28:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:29:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:29:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:30:05 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:30:05 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:30:05 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:30:05 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:30:06 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:30:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:30:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:30:23 Europe/Rome] API CSRF Check - Token received: 7c2ad815ce...
+[12-Oct-2025 15:30:23 Europe/Rome] API CSRF Check - Session token: 7c2ad815ce...
+[12-Oct-2025 15:30:23 Europe/Rome] Audit log failed: Errore durante l'inserimento del record
+[12-Oct-2025 15:30:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:30:30 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:30:35 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:31:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:31:06 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:31:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:31:36 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:32:06 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:32:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:32:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:32:36 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:33:06 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:33:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:33:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:34:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:34:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:34:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:35:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:35:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:35:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:36:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:36:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:36:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:37:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:37:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:37:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:38:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:38:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:38:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:39:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:39:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:39:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:40:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:40:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:40:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:41:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:41:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:41:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:42:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:42:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:42:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:43:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:43:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:43:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:44:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:44:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:44:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:45:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:45:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:45:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:46:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:46:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:46:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:47:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:47:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:47:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:48:07 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\check_onlyoffice_db_tables.php on line 16
+[12-Oct-2025 15:48:07 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\check_onlyoffice_db_tables.php on line 26
+[12-Oct-2025 15:48:07 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\check_onlyoffice_db_tables.php on line 45
+[12-Oct-2025 15:48:07 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\check_onlyoffice_db_tables.php on line 45
+[12-Oct-2025 15:48:07 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\check_onlyoffice_db_tables.php on line 45
+[12-Oct-2025 15:48:07 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\check_onlyoffice_db_tables.php on line 45
+[12-Oct-2025 15:48:07 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\check_onlyoffice_db_tables.php on line 64
+[12-Oct-2025 15:48:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:48:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:48:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:49:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:49:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:49:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:49:40 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\check_onlyoffice_db_tables.php on line 16
+[12-Oct-2025 15:49:40 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\check_onlyoffice_db_tables.php on line 26
+[12-Oct-2025 15:49:40 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\check_onlyoffice_db_tables.php on line 45
+[12-Oct-2025 15:49:40 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\check_onlyoffice_db_tables.php on line 45
+[12-Oct-2025 15:49:40 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\check_onlyoffice_db_tables.php on line 45
+[12-Oct-2025 15:49:40 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\check_onlyoffice_db_tables.php on line 45
+[12-Oct-2025 15:49:40 Europe/Rome] PHP Warning:  Undefined property: PDOStatement::$num_rows in C:\xampp\htdocs\CollaboraNexio\check_onlyoffice_db_tables.php on line 64
+[12-Oct-2025 15:50:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:50:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:50:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:51:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:51:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:51:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:52:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:52:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:52:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:53:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:53:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:53:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:54:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:54:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:54:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:55:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:55:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:55:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:56:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:56:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:56:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:57:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:57:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:57:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:58:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:58:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:58:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:58:31 Europe/Rome] PHP Warning:  Undefined array key "Interval_value" in C:\xampp\htdocs\CollaboraNexio\comprehensive_database_integrity_verification.php on line 780
+[12-Oct-2025 15:58:31 Europe/Rome] PHP Warning:  Undefined array key "Interval_field" in C:\xampp\htdocs\CollaboraNexio\comprehensive_database_integrity_verification.php on line 780
+[12-Oct-2025 15:59:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:59:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 15:59:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:00:08 Europe/Rome] PHP Warning:  Undefined array key "Interval_value" in C:\xampp\htdocs\CollaboraNexio\comprehensive_database_integrity_verification.php on line 780
+[12-Oct-2025 16:00:08 Europe/Rome] PHP Warning:  Undefined array key "Interval_field" in C:\xampp\htdocs\CollaboraNexio\comprehensive_database_integrity_verification.php on line 780
+[12-Oct-2025 16:00:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:00:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:00:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:01:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:01:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:01:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:02:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:02:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:02:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:03:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:03:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:03:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:04:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:04:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:04:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:05:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:05:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:05:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:06:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:06:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:06:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:07:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:07:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:07:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:08:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:08:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:08:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:09:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:09:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:09:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:10:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:10:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:10:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:11:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:11:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:11:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:12:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:12:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:12:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:13:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:13:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:13:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:14:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:14:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:14:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:15:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:15:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:15:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:16:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:16:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:16:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:17:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:17:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:17:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:18:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:18:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:18:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:19:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:19:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:19:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:20:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:20:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:20:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:21:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:21:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:21:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:22:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:22:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:22:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:22:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:22:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:22:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:22:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:22:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:22:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:22:57 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:22:58 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:23:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:23:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:23:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:23:01 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:23:06 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:23:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:23:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:23:30 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:23:36 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:24:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:24:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:24:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:24:30 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:25:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:25:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:25:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:25:30 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:26:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:26:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:26:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:27:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:27:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:27:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:28:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:28:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:28:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:29:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:29:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:29:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:30:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:30:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:30:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:31:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:31:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:32:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:32:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:33:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:33:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:34:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:34:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:35:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:35:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:36:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:36:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:37:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:37:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:38:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:38:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:39:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:39:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:40:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:40:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:41:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:41:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:42:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:42:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:43:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:43:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:44:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:44:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:45:12 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:45:13 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:45:13 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:45:14 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:45:16 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:45:17 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:45:17 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:45:17 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:45:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:45:28 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:45:48 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:46:18 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:46:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:46:48 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:47:18 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:47:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:47:47 Europe/Rome] PHP Fatal error:  Uncaught TypeError: count(): Argument #1 ($value) must be of type Countable|array, PDOStatement given in C:\xampp\htdocs\CollaboraNexio\test_document_api_debug.php:25
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\CollaboraNexio\test_document_api_debug.php on line 25
+[12-Oct-2025 16:47:48 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:48:18 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:48:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:49:22 Europe/Rome] PHP Warning:  Cannot modify header information - headers already sent by (output started at C:\xampp\htdocs\CollaboraNexio\test_api_call.php:32) in C:\xampp\htdocs\CollaboraNexio\includes\api_auth.php on line 26
+[12-Oct-2025 16:49:22 Europe/Rome] PHP Warning:  Cannot modify header information - headers already sent by (output started at C:\xampp\htdocs\CollaboraNexio\test_api_call.php:32) in C:\xampp\htdocs\CollaboraNexio\includes\api_auth.php on line 27
+[12-Oct-2025 16:49:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:49:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:49:37 Europe/Rome] PHP Warning:  Cannot modify header information - headers already sent by (output started at C:\xampp\htdocs\CollaboraNexio\test_api_call.php:32) in C:\xampp\htdocs\CollaboraNexio\includes\api_auth.php on line 26
+[12-Oct-2025 16:49:37 Europe/Rome] PHP Warning:  Cannot modify header information - headers already sent by (output started at C:\xampp\htdocs\CollaboraNexio\test_api_call.php:32) in C:\xampp\htdocs\CollaboraNexio\includes\api_auth.php on line 27
+[12-Oct-2025 16:49:37 Europe/Rome] API CSRF Check - Token received: test_token...
+[12-Oct-2025 16:49:37 Europe/Rome] API CSRF Check - Session token: test_token...
+[12-Oct-2025 16:49:37 Europe/Rome] Error cleaning up sessions: Errore durante l'aggiornamento del record
+[12-Oct-2025 16:49:37 Europe/Rome] Failed to log document audit: Errore durante l'inserimento del record
+[12-Oct-2025 16:50:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:50:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:51:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:51:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:52:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:52:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:53:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:53:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:54:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:54:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:55:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:55:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:56:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:56:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:56:47 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:56:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:56:50 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:56:53 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:56:53 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:56:53 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:56:57 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:56:57 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:56:57 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:56:57 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 1
+[12-Oct-2025 16:56:57 Europe/Rome] API CSRF Check - Token received: c64be6474f...
+[12-Oct-2025 16:56:57 Europe/Rome] API CSRF Check - Session token: c64be6474f...
+[12-Oct-2025 16:56:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:56:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:56:59 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:57:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:57:02 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:57:02 Europe/Rome] API CSRF Check - Token received: c64be6474f...
+[12-Oct-2025 16:57:02 Europe/Rome] API CSRF Check - Session token: c64be6474f...
+[12-Oct-2025 16:57:02 Europe/Rome] Error cleaning up sessions: Errore durante l'aggiornamento del record
+[12-Oct-2025 16:57:02 Europe/Rome] Failed to log document audit: Errore durante l'inserimento del record
+[12-Oct-2025 16:57:02 Europe/Rome] OnlyOffice Callback Raw Data: {"key":"file_43_v1_f5d288d3eee3","status":1,"users":["19"],"actions":[{"type":1,"userid":"19"}],"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiJmaWxlXzQzX3YxX2Y1ZDI4OGQzZWVlMyIsInN0YXR1cyI6MSwidXNlcnMiOlsiMTkiXSwiYWN0aW9ucyI6W3sidHlwZSI6MSwidXNlcmlkIjoiMTkifV0sImlhdCI6MTc2MDI4MTAyNSwiZXhwIjoxNzYwMjgxMzI1fQ.Vh6vH6Sy6p_UEocbtjSzxUl20qmlaYFw0e92z0y4VoQ"}
+[12-Oct-2025 16:57:02 Europe/Rome] OnlyOffice Callback - Key: file_43_v1_f5d288d3eee3, Status: 1, Users: 19
+[12-Oct-2025 16:57:02 Europe/Rome] Failed to log document audit: Errore durante l'inserimento del record
+[12-Oct-2025 16:57:08 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:57:08 Europe/Rome] API CSRF Check - Token received: c64be6474f...
+[12-Oct-2025 16:57:08 Europe/Rome] API CSRF Check - Session token: c64be6474f...
+[12-Oct-2025 16:57:08 Europe/Rome] Failed to log document audit: Errore durante l'inserimento del record
+[12-Oct-2025 16:57:08 Europe/Rome] OnlyOffice Callback Raw Data: {"key":"file_43_v1_f5d288d3eee3","status":4,"actions":[{"type":0,"userid":"19"}],"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiJmaWxlXzQzX3YxX2Y1ZDI4OGQzZWVlMyIsInN0YXR1cyI6NCwiYWN0aW9ucyI6W3sidHlwZSI6MCwidXNlcmlkIjoiMTkifV0sImlhdCI6MTc2MDI4MTAzMCwiZXhwIjoxNzYwMjgxMzMwfQ.Su3x3IKQ1CI6NSvNcx_Zgqeix4b-bgtj1hRzfin-xHw"}
+[12-Oct-2025 16:57:08 Europe/Rome] OnlyOffice Callback - Key: file_43_v1_f5d288d3eee3, Status: 4, Users: 
+[12-Oct-2025 16:57:08 Europe/Rome] No active session found for key: file_43_v1_f5d288d3eee3
+[12-Oct-2025 16:57:08 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:57:09 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:57:09 Europe/Rome] API CSRF Check - Token received: c64be6474f...
+[12-Oct-2025 16:57:09 Europe/Rome] API CSRF Check - Session token: c64be6474f...
+[12-Oct-2025 16:57:09 Europe/Rome] Error cleaning up sessions: Errore durante l'aggiornamento del record
+[12-Oct-2025 16:57:09 Europe/Rome] Failed to log document audit: Errore durante l'inserimento del record
+[12-Oct-2025 16:57:10 Europe/Rome] OnlyOffice Callback Raw Data: {"key":"file_43_v1_fe8d6c05fb1a","status":1,"users":["19"],"actions":[{"type":1,"userid":"19"}],"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiJmaWxlXzQzX3YxX2ZlOGQ2YzA1ZmIxYSIsInN0YXR1cyI6MSwidXNlcnMiOlsiMTkiXSwiYWN0aW9ucyI6W3sidHlwZSI6MSwidXNlcmlkIjoiMTkifV0sImlhdCI6MTc2MDI4MTAzMiwiZXhwIjoxNzYwMjgxMzMyfQ.2ijrfd_BrMaIK4ccou2Z5GciTkRmBlHEL3YmoHyzBjw"}
+[12-Oct-2025 16:57:10 Europe/Rome] OnlyOffice Callback - Key: file_43_v1_fe8d6c05fb1a, Status: 1, Users: 19
+[12-Oct-2025 16:57:10 Europe/Rome] Failed to log document audit: Errore durante l'inserimento del record
+[12-Oct-2025 16:57:30 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:57:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:57:39 Europe/Rome] OnlyOffice Callback Raw Data: {"key":"file_43_v1_fe8d6c05fb1a","status":4,"actions":[{"type":0,"userid":"19"}],"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiJmaWxlXzQzX3YxX2ZlOGQ2YzA1ZmIxYSIsInN0YXR1cyI6NCwiYWN0aW9ucyI6W3sidHlwZSI6MCwidXNlcmlkIjoiMTkifV0sImlhdCI6MTc2MDI4MTA2MiwiZXhwIjoxNzYwMjgxMzYyfQ.JKhu5B6S44R6Zw4flhUMT6JTqWGQVKYXSJpiUc0xeLI"}
+[12-Oct-2025 16:57:39 Europe/Rome] OnlyOffice Callback - Key: file_43_v1_fe8d6c05fb1a, Status: 4, Users: 
+[12-Oct-2025 16:57:39 Europe/Rome] Failed to log document audit: Errore durante l'inserimento del record
+[12-Oct-2025 16:57:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:57:39 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 1
+[12-Oct-2025 16:57:39 Europe/Rome] API CSRF Check - Token received: c64be6474f...
+[12-Oct-2025 16:57:39 Europe/Rome] API CSRF Check - Session token: c64be6474f...
+[12-Oct-2025 16:57:39 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:57:40 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:57:40 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:57:40 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:58:11 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:58:21 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:58:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:58:23 Europe/Rome] API CSRF Check - Token received: c64be6474f...
+[12-Oct-2025 16:58:23 Europe/Rome] API CSRF Check - Session token: c64be6474f...
+[12-Oct-2025 16:58:23 Europe/Rome] Error cleaning up sessions: Errore durante l'aggiornamento del record
+[12-Oct-2025 16:58:23 Europe/Rome] Failed to log document audit: Errore durante l'inserimento del record
+[12-Oct-2025 16:58:24 Europe/Rome] OnlyOffice Callback Raw Data: {"key":"file_43_v1_fe8d6c05fb1a","status":1,"users":["19"],"actions":[{"type":1,"userid":"19"}],"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiJmaWxlXzQzX3YxX2ZlOGQ2YzA1ZmIxYSIsInN0YXR1cyI6MSwidXNlcnMiOlsiMTkiXSwiYWN0aW9ucyI6W3sidHlwZSI6MSwidXNlcmlkIjoiMTkifV0sImlhdCI6MTc2MDI4MTEwNSwiZXhwIjoxNzYwMjgxNDA1fQ.4jfhmAnSavLpyeiQU3JzPEqoQKOn-PsQUJZxd6R781w"}
+[12-Oct-2025 16:58:24 Europe/Rome] OnlyOffice Callback - Key: file_43_v1_fe8d6c05fb1a, Status: 1, Users: 19
+[12-Oct-2025 16:58:24 Europe/Rome] Failed to log document audit: Errore durante l'inserimento del record
+[12-Oct-2025 16:58:41 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:59:11 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 16:59:41 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:00:11 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:00:41 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:01:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:02:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:03:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:04:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:05:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:06:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:07:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:08:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:09:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:10:23 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:18 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:20 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:20 Europe/Rome] OnlyOffice Callback Raw Data: {"key":"file_43_v1_fe8d6c05fb1a","status":4,"actions":[{"type":0,"userid":"19"}],"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiJmaWxlXzQzX3YxX2ZlOGQ2YzA1ZmIxYSIsInN0YXR1cyI6NCwiYWN0aW9ucyI6W3sidHlwZSI6MCwidXNlcmlkIjoiMTkifV0sImlhdCI6MTc2MDI4MTg4MiwiZXhwIjoxNzYwMjgyMTgyfQ.PGKt3Z_TMsV2xgVnOB4Gx5sQ0nxk5udkJ2Ju7oOYNJY"}
+[12-Oct-2025 17:11:20 Europe/Rome] OnlyOffice Callback - Key: file_43_v1_fe8d6c05fb1a, Status: 4, Users: 
+[12-Oct-2025 17:11:20 Europe/Rome] Failed to log document audit: Errore durante l'inserimento del record
+[12-Oct-2025 17:11:20 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:20 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 1
+[12-Oct-2025 17:11:20 Europe/Rome] API CSRF Check - Token received: c64be6474f...
+[12-Oct-2025 17:11:20 Europe/Rome] API CSRF Check - Session token: c64be6474f...
+[12-Oct-2025 17:11:20 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:21 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:21 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:22 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:24 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:25 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:25 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:25 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:29 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:29 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:29 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:30 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:32 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[12-Oct-2025 17:11:32 Europe/Rome] API CSRF Check - Token received: 41cd017926...
+[12-Oct-2025 17:11:32 Europe/Rome] API CSRF Check - Session token: 41cd017926...
+[12-Oct-2025 17:11:32 Europe/Rome] Error cleaning up sessions: Errore durante l'aggiornamento del record
+[12-Oct-2025 17:11:32 Europe/Rome] Failed to log document audit: Errore durante l'inserimento del record
+[12-Oct-2025 17:11:33 Europe/Rome] OnlyOffice Callback Raw Data: {"key":"file_43_v1_fe8d6c05fb1a","status":1,"users":["19"],"actions":[{"type":1,"userid":"19"}],"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiJmaWxlXzQzX3YxX2ZlOGQ2YzA1ZmIxYSIsInN0YXR1cyI6MSwidXNlcnMiOlsiMTkiXSwiYWN0aW9ucyI6W3sidHlwZSI6MSwidXNlcmlkIjoiMTkifV0sImlhdCI6MTc2MDI4MTg5NSwiZXhwIjoxNzYwMjgyMTk1fQ.9pBM596lmOasl4N-gzqColkVYY_-EPBfLJmX9NGzjVs"}
+[12-Oct-2025 17:11:33 Europe/Rome] OnlyOffice Callback - Key: file_43_v1_fe8d6c05fb1a, Status: 1, Users: 19
+[12-Oct-2025 17:11:33 Europe/Rome] Failed to log document audit: Errore durante l'inserimento del record

@@ -19,6 +19,10 @@ if (!$currentUser) {
     exit;
 }
 
+// Require active tenant access (super_admins bypass this check)
+require_once __DIR__ . '/includes/tenant_access_check.php';
+requireTenantAccess($currentUser['id'], $currentUser['role']);
+
 // Check if user is super admin
 $userRole = $currentUser['user_role'] ?? $currentUser['role'] ?? 'user';
 $isSuperAdmin = ($userRole === 'super_admin');
@@ -683,6 +687,119 @@ $csrfToken = $auth->generateCSRFToken();
             -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E");
         }
 
+        /* Municipality Autocomplete Styles */
+        .municipality-autocomplete-wrapper {
+            position: relative;
+        }
+
+        .municipality-autocomplete-results {
+            position: absolute;
+            z-index: 1000;
+            background: white;
+            border: 1px solid #ddd;
+            max-height: 300px;
+            overflow-y: auto;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-radius: var(--radius-md);
+            margin-top: 2px;
+            display: none;
+        }
+
+        .municipality-autocomplete-results.show {
+            display: block;
+        }
+
+        .autocomplete-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.15s ease;
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-item.selected {
+            background-color: #f8f9fa;
+        }
+
+        .autocomplete-item.selected {
+            background-color: #e7f3ff;
+        }
+
+        .mun-name {
+            font-weight: 500;
+            color: #333;
+            display: block;
+        }
+
+        .mun-province {
+            font-size: 0.85em;
+            color: #666;
+            margin-left: 5px;
+        }
+
+        .autocomplete-item strong {
+            color: #007bff;
+            font-weight: 600;
+        }
+
+        .autocomplete-loading {
+            padding: 10px 15px;
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .autocomplete-no-results {
+            padding: 10px 15px;
+            text-align: center;
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        /* Alternative Tax Code Validation Styles */
+        input[data-alt-tax-field].alt-tax-valid {
+            border-color: #28a745 !important;
+            background-color: #f8fff9;
+        }
+
+        input[data-alt-tax-field].alt-tax-invalid {
+            border-color: #dc3545 !important;
+            background-color: #fff8f8;
+        }
+
+        .alt-tax-asterisk {
+            color: #dc3545;
+            transition: color 0.2s ease;
+        }
+
+        .alt-tax-asterisk.valid {
+            color: #28a745;
+        }
+
+        .alt-tax-validation-message {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            color: #856404;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .alt-tax-validation-message.show {
+            display: block;
+        }
+
+        .alt-tax-validation-message i {
+            margin-right: 8px;
+        }
+
         .logo-icon {
             font-size: var(--text-2xl);
             width: 32px;
@@ -951,17 +1068,19 @@ $csrfToken = $auth->generateCSRFToken();
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="addCodiceFiscale">Codice Fiscale *</label>
+                                <label for="addCodiceFiscale">Codice Fiscale <span class="alt-tax-asterisk">*</span></label>
                                 <input type="text" id="addCodiceFiscale" name="codice_fiscale"
                                        pattern="[A-Z0-9]{16}" maxlength="16"
-                                       title="16 caratteri alfanumerici" required
+                                       title="16 caratteri alfanumerici"
+                                       data-alt-tax-field="cf"
                                        style="text-transform: uppercase;" />
                             </div>
                             <div class="form-group">
-                                <label for="addPartitaIva">Partita IVA *</label>
+                                <label for="addPartitaIva">Partita IVA <span class="alt-tax-asterisk">*</span></label>
                                 <input type="text" id="addPartitaIva" name="partita_iva"
                                        pattern="[0-9]{11}" maxlength="11"
-                                       title="11 cifre numeriche" required />
+                                       title="11 cifre numeriche"
+                                       data-alt-tax-field="piva" />
                             </div>
                         </div>
                     </div>
@@ -1051,8 +1170,8 @@ $csrfToken = $auth->generateCSRFToken();
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="addDataCostituzione">Data Costituzione *</label>
-                                <input type="date" id="addDataCostituzione" name="data_costituzione" required />
+                                <label for="addDataCostituzione">Data Costituzione</label>
+                                <input type="date" id="addDataCostituzione" name="data_costituzione" />
                             </div>
                             <div class="form-group">
                                 <label for="addCapitaleSociale">Capitale Sociale (EUR)</label>
@@ -1070,9 +1189,9 @@ $csrfToken = $auth->generateCSRFToken();
                         <h3 class="form-section-title">Contatti</h3>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="addTelefono">Telefono *</label>
+                                <label for="addTelefono">Telefono</label>
                                 <input type="tel" id="addTelefono" name="telefono"
-                                       placeholder="+39 02 1234567" required />
+                                       placeholder="+39 02 1234567" />
                             </div>
                             <div class="form-group">
                                 <label for="addEmailAziendale">Email Aziendale *</label>
@@ -1080,8 +1199,8 @@ $csrfToken = $auth->generateCSRFToken();
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="addPec">PEC (Posta Elettronica Certificata) *</label>
-                            <input type="email" id="addPec" name="pec" required />
+                            <label for="addPec">PEC (Posta Elettronica Certificata)</label>
+                            <input type="email" id="addPec" name="pec" />
                         </div>
                     </div>
 
@@ -1090,8 +1209,8 @@ $csrfToken = $auth->generateCSRFToken();
                         <h3 class="form-section-title">Gestione</h3>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="addManager">Manager Aziendale *</label>
-                                <select id="addManager" name="manager_user_id" required>
+                                <label for="addManager">Manager Aziendale</label>
+                                <select id="addManager" name="manager_user_id">
                                     <option value="">Seleziona un manager</option>
                                     <!-- Options will be loaded via JavaScript -->
                                 </select>
@@ -1138,17 +1257,19 @@ $csrfToken = $auth->generateCSRFToken();
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="editCodiceFiscale">Codice Fiscale *</label>
+                                <label for="editCodiceFiscale">Codice Fiscale <span class="alt-tax-asterisk">*</span></label>
                                 <input type="text" id="editCodiceFiscale" name="codice_fiscale"
                                        pattern="[A-Z0-9]{16}" maxlength="16"
-                                       title="16 caratteri alfanumerici" required
+                                       title="16 caratteri alfanumerici"
+                                       data-alt-tax-field="cf"
                                        style="text-transform: uppercase;" />
                             </div>
                             <div class="form-group">
-                                <label for="editPartitaIva">Partita IVA *</label>
+                                <label for="editPartitaIva">Partita IVA <span class="alt-tax-asterisk">*</span></label>
                                 <input type="text" id="editPartitaIva" name="partita_iva"
                                        pattern="[0-9]{11}" maxlength="11"
-                                       title="11 cifre numeriche" required />
+                                       title="11 cifre numeriche"
+                                       data-alt-tax-field="piva" />
                             </div>
                         </div>
                     </div>
@@ -1310,19 +1431,19 @@ $csrfToken = $auth->generateCSRFToken();
     <div id="deleteModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">Conferma Eliminazione</h2>
+                <h2 class="modal-title" id="deleteModalTitle">Conferma Eliminazione</h2>
                 <button class="modal-close" onclick="closeModal('deleteModal')">×</button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" id="deleteModalBody">
                 <p>Sei sicuro di voler eliminare questa azienda?</p>
-                <p class="text-muted text-sm">Questa azione eliminerà anche tutti gli utenti e i dati associati. Questa azione non può essere annullata.</p>
-                <p class="text-warning text-sm" style="margin-top: 12px; padding: 8px; background: #FEF3C7; border-left: 3px solid #F59E0B; border-radius: 4px;">
-                    <strong>Nota:</strong> L'azienda Demo Company (ID 1) è protetta dal sistema e non può essere eliminata.
+                <p class="text-muted text-sm">Questa azione eliminerà anche tutti gli utenti e i dati associati.</p>
+                <p class="text-danger text-sm" style="margin-top: 12px; padding: 8px; background: #FEE2E2; border-left: 3px solid #DC2626; border-radius: 4px;">
+                    <strong>Attenzione:</strong> Questa operazione non può essere annullata. Tutti i dati verranno eliminati definitivamente.
                 </p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('deleteModal')">Annulla</button>
-                <button type="button" class="btn btn-danger" onclick="confirmDelete()">Elimina</button>
+                <button type="button" class="btn btn-danger" id="deleteModalConfirmBtn" onclick="confirmDelete()">Elimina</button>
             </div>
         </div>
     </div>
@@ -1387,6 +1508,46 @@ $csrfToken = $auth->generateCSRFToken();
                         e.target.value = e.target.value.toUpperCase();
                     });
                 });
+
+                // Comune/Provincia validation for ADD form
+                const addProvinciaInput = document.getElementById('addSedeLegaleProvincia');
+                const addComuneInput = document.getElementById('addSedeLegaleComune');
+
+                if (addProvinciaInput && addComuneInput) {
+                    // Load comuni when provincia changes
+                    addProvinciaInput.addEventListener('change', async (e) => {
+                        await this.loadComuniByProvincia(e.target.value, addComuneInput);
+                    });
+
+                    // Validate comune when user finishes typing
+                    addComuneInput.addEventListener('blur', async (e) => {
+                        const comune = e.target.value.trim();
+                        const provincia = addProvinciaInput.value;
+                        if (comune && provincia) {
+                            await this.validateComuneProvincia(comune, provincia);
+                        }
+                    });
+                }
+
+                // Comune/Provincia validation for EDIT form
+                const editProvinciaInput = document.getElementById('editSedeLegaleProvincia');
+                const editComuneInput = document.getElementById('editSedeLegaleComune');
+
+                if (editProvinciaInput && editComuneInput) {
+                    // Load comuni when provincia changes
+                    editProvinciaInput.addEventListener('change', async (e) => {
+                        await this.loadComuniByProvincia(e.target.value, editComuneInput);
+                    });
+
+                    // Validate comune when user finishes typing
+                    editComuneInput.addEventListener('blur', async (e) => {
+                        const comune = e.target.value.trim();
+                        const provincia = editProvinciaInput.value;
+                        if (comune && provincia) {
+                            await this.validateComuneProvincia(comune, provincia);
+                        }
+                    });
+                }
             }
 
             setupValidation() {
@@ -1434,6 +1595,51 @@ $csrfToken = $auth->generateCSRFToken();
                     }
                 }
                 return sum % 10 === 0;
+            }
+
+            async loadComuniByProvincia(provincia, comuneInput) {
+                if (!provincia) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`api/locations/list_municipalities.php?province=${provincia}&limit=100`);
+                    const data = await response.json();
+
+                    if (data.success && data.data && data.data.municipalities && data.data.municipalities.length > 0) {
+                        console.log(`Caricati ${data.data.municipalities.length} comuni per ${provincia}`);
+                        // Store municipalities for validation
+                        if (!this.municipalitiesByProvince) {
+                            this.municipalitiesByProvince = {};
+                        }
+                        this.municipalitiesByProvince[provincia] = data.data.municipalities;
+                    }
+                } catch (error) {
+                    console.error('Errore caricamento comuni:', error);
+                }
+            }
+
+            async validateComuneProvincia(comune, provincia) {
+                if (!comune || !provincia) return true;
+
+                try {
+                    const response = await fetch(
+                        `api/locations/validate_municipality.php?municipality=${encodeURIComponent(comune)}&province=${provincia}`
+                    );
+                    const data = await response.json();
+
+                    if (data.success && data.data) {
+                        if (!data.data.valid) {
+                            this.showToast(`Il comune "${comune}" non appartiene alla provincia ${provincia}`, 'error');
+                            return false;
+                        }
+                        return true;
+                    }
+                    return true; // In case of unexpected response structure, don't block
+                } catch (error) {
+                    console.error('Errore validazione comune:', error);
+                    return true; // In caso di errore, non bloccare
+                }
             }
 
             async loadManagers() {
@@ -1607,8 +1813,6 @@ $csrfToken = $auth->generateCSRFToken();
 
             async addCompany() {
                 const form = document.getElementById('addCompanyForm');
-                const formData = new FormData(form);
-                formData.append('csrf_token', document.getElementById('csrfToken').value);
 
                 // Collect sede legale as object with separate fields
                 const sedeLegaleObj = {
@@ -1619,33 +1823,36 @@ $csrfToken = $auth->generateCSRFToken();
                     provincia: document.getElementById('addSedeLegaleProvincia').value
                 };
 
-                // Remove individual fields and add as JSON
-                formData.delete('sede_legale_indirizzo');
-                formData.delete('sede_legale_civico');
-                formData.delete('sede_legale_cap');
-                formData.delete('sede_legale_comune');
-                formData.delete('sede_legale_provincia');
-                formData.set('sede_legale', JSON.stringify(sedeLegaleObj));
+                // Validate comune/provincia before submission
+                if (sedeLegaleObj.comune && sedeLegaleObj.provincia) {
+                    const isValid = await this.validateComuneProvincia(sedeLegaleObj.comune, sedeLegaleObj.provincia);
+                    if (!isValid) {
+                        this.showToast('Correggi il comune prima di procedere', 'error');
+                        return;
+                    }
+                }
 
                 // Collect sedi operative
                 const sediOperative = collectSediOperative('add');
-                if (sediOperative.length > 0) {
-                    formData.set('sedi_operative', JSON.stringify(sediOperative));
-                }
 
-                // Clean up form data from sede operativa fields
-                const keysToDelete = [];
-                for (let pair of formData.entries()) {
-                    if (pair[0].startsWith('so_')) {
-                        keysToDelete.push(pair[0]);
-                    }
-                }
-                keysToDelete.forEach(key => formData.delete(key));
+                // Build JSON payload
+                const payload = {
+                    csrf_token: document.getElementById('csrfToken').value,
+                    denominazione: document.getElementById('addDenominazione').value.trim(),
+                    codice_fiscale: document.getElementById('addCodiceFiscale').value.trim(),
+                    partita_iva: document.getElementById('addPartitaIva').value.trim(),
+                    sede_legale: sedeLegaleObj,
+                    sedi_operative: sediOperative
+                };
 
                 try {
                     const response = await fetch('api/tenants/create.php', {
                         method: 'POST',
-                        body: formData
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify(payload)
                     });
 
                     const data = await response.json();
@@ -1659,7 +1866,8 @@ $csrfToken = $auth->generateCSRFToken();
                         sediOperativeCounters.add = 0;
                         this.loadCompanies();
                     } else {
-                        this.showToast(data.message || 'Errore nella creazione azienda', 'error');
+                        this.showToast(data.error || data.message || 'Errore nella creazione azienda', 'error');
+                        console.error('API Error:', data);
                     }
                 } catch (error) {
                     console.error('Error adding company:', error);
@@ -1791,8 +1999,6 @@ $csrfToken = $auth->generateCSRFToken();
 
             async updateCompany() {
                 const form = document.getElementById('editCompanyForm');
-                const formData = new FormData(form);
-                formData.append('csrf_token', document.getElementById('csrfToken').value);
 
                 // Collect sede legale as object with separate fields
                 const sedeLegaleObj = {
@@ -1803,40 +2009,37 @@ $csrfToken = $auth->generateCSRFToken();
                     provincia: document.getElementById('editSedeLegaleProvincia').value
                 };
 
-                // Remove individual fields and add as JSON
-                formData.delete('sede_legale_indirizzo');
-                formData.delete('sede_legale_civico');
-                formData.delete('sede_legale_cap');
-                formData.delete('sede_legale_comune');
-                formData.delete('sede_legale_provincia');
-                formData.set('sede_legale', JSON.stringify(sedeLegaleObj));
+                // Validate comune/provincia before submission
+                if (sedeLegaleObj.comune && sedeLegaleObj.provincia) {
+                    const isValid = await this.validateComuneProvincia(sedeLegaleObj.comune, sedeLegaleObj.provincia);
+                    if (!isValid) {
+                        this.showToast('Correggi il comune prima di procedere', 'error');
+                        return;
+                    }
+                }
 
                 // Collect sedi operative
                 const sediOperative = collectSediOperative('edit');
-                if (sediOperative.length > 0) {
-                    formData.set('sedi_operative', JSON.stringify(sediOperative));
-                }
 
-                // Clean up form data from sede operativa fields
-                const keysToDelete = [];
-                for (let pair of formData.entries()) {
-                    if (pair[0].startsWith('so_')) {
-                        keysToDelete.push(pair[0]);
-                    }
-                }
-                keysToDelete.forEach(key => formData.delete(key));
-
-                // Rename company_id to tenant_id
-                const tenantId = formData.get('company_id');
-                if (tenantId) {
-                    formData.set('tenant_id', tenantId);
-                    formData.delete('company_id');
-                }
+                // Build JSON payload
+                const payload = {
+                    csrf_token: document.getElementById('csrfToken').value,
+                    tenant_id: parseInt(document.getElementById('editCompanyId').value),
+                    denominazione: document.getElementById('editDenominazione').value.trim(),
+                    codice_fiscale: document.getElementById('editCodiceFiscale').value.trim(),
+                    partita_iva: document.getElementById('editPartitaIva').value.trim(),
+                    sede_legale: sedeLegaleObj,
+                    sedi_operative: sediOperative
+                };
 
                 try {
                     const response = await fetch('api/tenants/update.php', {
-                        method: 'POST',
-                        body: formData
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify(payload)
                     });
 
                     const data = await response.json();
@@ -1846,7 +2049,8 @@ $csrfToken = $auth->generateCSRFToken();
                         closeModal('editModal');
                         this.loadCompanies();
                     } else {
-                        this.showToast(data.message || 'Errore nell\'aggiornamento azienda', 'error');
+                        this.showToast(data.error || data.message || 'Errore nell\'aggiornamento azienda', 'error');
+                        console.error('API Error:', data);
                     }
                 } catch (error) {
                     console.error('Error updating company:', error);
@@ -1856,6 +2060,49 @@ $csrfToken = $auth->generateCSRFToken();
 
             openDeleteModal(companyId) {
                 this.deleteCompanyId = companyId;
+                this.systemTenantConfirmed = false; // Reset confirmation state
+
+                // Customize modal for system tenant (ID 1)
+                const modalTitle = document.getElementById('deleteModalTitle');
+                const modalBody = document.getElementById('deleteModalBody');
+                const confirmBtn = document.getElementById('deleteModalConfirmBtn');
+
+                if (companyId === 1) {
+                    modalTitle.innerHTML = '⚠️ ATTENZIONE: Eliminazione Tenant di Sistema';
+                    modalBody.innerHTML = `
+                        <p style="font-size: 16px; font-weight: 600; color: #DC2626; margin-bottom: 16px;">
+                            Stai per eliminare il tenant di sistema (ID 1).
+                        </p>
+                        <p style="margin-bottom: 12px;">
+                            Questa operazione eliminerà <strong>TUTTI i dati associati</strong> al tenant di sistema, inclusi:
+                        </p>
+                        <ul style="margin: 12px 0; padding-left: 24px; color: #4B5563;">
+                            <li>Tutti gli utenti del tenant</li>
+                            <li>Tutti i progetti e i relativi dati</li>
+                            <li>Tutti i file e documenti</li>
+                            <li>Tutte le attività e comunicazioni</li>
+                        </ul>
+                        <p class="text-danger text-sm" style="margin-top: 16px; padding: 12px; background: #FEE2E2; border-left: 4px solid #DC2626; border-radius: 4px;">
+                            <strong>⚠️ ATTENZIONE:</strong> Questa operazione è <strong>IRREVERSIBILE</strong> e può compromettere il funzionamento del sistema. Sei assolutamente sicuro di voler procedere?
+                        </p>
+                    `;
+                    confirmBtn.textContent = 'Conferma Eliminazione Sistema';
+                    confirmBtn.className = 'btn btn-danger';
+                    confirmBtn.style.backgroundColor = '#7F1D1D';
+                } else {
+                    modalTitle.textContent = 'Conferma Eliminazione';
+                    modalBody.innerHTML = `
+                        <p>Sei sicuro di voler eliminare questa azienda?</p>
+                        <p class="text-muted text-sm">Questa azione eliminerà anche tutti gli utenti e i dati associati.</p>
+                        <p class="text-danger text-sm" style="margin-top: 12px; padding: 8px; background: #FEE2E2; border-left: 3px solid #DC2626; border-radius: 4px;">
+                            <strong>Attenzione:</strong> Questa operazione non può essere annullata. Tutti i dati verranno eliminati definitivamente.
+                        </p>
+                    `;
+                    confirmBtn.textContent = 'Elimina';
+                    confirmBtn.className = 'btn btn-danger';
+                    confirmBtn.style.backgroundColor = '';
+                }
+
                 openModal('deleteModal');
             }
 
@@ -1866,19 +2113,36 @@ $csrfToken = $auth->generateCSRFToken();
                 formData.append('tenant_id', this.deleteCompanyId);
                 formData.append('csrf_token', document.getElementById('csrfToken').value);
 
+                // Add confirmation parameter for system tenant (ID 1)
+                if (this.deleteCompanyId === 1) {
+                    formData.append('confirm_system_tenant', 'true');
+                }
+
                 try {
                     const response = await fetch('api/tenants/delete.php', {
                         method: 'POST',
                         body: formData
                     });
 
-                    // Prova a parsare il JSON
+                    // Verifica Content-Type prima di parsare JSON
+                    const contentType = response.headers.get('content-type');
                     let data;
-                    try {
-                        data = await response.json();
-                    } catch (jsonError) {
-                        console.error('JSON parse error:', jsonError);
-                        this.showToast('Errore nel formato della risposta del server', 'error');
+
+                    if (contentType && contentType.includes('application/json')) {
+                        try {
+                            data = await response.json();
+                        } catch (jsonError) {
+                            console.error('JSON parse error:', jsonError);
+                            this.showToast('Errore nel formato della risposta del server', 'error');
+                            closeModal('deleteModal');
+                            this.deleteCompanyId = null;
+                            return;
+                        }
+                    } else {
+                        // Response non è JSON (probabilmente errore 500 con HTML)
+                        const text = await response.text();
+                        console.error('Non-JSON response:', text);
+                        this.showToast('Errore server - risposta non JSON (HTTP ' + response.status + ')', 'error');
                         closeModal('deleteModal');
                         this.deleteCompanyId = null;
                         return;
@@ -1888,13 +2152,47 @@ $csrfToken = $auth->generateCSRFToken();
                     closeModal('deleteModal');
 
                     if (data.success) {
-                        this.showToast('Azienda eliminata con successo', 'success');
+                        // Mostra dettagli cascata se disponibili
+                        let message = 'Azienda eliminata con successo';
+
+                        // Special warning for system tenant deletion
+                        if (this.deleteCompanyId === 1) {
+                            message = '⚠️ TENANT DI SISTEMA ELIMINATO - Azienda eliminata con successo';
+                        }
+
+                        if (data.data && data.data.cascade_info) {
+                            const totalDeleted = Object.values(data.data.cascade_info).reduce((sum, val) => sum + (parseInt(val) || 0), 0);
+                            message += ` (${totalDeleted} record eliminati)`;
+                        }
+                        this.showToast(message, 'success');
                         this.loadCompanies();
                     } else {
-                        // Mostra l'errore specifico dal server
+                        // Gestione errori specifici basati su status code e messaggio
                         const errorMessage = data.message || data.error || 'Errore nell\'eliminazione azienda';
-                        this.showToast(errorMessage, 'error');
-                        console.error('API Error:', data);
+
+                        // Messaggi user-friendly per errori comuni
+                        let userMessage = errorMessage;
+
+                        if (response.status === 500 && errorMessage.includes('system tenant')) {
+                            userMessage = 'Eliminazione del tenant di sistema richiede conferma esplicita';
+                        } else if (response.status === 403) {
+                            if (errorMessage.includes('explicit confirmation')) {
+                                userMessage = '⚠️ Eliminazione tenant di sistema richiede conferma esplicita';
+                            } else {
+                                userMessage = 'Non hai i permessi per eliminare questa azienda';
+                            }
+                        } else if (response.status === 400) {
+                            userMessage = 'Richiesta non valida - verificare i dati';
+                        } else if (response.status === 404) {
+                            userMessage = 'Azienda non trovata';
+                        }
+
+                        this.showToast(userMessage, 'error');
+
+                        // Log dettagliato solo in console per debugging
+                        if (response.status !== 200) {
+                            console.warn(`Delete failed - HTTP ${response.status}:`, data);
+                        }
                     }
                 } catch (error) {
                     console.error('Error deleting company:', error);
@@ -2126,11 +2424,407 @@ $csrfToken = $auth->generateCSRFToken();
             return sedi;
         }
 
+        // Municipality Autocomplete Component
+        class MunicipalityAutocomplete {
+            constructor(inputElement, provinceElement) {
+                this.input = inputElement;
+                this.provinceInput = provinceElement;
+                this.resultsContainer = null;
+                this.municipalities = [];
+                this.selectedIndex = -1;
+                this.debounceTimer = null;
+                this.isLoading = false;
+                this.blurTimer = null;
+                this.init();
+            }
+
+            init() {
+                this.createResultsContainer();
+                this.bindEvents();
+            }
+
+            createResultsContainer() {
+                // Wrap input in wrapper div if not already wrapped
+                if (!this.input.parentElement.classList.contains('municipality-autocomplete-wrapper')) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'municipality-autocomplete-wrapper';
+                    this.input.parentNode.insertBefore(wrapper, this.input);
+                    wrapper.appendChild(this.input);
+                }
+
+                // Create results container
+                this.resultsContainer = document.createElement('div');
+                this.resultsContainer.className = 'municipality-autocomplete-results';
+                this.resultsContainer.setAttribute('role', 'listbox');
+                this.input.parentElement.appendChild(this.resultsContainer);
+            }
+
+            bindEvents() {
+                // Input event with debounce
+                this.input.addEventListener('input', (e) => {
+                    clearTimeout(this.debounceTimer);
+                    const query = e.target.value.trim();
+
+                    if (query.length < 2) {
+                        this.hideResults();
+                        return;
+                    }
+
+                    this.debounceTimer = setTimeout(() => {
+                        this.search(query);
+                    }, 300);
+                });
+
+                // Keyboard navigation
+                this.input.addEventListener('keydown', (e) => {
+                    if (!this.resultsContainer.classList.contains('show')) return;
+
+                    switch (e.key) {
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            this.selectedIndex = Math.min(this.selectedIndex + 1, this.municipalities.length - 1);
+                            this.updateSelection();
+                            break;
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            this.selectedIndex = Math.max(this.selectedIndex - 1, -1);
+                            this.updateSelection();
+                            break;
+                        case 'Enter':
+                            e.preventDefault();
+                            if (this.selectedIndex >= 0) {
+                                this.selectMunicipality(this.municipalities[this.selectedIndex]);
+                            }
+                            break;
+                        case 'Escape':
+                            this.hideResults();
+                            break;
+                    }
+                });
+
+                // Blur event with delay to allow click on results
+                this.input.addEventListener('blur', () => {
+                    this.blurTimer = setTimeout(() => {
+                        this.hideResults();
+                    }, 200);
+                });
+
+                // Focus event - clear blur timer
+                this.input.addEventListener('focus', () => {
+                    clearTimeout(this.blurTimer);
+                });
+
+                // Click on results
+                this.resultsContainer.addEventListener('mousedown', (e) => {
+                    e.preventDefault(); // Prevent blur
+                });
+
+                this.resultsContainer.addEventListener('click', (e) => {
+                    const item = e.target.closest('.autocomplete-item');
+                    if (item) {
+                        const index = parseInt(item.dataset.index);
+                        this.selectMunicipality(this.municipalities[index]);
+                    }
+                });
+
+                // Mouse hover
+                this.resultsContainer.addEventListener('mouseover', (e) => {
+                    const item = e.target.closest('.autocomplete-item');
+                    if (item) {
+                        this.selectedIndex = parseInt(item.dataset.index);
+                        this.updateSelection();
+                    }
+                });
+            }
+
+            async search(query) {
+                this.isLoading = true;
+                this.showLoading();
+
+                try {
+                    const province = this.provinceInput.value;
+                    const url = new URL('/CollaboraNexio/api/locations/search_municipalities.php', window.location.origin);
+                    url.searchParams.append('q', query);
+                    if (province) {
+                        url.searchParams.append('province', province);
+                    }
+
+                    const response = await fetch(url.toString(), {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json'
+                        },
+                        credentials: 'same-origin'
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    if (data.success && data.data && data.data.results) {
+                        // Map API response to expected format
+                        this.municipalities = data.data.results.map(item => ({
+                            name: item.name,
+                            province: item.province_code
+                        }));
+                        this.renderResults(query);
+                    } else {
+                        this.showNoResults();
+                    }
+                } catch (error) {
+                    console.error('Municipality search error:', error);
+                    this.showError();
+                } finally {
+                    this.isLoading = false;
+                }
+            }
+
+            showLoading() {
+                this.resultsContainer.innerHTML = '<div class="autocomplete-loading">Ricerca in corso...</div>';
+                this.resultsContainer.classList.add('show');
+            }
+
+            showNoResults() {
+                this.resultsContainer.innerHTML = '<div class="autocomplete-no-results">Nessun comune trovato</div>';
+                this.resultsContainer.classList.add('show');
+            }
+
+            showError() {
+                this.resultsContainer.innerHTML = '<div class="autocomplete-no-results">Errore durante la ricerca</div>';
+                this.resultsContainer.classList.add('show');
+            }
+
+            renderResults(query) {
+                if (this.municipalities.length === 0) {
+                    this.showNoResults();
+                    return;
+                }
+
+                const queryLower = query.toLowerCase();
+                const html = this.municipalities.map((mun, index) => {
+                    const nameLower = mun.name.toLowerCase();
+                    const nameHighlighted = this.highlightMatch(mun.name, query);
+
+                    return `
+                        <div class="autocomplete-item" data-index="${index}" role="option">
+                            <span class="mun-name">${nameHighlighted}</span>
+                            <span class="mun-province">(${mun.province})</span>
+                        </div>
+                    `;
+                }).join('');
+
+                this.resultsContainer.innerHTML = html;
+                this.resultsContainer.classList.add('show');
+                this.selectedIndex = -1;
+            }
+
+            highlightMatch(text, query) {
+                const index = text.toLowerCase().indexOf(query.toLowerCase());
+                if (index === -1) return text;
+
+                const before = text.substring(0, index);
+                const match = text.substring(index, index + query.length);
+                const after = text.substring(index + query.length);
+
+                return `${before}<strong>${match}</strong>${after}`;
+            }
+
+            updateSelection() {
+                const items = this.resultsContainer.querySelectorAll('.autocomplete-item');
+                items.forEach((item, index) => {
+                    if (index === this.selectedIndex) {
+                        item.classList.add('selected');
+                        item.scrollIntoView({ block: 'nearest' });
+                    } else {
+                        item.classList.remove('selected');
+                    }
+                });
+            }
+
+            selectMunicipality(mun) {
+                if (!mun) return;
+
+                this.input.value = mun.name;
+                this.provinceInput.value = mun.province;
+
+                // Trigger change event
+                this.input.dispatchEvent(new Event('change', { bubbles: true }));
+                this.provinceInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+                this.hideResults();
+            }
+
+            hideResults() {
+                this.resultsContainer.classList.remove('show');
+                this.resultsContainer.innerHTML = '';
+                this.municipalities = [];
+                this.selectedIndex = -1;
+            }
+        }
+
+        /**
+         * AlternativeTaxCodeValidator
+         * Validates that at least one of Codice Fiscale or Partita IVA is filled
+         * Provides dynamic visual feedback and form submission validation
+         */
+        class AlternativeTaxCodeValidator {
+            constructor(cfInput, pivaInput, formElement) {
+                this.cfInput = cfInput;
+                this.pivaInput = pivaInput;
+                this.formElement = formElement;
+                this.cfLabel = cfInput.closest('.form-group').querySelector('.alt-tax-asterisk');
+                this.pivaLabel = pivaInput.closest('.form-group').querySelector('.alt-tax-asterisk');
+                this.validationMessage = null;
+
+                this.init();
+            }
+
+            init() {
+                // Create validation message element
+                this.createValidationMessage();
+
+                // Add event listeners
+                this.cfInput.addEventListener('input', () => this.validate());
+                this.pivaInput.addEventListener('input', () => this.validate());
+                this.cfInput.addEventListener('blur', () => this.validate());
+                this.pivaInput.addEventListener('blur', () => this.validate());
+
+                // Intercept form submission
+                this.formElement.addEventListener('submit', (e) => {
+                    if (!this.validateBeforeSubmit()) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                });
+
+                // Initial validation
+                this.validate();
+            }
+
+            createValidationMessage() {
+                this.validationMessage = document.createElement('div');
+                this.validationMessage.className = 'alt-tax-validation-message';
+                this.validationMessage.innerHTML = '<i class="fas fa-exclamation-triangle"></i>È richiesto almeno uno tra Codice Fiscale e Partita IVA';
+
+                // Insert before the form row containing the fields
+                const formRow = this.cfInput.closest('.form-row');
+                formRow.parentNode.insertBefore(this.validationMessage, formRow);
+            }
+
+            validate() {
+                const cfValue = this.cfInput.value.trim();
+                const pivaValue = this.pivaInput.value.trim();
+
+                // Check if at least one is filled
+                const isValid = cfValue !== '' || pivaValue !== '';
+
+                // Update visual feedback
+                this.updateVisualFeedback(isValid, cfValue, pivaValue);
+
+                return isValid;
+            }
+
+            updateVisualFeedback(isValid, cfValue, pivaValue) {
+                // Remove all validation classes first
+                this.cfInput.classList.remove('alt-tax-valid', 'alt-tax-invalid');
+                this.pivaInput.classList.remove('alt-tax-valid', 'alt-tax-invalid');
+                this.cfLabel.classList.remove('valid');
+                this.pivaLabel.classList.remove('valid');
+
+                if (isValid) {
+                    // At least one is filled - show green for filled fields
+                    if (cfValue !== '') {
+                        this.cfInput.classList.add('alt-tax-valid');
+                        this.cfLabel.classList.add('valid');
+                    }
+                    if (pivaValue !== '') {
+                        this.pivaInput.classList.add('alt-tax-valid');
+                        this.pivaLabel.classList.add('valid');
+                    }
+
+                    // Hide validation message
+                    this.validationMessage.classList.remove('show');
+                } else {
+                    // Both empty - show red for both
+                    this.cfInput.classList.add('alt-tax-invalid');
+                    this.pivaInput.classList.add('alt-tax-invalid');
+
+                    // Don't show message immediately, only on submit attempt
+                }
+            }
+
+            validateBeforeSubmit() {
+                const isValid = this.validate();
+
+                if (!isValid) {
+                    // Show validation message
+                    this.validationMessage.classList.add('show');
+
+                    // Focus on first empty field
+                    if (this.cfInput.value.trim() === '') {
+                        this.cfInput.focus();
+                    } else if (this.pivaInput.value.trim() === '') {
+                        this.pivaInput.focus();
+                    }
+
+                    // Scroll to message
+                    this.validationMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+
+                return isValid;
+            }
+
+            reset() {
+                // Clear validation state
+                this.cfInput.classList.remove('alt-tax-valid', 'alt-tax-invalid');
+                this.pivaInput.classList.remove('alt-tax-valid', 'alt-tax-invalid');
+                this.cfLabel.classList.remove('valid');
+                this.pivaLabel.classList.remove('valid');
+                this.validationMessage.classList.remove('show');
+            }
+        }
+
         // Initialize when DOM is ready
         let companyManager;
+        let addMunicipalityAutocomplete;
+        let editMunicipalityAutocomplete;
+        let addTaxCodeValidator;
+        let editTaxCodeValidator;
+
         document.addEventListener('DOMContentLoaded', () => {
             <?php if ($isSuperAdmin): ?>
             companyManager = new CompanyManager();
+
+            // Initialize municipality autocomplete for Add modal
+            const addComuneInput = document.getElementById('addSedeLegaleComune');
+            const addProvinciaInput = document.getElementById('addSedeLegaleProvincia');
+            if (addComuneInput && addProvinciaInput) {
+                addMunicipalityAutocomplete = new MunicipalityAutocomplete(addComuneInput, addProvinciaInput);
+            }
+
+            // Initialize municipality autocomplete for Edit modal
+            const editComuneInput = document.getElementById('editSedeLegaleComune');
+            const editProvinciaInput = document.getElementById('editSedeLegaleProvincia');
+            if (editComuneInput && editProvinciaInput) {
+                editMunicipalityAutocomplete = new MunicipalityAutocomplete(editComuneInput, editProvinciaInput);
+            }
+
+            // Initialize alternative tax code validators
+            const addCFInput = document.getElementById('addCodiceFiscale');
+            const addPIVAInput = document.getElementById('addPartitaIva');
+            const addForm = document.getElementById('addCompanyForm');
+            if (addCFInput && addPIVAInput && addForm) {
+                addTaxCodeValidator = new AlternativeTaxCodeValidator(addCFInput, addPIVAInput, addForm);
+            }
+
+            const editCFInput = document.getElementById('editCodiceFiscale');
+            const editPIVAInput = document.getElementById('editPartitaIva');
+            const editForm = document.getElementById('editCompanyForm');
+            if (editCFInput && editPIVAInput && editForm) {
+                editTaxCodeValidator = new AlternativeTaxCodeValidator(editCFInput, editPIVAInput, editForm);
+            }
             <?php endif; ?>
         });
     </script>

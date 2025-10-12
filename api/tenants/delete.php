@@ -8,8 +8,15 @@
  * Auth: Super Admin only
  * CSRF: Required
  *
+ * Input:
+ * - tenant_id|id: int (required) - ID del tenant da eliminare
+ * - confirm_system_tenant: bool (optional) - Conferma esplicita per eliminare tenant ID 1
+ *
+ * Special Cases:
+ * - Tenant ID 1 richiede confirm_system_tenant=true per conferma esplicita
+ *
  * @author CollaboraNexio Development Team
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 declare(strict_types=1);
@@ -54,11 +61,6 @@ try {
         apiError('ID azienda non valido', 400);
     }
 
-    // Previeni eliminazione azienda di sistema (ID 1)
-    if ($tenantId === 1) {
-        apiError('Non è possibile eliminare l\'azienda di sistema', 400);
-    }
-
     // Verifica che il tenant esista e non sia già eliminato
     $tenant = $db->fetchOne(
         'SELECT id, name, denominazione, status FROM tenants WHERE id = ? AND deleted_at IS NULL',
@@ -69,123 +71,100 @@ try {
         apiError('Azienda non trovata o già eliminata', 404);
     }
 
-    // Conta risorse associate (per informazione)
-    $userCount = $db->count('users', [
-        'tenant_id' => $tenantId,
-        'deleted_at' => null
-    ]);
-
-    $fileCount = $db->count('files', [
-        'tenant_id' => $tenantId,
-        'deleted_at' => null
-    ]);
-
-    $projectCount = $db->count('projects', [
-        'tenant_id' => $tenantId,
-        'deleted_at' => null
-    ]);
-
-    // Inizio transazione per soft-delete
-    $db->beginTransaction();
-
-    try {
-        $deletedAt = date('Y-m-d H:i:s');
-
-        // 1. Soft-delete del tenant
-        $db->update(
-            'tenants',
-            ['deleted_at' => $deletedAt],
-            ['id' => $tenantId]
+    // PROTEZIONE SPECIALE: Tenant ID 1 (tenant di sistema) richiede conferma esplicita
+    if ($tenantId === 1) {
+        $confirmSystemTenant = filter_var(
+            $input['confirm_system_tenant'] ?? false,
+            FILTER_VALIDATE_BOOLEAN
         );
 
-        // 2. Soft-delete degli utenti associati
-        if ($userCount > 0) {
-            $db->update(
-                'users',
-                ['deleted_at' => $deletedAt],
-                ['tenant_id' => $tenantId]
+        if (!$confirmSystemTenant) {
+            apiError(
+                'Richiesta conferma: eliminare il tenant di sistema (ID 1) richiede conferma esplicita. Invia di nuovo con confirm_system_tenant: true',
+                400
             );
         }
 
-        // 3. Soft-delete dei progetti associati
-        if ($projectCount > 0) {
-            $db->update(
-                'projects',
-                ['deleted_at' => $deletedAt],
-                ['tenant_id' => $tenantId]
-            );
+        // Log della conferma esplicita per audit
+        if (defined('DEBUG_MODE') && DEBUG_MODE) {
+            error_log('CRITICAL: System tenant (ID 1) deletion confirmed by user: ' . $userInfo['user_id']);
         }
+    }
 
-        // 4. Soft-delete dei file associati
-        if ($fileCount > 0) {
-            $db->update(
-                'files',
-                ['deleted_at' => $deletedAt],
-                ['tenant_id' => $tenantId]
-            );
-        }
-
-        // 5. Soft-delete delle location associate
-        $locationCount = $db->count('tenant_locations', [
-            'tenant_id' => $tenantId,
-            'deleted_at' => null
-        ]);
-
-        if ($locationCount > 0) {
-            $db->update(
-                'tenant_locations',
-                ['deleted_at' => $deletedAt],
-                ['tenant_id' => $tenantId]
-            );
-        }
-
-        // 6. Rimuovi accessi multi-tenant
+    // Esegui soft-delete completo tramite stored procedure
+    try {
         $conn = $db->getConnection();
-        $stmt = $conn->prepare('DELETE FROM user_tenant_access WHERE tenant_id = ?');
-        $stmt->execute([$tenantId]);
-        $accessRemoved = $stmt->rowCount();
 
-        // 7. Log audit
-        $db->insert('audit_logs', [
-            'tenant_id' => $userInfo['tenant_id'],
-            'user_id' => $userInfo['user_id'],
-            'action' => 'delete',
-            'entity_type' => 'tenant',
-            'entity_id' => $tenantId,
-            'old_values' => json_encode([
-                'tenant' => $tenant,
-                'users_count' => $userCount,
-                'files_count' => $fileCount,
-                'projects_count' => $projectCount,
-                'locations_count' => $locationCount,
-                'accesses_removed' => $accessRemoved
-            ]),
-            'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
-            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null
-        ]);
+        // Prepara chiamata a stored procedure
+        $stmt = $conn->prepare('CALL sp_soft_delete_tenant_complete(?, ?, @success, @message, @records)');
+        $stmt->execute([$tenantId, $userInfo['user_id']]);
 
-        $db->commit();
+        // Chiudi cursor prima di leggere gli output parameters
+        $stmt->closeCursor();
 
-        // Risposta di successo
-        apiSuccess([
+        // Ottieni risultati della stored procedure
+        $result = $conn->query('SELECT @success as success, @message as message, @records as records')->fetch(PDO::FETCH_ASSOC);
+
+        // Verifica successo operazione
+        if (!$result || !$result['success']) {
+            $errorMessage = $result['message'] ?? 'Errore sconosciuto durante la stored procedure';
+            logApiError('tenants/delete', new Exception($errorMessage));
+            apiError($errorMessage, 500);
+        }
+
+        // Decodifica informazioni sui record eliminati
+        $recordsDeleted = json_decode($result['records'], true);
+
+        // Log dettagliato in debug mode
+        if (defined('DEBUG_MODE') && DEBUG_MODE) {
+            error_log('Tenant soft-delete completed: ' . json_encode([
+                'tenant_id' => $tenantId,
+                'deleted_by' => $userInfo['user_id'],
+                'cascade_info' => $recordsDeleted
+            ]));
+        }
+
+        // Costruisci risposta di successo
+        $responseData = [
             'tenant_id' => $tenantId,
             'denominazione' => $tenant['denominazione'] ?? $tenant['name'],
-            'deleted_at' => $deletedAt,
-            'cascade_info' => [
-                'users_deleted' => $userCount,
-                'files_deleted' => $fileCount,
-                'projects_deleted' => $projectCount,
-                'locations_deleted' => $locationCount,
-                'accesses_removed' => $accessRemoved
-            ]
-        ], 'Azienda eliminata con successo');
+            'deleted_at' => date('Y-m-d H:i:s'),
+            'cascade_info' => $recordsDeleted,
+            'message' => $result['message']
+        ];
 
-    } catch (Exception $e) {
-        $db->rollback();
-        throw $e;
+        // Aggiungi warning se è stato eliminato il tenant di sistema
+        if ($tenantId === 1) {
+            $responseData['warning'] = 'ATTENZIONE: Eliminato il tenant di sistema (ID 1). Questa è un\'operazione critica.';
+        }
+
+        // Risposta di successo con dettagli cascata
+        apiSuccess($responseData, 'Azienda eliminata con successo');
+
+    } catch (PDOException $e) {
+        // Gestione errori database specifici
+        logApiError('tenants/delete', $e);
+
+        $errorMessage = 'Errore database durante l\'eliminazione dell\'azienda';
+
+        // In debug mode, mostra dettagli errore
+        if (defined('DEBUG_MODE') && DEBUG_MODE) {
+            $errorMessage .= ': ' . $e->getMessage();
+        }
+
+        apiError($errorMessage, 500);
     }
 
 } catch (Exception $e) {
+    // Gestione errori generici
     logApiError('tenants/delete', $e);
-    apiError('Errore durante l\'eliminazione dell\'azienda', 500);
+
+    $errorMessage = 'Errore durante l\'eliminazione dell\'azienda';
+
+    // In debug mode, mostra dettagli errore
+    if (defined('DEBUG_MODE') && DEBUG_MODE) {
+        $errorMessage .= ': ' . $e->getMessage();
+    }
+
+    apiError($errorMessage, 500);
 }

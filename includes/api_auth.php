@@ -50,7 +50,8 @@ function verifyApiAuthentication(): bool {
  */
 function getCsrfTokenFromRequest(): ?string {
     // 1. Prova dagli header (vari formati)
-    $headers = getallheaders();
+    // getallheaders() might not be available in CLI mode, so use fallback
+    $headers = function_exists('getallheaders') ? getallheaders() : [];
     $headerKeys = ['X-CSRF-Token', 'x-csrf-token', 'X-Csrf-Token', 'csrf-token', 'CSRF-Token'];
 
     foreach ($headers as $key => $value) {

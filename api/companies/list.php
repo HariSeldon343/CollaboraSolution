@@ -52,8 +52,8 @@ try {
 
     // Build the query based on user role
     if ($isSuperAdmin) {
-        // Super admin can see all companies
-        $countQuery = "SELECT COUNT(*) as total FROM tenants WHERE 1=1";
+        // Super admin can see all non-deleted companies
+        $countQuery = "SELECT COUNT(*) as total FROM tenants WHERE deleted_at IS NULL";
 
         // Build select clause dynamically based on available columns
         $selectParts = ['t.id', 't.name'];
@@ -83,16 +83,30 @@ try {
             $selectParts[] = "'' as partita_iva";
         }
 
-        if ($hasColumn('sede_legale')) {
-            $selectParts[] = "IFNULL(t.sede_legale, '') as sede_legale";
+        // CORRECTED: Using actual DB column names (sede_legale_indirizzo, not sede_legale)
+        if ($hasColumn('sede_legale_indirizzo')) {
+            $selectParts[] = "IFNULL(t.sede_legale_indirizzo, '') as sede_legale_indirizzo";
         } else {
-            $selectParts[] = "'' as sede_legale";
+            $selectParts[] = "'' as sede_legale_indirizzo";
         }
 
-        if ($hasColumn('sede_operativa')) {
-            $selectParts[] = "IFNULL(t.sede_operativa, '') as sede_operativa";
+        if ($hasColumn('sede_legale_comune')) {
+            $selectParts[] = "IFNULL(t.sede_legale_comune, '') as sede_legale_comune";
         } else {
-            $selectParts[] = "'' as sede_operativa";
+            $selectParts[] = "'' as sede_legale_comune";
+        }
+
+        if ($hasColumn('sede_legale_provincia')) {
+            $selectParts[] = "IFNULL(t.sede_legale_provincia, '') as sede_legale_provincia";
+        } else {
+            $selectParts[] = "'' as sede_legale_provincia";
+        }
+
+        // CORRECTED: Using actual DB column name (sedi_operative, not sede_operativa)
+        if ($hasColumn('sedi_operative')) {
+            $selectParts[] = "IFNULL(t.sedi_operative, '') as sedi_operative";
+        } else {
+            $selectParts[] = "'' as sedi_operative";
         }
 
         if ($hasColumn('settore_merceologico')) {
@@ -113,10 +127,11 @@ try {
             $selectParts[] = "'' as telefono";
         }
 
-        if ($hasColumn('email_aziendale')) {
-            $selectParts[] = "IFNULL(t.email_aziendale, '') as email_aziendale";
+        // CORRECTED: Using actual DB column name (email, not email_aziendale)
+        if ($hasColumn('email')) {
+            $selectParts[] = "IFNULL(t.email, '') as email";
         } else {
-            $selectParts[] = "'' as email_aziendale";
+            $selectParts[] = "'' as email";
         }
 
         if ($hasColumn('pec')) {
@@ -125,11 +140,12 @@ try {
             $selectParts[] = "'' as pec";
         }
 
-        if ($hasColumn('data_costituzione')) {
-            $selectParts[] = "t.data_costituzione";
-        } else {
-            $selectParts[] = "NULL as data_costituzione";
-        }
+        // REMOVED: data_costituzione column does not exist in database schema
+        // if ($hasColumn('data_costituzione')) {
+        //     $selectParts[] = "t.data_costituzione";
+        // } else {
+        //     $selectParts[] = "NULL as data_costituzione";
+        // }
 
         if ($hasColumn('capitale_sociale')) {
             $selectParts[] = "IFNULL(t.capitale_sociale, 0) as capitale_sociale";
@@ -143,11 +159,12 @@ try {
             $selectParts[] = "'' as rappresentante_legale";
         }
 
-        if ($hasColumn('manager_user_id')) {
-            $selectParts[] = "t.manager_user_id";
+        // CORRECTED: Using actual DB column name (manager_id, not manager_user_id)
+        if ($hasColumn('manager_id')) {
+            $selectParts[] = "t.manager_id";
             $selectParts[] = "u.name as manager_name";
         } else {
-            $selectParts[] = "NULL as manager_user_id";
+            $selectParts[] = "NULL as manager_id";
             $selectParts[] = "NULL as manager_name";
         }
 
@@ -192,20 +209,20 @@ try {
 
         $query = "SELECT " . implode(", ", $selectParts) . " FROM tenants t";
 
-        // Add LEFT JOIN only if manager_user_id exists
-        if ($hasColumn('manager_user_id')) {
+        // Add LEFT JOIN only if manager_id exists (CORRECTED column name)
+        if ($hasColumn('manager_id')) {
             // Check if users table exists
             try {
                 $checkUsersTable = $conn->query("SHOW TABLES LIKE 'users'");
                 if ($checkUsersTable->rowCount() > 0) {
-                    $query .= " LEFT JOIN users u ON t.manager_user_id = u.id";
+                    $query .= " LEFT JOIN users u ON t.manager_id = u.id AND u.deleted_at IS NULL";
                 }
             } catch (PDOException $e) {
                 // Users table doesn't exist, skip the join
             }
         }
 
-        $query .= " WHERE 1=1";
+        $query .= " WHERE t.deleted_at IS NULL";
 
         $params = [];
 
@@ -259,7 +276,7 @@ try {
             exit;
         }
 
-        $countQuery = "SELECT COUNT(*) as total FROM tenants WHERE id = :tenant_id";
+        $countQuery = "SELECT COUNT(*) as total FROM tenants WHERE id = :tenant_id AND deleted_at IS NULL";
 
         // Build select for regular users - simpler version
         $selectParts = ['t.id', 't.name'];
@@ -276,15 +293,17 @@ try {
             $selectParts[] = "'' as code";
         }
 
-        // Add all Italian business fields with defaults
+        // Add all Italian business fields with defaults (CORRECTED column names)
         $italianFields = [
             'codice_fiscale' => "''",
             'partita_iva' => "''",
-            'sede_legale' => "''",
-            'sede_operativa' => "''",
+            'sede_legale_indirizzo' => "''",
+            'sede_legale_comune' => "''",
+            'sede_legale_provincia' => "''",
+            'sedi_operative' => "''",
             'settore_merceologico' => "''",
             'telefono' => "''",
-            'email_aziendale' => "''",
+            'email' => "''",  // CORRECTED: 'email' not 'email_aziendale'
             'pec' => "''",
             'rappresentante_legale' => "''"
         ];
@@ -311,18 +330,20 @@ try {
         }
 
         // Date fields
-        if ($hasColumn('data_costituzione')) {
-            $selectParts[] = "t.data_costituzione";
-        } else {
-            $selectParts[] = "NULL as data_costituzione";
-        }
+        // REMOVED: data_costituzione column does not exist in database schema
+        // if ($hasColumn('data_costituzione')) {
+        //     $selectParts[] = "t.data_costituzione";
+        // } else {
+        //     $selectParts[] = "NULL as data_costituzione";
+        // }
 
         // Manager fields
-        if ($hasColumn('manager_user_id')) {
-            $selectParts[] = "t.manager_user_id";
+        // CORRECTED: Using actual DB column name (manager_id, not manager_user_id)
+        if ($hasColumn('manager_id')) {
+            $selectParts[] = "t.manager_id";
             $selectParts[] = "u.name as manager_name";
         } else {
-            $selectParts[] = "NULL as manager_user_id";
+            $selectParts[] = "NULL as manager_id";
             $selectParts[] = "NULL as manager_name";
         }
 
@@ -367,19 +388,19 @@ try {
 
         $query = "SELECT " . implode(", ", $selectParts) . " FROM tenants t";
 
-        // Add LEFT JOIN only if manager_user_id exists and users table exists
-        if ($hasColumn('manager_user_id')) {
+        // Add LEFT JOIN only if manager_id exists and users table exists (CORRECTED column name)
+        if ($hasColumn('manager_id')) {
             try {
                 $checkUsersTable = $conn->query("SHOW TABLES LIKE 'users'");
                 if ($checkUsersTable->rowCount() > 0) {
-                    $query .= " LEFT JOIN users u ON t.manager_user_id = u.id";
+                    $query .= " LEFT JOIN users u ON t.manager_id = u.id AND u.deleted_at IS NULL";
                 }
             } catch (PDOException $e) {
                 // Users table doesn't exist, skip the join
             }
         }
 
-        $query .= " WHERE t.id = :tenant_id";
+        $query .= " WHERE t.id = :tenant_id AND t.deleted_at IS NULL";
 
         $params = [':tenant_id' => $currentTenantId];
 
@@ -422,6 +443,7 @@ try {
         $isActive = isset($row['status']) ? ($row['status'] === 'active') : true;
 
         // All fields should be present due to our query construction, but use safe defaults
+        // CORRECTED: Using actual database column names
         $companies[] = [
             'id' => (int)$row['id'],
             'denominazione' => $row['denominazione'] ?? $row['name'] ?? '',
@@ -429,17 +451,19 @@ try {
             'code' => $row['code'] ?? '',
             'codice_fiscale' => $row['codice_fiscale'] ?? '',
             'partita_iva' => $row['partita_iva'] ?? '',
-            'sede_legale' => $row['sede_legale'] ?? '',
-            'sede_operativa' => $row['sede_operativa'] ?? '',
+            'sede_legale_indirizzo' => $row['sede_legale_indirizzo'] ?? '',  // CORRECTED
+            'sede_legale_comune' => $row['sede_legale_comune'] ?? '',        // CORRECTED
+            'sede_legale_provincia' => $row['sede_legale_provincia'] ?? '',  // CORRECTED
+            'sedi_operative' => $row['sedi_operative'] ?? '',                 // CORRECTED
             'settore_merceologico' => $row['settore_merceologico'] ?? '',
             'numero_dipendenti' => (int)($row['numero_dipendenti'] ?? 0),
             'telefono' => $row['telefono'] ?? '',
-            'email_aziendale' => $row['email_aziendale'] ?? '',
+            'email' => $row['email'] ?? '',                                   // CORRECTED
             'pec' => $row['pec'] ?? '',
-            'data_costituzione' => $row['data_costituzione'] ?? null,
+            // REMOVED: data_costituzione (does not exist in DB)
             'capitale_sociale' => (float)($row['capitale_sociale'] ?? 0),
             'rappresentante_legale' => $row['rappresentante_legale'] ?? '',
-            'manager_user_id' => isset($row['manager_user_id']) ? $row['manager_user_id'] : null,
+            'manager_id' => isset($row['manager_id']) ? $row['manager_id'] : null,  // CORRECTED
             'manager_name' => isset($row['manager_name']) ? $row['manager_name'] : null,
             'status' => $row['status'] ?? 'active',
             'is_active' => $isActive,

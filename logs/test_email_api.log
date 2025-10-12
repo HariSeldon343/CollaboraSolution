@@ -1,2 +1,0 @@
-[05-Oct-2025 07:46:40 Europe/Berlin] PHP Warning:  stream_filter_append(): User-filter "test_filter" requires class "TestInputFilter", but that class is not defined in C:\xampp\htdocs\CollaboraNexio\test_email_api_direct.php on line 43
-[05-Oct-2025 07:46:40 Europe/Berlin] PHP Warning:  stream_filter_append(): Unable to create or locate filter "test_filter" in C:\xampp\htdocs\CollaboraNexio\test_email_api_direct.php on line 43

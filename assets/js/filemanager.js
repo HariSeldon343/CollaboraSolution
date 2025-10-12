@@ -866,15 +866,23 @@
         console.log('Loading files for folder:', this.state.currentFolderId);
 
         try {
+            // Add cache-busting to all API calls
+            const cacheBuster = new Date().getTime();
             const params = new URLSearchParams({
                 action: 'list',
                 folder_id: this.state.currentFolderId || '',
-                search: this.state.searchQuery || ''
+                search: this.state.searchQuery || '',
+                _: cacheBuster
             });
 
             const response = await fetch(`${this.config.apiBase}?${params}`, {
                 method: 'GET',
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
             });
 
             if (!response.ok) {
@@ -1618,7 +1626,10 @@
     }
 
     async showCreateRootFolderDialog() {
-        // Load tenant list first
+        // CRITICAL: Clear any cached tenant data from localStorage/sessionStorage
+        this.clearTenantCache();
+
+        // Load tenant list with cache-busting
         const tenants = await this.getTenantList();
 
         if (!tenants || tenants.length === 0) {
@@ -1626,17 +1637,37 @@
             return;
         }
 
+        console.log('Populating tenant dropdown with:', tenants);
+
         // Populate tenant dropdown
         const tenantSelect = document.getElementById('tenantSelect');
         if (tenantSelect) {
-            tenantSelect.innerHTML = '<option value="">-- Seleziona un tenant --</option>';
+            // Clear existing options completely
+            while (tenantSelect.firstChild) {
+                tenantSelect.removeChild(tenantSelect.firstChild);
+            }
+
+            // Add default option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '-- Seleziona un tenant --';
+            tenantSelect.appendChild(defaultOption);
+
+            // Add tenant options (only active ones)
             tenants.forEach(tenant => {
+                // Skip soft-deleted or inactive tenants
+                if (tenant.is_active === '0' || tenant.is_active === 0 || tenant.deleted_at) {
+                    console.log('Skipping inactive/deleted tenant:', tenant);
+                    return;
+                }
+
                 const option = document.createElement('option');
                 option.value = tenant.id;
-                option.textContent = tenant.name + (tenant.is_active === '0' ? ' (Inattivo)' : '');
-                option.disabled = tenant.is_active === '0';
+                option.textContent = tenant.name;
                 tenantSelect.appendChild(option);
             });
+
+            console.log('Tenant dropdown populated with', tenantSelect.options.length - 1, 'active tenants');
         }
 
         // Show modal
@@ -1646,16 +1677,53 @@
         }
     }
 
+    /**
+     * Clear all cached tenant data from browser storage
+     */
+    clearTenantCache() {
+        try {
+            // Clear localStorage
+            const localStorageKeys = Object.keys(localStorage);
+            localStorageKeys.forEach(key => {
+                if (key.includes('tenant') || key.includes('file') || key.includes('folder')) {
+                    localStorage.removeItem(key);
+                    console.log('Cleared localStorage key:', key);
+                }
+            });
+
+            // Clear sessionStorage
+            const sessionStorageKeys = Object.keys(sessionStorage);
+            sessionStorageKeys.forEach(key => {
+                if (key.includes('tenant') || key.includes('file') || key.includes('folder')) {
+                    sessionStorage.removeItem(key);
+                    console.log('Cleared sessionStorage key:', key);
+                }
+            });
+
+            console.log('Cache cleared successfully');
+        } catch (error) {
+            console.warn('Error clearing cache:', error);
+        }
+    }
+
     async getTenantList() {
         try {
-            const response = await fetch(this.config.apiBase + '?action=get_tenant_list', {
+            // CRITICAL: Add cache-busting timestamp to force fresh data
+            const cacheBuster = new Date().getTime();
+            const response = await fetch(this.config.apiBase + `?action=get_tenant_list&_=${cacheBuster}`, {
                 method: 'GET',
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
             });
 
             const result = await response.json();
 
             if (result.success) {
+                console.log('Tenant list loaded (cache-busted):', result.data);
                 return result.data;
             } else {
                 this.showToast(result.error || 'Errore nel caricamento dei tenant', 'error');
@@ -1823,6 +1891,21 @@
     // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', () => {
         window.fileManager = new FileManager();
+
+        // Expose global cache-clearing function for emergency use
+        window.clearFileManagerCache = function() {
+            console.log('=== CLEARING FILE MANAGER CACHE ===');
+
+            if (window.fileManager) {
+                window.fileManager.clearTenantCache();
+            }
+
+            // Force reload current page without cache
+            console.log('Reloading page without cache...');
+            window.location.reload(true);
+        };
+
+        console.log('File Manager initialized. Use clearFileManagerCache() to force cache clear.');
     });
 
     // Add animations

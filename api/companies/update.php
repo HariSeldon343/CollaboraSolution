@@ -70,11 +70,12 @@ try {
     // Get form data
     $companyId = intval($input['id'] ?? $input['company_id'] ?? 0);
 
-    // Required fields validation
-    $requiredFields = ['denominazione', 'codice_fiscale', 'partita_iva', 'sede_legale',
-                        'settore_merceologico', 'numero_dipendenti', 'telefono',
-                        'email_aziendale', 'pec', 'manager_user_id', 'rappresentante_legale',
-                        'data_costituzione', 'plan_type', 'status'];
+    // Required fields validation (aligned with actual DB schema)
+    // CORRECTED: Using actual database column names
+    $requiredFields = ['denominazione', 'codice_fiscale', 'partita_iva', 'sede_legale_indirizzo',
+                        'settore_merceologico', 'numero_dipendenti',
+                        'email', 'rappresentante_legale',
+                        'plan_type', 'status'];
 
     $missingFields = [];
     foreach ($requiredFields as $field) {
@@ -91,20 +92,22 @@ try {
         exit;
     }
 
-    // Extract all fields
+    // Extract all fields (using correct database column names)
     $denominazione = trim($input['denominazione']);
     $codiceFiscale = strtoupper(trim($input['codice_fiscale']));
     $partitaIva = trim($input['partita_iva']);
-    $sedeLegale = trim($input['sede_legale']);
-    $sedeOperativa = !empty($input['sede_operativa']) ? trim($input['sede_operativa']) : null;
+    $sedeLegaleIndirizzo = trim($input['sede_legale_indirizzo']);
+    $sedeLegaleComune = !empty($input['sede_legale_comune']) ? trim($input['sede_legale_comune']) : null;
+    $sedeLegaleProvincia = !empty($input['sede_legale_provincia']) ? strtoupper(trim($input['sede_legale_provincia'])) : null;
+    $sediOperative = !empty($input['sedi_operative']) ? trim($input['sedi_operative']) : null;
     $settoreMerceologico = $input['settore_merceologico'];
     $numeroDipendenti = intval($input['numero_dipendenti']);
-    $telefono = trim($input['telefono']);
-    $emailAziendale = trim($input['email_aziendale']);
-    $pec = trim($input['pec']);
-    $dataCostituzione = $input['data_costituzione'];
+    $telefono = !empty($input['telefono']) ? trim($input['telefono']) : null;
+    $email = trim($input['email']); // DB column is 'email', not 'email_aziendale'
+    $pec = !empty($input['pec']) ? trim($input['pec']) : null;
+    // REMOVED: $dataCostituzione (column does not exist in DB)
     $capitaleSociale = !empty($input['capitale_sociale']) ? floatval($input['capitale_sociale']) : null;
-    $managerUserId = intval($input['manager_user_id']);
+    $managerId = !empty($input['manager_id']) ? intval($input['manager_id']) : null; // DB column is 'manager_id'
     $rappresentanteLegale = trim($input['rappresentante_legale']);
     $planType = $input['plan_type'];
     $status = $input['status'];
@@ -130,7 +133,7 @@ try {
     }
 
     // Validate email formats
-    if (!filter_var($emailAziendale, FILTER_VALIDATE_EMAIL)) {
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $response['message'] = 'Email aziendale non valida';
         ob_clean();
         http_response_code(400);
@@ -138,8 +141,18 @@ try {
         exit;
     }
 
-    if (!filter_var($pec, FILTER_VALIDATE_EMAIL)) {
+    // Validate PEC only if provided
+    if ($pec !== null && !filter_var($pec, FILTER_VALIDATE_EMAIL)) {
         $response['message'] = 'PEC non valida';
+        ob_clean();
+        http_response_code(400);
+        echo json_encode($response);
+        exit;
+    }
+
+    // Validate provincia (2 characters if provided)
+    if ($sedeLegaleProvincia !== null && !preg_match('/^[A-Z]{2}$/', $sedeLegaleProvincia)) {
+        $response['message'] = 'Provincia non valida (2 caratteri)';
         ob_clean();
         http_response_code(400);
         echo json_encode($response);
@@ -199,10 +212,10 @@ try {
         exit;
     }
 
-    // Verify manager exists and has appropriate role
-    if ($managerUserId > 0) {
-        $checkManager = $conn->prepare("SELECT id, role FROM users WHERE id = :id AND role IN ('admin', 'manager')");
-        $checkManager->bindParam(':id', $managerUserId);
+    // Verify manager exists and has appropriate role (only if provided)
+    if ($managerId !== null && $managerId > 0) {
+        $checkManager = $conn->prepare("SELECT id, role FROM users WHERE id = :id AND role IN ('admin', 'manager') AND deleted_at IS NULL");
+        $checkManager->bindParam(':id', $managerId, PDO::PARAM_INT);
         $checkManager->execute();
         if ($checkManager->rowCount() === 0) {
             $response['message'] = 'Manager selezionato non valido o senza permessi adeguati';
@@ -222,22 +235,26 @@ try {
     $settings['plan_type'] = $planType;
     $settingsJson = json_encode($settings);
 
-    // Update company with all fields (plan_type goes in settings JSON)
+    // Update company with CORRECT column names matching actual database schema
+    // CRITICAL: Using actual DB columns - email (not email_aziendale), manager_id (not manager_user_id),
+    // sede_legale_indirizzo/comune/provincia (not sede_legale), sedi_operative (not sede_operativa)
+    // REMOVED: data_costituzione (does not exist in DB)
     $updateQuery = "UPDATE tenants
                     SET name = :name,
                         denominazione = :denominazione,
                         codice_fiscale = :codice_fiscale,
                         partita_iva = :partita_iva,
-                        sede_legale = :sede_legale,
-                        sede_operativa = :sede_operativa,
+                        sede_legale_indirizzo = :sede_legale_indirizzo,
+                        sede_legale_comune = :sede_legale_comune,
+                        sede_legale_provincia = :sede_legale_provincia,
+                        sedi_operative = :sedi_operative,
                         settore_merceologico = :settore_merceologico,
                         numero_dipendenti = :numero_dipendenti,
                         telefono = :telefono,
-                        email_aziendale = :email_aziendale,
+                        email = :email,
                         pec = :pec,
-                        data_costituzione = :data_costituzione,
                         capitale_sociale = :capitale_sociale,
-                        manager_user_id = :manager_user_id,
+                        manager_id = :manager_id,
                         rappresentante_legale = :rappresentante_legale,
                         status = :status,
                         settings = :settings,
@@ -249,16 +266,17 @@ try {
     $stmt->bindParam(':denominazione', $denominazione);
     $stmt->bindParam(':codice_fiscale', $codiceFiscale);
     $stmt->bindParam(':partita_iva', $partitaIva);
-    $stmt->bindParam(':sede_legale', $sedeLegale);
-    $stmt->bindParam(':sede_operativa', $sedeOperativa);
+    $stmt->bindParam(':sede_legale_indirizzo', $sedeLegaleIndirizzo);
+    $stmt->bindParam(':sede_legale_comune', $sedeLegaleComune);
+    $stmt->bindParam(':sede_legale_provincia', $sedeLegaleProvincia);
+    $stmt->bindParam(':sedi_operative', $sediOperative);
     $stmt->bindParam(':settore_merceologico', $settoreMerceologico);
     $stmt->bindParam(':numero_dipendenti', $numeroDipendenti, PDO::PARAM_INT);
     $stmt->bindParam(':telefono', $telefono);
-    $stmt->bindParam(':email_aziendale', $emailAziendale);
+    $stmt->bindParam(':email', $email); // CORRECT: 'email' not 'email_aziendale'
     $stmt->bindParam(':pec', $pec);
-    $stmt->bindParam(':data_costituzione', $dataCostituzione);
     $stmt->bindParam(':capitale_sociale', $capitaleSociale);
-    $stmt->bindParam(':manager_user_id', $managerUserId, PDO::PARAM_INT);
+    $stmt->bindParam(':manager_id', $managerId, $managerId === null ? PDO::PARAM_NULL : PDO::PARAM_INT); // CORRECT: 'manager_id'
     $stmt->bindParam(':rappresentante_legale', $rappresentanteLegale);
     $stmt->bindParam(':status', $status);
     $stmt->bindParam(':settings', $settingsJson);

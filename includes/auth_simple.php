@@ -39,6 +39,71 @@ class AuthSimple {
     }
 
     /**
+     * Verifica accesso tenant - controlla che l'utente abbia tenant attivi
+     * Solo super_admin può accedere senza tenant
+     */
+    public function checkTenantAccess(): bool {
+        if (!$this->checkAuth()) {
+            return false;
+        }
+
+        $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? 'user';
+
+        // Super Admin può sempre accedere (anche senza tenant)
+        if ($role === 'super_admin') {
+            return true;
+        }
+
+        // Altri ruoli: verificare che abbiano tenant_id associato
+        $tenantId = $_SESSION['tenant_id'] ?? null;
+
+        if (!$tenantId) {
+            // Nessun tenant_id in sessione - verifica se esistono tenant attivi nel DB
+            try {
+                require_once __DIR__ . '/db.php';
+                $db = Database::getInstance();
+
+                // Conta tenant attivi nel sistema
+                $activeTenants = $db->count('tenants', ['deleted_at' => null]);
+
+                if ($activeTenants === 0) {
+                    // Nessun tenant attivo nel sistema
+                    $_SESSION['auth_error'] = 'Nessuna azienda attiva nel sistema. Contattare l\'amministratore.';
+                } else {
+                    // Ci sono tenant ma l'utente non è associato
+                    $_SESSION['auth_error'] = 'Nessuna azienda associata al tuo account. Contattare l\'amministratore.';
+                }
+
+                return false;
+            } catch (Exception $e) {
+                $_SESSION['auth_error'] = 'Errore di sistema. Contattare l\'amministratore.';
+                return false;
+            }
+        }
+
+        // Verifica che il tenant associato sia ancora attivo
+        try {
+            require_once __DIR__ . '/db.php';
+            $db = Database::getInstance();
+
+            $tenant = $db->fetchOne(
+                'SELECT id FROM tenants WHERE id = ? AND deleted_at IS NULL',
+                [$tenantId]
+            );
+
+            if (!$tenant) {
+                $_SESSION['auth_error'] = 'L\'azienda associata al tuo account è stata eliminata. Contattare l\'amministratore.';
+                return false;
+            }
+        } catch (Exception $e) {
+            // Se c'è un errore DB, permettiamo l'accesso (fail-open su errore tecnico)
+            return true;
+        }
+
+        return true;
+    }
+
+    /**
      * Ottiene i dati dell'utente corrente dalla sessione
      */
     public function getCurrentUser(): ?array {

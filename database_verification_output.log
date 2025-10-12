@@ -1,0 +1,213 @@
+PHP Warning:  Module "openssl" is already loaded in Unknown on line 0
+PHP Warning:  PHP Startup: Unable to load dynamic library 'bcmath' (tried: C:\xampp\php\ext\bcmath (Impossibile trovare il modulo specificato), C:\xampp\php\ext\php_bcmath.dll (Impossibile trovare il modulo specificato)) in Unknown on line 0
+
+Warning: Module "openssl" is already loaded in Unknown on line 0
+
+Warning: PHP Startup: Unable to load dynamic library 'bcmath' (tried: C:\xampp\php\ext\bcmath (Impossibile trovare il modulo specificato), C:\xampp\php\ext\php_bcmath.dll (Impossibile trovare il modulo specificato)) in Unknown on line 0
+=================================================
+DATABASE INTEGRITY VERIFICATION
+Post create_document API Fix
+Date: 2025-10-12 15:06:00
+=================================================
+
+TASK 1: Verifying Files Table Schema
+----------------------------------------
+  id                        int(10) unsigned     NO    PRI  
+  tenant_id                 int(10) unsigned     YES   MUL  
+  original_tenant_id        int(10) unsigned     YES   MUL  
+  name                      varchar(255)         NO    MUL  
+  file_path                 varchar(500)         YES        
+  file_type                 varchar(50)          YES   MUL  
+  file_size                 bigint(20)           YES        
+  mime_type                 varchar(100)         YES        
+  extension                 varchar(10)          YES   MUL  
+  is_editable               tinyint(1)           YES        
+  editor_format             varchar(10)          YES        
+  file_hash                 varchar(64)          YES        
+  thumbnail_path            varchar(500)         YES        
+  status                    varchar(50)          YES        
+  is_folder                 tinyint(1)           YES   MUL  
+  folder_id                 int(10) unsigned     YES   MUL  
+  uploaded_by               int(10) unsigned     YES   MUL  
+  original_name             varchar(255)         YES        
+  is_public                 tinyint(1)           YES        
+  public_token              varchar(64)          YES        
+  shared_with               longtext             YES        
+  download_count            int(11)              YES        
+  last_accessed_at          timestamp            YES        
+  created_at                timestamp            NO         
+  updated_at                timestamp            NO         
+  last_edited_by            int(10) unsigned     YES   MUL  
+  last_edited_at            timestamp            YES        
+  version                   int(11)              YES        
+  editor_version            int(10) unsigned     YES        
+  is_locked                 tinyint(1)           YES        
+  checksum                  varchar(64)          YES        
+  deleted_at                timestamp            YES   MUL  
+  reassigned_at             timestamp            YES        
+  reassigned_by             int(10) unsigned     YES        
+
+Verifying Required Columns:
+  [OK] id
+  [OK] tenant_id
+  [OK] name
+  [OK] file_path
+  [OK] file_size
+  [OK] file_type
+  [OK] mime_type
+  [OK] folder_id
+  [OK] uploaded_by
+  [OK] is_folder
+  [OK] created_at
+  [OK] updated_at
+  [OK] deleted_at
+
+Checking for Deprecated Columns:
+  [WARNING] Deprecated column found: extension
+  [WARNING] Deprecated column found: is_editable
+  [WARNING] Deprecated column found: editor_format
+  [WARNING] Deprecated column found: file_hash
+
+TASK 2: Schema Drift Check
+----------------------------------------
+Comparing with documented schema: /database/ACTUAL_FILES_SCHEMA.sql
+  [OK] No schema drift detected
+
+TASK 3: Verifying Related Tables
+----------------------------------------
+  Table: document_editor_sessions - [EXISTS]
+    [OK] FK: file_id -> files.id
+  Table: document_editor_config - [MISSING]
+  Table: audit_logs - [EXISTS]
+
+TASK 4: Data Integrity Verification
+----------------------------------------
+  Invalid tenant references: 0
+  Invalid user references: 0
+  Invalid folder references: 0
+
+TASK 5: Index Verification
+----------------------------------------
+Found Indexes:
+  PRIMARY: (id)
+  idx_tenant: (tenant_id)
+  idx_folder: (folder_id)
+  idx_deleted: (deleted_at)
+  idx_name: (name)
+  idx_type: (file_type)
+  idx_uploaded_by: (uploaded_by)
+  idx_original_tenant: (original_tenant_id)
+  idx_tenant_status: (tenant_id, status)
+  idx_file_tenant_deleted: (tenant_id, deleted_at)
+  fk_files_last_edited_by: (last_edited_by)
+  idx_files_editable: (tenant_id, is_editable, mime_type, deleted_at)
+  idx_files_locked: (tenant_id, is_locked, deleted_at)
+  idx_files_tenant_folder: (tenant_id, folder_id)
+  idx_files_deleted_at: (deleted_at)
+  idx_files_is_folder: (is_folder)
+  idx_files_extension: (extension)
+
+Verifying Required Indexes:
+  [OK] PRIMARY
+  [OK] idx_tenant
+  [OK] idx_folder
+  [OK] idx_deleted
+  [OK] Composite index found: idx_file_tenant_deleted
+
+Additional Checks:
+----------------------------------------
+  Total active files/folders: 7
+    Files: 3
+    Folders: 4
+
+=================================================
+VERIFICATION SUMMARY
+=================================================
+
+Database Status: HEALTHY
+Ready for Testing: YES
+
+Files Table:
+  Columns Correct: YES
+  Missing Columns: None
+  Wrong Types: None
+  Has Required Indexes: YES
+
+Data Integrity:
+  Orphaned Records: 0
+  Invalid References (Critical): 0
+    - Invalid Tenants: 0
+    - Invalid Users: 0
+    - Invalid Folders: 0
+
+Recommendations:
+  1. Remove deprecated column: extension
+  2. Remove deprecated column: is_editable
+  3. Remove deprecated column: editor_format
+  4. Remove deprecated column: file_hash
+
+=================================================
+JSON REPORT (for automation)
+=================================================
+{
+    "database_status": "HEALTHY",
+    "files_table": {
+        "columns_correct": true,
+        "missing_columns": [],
+        "wrong_types": [],
+        "has_required_indexes": true,
+        "extra_columns": [
+            "extension",
+            "is_editable",
+            "editor_format",
+            "file_hash"
+        ]
+    },
+    "data_integrity": {
+        "orphaned_records": 0,
+        "invalid_references": 0,
+        "invalid_tenant_refs": 0,
+        "invalid_user_refs": 0,
+        "invalid_folder_refs": 0
+    },
+    "related_tables": {
+        "document_editor_sessions": true,
+        "document_editor_config": false,
+        "audit_logs": true
+    },
+    "indexes": {
+        "found": [
+            "PRIMARY: (id)",
+            "idx_tenant: (tenant_id)",
+            "idx_folder: (folder_id)",
+            "idx_deleted: (deleted_at)",
+            "idx_name: (name)",
+            "idx_type: (file_type)",
+            "idx_uploaded_by: (uploaded_by)",
+            "idx_original_tenant: (original_tenant_id)",
+            "idx_tenant_status: (tenant_id, status)",
+            "idx_file_tenant_deleted: (tenant_id, deleted_at)",
+            "fk_files_last_edited_by: (last_edited_by)",
+            "idx_files_editable: (tenant_id, is_editable, mime_type, deleted_at)",
+            "idx_files_locked: (tenant_id, is_locked, deleted_at)",
+            "idx_files_tenant_folder: (tenant_id, folder_id)",
+            "idx_files_deleted_at: (deleted_at)",
+            "idx_files_is_folder: (is_folder)",
+            "idx_files_extension: (extension)"
+        ],
+        "missing": []
+    },
+    "recommendations": [
+        "Remove deprecated column: extension",
+        "Remove deprecated column: is_editable",
+        "Remove deprecated column: editor_format",
+        "Remove deprecated column: file_hash"
+    ],
+    "ready_for_testing": true
+}
+
+=================================================
+ALL CHECKS PASSED
+=================================================
+Database is healthy and ready for page testing.
+The create_document API should work correctly with this schema.

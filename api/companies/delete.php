@@ -244,22 +244,48 @@ try {
             }
         }
 
-        // Finally, delete the company
-        $deleteStmt = $conn->prepare("DELETE FROM tenants WHERE id = :id");
+        // SOFT DELETE: Update deleted_at instead of hard delete (preserves data integrity)
+        $deleteStmt = $conn->prepare("
+            UPDATE tenants
+            SET deleted_at = NOW(),
+                updated_at = NOW(),
+                status = 'inactive'
+            WHERE id = :id
+              AND deleted_at IS NULL
+        ");
         $deleteStmt->bindParam(':id', $companyId, PDO::PARAM_INT);
 
         if ($deleteStmt->execute()) {
-            // Log the deletion
+            $rowsAffected = $deleteStmt->rowCount();
+
+            // Check if tenant was actually deleted (not already deleted)
+            if ($rowsAffected === 0) {
+                $conn->rollBack();
+
+                // Verify if tenant exists or was already deleted
+                $checkStmt = $conn->prepare("SELECT deleted_at FROM tenants WHERE id = :id");
+                $checkStmt->bindParam(':id', $companyId);
+                $checkStmt->execute();
+                $existingTenant = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$existingTenant) {
+                    apiError('Azienda non trovata', 404);
+                } else {
+                    apiError('Azienda già eliminata', 400);
+                }
+            }
+
+            // Log the soft deletion
             try {
                 $logQuery = "INSERT INTO audit_logs (user_id, tenant_id, action, entity_type, entity_id, description, ip_address, created_at)
-                             VALUES (:user_id, :tenant_id, 'delete', 'company', :entity_id, :description, :ip, NOW())";
+                             VALUES (:user_id, :tenant_id, 'soft_delete', 'company', :entity_id, :description, :ip, NOW())";
 
                 $logStmt = $conn->prepare($logQuery);
                 $logStmt->bindParam(':user_id', $currentUserId);
                 $logStmt->bindParam(':tenant_id', $currentTenantId);
                 $logStmt->bindParam(':entity_id', $companyId);
 
-                $description = "Eliminata azienda: {$company['denominazione']}";
+                $description = "Soft deleted azienda: {$company['denominazione']} (ID: {$companyId})";
                 if ($foldersReassigned > 0) {
                     $description .= ", {$foldersReassigned} cartelle riassegnate";
                 }
@@ -290,8 +316,10 @@ try {
                 'folders_reassigned' => $foldersReassigned ?? 0,
                 'files_reassigned' => $filesReassigned ?? 0,
                 'users_updated' => $usersUpdated ?? 0,
-                'admins_deleted' => $adminsDeleted ?? 0
-            ], 'Azienda eliminata con successo');
+                'admins_deleted' => $adminsDeleted ?? 0,
+                'deletion_type' => 'soft',
+                'note' => 'Company soft deleted - data preserved for audit compliance'
+            ], 'Azienda eliminata con successo (soft delete)');
         } else {
             $conn->rollBack();
             apiError('Errore nell\'eliminazione dell\'azienda', 500);

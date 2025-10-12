@@ -699,13 +699,14 @@ function getTenantList() {
                 'status' => 'active'
             ];
 
-            // Recupera tutti i tenant
+            // Recupera tutti i tenant (solo quelli non eliminati)
             $stmt = $pdo->prepare("
                 SELECT id, name,
                        CASE WHEN status = 'active' THEN '1' ELSE '0' END as is_active,
                        status
                 FROM tenants
                 WHERE status != 'suspended'
+                AND deleted_at IS NULL
                 ORDER BY name
             ");
             $stmt->execute();
@@ -713,7 +714,7 @@ function getTenantList() {
 
             $tenants = array_merge($tenants, $dbTenants);
         } else {
-            // Admin vede solo i tenant a cui ha accesso esplicito + il proprio tenant corrente
+            // Admin vede solo i tenant a cui ha accesso esplicito + il proprio tenant corrente (solo non eliminati)
             $stmt = $pdo->prepare("
                 SELECT DISTINCT t.id, t.name,
                        CASE WHEN t.status = 'active' THEN '1' ELSE '0' END as is_active,
@@ -725,6 +726,7 @@ function getTenantList() {
                     SELECT :tenant_id
                 )
                 AND t.status != 'suspended'
+                AND t.deleted_at IS NULL
                 ORDER BY t.name
             ");
             $stmt->execute([':user_id' => $user_id, ':tenant_id' => $tenant_id]);

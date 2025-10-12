@@ -15,6 +15,15 @@ $csrfToken = $auth->generateCSRFToken();
 
 // Check if timeout parameter is present
 $showTimeoutMessage = isset($_GET['timeout']) && $_GET['timeout'] == '1';
+
+// Check if error message is present (from URL or session)
+$errorMessage = null;
+if (isset($_GET['error'])) {
+    $errorMessage = htmlspecialchars($_GET['error'], ENT_QUOTES, 'UTF-8');
+} elseif (isset($_SESSION['error_message'])) {
+    $errorMessage = htmlspecialchars($_SESSION['error_message'], ENT_QUOTES, 'UTF-8');
+    unset($_SESSION['error_message']); // Clear the session message after displaying
+}
 ?>
 <!DOCTYPE html>
 <html lang="it">
@@ -69,6 +78,18 @@ $showTimeoutMessage = isset($_GET['timeout']) && $_GET['timeout'] == '1';
                     <line x1="12" y1="16" x2="12.01" y2="16"></line>
                 </svg>
                 <span><strong>Sessione scaduta per inattivita.</strong> Effettua nuovamente il login per continuare.</span>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($errorMessage): ?>
+            <!-- Error Message -->
+            <div class="timeout-message" style="background: #fee2e2; border-color: #dc2626; color: #991b1b;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                </svg>
+                <span><strong>Accesso Negato.</strong> <?= $errorMessage ?></span>
             </div>
             <?php endif; ?>
 

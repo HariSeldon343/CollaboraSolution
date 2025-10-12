@@ -1,0 +1,437 @@
+
+================================================================================
+    OnlyOffice Document Editor - System Architecture Diagram
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              USER BROWSER                                   │
+│                         (Port 8888 - XAMPP)                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │  files.php                                                           │  │
+│  │  • User logs in                                                      │  │
+│  │  • Views file list                                                   │  │
+│  │  • Clicks "Edit" button                                              │  │
+│  │  • Hidden inputs: csrfToken, userId                                  │  │
+│  └─────────────────────────┬───────────────────────────────────────────┘  │
+│                            │                                                │
+│                            │ 1. User clicks "Edit"                          │
+│                            ▼                                                │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │  documentEditor.js (757 lines)                                       │  │
+│  │  ───────────────────────────────────────────────────────────────    │  │
+│  │  class DocumentEditor {                                              │  │
+│  │    openDocument(fileId, mode) {                                      │  │
+│  │      • Shows loading overlay                                         │  │
+│  │      • Loads OnlyOffice API script if needed                         │  │
+│  │      • Calls API: open_document.php                                  │  │
+│  │      • Creates full-screen modal                                     │  │
+│  │      • Initializes DocsAPI.DocEditor                                 │  │
+│  │    }                                                                  │  │
+│  │  }                                                                    │  │
+│  └─────────────────────────┬───────────────────────────────────────────┘  │
+│                            │                                                │
+└────────────────────────────┼────────────────────────────────────────────────┘
+                             │
+                             │ 2. GET /api/documents/open_document.php
+                             │    ?file_id=43&mode=edit
+                             │    Headers: Cookie, X-CSRF-Token
+                             ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      COLLABORANEXIO BACKEND                                 │
+│                    (PHP 8.3 + MySQL 8.0)                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │  open_document.php (246 lines)                                       │  │
+│  │  ────────────────────────────────────────────────────────────────   │  │
+│  │  1. initializeApiEnvironment()                                       │  │
+│  │     • Start session                                                  │  │
+│  │     • Set JSON headers                                               │  │
+│  │                                                                       │  │
+│  │  2. verifyApiAuthentication()                                        │  │
+│  │     • Check $_SESSION['user_id']                                     │  │
+│  │     • Return 401 if not authenticated                                │  │
+│  │                                                                       │  │
+│  │  3. verifyApiCsrfToken()                                             │  │
+│  │     • Compare token from header vs session                           │  │
+│  │     • Return 403 if mismatch                                         │  │
+│  │                                                                       │  │
+│  │  4. getFileInfoForEditor($file_id, $tenant_id)                       │  │
+│  │     • Query database for file info                                   │  │
+│  │     • Verify tenant_id matches user's tenant                         │  │
+│  │     • Check file is editable format                                  │  │
+│  │     • Return 404 if not found/accessible                             │  │
+│  │                                                                       │  │
+│  │  5. checkFileEditPermissions($file_id, $user_id, $role)              │  │
+│  │     • Check user role (user/manager/admin/super_admin)               │  │
+│  │     • Check if user owns file (for 'user' role)                      │  │
+│  │     • Force view mode if no edit permission                          │  │
+│  │                                                                       │  │
+│  │  6. createEditorSession($file_id, $user_id, $tenant_id, $key)        │  │
+│  │     • Generate unique session token                                  │  │
+│  │     • Close any existing sessions for this user/file                 │  │
+│  │     • Insert into document_editor_sessions                           │  │
+│  │                                                                       │  │
+│  │  7. generateOnlyOfficeJWT($payload)                                  │  │
+│  │     • Create JWT with HS256                                          │  │
+│  │     • Include file_id, user_id, tenant_id, permissions               │  │
+│  │     • Set expiration (1 hour)                                        │  │
+│  │                                                                       │  │
+│  │  8. Build response JSON                                              │  │
+│  │     • editor_url (OnlyOffice server)                                 │  │
+│  │     • document_key (unique version key)                              │  │
+│  │     • file_url (for OnlyOffice to download)                          │  │
+│  │     • callback_url (for saving changes)                              │  │
+│  │     • config (full OnlyOffice configuration)                         │  │
+│  │     • token (JWT for authentication)                                 │  │
+│  │     • permissions (role-based)                                       │  │
+│  │                                                                       │  │
+│  │  9. Return HTTP 200 with JSON response                               │  │
+│  └─────────────────────────┬───────────────────────────────────────────┘  │
+│                            │                                                │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │  Helper Files Used:                                                  │  │
+│  │  ───────────────────────────────────────────────────────────────    │  │
+│  │  • api_auth.php (231 lines) - Auth functions                         │  │
+│  │  • document_editor_helper.php (546 lines) - Helper functions         │  │
+│  │  • onlyoffice_config.php (254 lines) - Configuration                 │  │
+│  │  • db.php - Database singleton class                                 │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │  MySQL Database (collaboranexio)                                     │  │
+│  │  ───────────────────────────────────────────────────────────────    │  │
+│  │  Tables Used:                                                         │  │
+│  │  • files - File metadata, paths, versions                            │  │
+│  │  • users - User info, roles, tenant                                  │  │
+│  │  • tenants - Multi-tenant isolation                                  │  │
+│  │  • document_editor_sessions - Active sessions                        │  │
+│  │  • file_versions - Version history                                   │  │
+│  │  • audit_logs - Operation logging                                    │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└────────────────────────────┬────────────────────────────────────────────────┘
+                             │
+                             │ 3. Return JSON response with:
+                             │    • editor_url
+                             │    • document_key
+                             │    • file_url (download endpoint)
+                             │    • callback_url (save endpoint)
+                             │    • config (OnlyOffice settings)
+                             │    • token (JWT)
+                             ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         USER BROWSER (continued)                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │  documentEditor.js - Response Handler                                │  │
+│  │  ───────────────────────────────────────────────────────────────    │  │
+│  │  const result = await response.json();                               │  │
+│  │                                                                       │  │
+│  │  // Store session data                                               │  │
+│  │  this.state.currentFileId = fileId;                                  │  │
+│  │  this.state.currentSessionToken = result.data.session_token;         │  │
+│  │  this.state.editorConfig = result.data.config;                       │  │
+│  │                                                                       │  │
+│  │  // Create full-screen modal                                         │  │
+│  │  createEditorModal(result.data);                                     │  │
+│  │  // Shows: header with file name, save status, close button          │  │
+│  │  //        container div for editor                                  │  │
+│  │                                                                       │  │
+│  │  // Initialize OnlyOffice editor                                     │  │
+│  │  this.editorInstance = new DocsAPI.DocEditor("onlyoffice-editor", { │  │
+│  │    ...result.data.config,                                            │  │
+│  │    token: result.data.token,                                         │  │
+│  │    events: {                                                          │  │
+│  │      onDocumentReady: this.handleDocumentReady,                      │  │
+│  │      onDocumentStateChange: this.handleStateChange,                  │  │
+│  │      onError: this.handleError,                                      │  │
+│  │      onRequestClose: this.handleRequestClose                         │  │
+│  │    }                                                                  │  │
+│  │  });                                                                  │  │
+│  └─────────────────────────┬───────────────────────────────────────────┘  │
+│                            │                                                │
+│                            │ 4. Load OnlyOffice API script                  │
+│                            │    <script src="http://localhost:8083/         │
+│                            │     web-apps/apps/api/documents/api.js">       │
+│                            ▼                                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+                             │
+                             │ 5. DocsAPI.DocEditor makes requests to
+                             │    OnlyOffice Document Server
+                             ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    ONLYOFFICE DOCUMENT SERVER                               │
+│                  (Docker Container - Port 8083)                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │  Document Server Process                                             │  │
+│  │  ───────────────────────────────────────────────────────────────    │  │
+│  │  1. Receive initialization request from browser                      │  │
+│  │     • Validate JWT token                                             │  │
+│  │     • Extract document configuration                                 │  │
+│  │                                                                       │  │
+│  │  2. Download document file                                           │  │
+│  │     GET {file_url from config}                                       │  │
+│  │     http://host.docker.internal:8888/CollaboraNexio/                 │  │
+│  │     api/documents/download_for_editor.php?file_id=43&token=...       │  │
+│  │                                                                       │  │
+│  │  3. Process and cache document                                       │  │
+│  │     • Convert to internal format                                     │  │
+│  │     • Generate preview images                                        │  │
+│  │     • Prepare for collaborative editing                              │  │
+│  │                                                                       │  │
+│  │  4. Stream editor interface to browser                               │  │
+│  │     • Full WYSIWYG editor                                            │  │
+│  │     • Real-time collaboration features                               │  │
+│  │     • Comments, review, tracking                                     │  │
+│  │                                                                       │  │
+│  │  5. Monitor document changes                                         │  │
+│  │     • Track user edits in real-time                                  │  │
+│  │     • Maintain edit history                                          │  │
+│  │     • Synchronize across collaborators                               │  │
+│  │                                                                       │  │
+│  │  6. Trigger save callback when:                                      │  │
+│  │     • Auto-save timer (30 seconds)                                   │  │
+│  │     • Force save requested                                           │  │
+│  │     • User closes editor                                             │  │
+│  │     • Last user disconnects                                          │  │
+│  │                                                                       │  │
+│  │  POST {callback_url from config}                                     │  │
+│  │  http://host.docker.internal:8888/CollaboraNexio/                    │  │
+│  │  api/documents/save_document.php?key=file_43_v1_...                  │  │
+│  │                                                                       │  │
+│  │  Request Body:                                                        │  │
+│  │  {                                                                    │  │
+│  │    "key": "file_43_v1_...",                                          │  │
+│  │    "status": 2,  // Ready for saving                                 │  │
+│  │    "url": "http://localhost:8083/cache/files/document.docx",         │  │
+│  │    "changesurl": "http://localhost:8083/cache/files/changes.zip",    │  │
+│  │    "users": ["5"],                                                    │  │
+│  │    "actions": [...]                                                   │  │
+│  │  }                                                                    │  │
+│  └─────────────────────────┬───────────────────────────────────────────┘  │
+│                            │                                                │
+└────────────────────────────┼────────────────────────────────────────────────┘
+                             │
+                             │ 7. OnlyOffice calls save callback
+                             ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   COLLABORANEXIO BACKEND (Save)                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │  save_document.php (~200 lines)                                      │  │
+│  │  ───────────────────────────────────────────────────────────────    │  │
+│  │  1. Verify JWT token from OnlyOffice                                 │  │
+│  │                                                                       │  │
+│  │  2. Parse callback payload                                           │  │
+│  │     • Extract document key                                           │  │
+│  │     • Check status code (2 = ready for saving)                       │  │
+│  │     • Get download URL for new version                               │  │
+│  │                                                                       │  │
+│  │  3. Find session by editor_key                                       │  │
+│  │     SELECT * FROM document_editor_sessions                           │  │
+│  │     WHERE editor_key = ? AND closed_at IS NULL                       │  │
+│  │                                                                       │  │
+│  │  4. Download edited file from OnlyOffice                             │  │
+│  │     GET {url from payload}                                           │  │
+│  │     http://localhost:8083/cache/files/document.docx                  │  │
+│  │                                                                       │  │
+│  │  5. Create version backup                                            │  │
+│  │     • Copy current file to /uploads/versions/{tenant_id}/            │  │
+│  │     • Insert record into file_versions table                         │  │
+│  │     • Increment version number                                       │  │
+│  │                                                                       │  │
+│  │  6. Save new file content                                            │  │
+│  │     • Overwrite existing file at original path                       │  │
+│  │     • Update file_size in database                                   │  │
+│  │     • Update last_edited_by and last_edited_at                       │  │
+│  │                                                                       │  │
+│  │  7. Update editor session                                            │  │
+│  │     UPDATE document_editor_sessions                                  │  │
+│  │     SET changes_saved = TRUE, closed_at = NOW()                      │  │
+│  │     WHERE session_token = ?                                          │  │
+│  │                                                                       │  │
+│  │  8. Log audit trail                                                  │  │
+│  │     INSERT INTO audit_logs                                           │  │
+│  │     (user_id, tenant_id, action, entity_type, entity_id, details)    │  │
+│  │                                                                       │  │
+│  │  9. Return success to OnlyOffice                                     │  │
+│  │     { "error": 0 }  // 0 = success, 1 = error                        │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+    Data Flow Summary
+================================================================================
+
+USER ACTION → Browser JavaScript → API Endpoint → Database Check →
+Permission Check → Session Creation → JWT Generation → Response JSON →
+Browser Initialize Editor → OnlyOffice Download File → Render Editor →
+User Edits → OnlyOffice Auto-Save → Callback to save_document.php →
+Download New Version → Create Backup → Update Database → Audit Log →
+Return Success → Editor Updates Status → User Continues or Closes
+
+
+================================================================================
+    File Locations
+================================================================================
+
+Backend PHP:
+  /api/documents/open_document.php        - Main API endpoint
+  /api/documents/save_document.php        - Save callback
+  /api/documents/close_session.php        - Close session
+  /api/documents/download_for_editor.php  - Secure download
+  /api/documents/get_editor_config.php    - Get config
+
+Includes:
+  /includes/api_auth.php                  - Authentication layer
+  /includes/document_editor_helper.php    - Helper functions
+  /includes/onlyoffice_config.php         - Configuration
+  /includes/db.php                        - Database class
+
+Frontend:
+  /assets/js/documentEditor.js            - Main JavaScript class
+  /assets/css/documentEditor.css          - Modal styles
+
+Database:
+  /database/09_document_editor.sql        - Table creation
+  /database/migrations/006_document_editor.sql - Migration script
+
+Documentation:
+  /api/documents/README.md                - Complete API docs
+  /ONLYOFFICE_API_IMPLEMENTATION_REPORT.md - This report
+  /ONLYOFFICE_QUICK_TROUBLESHOOTING.md    - Troubleshooting guide
+  /test_onlyoffice_api.php                - Diagnostic tool
+
+
+================================================================================
+    Port Mapping
+================================================================================
+
+8888  → Apache/XAMPP (CollaboraNexio)
+3306  → MySQL Database
+8083  → OnlyOffice Document Server (Docker)
+
+
+================================================================================
+    Security Layers
+================================================================================
+
+Layer 1: Session Authentication
+  • PHP session must be active
+  • $_SESSION['user_id'] must exist
+  • Session timeout: 2 hours
+
+Layer 2: CSRF Protection
+  • X-CSRF-Token header required
+  • Token must match $_SESSION['csrf_token']
+  • Token regenerated on each login
+
+Layer 3: Multi-Tenant Isolation
+  • All queries include tenant_id filter
+  • User can only access files in their tenant
+  • Tenant ID validated on every request
+
+Layer 4: Permission Checks
+  • Role-based access (user/manager/admin/super_admin)
+  • File ownership check for 'user' role
+  • Edit mode downgraded to view if no permission
+
+Layer 5: JWT Tokens
+  • All OnlyOffice communication signed with JWT
+  • Tokens expire after 1 hour
+  • Secret key shared between systems
+
+
+================================================================================
+    Database Tables
+================================================================================
+
+files:
+  • id, tenant_id, name, file_path, file_size
+  • uploaded_by, created_at, updated_at, deleted_at
+  • is_editable, editor_format, last_edited_by, last_edited_at
+  • version (increments on each save)
+
+document_editor_sessions:
+  • id, file_id, user_id, tenant_id
+  • session_token (unique), editor_key (document version key)
+  • opened_at, last_activity, closed_at
+  • changes_saved (boolean)
+
+file_versions:
+  • id, file_id, version_number
+  • size_bytes, storage_path
+  • created_by, created_at
+  • changes_description (JSON)
+
+audit_logs:
+  • id, user_id, tenant_id
+  • action (document_opened, document_saved, etc.)
+  • entity_type, entity_id
+  • details (JSON), ip_address, user_agent
+  • created_at
+
+
+================================================================================
+    Supported File Formats
+================================================================================
+
+Editable in OnlyOffice:
+  Word:       docx, doc, docm, dot, dotx, dotm, odt, fodt, rtf, txt
+  Excel:      xlsx, xls, xlsm, xlt, xltx, xltm, ods, fods, csv
+  PowerPoint: pptx, ppt, pptm, pot, potx, potm, odp, fodp
+
+View-Only:
+  Documents:  pdf, djvu, xps, epub, fb2
+
+
+================================================================================
+    Key Configuration Constants
+================================================================================
+
+ONLYOFFICE_SERVER_URL:        http://localhost:8083
+ONLYOFFICE_API_URL:            http://localhost:8083/web-apps/apps/api/...
+ONLYOFFICE_JWT_SECRET:         (64-char hex string)
+ONLYOFFICE_JWT_ENABLED:        true
+ONLYOFFICE_SESSION_TIMEOUT:    3600 (1 hour)
+ONLYOFFICE_IDLE_TIMEOUT:       1800 (30 minutes)
+ONLYOFFICE_CALLBACK_URL:       http://host.docker.internal:8888/...
+ONLYOFFICE_DOWNLOAD_URL:       http://localhost:8888/CollaboraNexio/...
+
+
+================================================================================
+    Status Codes
+================================================================================
+
+HTTP Response Codes:
+  200 - Success
+  400 - Invalid parameters
+  401 - Not authenticated
+  403 - CSRF token invalid / No permissions
+  404 - File not found / Wrong tenant
+  500 - Server error
+
+OnlyOffice Callback Status:
+  0 - No document found
+  1 - Document being edited
+  2 - Document ready for saving (trigger save)
+  3 - Document saving error
+  4 - Document closed with no changes
+  6 - Force save while editing
+  7 - Force save error
+
+
+================================================================================
+    Generated: 2025-10-12
+    Version: 1.0.0
+    Total Lines of Code: 2,534 across 9 files
+================================================================================

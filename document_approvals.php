@@ -17,6 +17,10 @@ if (!$currentUser) {
     exit;
 }
 
+// Require active tenant access (super_admins bypass this check)
+require_once __DIR__ . '/includes/tenant_access_check.php';
+requireTenantAccess($currentUser['id'], $currentUser['role']);
+
 // Get user role
 $user_role = $currentUser['role'] ?? 'user';
 $user_id = $currentUser['id'];

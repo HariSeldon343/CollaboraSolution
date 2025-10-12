@@ -18,6 +18,10 @@ if (!$currentUser) {
     exit;
 }
 
+// Require active tenant access (super_admins bypass this check)
+require_once __DIR__ . '/includes/tenant_access_check.php';
+requireTenantAccess($currentUser['id'], $currentUser['role']);
+
 // Initialize company filter
 $companyFilter = new CompanyFilter($currentUser);
 
@@ -40,6 +44,10 @@ $csrfToken = $auth->generateCSRFToken();
     <link rel="stylesheet" href="assets/css/sidebar-responsive.css">
     <!-- Page specific CSS -->
     <link rel="stylesheet" href="assets/css/filemanager.css">
+    <!-- Enhanced File Manager CSS -->
+    <link rel="stylesheet" href="assets/css/filemanager_enhanced.css">
+    <!-- Document Editor CSS -->
+    <link rel="stylesheet" href="assets/css/documentEditor.css">
 
     <style>
         /* Logo image style */
@@ -876,7 +884,9 @@ $csrfToken = $auth->generateCSRFToken();
 
     <!-- Core Application JavaScript -->
     <script src="assets/js/app.js"></script>
-    <!-- File Manager JavaScript -->
-    <script src="assets/js/filemanager.js"></script>
+    <!-- Enhanced File Manager JavaScript with Upload & Document Creation -->
+    <script src="assets/js/filemanager_enhanced.js"></script>
+    <!-- Document Editor JavaScript -->
+    <script src="assets/js/documentEditor.js"></script>
 </body>
 </html>

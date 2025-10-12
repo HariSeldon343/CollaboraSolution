@@ -1,35 +1,32 @@
 <?php
-// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
-require_once __DIR__ . '/../includes/session_init.php';
+/**
+ * Files Tenant API - Tenant-aware file management
+ *
+ * @version 2.0.0 - Refactored to use centralized api_auth.php
+ */
 
-// POI: Headers (DOPO session_start di session_init.php)
-header('Content-Type: application/json');
-header('X-Content-Type-Options: nosniff');
+// Include centralized API authentication
+require_once __DIR__ . '/../includes/api_auth.php';
 
-// Error handling setup
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ob_start();
+// Initialize API environment (session, headers, error handling)
+initializeApiEnvironment();
 
+// Include required files
 require_once '../config.php';
 require_once '../includes/db.php';
-require_once '../includes/auth_simple.php';
-require_once '../includes/api_response.php';
 
-// Authentication validation
-if (!isset($_SESSION['user_id'])) {
-    http_response_code(401);
-    die(json_encode(['error' => 'Non autorizzato']));
-}
+// Verify authentication
+verifyApiAuthentication();
+
+// Get current user info
+$userInfo = getApiUserInfo();
+$user_id = $userInfo['user_id'];
+$tenant_id = $userInfo['tenant_id'];
+$user_role = $userInfo['role'];
 
 // Get database connection
 $db = Database::getInstance();
 $pdo = $db->getConnection();
-
-// User session data
-$user_id = $_SESSION['user_id'];
-$tenant_id = $_SESSION['tenant_id'];
-$user_role = $_SESSION['role'] ?? 'user';
 
 // Input handling
 $input = json_decode(file_get_contents('php://input'), true);
@@ -38,27 +35,31 @@ $action = $_GET['action'] ?? '';
 // CSRF validation for state-changing operations
 $csrf_required = ['create_root_folder', 'create_folder', 'upload', 'delete', 'rename'];
 if (in_array($action, $csrf_required)) {
-    $csrf_token = $input['csrf_token'] ?? $_POST['csrf_token'] ?? '';
-    if (!isset($_SESSION['csrf_token']) || $csrf_token !== $_SESSION['csrf_token']) {
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido']));
-    }
+    verifyApiCsrfToken();
 }
 
 /**
- * SCHEMA DOCUMENTATION
+ * SCHEMA DOCUMENTATION - UPDATED 2025-10-12
  *
- * files table columns:
- * - file_size (NOT size_bytes)
- * - file_path (NOT storage_path)
- * - uploaded_by (NOT owner_id)
- * - name, original_name, mime_type, status
+ * UNIFIED files table (handles both files AND folders):
+ * - id: Primary key
+ * - tenant_id: Multi-tenant isolation
+ * - name: File or folder name
+ * - file_path: Storage path (for files) or directory path (for folders)
+ * - file_size: Size in bytes (NULL for folders)
+ * - mime_type: MIME type (NULL for folders)
+ * - is_folder: 1 = folder, 0 = file
+ * - folder_id: Parent folder ID (NULL = root level, self-referencing FK)
+ * - uploaded_by: User who created/uploaded
+ * - original_name: Original filename
+ * - status: 'in_approvazione', 'approvato', 'rifiutato' (for approval workflow)
+ * - deleted_at: Soft delete timestamp
  *
- * folders table columns:
- * - owner_id (correct for folders, different from files!)
- * - name, path, parent_id
- *
- * Note: file_versions table still uses old schema (size_bytes, storage_path)
+ * Key differences from old schema:
+ * - NO separate 'folders' table - everything is in 'files'
+ * - Use is_folder flag to distinguish files from folders
+ * - folder_id replaced parent_id (self-referencing)
+ * - uploaded_by used for both files and folders (was owner_id for folders)
  */
 
 try {
@@ -93,30 +94,27 @@ try {
         case 'debug_columns':
             // Endpoint di debug per verificare schema corrente
             if (DEBUG_MODE) {
-                echo json_encode([
-                    'success' => true,
+                apiSuccess([
                     'schema' => [
                         'files' => ['file_size', 'file_path', 'uploaded_by', 'name', 'mime_type', 'status'],
                         'folders' => ['owner_id', 'name', 'path', 'parent_id']
                     ]
-                ]);
+                ], 'Schema information');
             } else {
-                http_response_code(403);
-                echo json_encode(['error' => 'Debug mode non attivo']);
+                apiError('Debug mode non attivo', 403);
             }
             break;
         default:
-            http_response_code(400);
-            echo json_encode(['error' => 'Azione non valida']);
+            apiError('Azione non valida', 400);
     }
 } catch (Exception $e) {
-    error_log('Files Tenant API Error: ' . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['error' => 'Errore del server', 'debug' => DEBUG_MODE ? $e->getMessage() : null]);
+    logApiError('Files Tenant API', $e);
+    apiError('Errore del server', 500, DEBUG_MODE ? ['debug' => $e->getMessage()] : null);
 }
 
 /**
  * Lista files e cartelle filtrati per tenant
+ * UPDATED: Uses unified files table with is_folder flag
  */
 function listFiles() {
     global $pdo, $user_id, $tenant_id, $user_role;
@@ -125,30 +123,8 @@ function listFiles() {
     $search = $_GET['search'] ?? '';
 
     try {
-        // Query per cartelle (folders usa owner_id)
-        $folder_query = "
-            SELECT
-                f.id,
-                f.name,
-                f.parent_id,
-                f.tenant_id,
-                f.created_at,
-                f.updated_at,
-                'folder' as type,
-                NULL as size,
-                NULL as mime_type,
-                t.name as tenant_name,
-                COUNT(DISTINCT sf.id) as subfolder_count,
-                COUNT(DISTINCT fil.id) as file_count
-            FROM folders f
-            LEFT JOIN tenants t ON f.tenant_id = t.id
-            LEFT JOIN folders sf ON sf.parent_id = f.id AND sf.deleted_at IS NULL
-            LEFT JOIN files fil ON fil.folder_id = f.id AND fil.deleted_at IS NULL
-            WHERE f.deleted_at IS NULL
-        ";
-
-        // Query per files - Schema: files usa file_size, file_path, uploaded_by
-        $file_query = "
+        // Build query for unified files table (handles both files and folders)
+        $query = "
             SELECT
                 f.id,
                 f.name,
@@ -156,12 +132,13 @@ function listFiles() {
                 f.tenant_id,
                 f.created_at,
                 f.updated_at,
-                'file' as type,
+                CASE WHEN f.is_folder = 1 THEN 'folder' ELSE 'file' END as type,
                 f.file_size as size,
                 f.mime_type,
+                f.is_folder,
                 t.name as tenant_name,
-                0 as subfolder_count,
-                0 as file_count
+                (SELECT COUNT(*) FROM files sf WHERE sf.folder_id = f.id AND sf.is_folder = 1 AND sf.deleted_at IS NULL) as subfolder_count,
+                (SELECT COUNT(*) FROM files fil WHERE fil.folder_id = f.id AND fil.is_folder = 0 AND fil.deleted_at IS NULL) as file_count
             FROM files f
             LEFT JOIN tenants t ON f.tenant_id = t.id
             WHERE f.deleted_at IS NULL
@@ -171,13 +148,11 @@ function listFiles() {
 
         // Filtro per cartella
         if ($folder_id !== null && $folder_id !== '') {
-            $folder_query .= " AND f.parent_id = :folder_id";
-            $file_query .= " AND f.folder_id = :folder_id";
-            $params[':folder_id'] = $folder_id;
+            $query .= " AND f.folder_id = ?";
+            $params[] = $folder_id;
         } else {
-            // Root level - solo cartelle root
-            $folder_query .= " AND f.parent_id IS NULL";
-            $file_query .= " AND 1=0"; // Nessun file al root
+            // Root level - solo items senza parent
+            $query .= " AND f.folder_id IS NULL";
         }
 
         // Filtro per tenant basato sul ruolo
@@ -188,44 +163,35 @@ function listFiles() {
             $tenant_access_query = "
                 SELECT tenant_id
                 FROM user_tenant_access
-                WHERE user_id = :user_id
+                WHERE user_id = ?
             ";
             $stmt = $pdo->prepare($tenant_access_query);
-            $stmt->execute([':user_id' => $user_id]);
+            $stmt->execute([$user_id]);
             $accessible_tenants = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
             if (empty($accessible_tenants)) {
                 $accessible_tenants = [$tenant_id]; // Almeno il proprio tenant
             }
 
-            $tenant_placeholders = implode(',', array_map(fn($i) => ":tenant_$i", array_keys($accessible_tenants)));
-            $folder_query .= " AND f.tenant_id IN ($tenant_placeholders)";
-            $file_query .= " AND f.tenant_id IN ($tenant_placeholders)";
-
-            foreach ($accessible_tenants as $i => $tid) {
-                $params[":tenant_$i"] = $tid;
-            }
+            $placeholders = implode(',', array_fill(0, count($accessible_tenants), '?'));
+            $query .= " AND f.tenant_id IN ($placeholders)";
+            $params = array_merge($params, $accessible_tenants);
         } else {
             // User e Manager vedono solo il proprio tenant
-            $folder_query .= " AND f.tenant_id = :tenant_id";
-            $file_query .= " AND f.tenant_id = :tenant_id";
-            $params[':tenant_id'] = $tenant_id;
+            $query .= " AND f.tenant_id = ?";
+            $params[] = $tenant_id;
         }
 
-        // Ricerca - Schema: files.name, folders.name
+        // Ricerca
         if (!empty($search)) {
-            $folder_query .= " AND f.name LIKE :search";
-            $file_query .= " AND f.name LIKE :search";
-            $params[':search'] = '%' . $search . '%';
+            $query .= " AND f.name LIKE ?";
+            $params[] = '%' . $search . '%';
         }
 
-        // Aggiunta GROUP BY per le cartelle
-        $folder_query .= " GROUP BY f.id, f.name, f.parent_id, f.tenant_id, f.created_at, f.updated_at, t.name";
+        // Ordinamento: cartelle prima, poi per nome
+        $query .= " ORDER BY f.is_folder DESC, f.name ASC";
 
-        // Unione delle query
-        $full_query = "($folder_query) UNION ALL ($file_query) ORDER BY type ASC, name ASC";
-
-        $stmt = $pdo->prepare($full_query);
+        $stmt = $pdo->prepare($query);
         $stmt->execute($params);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -240,11 +206,11 @@ function listFiles() {
         if ($folder_id) {
             $stmt = $pdo->prepare("
                 SELECT f.*, t.name as tenant_name
-                FROM folders f
+                FROM files f
                 LEFT JOIN tenants t ON f.tenant_id = t.id
-                WHERE f.id = :id AND f.deleted_at IS NULL
+                WHERE f.id = ? AND f.is_folder = 1 AND f.deleted_at IS NULL
             ");
-            $stmt->execute([':id' => $folder_id]);
+            $stmt->execute([$folder_id]);
             $current_folder = $stmt->fetch(PDO::FETCH_ASSOC);
         }
 
@@ -260,50 +226,37 @@ function listFiles() {
         ]);
 
     } catch (PDOException $e) {
-        error_log('ListFiles SQL Error: ' . $e->getMessage());
+        logApiError('ListFiles SQL', $e);
         error_log('SQL State: ' . $e->getCode());
-        http_response_code(500);
-        echo json_encode([
-            'error' => 'Errore nel caricamento dei file',
-            'debug' => DEBUG_MODE ? $e->getMessage() : null
-        ]);
+        apiError('Errore nel caricamento dei file', 500, DEBUG_MODE ? ['debug' => $e->getMessage()] : null);
     } catch (Exception $e) {
-        error_log('ListFiles Error: ' . $e->getMessage());
-        http_response_code(500);
-        echo json_encode([
-            'error' => 'Errore nel caricamento dei file',
-            'debug' => DEBUG_MODE ? $e->getMessage() : null
-        ]);
+        logApiError('ListFiles', $e);
+        apiError('Errore nel caricamento dei file', 500, DEBUG_MODE ? ['debug' => $e->getMessage()] : null);
     }
 }
 
 /**
  * Crea una cartella root (solo Admin/Super Admin)
+ * UPDATED: Uses unified files table with is_folder flag
  */
 function createRootFolder() {
     global $pdo, $input, $user_id, $tenant_id, $user_role;
 
     // Verifica permessi
-    if (!in_array($user_role, ['admin', 'super_admin'])) {
-        http_response_code(403);
-        echo json_encode(['error' => 'Non autorizzato a creare cartelle root']);
-        return;
+    if (!hasApiRole('admin')) {
+        apiError('Non autorizzato a creare cartelle root', 403);
     }
 
     $folder_name = trim($input['name'] ?? '');
     $target_tenant_id = $input['tenant_id'] ?? null;
 
     if (empty($folder_name)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Nome cartella richiesto']);
-        return;
+        apiError('Nome cartella richiesto', 400);
     }
 
     // Validazione tenant_id
     if (empty($target_tenant_id)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Tenant richiesto per cartella root']);
-        return;
+        apiError('Tenant richiesto per cartella root', 400);
     }
 
     // Verifica che l'admin abbia accesso al tenant selezionato
@@ -311,17 +264,12 @@ function createRootFolder() {
         $stmt = $pdo->prepare("
             SELECT COUNT(*)
             FROM user_tenant_access
-            WHERE user_id = :user_id AND tenant_id = :tenant_id
+            WHERE user_id = ? AND tenant_id = ?
         ");
-        $stmt->execute([
-            ':user_id' => $user_id,
-            ':tenant_id' => $target_tenant_id
-        ]);
+        $stmt->execute([$user_id, $target_tenant_id]);
 
         if ($stmt->fetchColumn() == 0) {
-            http_response_code(403);
-            echo json_encode(['error' => 'Non hai accesso a questo tenant']);
-            return;
+            apiError('Non hai accesso a questo tenant', 403);
         }
     }
 
@@ -329,61 +277,46 @@ function createRootFolder() {
         // Verifica se esiste già una cartella root con lo stesso nome per questo tenant
         $stmt = $pdo->prepare("
             SELECT COUNT(*)
-            FROM folders
-            WHERE name = :name
-            AND parent_id IS NULL
-            AND tenant_id = :tenant_id
+            FROM files
+            WHERE name = ?
+            AND folder_id IS NULL
+            AND tenant_id = ?
+            AND is_folder = 1
             AND deleted_at IS NULL
         ");
-        $stmt->execute([
-            ':name' => $folder_name,
-            ':tenant_id' => $target_tenant_id
-        ]);
+        $stmt->execute([$folder_name, $target_tenant_id]);
 
         if ($stmt->fetchColumn() > 0) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Una cartella root con questo nome esiste già per il tenant']);
-            return;
+            apiError('Una cartella root con questo nome esiste già per il tenant', 400);
         }
 
-        // Schema: folders table uses owner_id (not uploaded_by) and has path column
+        // Create folder in unified files table
         $stmt = $pdo->prepare("
-            INSERT INTO folders (name, parent_id, tenant_id, owner_id, path, created_at, updated_at)
-            VALUES (:name, NULL, :tenant_id, :user_id, '/', NOW(), NOW())
+            INSERT INTO files (name, folder_id, tenant_id, uploaded_by, is_folder, file_path, created_at, updated_at)
+            VALUES (?, NULL, ?, ?, 1, '/', NOW(), NOW())
         ");
 
-        $stmt->execute([
-            ':name' => $folder_name,
-            ':tenant_id' => $target_tenant_id,
-            ':user_id' => $user_id
-        ]);
+        $stmt->execute([$folder_name, $target_tenant_id, $user_id]);
 
         $folder_id = $pdo->lastInsertId();
 
         // Log audit
-        logAudit('create_root_folder', 'folders', $folder_id, [
+        logAudit('create_root_folder', 'files', $folder_id, [
             'name' => $folder_name,
             'tenant_id' => $target_tenant_id
         ]);
 
-        echo json_encode([
-            'success' => true,
-            'message' => 'Cartella root creata con successo',
-            'folder_id' => $folder_id
-        ]);
+        apiSuccess(['folder_id' => $folder_id], 'Cartella root creata con successo');
 
     } catch (Exception $e) {
-        error_log('CreateRootFolder Error: ' . $e->getMessage());
-        http_response_code(500);
-        echo json_encode([
-            'error' => 'Errore nella creazione della cartella root',
-            'debug' => DEBUG_MODE ? $e->getMessage() : null
-        ]);
+        logApiError('CreateRootFolder', $e);
+        apiError('Errore nella creazione della cartella root', 500, DEBUG_MODE ? ['debug' => $e->getMessage()] : null);
     }
 }
 
 /**
  * Crea una sotto-cartella
+ * UPDATED: Uses unified files table with is_folder flag
  */
 function createFolder() {
     global $pdo, $input, $user_id, $tenant_id, $user_role;
@@ -392,142 +325,113 @@ function createFolder() {
     $parent_id = $input['parent_id'] ?? null;
 
     if (empty($folder_name)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Nome cartella richiesto']);
-        return;
+        apiError('Nome cartella richiesto', 400);
     }
 
     if (empty($parent_id)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Cartella padre richiesta per sotto-cartelle']);
-        return;
+        apiError('Cartella padre richiesta per sotto-cartelle', 400);
     }
 
     try {
         // Verifica che la cartella padre esista e ottieni il suo tenant_id
         $stmt = $pdo->prepare("
             SELECT tenant_id, name
-            FROM folders
-            WHERE id = :id AND deleted_at IS NULL
+            FROM files
+            WHERE id = ? AND is_folder = 1 AND deleted_at IS NULL
         ");
-        $stmt->execute([':id' => $parent_id]);
+        $stmt->execute([$parent_id]);
         $parent = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$parent) {
-            http_response_code(404);
-            echo json_encode(['error' => 'Cartella padre non trovata']);
-            return;
+            apiError('Cartella padre non trovata', 404);
         }
 
         // Verifica accesso al tenant della cartella padre
         if (!hasAccessToTenant($parent['tenant_id'])) {
-            http_response_code(403);
-            echo json_encode(['error' => 'Non hai accesso a questo tenant']);
-            return;
+            apiError('Non hai accesso a questo tenant', 403);
         }
 
         // Verifica unicità nome nella cartella padre
         $stmt = $pdo->prepare("
             SELECT COUNT(*)
-            FROM folders
-            WHERE name = :name
-            AND parent_id = :parent_id
+            FROM files
+            WHERE name = ?
+            AND folder_id = ?
             AND deleted_at IS NULL
         ");
-        $stmt->execute([
-            ':name' => $folder_name,
-            ':parent_id' => $parent_id
-        ]);
+        $stmt->execute([$folder_name, $parent_id]);
 
         if ($stmt->fetchColumn() > 0) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Una cartella con questo nome esiste già']);
-            return;
+            apiError('Una cartella con questo nome esiste già', 400);
         }
 
-        // Schema: folders table uses owner_id and path
         // Costruisci path completo
         $parentPath = getBreadcrumb($parent_id);
         $fullPath = '/' . implode('/', array_column($parentPath, 'name')) . '/' . $folder_name;
 
         $stmt = $pdo->prepare("
-            INSERT INTO folders (name, parent_id, tenant_id, owner_id, path, created_at, updated_at)
-            VALUES (:name, :parent_id, :tenant_id, :user_id, :path, NOW(), NOW())
+            INSERT INTO files (name, folder_id, tenant_id, uploaded_by, is_folder, file_path, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 1, ?, NOW(), NOW())
         ");
 
         $stmt->execute([
-            ':name' => $folder_name,
-            ':parent_id' => $parent_id,
-            ':tenant_id' => $parent['tenant_id'],
-            ':user_id' => $user_id,
-            ':path' => $fullPath
+            $folder_name,
+            $parent_id,
+            $parent['tenant_id'],
+            $user_id,
+            $fullPath
         ]);
 
         $folder_id = $pdo->lastInsertId();
 
         // Log audit
-        logAudit('create_folder', 'folders', $folder_id, [
+        logAudit('create_folder', 'files', $folder_id, [
             'name' => $folder_name,
             'parent_id' => $parent_id
         ]);
 
-        echo json_encode([
-            'success' => true,
-            'message' => 'Cartella creata con successo',
-            'folder_id' => $folder_id
-        ]);
+        apiSuccess(['folder_id' => $folder_id], 'Cartella creata con successo');
 
     } catch (Exception $e) {
-        error_log('CreateFolder Error: ' . $e->getMessage());
-        http_response_code(500);
-        echo json_encode([
-            'error' => 'Errore nella creazione della cartella',
-            'debug' => DEBUG_MODE ? $e->getMessage() : null
-        ]);
+        logApiError('CreateFolder', $e);
+        apiError('Errore nella creazione della cartella', 500, DEBUG_MODE ? ['debug' => $e->getMessage()] : null);
     }
 }
 
 /**
  * Upload di un file
+ * UPDATED: Uses unified files table
  */
 function uploadFile() {
     global $pdo, $user_id, $tenant_id, $user_role;
 
     if (!isset($_FILES['file'])) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Nessun file caricato']);
-        return;
+        apiError('Nessun file caricato', 400);
     }
 
     $folder_id = $_POST['folder_id'] ?? null;
 
     if (empty($folder_id)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Non è possibile caricare file nella root. Seleziona una cartella.']);
-        return;
+        apiError('Non è possibile caricare file nella root. Seleziona una cartella.', 400);
     }
 
     try {
         // Verifica che la cartella esista e ottieni il suo tenant_id
         $stmt = $pdo->prepare("
             SELECT tenant_id
-            FROM folders
-            WHERE id = :id AND deleted_at IS NULL
+            FROM files
+            WHERE id = ? AND is_folder = 1 AND deleted_at IS NULL
         ");
-        $stmt->execute([':id' => $folder_id]);
+        $stmt->execute([$folder_id]);
         $folder = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$folder) {
-            http_response_code(404);
-            echo json_encode(['error' => 'Cartella non trovata']);
-            return;
+            apiError('Cartella non trovata', 404);
         }
 
         // Verifica accesso al tenant
         if (!hasAccessToTenant($folder['tenant_id'])) {
-            http_response_code(403);
-            echo json_encode(['error' => 'Non hai accesso a questo tenant']);
-            return;
+            apiError('Non hai accesso a questo tenant', 403);
         }
 
         $file = $_FILES['file'];
@@ -538,16 +442,12 @@ function uploadFile() {
 
         // Verifica errori upload
         if ($error !== UPLOAD_ERR_OK) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Errore durante il caricamento del file']);
-            return;
+            apiError('Errore durante il caricamento del file', 400);
         }
 
         // Verifica dimensione file
         if ($size > MAX_FILE_SIZE) {
-            http_response_code(400);
-            echo json_encode(['error' => 'File troppo grande (max ' . (MAX_FILE_SIZE / 1048576) . 'MB)']);
-            return;
+            apiError('File troppo grande (max ' . (MAX_FILE_SIZE / 1048576) . 'MB)', 400);
         }
 
         // Genera nome file univoco
@@ -570,31 +470,29 @@ function uploadFile() {
 
         // Sposta il file
         if (!move_uploaded_file($tmp_name, $file_path)) {
-            http_response_code(500);
-            echo json_encode(['error' => 'Errore nel salvataggio del file']);
-            return;
+            apiError('Errore nel salvataggio del file', 500);
         }
 
-        // Schema: files table uses file_size, file_path, uploaded_by, mime_type, status
+        // Insert into unified files table (is_folder = 0 for files)
         $stmt = $pdo->prepare("
             INSERT INTO files (
                 folder_id, tenant_id, name, original_name, file_size,
-                file_path, uploaded_by, mime_type, status, created_at, updated_at
+                file_path, uploaded_by, mime_type, status, is_folder, created_at, updated_at
             ) VALUES (
-                :folder_id, :tenant_id, :name, :original_name, :size,
-                :path, :user_id, :mime_type, 'in_approvazione', NOW(), NOW()
+                ?, ?, ?, ?, ?,
+                ?, ?, ?, 'in_approvazione', 0, NOW(), NOW()
             )
         ");
 
         $stmt->execute([
-            ':folder_id' => $folder_id,
-            ':tenant_id' => $folder['tenant_id'],
-            ':name' => $original_name,
-            ':original_name' => $original_name,
-            ':size' => $size,
-            ':path' => $unique_name,
-            ':user_id' => $user_id,
-            ':mime_type' => $mime_type
+            $folder_id,
+            $folder['tenant_id'],
+            $original_name,
+            $original_name,
+            $size,
+            $unique_name,
+            $user_id,
+            $mime_type
         ]);
 
         $file_id = $pdo->lastInsertId();
@@ -606,24 +504,17 @@ function uploadFile() {
             'size' => $size
         ]);
 
-        echo json_encode([
-            'success' => true,
-            'message' => 'File caricato con successo',
-            'file_id' => $file_id
-        ]);
+        apiSuccess(['file_id' => $file_id], 'File caricato con successo');
 
     } catch (Exception $e) {
-        error_log('UploadFile Error: ' . $e->getMessage());
-        http_response_code(500);
-        echo json_encode([
-            'error' => 'Errore nel caricamento del file',
-            'debug' => DEBUG_MODE ? $e->getMessage() : null
-        ]);
+        logApiError('UploadFile', $e);
+        apiError('Errore nel caricamento del file', 500, DEBUG_MODE ? ['debug' => $e->getMessage()] : null);
     }
 }
 
 /**
  * Elimina file o cartella
+ * UPDATED: Uses unified files table
  */
 function deleteItem() {
     global $pdo, $input, $user_id, $user_role;
@@ -632,136 +523,85 @@ function deleteItem() {
     $item_type = $input['type'] ?? null;
 
     if (empty($item_id) || empty($item_type)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'ID e tipo richiesti']);
-        return;
+        apiError('ID e tipo richiesti', 400);
     }
 
     if (!in_array($item_type, ['file', 'folder'])) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Tipo non valido']);
-        return;
+        apiError('Tipo non valido', 400);
     }
 
     try {
+        // Get item from unified files table
+        $stmt = $pdo->prepare("
+            SELECT tenant_id, uploaded_by, is_folder, folder_id
+            FROM files
+            WHERE id = ? AND deleted_at IS NULL
+        ");
+        $stmt->execute([$item_id]);
+        $item = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$item) {
+            apiError(ucfirst($item_type) . ' non trovato', 404);
+        }
+
+        // Verify the type matches
+        $is_folder = ($item['is_folder'] == 1);
+        if (($item_type === 'folder' && !$is_folder) || ($item_type === 'file' && $is_folder)) {
+            apiError('Tipo elemento non corrispondente', 400);
+        }
+
+        // Verifica accesso
+        if (!hasAccessToTenant($item['tenant_id'])) {
+            apiError('Non hai accesso a questo ' . $item_type, 403);
+        }
+
         if ($item_type === 'file') {
-            // Schema: files table uses uploaded_by (not owner_id)
-            $stmt = $pdo->prepare("
-                SELECT tenant_id, uploaded_by
-                FROM files
-                WHERE id = :id AND deleted_at IS NULL
-            ");
-            $stmt->execute([':id' => $item_id]);
-            $file = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$file) {
-                http_response_code(404);
-                echo json_encode(['error' => 'File non trovato']);
-                return;
-            }
-
-            // Verifica accesso
-            if (!hasAccessToTenant($file['tenant_id'])) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Non hai accesso a questo file']);
-                return;
-            }
-
             // Solo chi ha caricato il file, manager, admin o super_admin può eliminare
-            if ($file['uploaded_by'] != $user_id && !in_array($user_role, ['manager', 'admin', 'super_admin'])) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Non hai i permessi per eliminare questo file']);
-                return;
+            if ($item['uploaded_by'] != $user_id && !hasApiRole('manager')) {
+                apiError('Non hai i permessi per eliminare questo file', 403);
             }
-
-            // Soft delete
-            $stmt = $pdo->prepare("
-                UPDATE files
-                SET deleted_at = NOW(), deleted_by = :user_id
-                WHERE id = :id
-            ");
-            $stmt->execute([
-                ':user_id' => $user_id,
-                ':id' => $item_id
-            ]);
-
         } else {
-            // Schema: folders table uses owner_id
-            $stmt = $pdo->prepare("
-                SELECT tenant_id, owner_id, parent_id
-                FROM folders
-                WHERE id = :id AND deleted_at IS NULL
-            ");
-            $stmt->execute([':id' => $item_id]);
-            $folder = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$folder) {
-                http_response_code(404);
-                echo json_encode(['error' => 'Cartella non trovata']);
-                return;
-            }
-
-            // Verifica accesso
-            if (!hasAccessToTenant($folder['tenant_id'])) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Non hai accesso a questa cartella']);
-                return;
-            }
-
             // Per cartelle root, solo admin/super_admin
-            if ($folder['parent_id'] === null && !in_array($user_role, ['admin', 'super_admin'])) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Solo Admin può eliminare cartelle root']);
-                return;
+            if ($item['folder_id'] === null && !hasApiRole('admin')) {
+                apiError('Solo Admin può eliminare cartelle root', 403);
             }
 
             // Verifica che la cartella sia vuota
             $stmt = $pdo->prepare("
-                SELECT
-                    (SELECT COUNT(*) FROM folders WHERE parent_id = :id AND deleted_at IS NULL) as subfolders,
-                    (SELECT COUNT(*) FROM files WHERE folder_id = :id2 AND deleted_at IS NULL) as files
+                SELECT COUNT(*) as count
+                FROM files
+                WHERE folder_id = ? AND deleted_at IS NULL
             ");
-            $stmt->execute([':id' => $item_id, ':id2' => $item_id]);
-            $counts = $stmt->fetch(PDO::FETCH_ASSOC);
+            $stmt->execute([$item_id]);
+            $count_result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if ($counts['subfolders'] > 0 || $counts['files'] > 0) {
-                http_response_code(400);
-                echo json_encode(['error' => 'La cartella non è vuota']);
-                return;
+            if ($count_result['count'] > 0) {
+                apiError('La cartella non è vuota', 400);
             }
-
-            // Soft delete
-            $stmt = $pdo->prepare("
-                UPDATE folders
-                SET deleted_at = NOW(), deleted_by = :user_id
-                WHERE id = :id
-            ");
-            $stmt->execute([
-                ':user_id' => $user_id,
-                ':id' => $item_id
-            ]);
         }
 
-        // Log audit
-        logAudit('delete_' . $item_type, $item_type . 's', $item_id, []);
+        // Soft delete
+        $stmt = $pdo->prepare("
+            UPDATE files
+            SET deleted_at = NOW()
+            WHERE id = ?
+        ");
+        $stmt->execute([$item_id]);
 
-        echo json_encode([
-            'success' => true,
-            'message' => ucfirst($item_type) . ' eliminato con successo'
-        ]);
+        // Log audit
+        logAudit('delete_' . $item_type, 'files', $item_id, []);
+
+        apiSuccess(null, ucfirst($item_type) . ' eliminato con successo');
 
     } catch (Exception $e) {
-        error_log('DeleteItem Error: ' . $e->getMessage());
-        http_response_code(500);
-        echo json_encode([
-            'error' => 'Errore nell\'eliminazione',
-            'debug' => DEBUG_MODE ? $e->getMessage() : null
-        ]);
+        logApiError('DeleteItem', $e);
+        apiError('Errore nell\'eliminazione', 500, DEBUG_MODE ? ['debug' => $e->getMessage()] : null);
     }
 }
 
 /**
  * Rinomina file o cartella
+ * UPDATED: Uses unified files table
  */
 function renameItem() {
     global $pdo, $input, $user_id, $user_role;
@@ -771,147 +611,79 @@ function renameItem() {
     $new_name = trim($input['name'] ?? '');
 
     if (empty($item_id) || empty($item_type) || empty($new_name)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'ID, tipo e nuovo nome richiesti']);
-        return;
+        apiError('ID, tipo e nuovo nome richiesti', 400);
     }
 
     try {
-        if ($item_type === 'file') {
-            // Schema: files table uses uploaded_by (not owner_id)
-            $stmt = $pdo->prepare("
-                SELECT tenant_id, uploaded_by, folder_id
-                FROM files
-                WHERE id = :id AND deleted_at IS NULL
-            ");
-            $stmt->execute([':id' => $item_id]);
-            $file = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Get item from unified files table
+        $stmt = $pdo->prepare("
+            SELECT tenant_id, uploaded_by, folder_id, is_folder
+            FROM files
+            WHERE id = ? AND deleted_at IS NULL
+        ");
+        $stmt->execute([$item_id]);
+        $item = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if (!$file) {
-                http_response_code(404);
-                echo json_encode(['error' => 'File non trovato']);
-                return;
-            }
-
-            // Verifica accesso
-            if (!hasAccessToTenant($file['tenant_id'])) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Non hai accesso a questo file']);
-                return;
-            }
-
-            // Schema: files table uses 'name' column
-            // Verifica unicità nome nella cartella
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*)
-                FROM files
-                WHERE name = :name
-                AND folder_id = :folder_id
-                AND id != :id
-                AND deleted_at IS NULL
-            ");
-            $stmt->execute([
-                ':name' => $new_name,
-                ':folder_id' => $file['folder_id'],
-                ':id' => $item_id
-            ]);
-
-            if ($stmt->fetchColumn() > 0) {
-                http_response_code(400);
-                echo json_encode(['error' => 'Un file con questo nome esiste già']);
-                return;
-            }
-
-            // Aggiorna nome
-            $stmt = $pdo->prepare("
-                UPDATE files
-                SET name = :name, updated_at = NOW()
-                WHERE id = :id
-            ");
-            $stmt->execute([
-                ':name' => $new_name,
-                ':id' => $item_id
-            ]);
-
-        } else {
-            // Verifica permessi cartella
-            $stmt = $pdo->prepare("
-                SELECT tenant_id, parent_id
-                FROM folders
-                WHERE id = :id AND deleted_at IS NULL
-            ");
-            $stmt->execute([':id' => $item_id]);
-            $folder = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$folder) {
-                http_response_code(404);
-                echo json_encode(['error' => 'Cartella non trovata']);
-                return;
-            }
-
-            // Verifica accesso
-            if (!hasAccessToTenant($folder['tenant_id'])) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Non hai accesso a questa cartella']);
-                return;
-            }
-
-            // Verifica unicità nome al livello corrente
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*)
-                FROM folders
-                WHERE name = :name
-                AND " . ($folder['parent_id'] ? "parent_id = :parent_id" : "parent_id IS NULL") . "
-                AND tenant_id = :tenant_id
-                AND id != :id
-                AND deleted_at IS NULL
-            ");
-
-            $params = [
-                ':name' => $new_name,
-                ':tenant_id' => $folder['tenant_id'],
-                ':id' => $item_id
-            ];
-
-            if ($folder['parent_id']) {
-                $params[':parent_id'] = $folder['parent_id'];
-            }
-
-            $stmt->execute($params);
-
-            if ($stmt->fetchColumn() > 0) {
-                http_response_code(400);
-                echo json_encode(['error' => 'Una cartella con questo nome esiste già']);
-                return;
-            }
-
-            // Aggiorna nome
-            $stmt = $pdo->prepare("
-                UPDATE folders
-                SET name = :name, updated_at = NOW()
-                WHERE id = :id
-            ");
-            $stmt->execute([
-                ':name' => $new_name,
-                ':id' => $item_id
-            ]);
+        if (!$item) {
+            apiError(ucfirst($item_type) . ' non trovato', 404);
         }
 
-        // Log audit
-        logAudit('rename_' . $item_type, $item_type . 's', $item_id, ['new_name' => $new_name]);
+        // Verify the type matches
+        $is_folder = ($item['is_folder'] == 1);
+        if (($item_type === 'folder' && !$is_folder) || ($item_type === 'file' && $is_folder)) {
+            apiError('Tipo elemento non corrispondente', 400);
+        }
 
-        echo json_encode([
-            'success' => true,
-            'message' => ucfirst($item_type) . ' rinominato con successo'
-        ]);
+        // Verifica accesso
+        if (!hasAccessToTenant($item['tenant_id'])) {
+            apiError('Non hai accesso a questo ' . $item_type, 403);
+        }
+
+        // Verifica unicità nome nella cartella/livello corrente
+        if ($item['folder_id']) {
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM files
+                WHERE name = ?
+                AND folder_id = ?
+                AND id != ?
+                AND deleted_at IS NULL
+            ");
+            $stmt->execute([$new_name, $item['folder_id'], $item_id]);
+        } else {
+            // Root level
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM files
+                WHERE name = ?
+                AND folder_id IS NULL
+                AND tenant_id = ?
+                AND id != ?
+                AND deleted_at IS NULL
+            ");
+            $stmt->execute([$new_name, $item['tenant_id'], $item_id]);
+        }
+
+        if ($stmt->fetchColumn() > 0) {
+            apiError('Un elemento con questo nome esiste già', 400);
+        }
+
+        // Aggiorna nome
+        $stmt = $pdo->prepare("
+            UPDATE files
+            SET name = ?, updated_at = NOW()
+            WHERE id = ?
+        ");
+        $stmt->execute([$new_name, $item_id]);
+
+        // Log audit
+        logAudit('rename_' . $item_type, 'files', $item_id, ['new_name' => $new_name]);
+
+        apiSuccess(null, ucfirst($item_type) . ' rinominato con successo');
 
     } catch (Exception $e) {
-        error_log('RenameItem Error: ' . $e->getMessage());
-        http_response_code(500);
-        echo json_encode([
-            'error' => 'Errore nella rinomina',
-            'debug' => DEBUG_MODE ? $e->getMessage() : null
-        ]);
+        logApiError('RenameItem', $e);
+        apiError('Errore nella rinomina', 500, DEBUG_MODE ? ['debug' => $e->getMessage()] : null);
     }
 }
 
@@ -921,10 +693,8 @@ function renameItem() {
 function getTenantList() {
     global $pdo, $user_id, $user_role;
 
-    if (!in_array($user_role, ['admin', 'super_admin'])) {
-        http_response_code(403);
-        echo json_encode(['error' => 'Non autorizzato']);
-        return;
+    if (!hasApiRole('admin')) {
+        apiError('Non autorizzato', 403);
     }
 
     try {
@@ -958,9 +728,8 @@ function getTenantList() {
         ]);
 
     } catch (Exception $e) {
-        error_log('GetTenantList Error: ' . $e->getMessage());
-        http_response_code(500);
-        echo json_encode(['error' => 'Errore nel caricamento dei tenant']);
+        logApiError('GetTenantList', $e);
+        apiError('Errore nel caricamento dei tenant', 500);
     }
 }
 
@@ -973,8 +742,7 @@ function downloadFile() {
     $file_id = $_GET['id'] ?? null;
 
     if (empty($file_id)) {
-        http_response_code(400);
-        die(json_encode(['error' => 'ID file richiesto']));
+        apiError('ID file richiesto', 400);
     }
 
     try {
@@ -989,22 +757,19 @@ function downloadFile() {
         $file = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$file) {
-            http_response_code(404);
-            die(json_encode(['error' => 'File non trovato']));
+            apiError('File non trovato', 404);
         }
 
         // Verifica accesso al tenant
         if (!hasAccessToTenant($file['tenant_id'])) {
-            http_response_code(403);
-            die(json_encode(['error' => 'Non hai accesso a questo file']));
+            apiError('Non hai accesso a questo file', 403);
         }
 
         // Schema: files table uses file_path
         $file_path = UPLOAD_PATH . '/' . $file['tenant_id'] . '/' . $file['file_path'];
 
         if (!file_exists($file_path)) {
-            http_response_code(404);
-            die(json_encode(['error' => 'File fisico non trovato']));
+            apiError('File fisico non trovato', 404);
         }
 
         // Nome del file per il download
@@ -1030,9 +795,8 @@ function downloadFile() {
         exit;
 
     } catch (Exception $e) {
-        error_log('DownloadFile Error: ' . $e->getMessage());
-        http_response_code(500);
-        die(json_encode(['error' => 'Errore nel download del file']));
+        logApiError('DownloadFile', $e);
+        apiError('Errore nel download del file', 500);
     }
 }
 
@@ -1097,6 +861,7 @@ function hasAccessToTenant($check_tenant_id) {
 
 /**
  * Genera breadcrumb per navigazione
+ * UPDATED: Uses unified files table
  */
 function getBreadcrumb($folder_id) {
     global $pdo;
@@ -1106,11 +871,11 @@ function getBreadcrumb($folder_id) {
 
     while ($current_id) {
         $stmt = $pdo->prepare("
-            SELECT id, name, parent_id
-            FROM folders
-            WHERE id = :id AND deleted_at IS NULL
+            SELECT id, name, folder_id
+            FROM files
+            WHERE id = ? AND is_folder = 1 AND deleted_at IS NULL
         ");
-        $stmt->execute([':id' => $current_id]);
+        $stmt->execute([$current_id]);
         $folder = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$folder) break;
@@ -1120,7 +885,7 @@ function getBreadcrumb($folder_id) {
             'name' => $folder['name']
         ]);
 
-        $current_id = $folder['parent_id'];
+        $current_id = $folder['folder_id'];
     }
 
     return $breadcrumb;
@@ -1158,6 +923,4 @@ function logAudit($action, $entity_type, $entity_id, $details) {
     }
 }
 
-// Pulisci qualsiasi output buffer residuo
-ob_end_flush();
-?>
+// End of file - output buffer handled by apiSuccess/apiError

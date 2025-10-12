@@ -2,68 +2,44 @@
 /**
  * API Endpoint: Update User
  * Updates an existing user's information
+ *
+ * @version 2.0.0 - Refactored to use centralized api_auth.php
  */
 
-// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
-require_once __DIR__ . '/../../includes/session_init.php';
+// Include centralized API authentication
+require_once '../../includes/api_auth.php';
 
-
-// Suppress all PHP warnings/notices from being output
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ini_set('display_startup_errors', '0');
-
-// Start output buffering to catch any unexpected output
-ob_start();
-
-// Start session
-if (session_status() === PHP_SESSION_NONE) {}
-
-// Set JSON headers immediately
-header('Content-Type: application/json; charset=utf-8');
-header('X-Content-Type-Options: nosniff');
+// Initialize API environment (session, headers, error handling)
+initializeApiEnvironment();
 
 try {
     // Check request method
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        ob_clean();
-        http_response_code(405);
-        die(json_encode(['error' => 'Metodo non consentito']));
+        apiError('Metodo non consentito', 405);
     }
 
     // Include required files
     require_once '../../config.php';
     require_once '../../includes/db.php';
-    require_once '../../includes/auth.php';
 
-    // Authentication validation
-    if (!isset($_SESSION['user_id'])) {
-        ob_clean();
-        http_response_code(401);
-        die(json_encode(['error' => 'Non autorizzato']));
-    }
+    // Verify authentication
+    verifyApiAuthentication();
 
     // Get current user info
-    $currentUserId = $_SESSION['user_id'];
-    $currentUserRole = $_SESSION['role'] ?? 'user';
-    $currentTenantId = $_SESSION['tenant_id'] ?? null;
+    $userInfo = getApiUserInfo();
+    $currentUserId = $userInfo['user_id'];
+    $currentUserRole = $userInfo['role'];
+    $currentTenantId = $userInfo['tenant_id'];
+
+    // Verify CSRF token
+    verifyApiCsrfToken();
 
     // Only admins can update users (or users can update themselves)
     $userId = intval($_POST['user_id'] ?? 0);
     $isSelfUpdate = ($userId === $currentUserId);
 
-    if (!$isSelfUpdate && !in_array($currentUserRole, ['super_admin', 'tenant_admin'])) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Non hai i permessi per modificare utenti']));
-    }
-
-    // CSRF validation
-    $csrfToken = $_POST['csrf_token'] ?? '';
-    if (empty($csrfToken) || !isset($_SESSION['csrf_token']) || $csrfToken !== $_SESSION['csrf_token']) {
-        ob_clean();
-        http_response_code(403);
-        die(json_encode(['error' => 'Token CSRF non valido']));
+    if (!$isSelfUpdate && !hasApiRole('admin')) {
+        apiError('Non hai i permessi per modificare utenti', 403);
     }
 
     // Get and validate input
@@ -103,9 +79,7 @@ try {
     }
 
     if (!empty($errors)) {
-        ob_clean();
-        http_response_code(400);
-        die(json_encode(['error' => 'Errori di validazione', 'details' => $errors]));
+        apiError('Errori di validazione', 400, ['details' => $errors]);
     }
 
     // Get database instance
@@ -127,9 +101,7 @@ try {
     $existingUser = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$existingUser) {
-        ob_clean();
-        http_response_code(404);
-        die(json_encode(['error' => 'Utente non trovato']));
+        apiError('Utente non trovato', 404);
     }
 
     // Check if email is being changed and if new email already exists
@@ -142,9 +114,7 @@ try {
         $emailExists = $emailCheckStmt->fetch(PDO::FETCH_ASSOC)['count'] > 0;
 
         if ($emailExists) {
-            ob_clean();
-            http_response_code(409);
-            die(json_encode(['error' => 'Email già utilizzata da un altro utente']));
+            apiError('Email già utilizzata da un altro utente', 409);
         }
     }
 
@@ -168,15 +138,11 @@ try {
         $tenant = $tenantStmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$tenant) {
-            ob_clean();
-            http_response_code(404);
-            die(json_encode(['error' => 'Azienda non trovata']));
+            apiError('Azienda non trovata', 404);
         }
 
         if (!in_array($tenant['status'], ['active', 'trial'])) {
-            ob_clean();
-            http_response_code(400);
-            die(json_encode(['error' => 'Azienda non attiva']));
+            apiError('Azienda non attiva', 400);
         }
 
         $updateFields[] = 'tenant_id = :tenant_id';
@@ -209,42 +175,19 @@ try {
     }
 
     if (!$updateStmt->execute()) {
-        ob_clean();
-        http_response_code(500);
-        die(json_encode(['error' => 'Errore nell\'aggiornamento dell\'utente']));
+        apiError('Errore nell\'aggiornamento dell\'utente', 500);
     }
 
-    // Clean any output buffer
-    ob_clean();
-
     // Success response
-    echo json_encode([
-        'success' => true,
-        'message' => 'Utente aggiornato con successo'
-    ]);
-    exit();
+    apiSuccess(null, 'Utente aggiornato con successo');
 
 } catch (PDOException $e) {
     // Log the actual error for debugging
-    error_log('Update User PDO Error: ' . $e->getMessage());
-
-    // Clean any output buffer
-    ob_clean();
-
-    // Return user-friendly error
-    http_response_code(500);
-    echo json_encode(['error' => 'Errore database']);
-    exit();
+    logApiError('Update User PDO', $e);
+    apiError('Errore database', 500);
 
 } catch (Exception $e) {
     // Log the error
-    error_log('Update User Error: ' . $e->getMessage());
-
-    // Clean any output buffer
-    ob_clean();
-
-    // Return generic error
-    http_response_code(500);
-    echo json_encode(['error' => 'Errore interno del server']);
-    exit();
+    logApiError('Update User', $e);
+    apiError('Errore interno del server', 500);
 }

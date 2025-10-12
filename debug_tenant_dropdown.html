@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenant Dropdown Debug Tool</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        h1 { color: #4ec9b0; }
+        h2 { color: #569cd6; margin-top: 30px; }
+        .section {
+            background: #252526;
+            padding: 15px;
+            margin: 15px 0;
+            border-left: 4px solid #007acc;
+            border-radius: 4px;
+        }
+        .success { border-left-color: #4ec9b0; }
+        .error { border-left-color: #f48771; }
+        .warning { border-left-color: #dcdcaa; }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button:hover { background: #005a9e; }
+        .clear-btn { background: #f48771; }
+        .clear-btn:hover { background: #d16969; }
+        pre {
+            background: #1e1e1e;
+            padding: 10px;
+            overflow-x: auto;
+            border-radius: 4px;
+            border: 1px solid #3c3c3c;
+        }
+        .tenant-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: #2d2d30;
+            border-radius: 4px;
+        }
+        .tenant-active { border-left: 3px solid #4ec9b0; }
+        .tenant-deleted { border-left: 3px solid #f48771; }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .badge-success { background: #4ec9b0; color: #000; }
+        .badge-danger { background: #f48771; color: #000; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Tenant Dropdown Debug Tool</h1>
+    <p>This tool helps diagnose why multiple tenants appear in the dropdown despite database cleanup.</p>
+
+    <div class="section">
+        <h2>1. Browser Cache Status</h2>
+        <button onclick="checkStorage()">Check Storage</button>
+        <button class="clear-btn" onclick="clearAllCache()">Clear All Cache</button>
+        <div id="storage-status"></div>
+    </div>
+
+    <div class="section">
+        <h2>2. Session Information</h2>
+        <button onclick="checkSession()">Check PHP Session</button>
+        <div id="session-info"></div>
+    </div>
+
+    <div class="section">
+        <h2>3. API Response Test</h2>
+        <button onclick="testAPI()">Test API Directly</button>
+        <button onclick="testAPINoCache()">Test API (No Cache)</button>
+        <div id="api-response"></div>
+    </div>
+
+    <div class="section">
+        <h2>4. Network Requests</h2>
+        <p>Open Developer Tools (F12) → Network tab to see actual API calls</p>
+        <button onclick="showNetworkHelp()">Show Instructions</button>
+        <div id="network-help"></div>
+    </div>
+
+    <div class="section">
+        <h2>5. Actions</h2>
+        <button class="clear-btn" onclick="hardRefresh()">Hard Refresh Page</button>
+        <button class="clear-btn" onclick="clearStorageAndReload()">Clear Storage + Reload</button>
+        <button onclick="logout()">Logout</button>
+    </div>
+
+    <div class="section">
+        <h2>6. Debug Log</h2>
+        <pre id="debug-log">Ready to debug...</pre>
+    </div>
+
+    <script>
+        const log = (message, type = 'info') => {
+            const logEl = document.getElementById('debug-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = {
+                'info': 'ℹ️',
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️'
+            }[type] || 'ℹ️';
+            logEl.textContent += `\n[${timestamp}] ${icon} ${message}`;
+            logEl.scrollTop = logEl.scrollHeight;
+        };
+
+        // Check browser storage
+        function checkStorage() {
+            const output = document.getElementById('storage-status');
+            let html = '<h3>Storage Analysis:</h3>';
+
+            // localStorage
+            html += '<h4>localStorage:</h4>';
+            if (localStorage.length === 0) {
+                html += '<p class="badge badge-success">Empty ✓</p>';
+            } else {
+                html += `<p class="badge badge-danger">${localStorage.length} items found</p>`;
+                html += '<pre>';
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    html += `${key}: ${localStorage.getItem(key)}\n`;
+                }
+                html += '</pre>';
+            }
+
+            // sessionStorage
+            html += '<h4>sessionStorage:</h4>';
+            if (sessionStorage.length === 0) {
+                html += '<p class="badge badge-success">Empty ✓</p>';
+            } else {
+                html += `<p class="badge badge-danger">${sessionStorage.length} items found</p>`;
+                html += '<pre>';
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    html += `${key}: ${sessionStorage.getItem(key)}\n`;
+                }
+                html += '</pre>';
+            }
+
+            // Cookies
+            html += '<h4>Cookies:</h4>';
+            if (document.cookie) {
+                html += '<pre>' + document.cookie + '</pre>';
+            } else {
+                html += '<p>No cookies found</p>';
+            }
+
+            output.innerHTML = html;
+            log('Storage check completed', 'success');
+        }
+
+        // Clear all cache
+        function clearAllCache() {
+            localStorage.clear();
+            sessionStorage.clear();
+            log('localStorage cleared', 'success');
+            log('sessionStorage cleared', 'success');
+            alert('Cache cleared! Click OK to reload page.');
+            location.reload(true);
+        }
+
+        // Check session
+        async function checkSession() {
+            const output = document.getElementById('session-info');
+            output.innerHTML = '<p>Checking session...</p>';
+
+            try {
+                const response = await fetch('/CollaboraNexio/api/auth.php?action=check');
+                const data = await response.json();
+
+                let html = '<h3>Session Data:</h3><pre>';
+                html += JSON.stringify(data, null, 2);
+                html += '</pre>';
+
+                output.innerHTML = html;
+                log('Session check completed', 'success');
+            } catch (error) {
+                output.innerHTML = `<p class="badge badge-danger">Error: ${error.message}</p>`;
+                log(`Session check failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Test API
+        async function testAPI() {
+            const output = document.getElementById('api-response');
+            output.innerHTML = '<p>Testing API...</p>';
+
+            try {
+                const response = await fetch('/CollaboraNexio/api/files_tenant_fixed.php?action=get_tenant_list');
+                const data = await response.json();
+
+                let html = '<h3>API Response:</h3>';
+
+                if (data.success && data.data) {
+                    html += `<p>Found ${data.data.length} tenant(s):</p>`;
+
+                    data.data.forEach(tenant => {
+                        const isActive = tenant.is_active === '1' || tenant.is_active === 1;
+                        const badgeClass = isActive ? 'badge-success' : 'badge-danger';
+                        html += `
+                            <div class="tenant-item tenant-${isActive ? 'active' : 'deleted'}">
+                                <strong>ID ${tenant.id}:</strong> ${tenant.name}
+                                <span class="badge ${badgeClass}">${tenant.status || 'unknown'}</span>
+                            </div>
+                        `;
+                    });
+
+                    if (data.data.length === 1 && data.data[0].id == 11) {
+                        html += '<p class="badge badge-success">✓ Correct! Only tenant 11 is returned</p>';
+                        log('API response correct: Only tenant 11', 'success');
+                    } else if (data.data.length > 1) {
+                        html += '<p class="badge badge-danger">✗ Issue: Multiple tenants returned from API</p>';
+                        html += '<p>Expected: 1 tenant (ID 11)</p>';
+                        html += `<p>Actual: ${data.data.length} tenants</p>`;
+                        log(`API returning ${data.data.length} tenants (expected 1)`, 'error');
+                    }
+                } else {
+                    html += '<p class="badge badge-danger">Error: ' + (data.error || 'Unknown error') + '</p>';
+                    log('API error: ' + (data.error || 'Unknown'), 'error');
+                }
+
+                html += '<h4>Raw Response:</h4><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                output.innerHTML = html;
+
+            } catch (error) {
+                output.innerHTML = `<p class="badge badge-danger">Fetch Error: ${error.message}</p>`;
+                log(`API fetch failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Test API without cache
+        async function testAPINoCache() {
+            const output = document.getElementById('api-response');
+            output.innerHTML = '<p>Testing API (no cache)...</p>';
+
+            try {
+                // Add timestamp to bypass cache
+                const url = `/CollaboraNexio/api/files_tenant_fixed.php?action=get_tenant_list&_=${Date.now()}`;
+                const response = await fetch(url, {
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                const data = await response.json();
+
+                let html = '<h3>API Response (No Cache):</h3>';
+                html += '<p>Cache bypassed with timestamp and headers</p>';
+
+                if (data.success && data.data) {
+                    html += `<p>Found ${data.data.length} tenant(s):</p>`;
+
+                    data.data.forEach(tenant => {
+                        const isActive = tenant.is_active === '1' || tenant.is_active === 1;
+                        html += `
+                            <div class="tenant-item tenant-${isActive ? 'active' : 'deleted'}">
+                                <strong>ID ${tenant.id}:</strong> ${tenant.name}
+                                <span class="badge ${isActive ? 'badge-success' : 'badge-danger'}">${tenant.status || 'unknown'}</span>
+                            </div>
+                        `;
+                    });
+
+                    if (data.data.length === 1) {
+                        html += '<p class="badge badge-success">✓ API returns only 1 tenant</p>';
+                        log('No-cache API test: Only 1 tenant', 'success');
+                    } else {
+                        html += `<p class="badge badge-danger">✗ API still returns ${data.data.length} tenants</p>`;
+                        log(`No-cache API test: ${data.data.length} tenants`, 'warning');
+                    }
+                }
+
+                html += '<h4>Raw Response:</h4><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                output.innerHTML = html;
+
+            } catch (error) {
+                output.innerHTML = `<p class="badge badge-danger">Error: ${error.message}</p>`;
+                log(`No-cache API test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Show network help
+        function showNetworkHelp() {
+            const output = document.getElementById('network-help');
+            output.innerHTML = `
+                <h3>How to Monitor Network Requests:</h3>
+                <ol>
+                    <li>Press <kbd>F12</kbd> to open Developer Tools</li>
+                    <li>Click on the <strong>Network</strong> tab</li>
+                    <li>Click <strong>XHR</strong> filter to show only AJAX requests</li>
+                    <li>Reload the page or trigger the tenant dropdown</li>
+                    <li>Look for request to: <code>files_tenant_fixed.php?action=get_tenant_list</code></li>
+                    <li>Click on the request to see:
+                        <ul>
+                            <li><strong>Headers</strong> - Request details</li>
+                            <li><strong>Preview</strong> - Formatted response</li>
+                            <li><strong>Response</strong> - Raw JSON</li>
+                        </ul>
+                    </li>
+                    <li>Check if response shows multiple tenants</li>
+                </ol>
+                <p><strong>Expected Response:</strong></p>
+                <pre>{
+  "success": true,
+  "data": [
+    {
+      "id": "11",
+      "name": "S.CO Srls",
+      "is_active": "1",
+      "status": "active"
+    }
+  ]
+}</pre>
+            `;
+            log('Network monitoring instructions displayed', 'info');
+        }
+
+        // Hard refresh
+        function hardRefresh() {
+            log('Performing hard refresh...', 'info');
+            location.reload(true);
+        }
+
+        // Clear and reload
+        function clearStorageAndReload() {
+            log('Clearing all storage...', 'info');
+            localStorage.clear();
+            sessionStorage.clear();
+            document.cookie.split(";").forEach(c => {
+                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+            });
+            alert('All storage cleared! Click OK to reload.');
+            location.reload(true);
+        }
+
+        // Logout
+        function logout() {
+            if (confirm('Logout and clear session?')) {
+                localStorage.clear();
+                sessionStorage.clear();
+                log('Logging out...', 'info');
+                window.location.href = '/CollaboraNexio/logout.php';
+            }
+        }
+
+        // Auto-run on page load
+        window.addEventListener('load', () => {
+            log('Debug tool loaded', 'success');
+            log('Click buttons above to run diagnostics', 'info');
+            checkStorage();
+        });
+    </script>
+</body>
+</html>
