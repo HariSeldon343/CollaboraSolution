@@ -142,6 +142,7 @@ try {
             'key' => $documentKey,
             'title' => $fileInfo['name'],
             'url' => $fileUrl,
+            'token' => $downloadToken, // JWT token for document download authentication
             'info' => [
                 'author' => $fileInfo['uploaded_by_name'] ?? 'Unknown',
                 'created' => $fileInfo['created_at'],
@@ -251,11 +252,30 @@ try {
         ]
     ];
 
+    // ENHANCED LOGGING FOR DEBUGGING
+    if (DEBUG_MODE) {
+        error_log('=== OnlyOffice Document Opening Debug ===');
+        error_log('PRODUCTION_MODE: ' . (defined('PRODUCTION_MODE') ? (PRODUCTION_MODE ? 'TRUE' : 'FALSE') : 'UNDEFINED'));
+        error_log('BASE_URL: ' . BASE_URL);
+        error_log('ONLYOFFICE_DOWNLOAD_URL constant: ' . ONLYOFFICE_DOWNLOAD_URL);
+        error_log('ONLYOFFICE_CALLBACK_URL constant: ' . ONLYOFFICE_CALLBACK_URL);
+        error_log('Generated fileUrl: ' . $fileUrl);
+        error_log('Generated callbackUrl: ' . ($callbackUrl ?? 'NULL'));
+        error_log('File ID: ' . $file_id);
+        error_log('Document Key: ' . $documentKey);
+        error_log('Mode: ' . $mode);
+        error_log('Config being sent to OnlyOffice:');
+        error_log(json_encode($config, JSON_PRETTY_PRINT));
+        error_log('=== End OnlyOffice Debug ===');
+    }
+
     // Log audit
     logDocumentAudit('document_opened', $file_id, $user_id, [
         'mode' => $mode,
         'session_id' => $sessionData['session_id'],
-        'document_key' => $documentKey
+        'document_key' => $documentKey,
+        'file_url' => $fileUrl,
+        'callback_url' => $callbackUrl
     ]);
 
     // Send response

@@ -47,15 +47,51 @@ function sendError(string $message, int $code = 403): void {
 }
 
 try {
+    // ENHANCED LOGGING FOR DEBUGGING
+    if (DEBUG_MODE) {
+        error_log('=== OnlyOffice Download Request ===');
+        error_log('Request URI: ' . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
+        error_log('Remote Address: ' . ($_SERVER['REMOTE_ADDR'] ?? 'N/A'));
+        error_log('User Agent: ' . ($_SERVER['HTTP_USER_AGENT'] ?? 'N/A'));
+        error_log('PRODUCTION_MODE: ' . (defined('PRODUCTION_MODE') ? (PRODUCTION_MODE ? 'TRUE' : 'FALSE') : 'UNDEFINED'));
+        error_log('ONLYOFFICE_DOWNLOAD_URL constant: ' . (defined('ONLYOFFICE_DOWNLOAD_URL') ? ONLYOFFICE_DOWNLOAD_URL : 'UNDEFINED'));
+    }
+
     // Get parameters
     $file_id = isset($_GET['file_id']) ? (int)$_GET['file_id'] : 0;
+
+    // Get token from query parameter OR Authorization header
     $token = $_GET['token'] ?? '';
 
+    // If no token in query, check Authorization header (OnlyOffice sends token here when using document.token)
+    if (empty($token) && isset($_SERVER['HTTP_AUTHORIZATION'])) {
+        $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
+        // Extract token from "Bearer TOKEN" format
+        if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+            $token = $matches[1];
+        }
+    }
+
+    if (DEBUG_MODE) {
+        error_log('File ID: ' . $file_id);
+        error_log('Token source: ' . (!empty($_GET['token']) ? 'QUERY_PARAM' : (!empty($_SERVER['HTTP_AUTHORIZATION']) ? 'AUTH_HEADER' : 'NONE')));
+        error_log('Token present: ' . (!empty($token) ? 'YES' : 'NO'));
+        if (!empty($token)) {
+            error_log('Token preview: ' . substr($token, 0, 50) . '...');
+        }
+    }
+
     if ($file_id <= 0) {
+        if (DEBUG_MODE) {
+            error_log('ERROR: Invalid file ID');
+        }
         sendError('ID file non valido', 400);
     }
 
     if (empty($token)) {
+        if (DEBUG_MODE) {
+            error_log('ERROR: Token missing');
+        }
         sendError('Token mancante', 401);
     }
 
