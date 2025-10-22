@@ -3392,3 +3392,31 @@ Stack trace:
 [22-Oct-2025 20:11:31 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
 [22-Oct-2025 20:11:31 Europe/Rome] API CSRF Check - Token received: 9c6bbe7fcb...
 [22-Oct-2025 20:11:31 Europe/Rome] API CSRF Check - Session token: 9c6bbe7fcb...
+[22-Oct-2025 20:11:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:12:22 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:12:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:13:22 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:13:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:14:22 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:15:32 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:16:32 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:17:32 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:18:32 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:18:32 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:18:32 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:53:44 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:53:52 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:56:22 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:56:22 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 20:56:22 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 21:00:25 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 21:00:25 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 21:00:26 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 21:00:27 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 21:00:28 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 21:00:28 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 21:00:28 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 21:00:30 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 21:00:32 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 300s
+[22-Oct-2025 21:00:32 Europe/Rome] API CSRF Check - Token received: 727aedc81d...
+[22-Oct-2025 21:00:32 Europe/Rome] API CSRF Check - Session token: 727aedc81d...
