@@ -625,8 +625,8 @@
                     this.state.activeUploads.delete(uploadId);
                 });
 
-                // Send request with cache busting
-                const cacheBustUrl = this.config.uploadApi + '?_t=' + Date.now() + Math.random();
+                // Send request with cache busting (use integer only to avoid decimal point in URL)
+                const cacheBustUrl = this.config.uploadApi + '?_t=' + Date.now() + Math.floor(Math.random() * 1000000);
                 xhr.open('POST', cacheBustUrl);
                 // Force no-cache headers to bypass browser cache
                 xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -700,8 +700,8 @@
                     const overallProgress = ((chunkIndex + 1) / totalChunks) * 100;
                     this.updateUploadProgress(uploadId, overallProgress);
 
-                    // Send chunk with cache busting
-                    const cacheBustUrl = this.config.uploadApi + '?_t=' + Date.now() + Math.random();
+                    // Send chunk with cache busting (use integer only to avoid decimal point in URL)
+                    const cacheBustUrl = this.config.uploadApi + '?_t=' + Date.now() + Math.floor(Math.random() * 1000000);
                     xhr.open('POST', cacheBustUrl);
                     // Force no-cache headers to bypass browser cache
                     xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
