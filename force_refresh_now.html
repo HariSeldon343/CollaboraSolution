@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Ricaricamento Forzato - CollaboraNexio</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: white;
+        }
+        .loader {
+            text-align: center;
+        }
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        h1 {
+            font-size: 24px;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="loader">
+        <div class="spinner"></div>
+        <h1>Ricaricamento in corso...</h1>
+    </div>
+
+    <script>
+        // IMMEDIATE REDIRECT WITH CACHE BUSTING
+        (function() {
+            console.log('🚀 FORCE REFRESH - Starting immediate redirect...');
+
+            // Clear all possible caches
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => caches.delete(name));
+                });
+            }
+
+            // Clear localStorage
+            try { localStorage.clear(); } catch(e) {}
+
+            // Clear sessionStorage
+            try { sessionStorage.clear(); } catch(e) {}
+
+            // Force immediate redirect with multiple cache busting parameters
+            const timestamp = Date.now();
+            const random = Math.random().toString(36).substring(7);
+            const url = `/CollaboraNexio/files.php?_refresh=${timestamp}&_nocache=${random}&_v=${timestamp}`;
+
+            console.log('✅ Redirecting to:', url);
+
+            // Use location.replace for immediate redirect (no history)
+            setTimeout(() => {
+                window.location.replace(url);
+            }, 500);
+        })();
+    </script>
+</body>
+</html>

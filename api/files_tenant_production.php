@@ -856,10 +856,10 @@ function logAudit($action, $entity_type, $entity_id, $details) {
         $stmt = $pdo->prepare("
             INSERT INTO audit_logs (
                 user_id, tenant_id, action, entity_type, entity_id,
-                details, ip_address, user_agent, created_at
+                description, ip_address, user_agent, severity, status, created_at
             ) VALUES (
                 :user_id, :tenant_id, :action, :entity_type, :entity_id,
-                :details, :ip, :agent, NOW()
+                :description, :ip, :agent, :severity, :status, NOW()
             )
         ");
 
@@ -869,9 +869,11 @@ function logAudit($action, $entity_type, $entity_id, $details) {
             ':action' => $action,
             ':entity_type' => $entity_type,
             ':entity_id' => $entity_id,
-            ':details' => json_encode($details),
+            ':description' => json_encode($details),
             ':ip' => $_SERVER['REMOTE_ADDR'] ?? '',
-            ':agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
+            ':agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+            ':severity' => 'info',
+            ':status' => 'success'
         ]);
     } catch (Exception $e) {
         error_log('Audit log failed: ' . $e->getMessage());

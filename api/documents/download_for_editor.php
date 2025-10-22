@@ -187,13 +187,16 @@ try {
             'action' => 'document_downloaded_for_editor',
             'entity_type' => 'document',
             'entity_id' => $file_id,
-            'details' => json_encode([
+            'description' => "Documento scaricato per editor: {$fileName}",
+            'new_values' => json_encode([
                 'file_name' => $fileName,
                 'file_size' => $fileSize,
                 'session_token' => substr($session_token, 0, 20) . '...'
             ]),
             'ip_address' => $_SERVER['REMOTE_ADDR'] ?? '',
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+            'severity' => 'info',
+            'status' => 'success',
             'created_at' => date('Y-m-d H:i:s')
         ]);
     } catch (Exception $e) {

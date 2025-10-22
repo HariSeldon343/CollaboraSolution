@@ -12,15 +12,22 @@
 declare(strict_types=1);
 
 // Include centralized API authentication
+require_once __DIR__ . '/../../config.php';  // Config should be loaded first
+require_once __DIR__ . '/../../includes/db.php';  // Load Database class
 require_once __DIR__ . '/../../includes/api_auth.php';
 require_once __DIR__ . '/../../includes/file_helper.php';
-require_once __DIR__ . '/../../includes/config.php';
 
 // Initialize API environment
 initializeApiEnvironment();
 
-// Verify authentication
+// Verify authentication FIRST (critical security check)
 verifyApiAuthentication();
+
+// Force no-cache headers to prevent browser caching issues (BUG-008 cache fix)
+// MUST be after auth check to ensure proper 401 response for unauthorized requests
+header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 
 // Get current user info
 $userInfo = getApiUserInfo();
@@ -260,7 +267,8 @@ function processFileUpload(array $file, int $tenantId, ?int $folderId, int $user
             'action' => 'file_uploaded',
             'entity_type' => 'file',
             'entity_id' => $fileId,
-            'details' => json_encode([
+            'description' => "File caricato: {$originalName} (" . FileHelper::formatFileSize($fileSize) . ")",
+            'new_values' => json_encode([
                 'file_name' => $originalName,
                 'file_size' => $fileSize,
                 'mime_type' => $mimeType,
@@ -268,6 +276,8 @@ function processFileUpload(array $file, int $tenantId, ?int $folderId, int $user
             ]),
             'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+            'severity' => 'info',
+            'status' => 'success',
             'created_at' => date('Y-m-d H:i:s')
         ]);
 

@@ -167,13 +167,16 @@ function createDocument(string $type, string $name, int $tenantId, ?int $folderI
                 'action' => 'document_created',
                 'entity_type' => 'file',
                 'entity_id' => $fileId,
-                'details' => json_encode([
+                'description' => "Documento creato: {$name}.{$type}",
+                'new_values' => json_encode([
                     'document_name' => $name,
                     'document_type' => $type,
                     'folder_id' => $folderId
                 ]),
                 'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
                 'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+                'severity' => 'info',
+                'status' => 'success',
                 'created_at' => date('Y-m-d H:i:s')
             ]);
         } catch (Exception $auditError) {

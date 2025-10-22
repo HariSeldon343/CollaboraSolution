@@ -11,8 +11,9 @@
 declare(strict_types=1);
 
 // Include centralized API authentication
+require_once __DIR__ . '/../../config.php';  // Config should be loaded first
+require_once __DIR__ . '/../../includes/db.php';  // Load Database class
 require_once __DIR__ . '/../../includes/api_auth.php';
-require_once __DIR__ . '/../../includes/config.php';
 
 // Initialize API environment
 initializeApiEnvironment();
@@ -139,12 +140,15 @@ function softDelete(array $item, int $userId, $db): array {
             'action' => 'file_deleted',
             'entity_type' => $item['is_folder'] ? 'folder' : 'file',
             'entity_id' => $item['id'],
-            'details' => json_encode([
+            'description' => ($item['is_folder'] ? 'Cartella eliminata' : 'File eliminato') . ": {$item['name']}",
+            'new_values' => json_encode([
                 'file_name' => $item['name'],
                 'soft_delete' => true
             ]),
             'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+            'severity' => 'info',
+            'status' => 'success',
             'created_at' => $timestamp
         ]);
 
@@ -248,12 +252,15 @@ function permanentDelete(array $item, $db): array {
             'action' => 'file_deleted_permanently',
             'entity_type' => $item['is_folder'] ? 'folder' : 'file',
             'entity_id' => $item['id'],
-            'details' => json_encode([
+            'description' => ($item['is_folder'] ? 'Cartella eliminata permanentemente' : 'File eliminato permanentemente') . ": {$item['name']}",
+            'old_values' => json_encode([
                 'file_name' => $item['name'],
                 'permanent_delete' => true
             ]),
             'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+            'severity' => 'warning',
+            'status' => 'success',
             'created_at' => date('Y-m-d H:i:s')
         ]);
 

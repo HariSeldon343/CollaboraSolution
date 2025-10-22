@@ -1,15 +1,41 @@
 # Enable RewriteEngine
 RewriteEngine On
-RewriteBase /CollaboraNexio/api/
 
-# Handle notifications routes
+# CRITICAL FIX FOR BUG-010 (403 Forbidden with Query String)
+# Problem: POST requests with query string (?_t=timestamp) were getting 403 Forbidden
+# Root Cause: Conflict between RewriteRules and query string handling
+# Solution: Use END flag instead of L flag, and better pattern matching
+
+# STEP 1: Special handling for /api/files/ PHP files (highest priority)
+# This MUST come first and use END flag to stop all processing
+RewriteCond %{REQUEST_URI} ^/CollaboraNexio/api/files/[^/]+\.php
+RewriteRule .* - [END]
+
+# STEP 2: Special handling for /api/ PHP files
+RewriteCond %{REQUEST_URI} ^/CollaboraNexio/api/[^/]+\.php
+RewriteRule .* - [END]
+
+# STEP 3: For safety, also check if file physically exists
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule .* - [END]
+
+# Handle notifications routes (only if not a real file)
+RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^notifications/unread/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^notifications/all/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^notifications/mark-read/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^notifications/mark-all-read/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^notifications/?$ notifications.php [L]
 
-# Other API routes (existing or future)
+# Other API routes - ONLY for non-existent files
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ router.php?route=$1 [QSA,L]

@@ -104,13 +104,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $userData) {
                 if ($updateStmt->execute()) {
                     $success = true;
 
-                    // Log audit
-                    $auditQuery = "INSERT INTO audit_logs (tenant_id, user_id, action, entity_type, entity_id, details)
-                                 SELECT tenant_id, :user_id, 'password_change', 'user', :user_id, 'Password cambiata (scadenza)'
-                                 FROM users WHERE id = :user_id";
-                    $auditStmt = $conn->prepare($auditQuery);
-                    $auditStmt->bindParam(':user_id', $userId);
-                    $auditStmt->execute();
+                    // Log audit using correct schema (description, not details)
+                    try {
+                        $auditQuery = "INSERT INTO audit_logs (
+                                        tenant_id, user_id, action, entity_type, entity_id,
+                                        description, ip_address, severity, status, created_at
+                                      )
+                                      SELECT
+                                        tenant_id,
+                                        :user_id,
+                                        'password_change',
+                                        'user',
+                                        :user_id,
+                                        'Password cambiata (scadenza policy 90 giorni)',
+                                        :ip_address,
+                                        'info',
+                                        'success',
+                                        NOW()
+                                      FROM users WHERE id = :user_id";
+                        $auditStmt = $conn->prepare($auditQuery);
+                        $auditStmt->bindParam(':user_id', $userId);
+                        $auditStmt->bindParam(':ip_address', $_SERVER['REMOTE_ADDR']);
+                        $auditStmt->execute();
+                    } catch (Exception $auditEx) {
+                        // Log error but don't fail the password change
+                        error_log("Audit log failed: " . $auditEx->getMessage());
+                    }
 
                     // Set session if not already logged in
                     if (!isset($_SESSION['user_id'])) {

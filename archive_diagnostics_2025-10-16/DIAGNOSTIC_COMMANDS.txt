@@ -1,0 +1,324 @@
+================================================================================
+TENANT FOLDER CREATION - DIAGNOSTIC CONSOLE COMMANDS
+================================================================================
+
+Open the browser console (F12) on files.php and run these commands one by one
+to diagnose issues with the tenant folder creation feature.
+
+================================================================================
+TEST 1: CHECK BUTTON EXISTS
+================================================================================
+
+document.getElementById('createRootFolderBtn')
+
+EXPECTED: HTMLButtonElement {...}
+FAIL IF: null (button not found in DOM)
+
+FIX IF FAIL:
+- Verify files.php contains the button in header section (around line 368)
+- Check if user role is 'admin' or 'super_admin' (button only shows for these roles)
+
+================================================================================
+TEST 2: CHECK MODAL EXISTS
+================================================================================
+
+document.getElementById('createTenantFolderModal')
+
+EXPECTED: div.modal-overlay {...}
+FAIL IF: null (modal not found)
+
+FIX IF FAIL:
+- Verify files.php contains the modal HTML (around line 648)
+- Modal should only exist if user role is 'admin' or 'super_admin'
+
+================================================================================
+TEST 3: CHECK MODAL ELEMENTS
+================================================================================
+
+console.log({
+  tenantSelect: document.getElementById('tenantSelect'),
+  folderName: document.getElementById('folderName')
+})
+
+EXPECTED: Both elements should exist (not null)
+FAIL IF: Either element is null
+
+FIX IF FAIL:
+- Check modal HTML structure in files.php
+- Verify IDs match: 'tenantSelect' and 'folderName'
+
+================================================================================
+TEST 4: CHECK FILEMANAGER INSTANCE
+================================================================================
+
+window.fileManager
+
+EXPECTED: EnhancedFileManager {...}
+FAIL IF: undefined
+
+FIX IF FAIL:
+- Check if filemanager_enhanced.js is loaded
+- Look for JavaScript errors in console
+- Verify script runs after DOM is ready
+
+================================================================================
+TEST 5: CHECK REQUIRED METHODS
+================================================================================
+
+console.log({
+  showCreateTenantFolderModal: typeof window.fileManager.showCreateTenantFolderModal,
+  loadTenantOptions: typeof window.fileManager.loadTenantOptions,
+  createRootFolder: typeof window.fileManager.createRootFolder
+})
+
+EXPECTED: All should be 'function'
+FAIL IF: Any is 'undefined'
+
+FIX IF FAIL:
+- Verify methods exist in filemanager_enhanced.js (lines 2216-2307)
+- Check for JavaScript syntax errors
+
+================================================================================
+TEST 6: CHECK CSRF TOKEN
+================================================================================
+
+window.fileManager.csrfToken
+
+EXPECTED: String with token value (e.g., "abc123...")
+FAIL IF: undefined or empty string
+
+FIX IF FAIL:
+- Check if files.php has hidden input with id="csrfToken"
+- Verify PHP session generates CSRF token
+
+================================================================================
+TEST 7: CHECK USER ROLE
+================================================================================
+
+window.fileManager.userRole
+
+EXPECTED: 'admin' or 'super_admin'
+FAIL IF: 'user' or 'manager'
+
+NOTE: Only admins can create tenant folders
+If role is wrong, button won't show or function will fail
+
+================================================================================
+TEST 8: MANUALLY TRIGGER MODAL
+================================================================================
+
+window.fileManager.showCreateTenantFolderModal()
+
+EXPECTED: Modal should appear on screen
+FAIL IF: Nothing happens or error in console
+
+CHECK AFTER RUNNING:
+document.getElementById('createTenantFolderModal').style.display
+
+EXPECTED: 'flex' (modal visible)
+FAIL IF: 'none' (modal hidden)
+
+================================================================================
+TEST 9: TEST TENANT LIST API
+================================================================================
+
+fetch('/CollaboraNexio/api/tenants/list.php', {
+  method: 'GET',
+  credentials: 'same-origin'
+})
+.then(r => r.json())
+.then(data => console.log('Tenant API Response:', data))
+.catch(err => console.error('API Error:', err))
+
+EXPECTED:
+{
+  "success": true,
+  "data": {
+    "tenants": [...]
+  }
+}
+
+FAIL IF:
+- Network error
+- success: false
+- Empty tenant array (no tenants in database)
+
+FIX IF FAIL:
+- Check /api/tenants/list.php exists
+- Verify user is logged in
+- Check database has tenants
+
+================================================================================
+TEST 10: TEST LOAD TENANT OPTIONS
+================================================================================
+
+await window.fileManager.loadTenantOptions()
+
+Then check:
+document.getElementById('tenantSelect').options.length
+
+EXPECTED: Number > 1 (default option + tenant options)
+FAIL IF: 1 (only default option, no tenants loaded)
+
+FIX IF FAIL:
+- Check tenant list API (Test 9)
+- Verify loadTenantOptions() method (filemanager_enhanced.js line 2234)
+- Check console for API errors
+
+================================================================================
+TEST 11: SIMULATE FOLDER CREATION (DRY RUN)
+================================================================================
+
+// DON'T RUN THIS - IT WILL CREATE A REAL FOLDER
+// Use only to see what would be sent to API
+
+const testData = {
+  name: 'TEST_FOLDER',
+  tenant_id: 1,  // Change to valid tenant ID
+  csrf_token: window.fileManager.csrfToken
+};
+
+console.log('Would send to API:', testData);
+console.log('Endpoint:', window.fileManager.config.filesApi + '?action=create_root_folder');
+
+================================================================================
+TEST 12: CHECK EVENT LISTENER
+================================================================================
+
+// Check if button has event listener attached
+const btn = document.getElementById('createRootFolderBtn');
+if (btn) {
+  // Click the button - modal should open
+  btn.click();
+
+  // Wait 1 second, then check if modal is visible
+  setTimeout(() => {
+    const modal = document.getElementById('createTenantFolderModal');
+    console.log('Modal visible after click?', modal.style.display === 'flex');
+  }, 1000);
+}
+
+EXPECTED: Console logs "true"
+FAIL IF: Console logs "false"
+
+FIX IF FAIL:
+- Check event listener binding (filemanager_enhanced.js line 63-65)
+- Verify button ID matches
+
+================================================================================
+TEST 13: CHECK API ENDPOINT EXISTS
+================================================================================
+
+fetch('/CollaboraNexio/api/files_tenant.php?action=debug_columns', {
+  credentials: 'same-origin'
+})
+.then(r => r.json())
+.then(data => console.log('API Debug Info:', data))
+.catch(err => console.error('API Error:', err))
+
+EXPECTED: Response with schema information
+FAIL IF: 404 error or network error
+
+FIX IF FAIL:
+- Verify /api/files_tenant.php exists
+- Check file permissions
+- Look for PHP errors
+
+================================================================================
+TEST 14: FULL WORKFLOW TEST
+================================================================================
+
+// Complete workflow test (READ CAREFULLY BEFORE RUNNING)
+
+async function testFullWorkflow() {
+  console.log('=== STARTING FULL WORKFLOW TEST ===');
+
+  // Step 1: Open modal
+  console.log('Step 1: Opening modal...');
+  await window.fileManager.showCreateTenantFolderModal();
+  await new Promise(r => setTimeout(r, 500));
+
+  const modal = document.getElementById('createTenantFolderModal');
+  if (modal.style.display !== 'flex') {
+    console.error('FAIL: Modal did not open');
+    return;
+  }
+  console.log('✓ Modal opened');
+
+  // Step 2: Check tenants loaded
+  const select = document.getElementById('tenantSelect');
+  if (select.options.length <= 1) {
+    console.error('FAIL: No tenants loaded in dropdown');
+    return;
+  }
+  console.log('✓ Tenants loaded:', select.options.length - 1);
+
+  // Step 3: Check CSRF token
+  if (!window.fileManager.csrfToken) {
+    console.error('FAIL: CSRF token missing');
+    return;
+  }
+  console.log('✓ CSRF token present');
+
+  // Step 4: Close modal
+  modal.style.display = 'none';
+  console.log('✓ Modal closed');
+
+  console.log('=== ALL WORKFLOW STEPS PASSED ===');
+  console.log('Feature is ready to use!');
+}
+
+testFullWorkflow();
+
+================================================================================
+COMMON ERROR MESSAGES AND FIXES
+================================================================================
+
+ERROR: "window.fileManager is undefined"
+FIX: filemanager_enhanced.js not loaded or has errors
+     - Check browser console for JS errors
+     - Verify script tag in files.php
+
+ERROR: "Cannot read property 'showCreateTenantFolderModal' of undefined"
+FIX: FileManager instance not created
+     - Wait for DOMContentLoaded event
+     - Check if EnhancedFileManager class is defined
+
+ERROR: "Failed to fetch" or "Network error"
+FIX: API endpoint unreachable
+     - Check URL path is correct
+     - Verify PHP files exist
+     - Check web server is running
+
+ERROR: "Non autorizzato" or "403 Forbidden"
+FIX: User doesn't have permission
+     - Check user role (must be admin or super_admin)
+     - Verify user_tenant_access table
+
+ERROR: "CSRF token validation failed"
+FIX: Token mismatch or expired
+     - Refresh page to get new token
+     - Check session is active
+
+================================================================================
+QUICK COPY-PASTE DIAGNOSTIC
+================================================================================
+
+Run this single command to check everything at once:
+
+console.log('=== DIAGNOSTIC SUMMARY ===', {
+  button: !!document.getElementById('createRootFolderBtn'),
+  modal: !!document.getElementById('createTenantFolderModal'),
+  fileManager: !!window.fileManager,
+  methods: window.fileManager ? {
+    showModal: typeof window.fileManager.showCreateTenantFolderModal,
+    loadTenants: typeof window.fileManager.loadTenantOptions,
+    createFolder: typeof window.fileManager.createRootFolder
+  } : 'N/A',
+  csrfToken: window.fileManager ? !!window.fileManager.csrfToken : false,
+  userRole: window.fileManager ? window.fileManager.userRole : 'N/A'
+});
+
+EXPECTED: All boolean values should be 'true', all methods should be 'function'
+
+================================================================================

@@ -8,8 +8,23 @@
 // Include centralized API authentication
 require_once __DIR__ . '/../includes/api_auth.php';
 
+// Check if this is a download action BEFORE initializing API environment
+// Download actions need to set their own headers (binary content, not JSON)
+$action = $_GET['action'] ?? '';
+$is_download = ($action === 'download');
+
 // Initialize API environment (session, headers, error handling)
-initializeApiEnvironment();
+// Skip JSON headers for download actions
+if (!$is_download) {
+    initializeApiEnvironment();
+} else {
+    // For downloads, only start session and auth, but don't set JSON headers
+    error_reporting(E_ALL);
+    ini_set('display_errors', '0');
+    ini_set('display_startup_errors', '0');
+    ob_start();
+    require_once __DIR__ . '/../includes/session_init.php';
+}
 
 // Include required files
 require_once '../config.php';
@@ -30,7 +45,6 @@ $pdo = $db->getConnection();
 
 // Input handling
 $input = json_decode(file_get_contents('php://input'), true);
-$action = $_GET['action'] ?? '';
 
 // CSRF validation for state-changing operations
 $csrf_required = ['create_root_folder', 'create_folder', 'upload', 'delete', 'rename'];
@@ -514,26 +528,25 @@ function uploadFile() {
 
 /**
  * Elimina file o cartella
- * UPDATED: Uses unified files table
+ * UPDATED: Uses unified files table, accepts both JSON body and query string
  */
 function deleteItem() {
     global $pdo, $input, $user_id, $user_role;
 
-    $item_id = $input['id'] ?? null;
-    $item_type = $input['type'] ?? null;
+    // Accept id from query string OR JSON body (backwards compatible)
+    $item_id = $_GET['id'] ?? $input['id'] ?? null;
 
-    if (empty($item_id) || empty($item_type)) {
-        apiError('ID e tipo richiesti', 400);
-    }
+    // Type is optional - we'll detect it from the database
+    $item_type = $_GET['type'] ?? $input['type'] ?? null;
 
-    if (!in_array($item_type, ['file', 'folder'])) {
-        apiError('Tipo non valido', 400);
+    if (empty($item_id)) {
+        apiError('ID richiesto', 400);
     }
 
     try {
         // Get item from unified files table
         $stmt = $pdo->prepare("
-            SELECT tenant_id, uploaded_by, is_folder, folder_id
+            SELECT tenant_id, uploaded_by, is_folder, folder_id, name
             FROM files
             WHERE id = ? AND deleted_at IS NULL
         ");
@@ -541,14 +554,24 @@ function deleteItem() {
         $item = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$item) {
-            apiError(ucfirst($item_type) . ' non trovato', 404);
+            apiError('Elemento non trovato', 404);
         }
 
-        // Verify the type matches
+        // Detect type from database if not provided
         $is_folder = ($item['is_folder'] == 1);
-        if (($item_type === 'folder' && !$is_folder) || ($item_type === 'file' && $is_folder)) {
+        $detected_type = $is_folder ? 'folder' : 'file';
+
+        // If type was provided, verify it matches
+        if ($item_type !== null && !in_array($item_type, ['file', 'folder'])) {
+            apiError('Tipo non valido', 400);
+        }
+
+        if ($item_type !== null && $item_type !== $detected_type) {
             apiError('Tipo elemento non corrispondente', 400);
         }
+
+        // Use detected type
+        $item_type = $detected_type;
 
         // Verifica accesso
         if (!hasAccessToTenant($item['tenant_id'])) {
@@ -576,7 +599,7 @@ function deleteItem() {
             $count_result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($count_result['count'] > 0) {
-                apiError('La cartella non è vuota', 400);
+                apiError('La cartella non è vuota. Elimina prima il contenuto.', 400);
             }
         }
 
@@ -589,7 +612,9 @@ function deleteItem() {
         $stmt->execute([$item_id]);
 
         // Log audit
-        logAudit('delete_' . $item_type, 'files', $item_id, []);
+        logAudit('delete_' . $item_type, 'files', $item_id, [
+            'name' => $item['name']
+        ]);
 
         apiSuccess(null, ucfirst($item_type) . ' eliminato con successo');
 
@@ -735,6 +760,7 @@ function getTenantList() {
 
 /**
  * Download di un file
+ * FIXED: Improved error handling and path validation
  */
 function downloadFile() {
     global $pdo, $user_id, $user_role;
@@ -751,13 +777,13 @@ function downloadFile() {
             SELECT f.*, t.name as tenant_name
             FROM files f
             LEFT JOIN tenants t ON f.tenant_id = t.id
-            WHERE f.id = :id AND f.deleted_at IS NULL
+            WHERE f.id = :id AND f.deleted_at IS NULL AND f.is_folder = 0
         ");
         $stmt->execute([':id' => $file_id]);
         $file = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$file) {
-            apiError('File non trovato', 404);
+            apiError('File non trovato nel database', 404);
         }
 
         // Verifica accesso al tenant
@@ -765,38 +791,117 @@ function downloadFile() {
             apiError('Non hai accesso a questo file', 403);
         }
 
-        // Schema: files table uses file_path
+        // Schema: files table stores ONLY the unique filename in file_path
+        // Construct full path: UPLOAD_PATH/tenant_id/file_path
         $file_path = UPLOAD_PATH . '/' . $file['tenant_id'] . '/' . $file['file_path'];
 
+        // Detailed error logging if file doesn't exist
         if (!file_exists($file_path)) {
-            apiError('File fisico non trovato', 404);
+            $error_details = [
+                'file_id' => $file_id,
+                'file_name' => $file['name'],
+                'file_path_db' => $file['file_path'],
+                'constructed_path' => $file_path,
+                'upload_path_constant' => UPLOAD_PATH,
+                'tenant_id' => $file['tenant_id'],
+                'tenant_dir_exists' => is_dir(UPLOAD_PATH . '/' . $file['tenant_id'])
+            ];
+
+            // Log detailed error
+            error_log('FILE_NOT_FOUND: ' . json_encode($error_details));
+
+            // Check if tenant directory exists
+            $tenant_dir = UPLOAD_PATH . '/' . $file['tenant_id'];
+            if (!is_dir($tenant_dir)) {
+                apiError('Directory del tenant non trovata', 500, DEBUG_MODE ? ['debug' => 'Tenant directory missing'] : null);
+            }
+
+            // List files in tenant directory for debugging
+            if (DEBUG_MODE) {
+                $available_files = [];
+                if (is_dir($tenant_dir)) {
+                    $files = scandir($tenant_dir);
+                    foreach ($files as $f) {
+                        if ($f !== '.' && $f !== '..') {
+                            $available_files[] = $f;
+                        }
+                    }
+                }
+                apiError('File fisico non trovato sul server', 404, [
+                    'debug' => 'File not found on disk',
+                    'expected_path' => $file_path,
+                    'available_files' => $available_files
+                ]);
+            }
+
+            apiError('File fisico non trovato sul server', 404);
+        }
+
+        // Verify it's a regular file (not a directory)
+        if (!is_file($file_path)) {
+            apiError('Il percorso non punta a un file valido', 500);
+        }
+
+        // Verify file is readable
+        if (!is_readable($file_path)) {
+            apiError('File non leggibile - verifica i permessi', 500);
         }
 
         // Nome del file per il download
         $file_display_name = $file['name'] ?? 'download';
 
+        // Sanitize filename for Content-Disposition header
+        $file_display_name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $file_display_name);
+
         // Log audit
-        logAudit('download_file', 'files', $file_id, ['filename' => $file_display_name]);
+        logAudit('download_file', 'files', $file_id, [
+            'filename' => $file_display_name,
+            'file_size' => filesize($file_path)
+        ]);
 
         // Determina MIME type
         $mime_type = $file['mime_type'] ?? 'application/octet-stream';
 
-        // Invia file per download
+        // Pulisci output buffer completamente prima di inviare file
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        // Determina se il file deve essere visualizzato inline o scaricato
+        // PDF e immagini dovrebbero essere visualizzati inline per il browser
+        $inline_types = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+        $disposition = in_array($mime_type, $inline_types) ? 'inline' : 'attachment';
+
+        // Invia file con headers appropriati
         header('Content-Type: ' . $mime_type);
-        header('Content-Disposition: attachment; filename="' . $file_display_name . '"');
+        header('Content-Disposition: ' . $disposition . '; filename="' . $file_display_name . '"');
         header('Content-Length: ' . filesize($file_path));
-        header('Cache-Control: no-cache, must-revalidate');
+        header('Accept-Ranges: bytes'); // Required for PDF.js and video streaming
+        header('Cache-Control: public, max-age=3600'); // Allow caching for better performance
+        header('Pragma: public');
+        header('X-Content-Type-Options: nosniff');
 
-        // Pulisci output buffer per evitare problemi con file binari
-        ob_clean();
-        flush();
+        // Read and output file in chunks to handle large files
+        $handle = fopen($file_path, 'rb');
+        if ($handle === false) {
+            apiError('Impossibile aprire il file', 500);
+        }
 
-        readfile($file_path);
+        while (!feof($handle)) {
+            echo fread($handle, 8192);
+            flush();
+        }
+
+        fclose($handle);
         exit;
 
     } catch (Exception $e) {
         logApiError('DownloadFile', $e);
-        apiError('Errore nel download del file', 500);
+        // Clear any output that might have been sent
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        apiError('Errore nel download del file', 500, DEBUG_MODE ? ['debug' => $e->getMessage()] : null);
     }
 }
 
@@ -901,10 +1006,10 @@ function logAudit($action, $entity_type, $entity_id, $details) {
         $stmt = $pdo->prepare("
             INSERT INTO audit_logs (
                 user_id, tenant_id, action, entity_type, entity_id,
-                details, ip_address, user_agent, created_at
+                description, ip_address, user_agent, severity, status, created_at
             ) VALUES (
                 :user_id, :tenant_id, :action, :entity_type, :entity_id,
-                :details, :ip, :agent, NOW()
+                :description, :ip, :agent, :severity, :status, NOW()
             )
         ");
 
@@ -914,9 +1019,11 @@ function logAudit($action, $entity_type, $entity_id, $details) {
             ':action' => $action,
             ':entity_type' => $entity_type,
             ':entity_id' => $entity_id,
-            ':details' => json_encode($details),
+            ':description' => json_encode($details),
             ':ip' => $_SERVER['REMOTE_ADDR'] ?? '',
-            ':agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
+            ':agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+            ':severity' => 'info',
+            ':status' => 'success'
         ]);
     } catch (Exception $e) {
         error_log('Audit log failed: ' . $e->getMessage());

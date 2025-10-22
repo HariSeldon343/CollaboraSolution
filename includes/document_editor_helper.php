@@ -455,9 +455,11 @@ function logDocumentAudit(string $action, int $fileId, int $userId, array $detai
                 'action' => $action,
                 'entity_type' => 'document',
                 'entity_id' => $fileId,
-                'details' => json_encode($details),
+                'description' => json_encode($details),
                 'ip_address' => $_SERVER['REMOTE_ADDR'] ?? '',
                 'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+                'severity' => 'info',
+                'status' => 'success',
                 'created_at' => date('Y-m-d H:i:s')
             ]);
         }

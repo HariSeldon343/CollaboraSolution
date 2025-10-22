@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Runtime Test - Tenant Folder Button</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            color: #1f2937;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .test-section {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 2px solid #e5e7eb;
+        }
+
+        .test-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .test-item {
+            background: white;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #e5e7eb;
+        }
+
+        .test-item.pass {
+            border-left-color: #10b981;
+            background: #ecfdf5;
+        }
+
+        .test-item.fail {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .test-item.pending {
+            border-left-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .test-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .test-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-badge.pass {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-badge.fail {
+            background: #ef4444;
+            color: white;
+        }
+
+        .status-badge.pending {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .test-details {
+            font-size: 13px;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        .code-block {
+            background: #1f2937;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fcd34d;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            border: 2px solid #e5e7eb;
+        }
+
+        .summary-number {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .summary-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .summary-card.pass .summary-number {
+            color: #10b981;
+        }
+
+        .summary-card.fail .summary-number {
+            color: #ef4444;
+        }
+
+        .summary-card.pending .summary-number {
+            color: #f59e0b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Runtime Test - Tenant Folder Button</h1>
+            <p>Browser-based verification tool for CollaboraNexio file manager</p>
+        </div>
+
+        <div class="content">
+            <div class="alert alert-info">
+                <strong>Instructions:</strong> This page will automatically test if the tenant folder button is working correctly.
+                Click "Run All Tests" to start the verification.
+            </div>
+
+            <div class="summary" id="summary">
+                <div class="summary-card pass">
+                    <div class="summary-number" id="passCount">0</div>
+                    <div class="summary-label">Passed</div>
+                </div>
+                <div class="summary-card fail">
+                    <div class="summary-number" id="failCount">0</div>
+                    <div class="summary-label">Failed</div>
+                </div>
+                <div class="summary-card pending">
+                    <div class="summary-number" id="pendingCount">7</div>
+                    <div class="summary-label">Pending</div>
+                </div>
+            </div>
+
+            <button class="btn" onclick="runAllTests()">▶ Run All Tests</button>
+
+            <div class="test-section">
+                <h2>📦 JavaScript Loading Tests</h2>
+                <div id="test1" class="test-item pending">
+                    <div class="test-item-header">
+                        <span class="test-name">Test 1: FileManager Instance</span>
+                        <span class="status-badge pending">PENDING</span>
+                    </div>
+                    <div class="test-details">Checking if window.fileManager is defined...</div>
+                </div>
+
+                <div id="test2" class="test-item pending">
+                    <div class="test-item-header">
+                        <span class="test-name">Test 2: FileManager Class Type</span>
+                        <span class="status-badge pending">PENDING</span>
+                    </div>
+                    <div class="test-details">Verifying fileManager is an EnhancedFileManager instance...</div>
+                </div>
+            </div>
+
+            <div class="test-section">
+                <h2>🔘 Button & DOM Tests</h2>
+                <div id="test3" class="test-item pending">
+                    <div class="test-item-header">
+                        <span class="test-name">Test 3: Button Element Exists</span>
+                        <span class="status-badge pending">PENDING</span>
+                    </div>
+                    <div class="test-details">Looking for #createRootFolderBtn in DOM...</div>
+                </div>
+
+                <div id="test4" class="test-item pending">
+                    <div class="test-item-header">
+                        <span class="test-name">Test 4: Modal Element Exists</span>
+                        <span class="status-badge pending">PENDING</span>
+                    </div>
+                    <div class="test-details">Looking for #createTenantFolderModal in DOM...</div>
+                </div>
+            </div>
+
+            <div class="test-section">
+                <h2>⚙️ Method Availability Tests</h2>
+                <div id="test5" class="test-item pending">
+                    <div class="test-item-header">
+                        <span class="test-name">Test 5: showCreateTenantFolderModal Method</span>
+                        <span class="status-badge pending">PENDING</span>
+                    </div>
+                    <div class="test-details">Checking if method exists and is callable...</div>
+                </div>
+
+                <div id="test6" class="test-item pending">
+                    <div class="test-item-header">
+                        <span class="test-name">Test 6: loadTenantOptions Method</span>
+                        <span class="status-badge pending">PENDING</span>
+                    </div>
+                    <div class="test-details">Checking if method exists and is callable...</div>
+                </div>
+
+                <div id="test7" class="test-item pending">
+                    <div class="test-item-header">
+                        <span class="test-name">Test 7: createRootFolder Method</span>
+                        <span class="status-badge pending">PENDING</span>
+                    </div>
+                    <div class="test-details">Checking if method exists and is callable...</div>
+                </div>
+            </div>
+
+            <div id="resultsContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        let passCount = 0;
+        let failCount = 0;
+        let pendingCount = 7;
+
+        function updateSummary() {
+            document.getElementById('passCount').textContent = passCount;
+            document.getElementById('failCount').textContent = failCount;
+            document.getElementById('pendingCount').textContent = pendingCount;
+        }
+
+        function updateTestStatus(testId, status, details) {
+            const testElement = document.getElementById(testId);
+            const badge = testElement.querySelector('.status-badge');
+            const detailsElement = testElement.querySelector('.test-details');
+
+            // Update counts
+            if (status === 'pass') {
+                passCount++;
+                pendingCount--;
+                testElement.className = 'test-item pass';
+                badge.className = 'status-badge pass';
+                badge.textContent = '✓ PASS';
+            } else if (status === 'fail') {
+                failCount++;
+                pendingCount--;
+                testElement.className = 'test-item fail';
+                badge.className = 'status-badge fail';
+                badge.textContent = '✗ FAIL';
+            }
+
+            detailsElement.innerHTML = details;
+            updateSummary();
+        }
+
+        async function runAllTests() {
+            // Reset counts
+            passCount = 0;
+            failCount = 0;
+            pendingCount = 7;
+            updateSummary();
+
+            // Test 1: FileManager instance
+            try {
+                if (typeof window.fileManager !== 'undefined') {
+                    updateTestStatus('test1', 'pass',
+                        '✓ window.fileManager is defined<br>' +
+                        '<div class="code-block">typeof window.fileManager = "' + typeof window.fileManager + '"</div>'
+                    );
+                } else {
+                    updateTestStatus('test1', 'fail',
+                        '✗ window.fileManager is undefined<br>' +
+                        '<strong>Solution:</strong> Clear browser cache (Ctrl+Shift+R) and reload files.php'
+                    );
+                }
+            } catch (e) {
+                updateTestStatus('test1', 'fail', '✗ Error: ' + e.message);
+            }
+
+            // Test 2: FileManager class type
+            try {
+                if (window.fileManager && window.fileManager.constructor.name === 'EnhancedFileManager') {
+                    updateTestStatus('test2', 'pass',
+                        '✓ FileManager is EnhancedFileManager instance<br>' +
+                        '<div class="code-block">constructor.name = "' + window.fileManager.constructor.name + '"</div>'
+                    );
+                } else if (window.fileManager) {
+                    updateTestStatus('test2', 'fail',
+                        '✗ FileManager exists but wrong type: ' + window.fileManager.constructor.name
+                    );
+                } else {
+                    updateTestStatus('test2', 'fail', '✗ FileManager instance not found');
+                }
+            } catch (e) {
+                updateTestStatus('test2', 'fail', '✗ Error: ' + e.message);
+            }
+
+            // Test 3: Button exists
+            try {
+                const button = document.getElementById('createRootFolderBtn');
+                if (button) {
+                    updateTestStatus('test3', 'pass',
+                        '✓ Button element found in DOM<br>' +
+                        '<div class="code-block">Tag: ' + button.tagName + '<br>' +
+                        'Class: ' + button.className + '<br>' +
+                        'Visible: ' + (button.offsetParent !== null) + '</div>'
+                    );
+                } else {
+                    updateTestStatus('test3', 'fail',
+                        '✗ Button #createRootFolderBtn not found<br>' +
+                        '<strong>Reason:</strong> You may not be logged in as Admin/Super Admin'
+                    );
+                }
+            } catch (e) {
+                updateTestStatus('test3', 'fail', '✗ Error: ' + e.message);
+            }
+
+            // Test 4: Modal exists
+            try {
+                const modal = document.getElementById('createTenantFolderModal');
+                if (modal) {
+                    updateTestStatus('test4', 'pass',
+                        '✓ Modal element found in DOM<br>' +
+                        '<div class="code-block">Tag: ' + modal.tagName + '<br>' +
+                        'Display: ' + window.getComputedStyle(modal).display + '</div>'
+                    );
+                } else {
+                    updateTestStatus('test4', 'fail',
+                        '✗ Modal #createTenantFolderModal not found<br>' +
+                        '<strong>Reason:</strong> You may not be logged in as Admin/Super Admin'
+                    );
+                }
+            } catch (e) {
+                updateTestStatus('test4', 'fail', '✗ Error: ' + e.message);
+            }
+
+            // Test 5: showCreateTenantFolderModal method
+            try {
+                if (window.fileManager && typeof window.fileManager.showCreateTenantFolderModal === 'function') {
+                    updateTestStatus('test5', 'pass',
+                        '✓ Method showCreateTenantFolderModal exists and is callable<br>' +
+                        '<div class="code-block">typeof = "function"</div>'
+                    );
+                } else if (window.fileManager) {
+                    updateTestStatus('test5', 'fail',
+                        '✗ Method showCreateTenantFolderModal not found<br>' +
+                        'Type: ' + typeof window.fileManager.showCreateTenantFolderModal
+                    );
+                } else {
+                    updateTestStatus('test5', 'fail', '✗ FileManager instance not available');
+                }
+            } catch (e) {
+                updateTestStatus('test5', 'fail', '✗ Error: ' + e.message);
+            }
+
+            // Test 6: loadTenantOptions method
+            try {
+                if (window.fileManager && typeof window.fileManager.loadTenantOptions === 'function') {
+                    updateTestStatus('test6', 'pass',
+                        '✓ Method loadTenantOptions exists and is callable<br>' +
+                        '<div class="code-block">typeof = "function"</div>'
+                    );
+                } else if (window.fileManager) {
+                    updateTestStatus('test6', 'fail',
+                        '✗ Method loadTenantOptions not found<br>' +
+                        'Type: ' + typeof window.fileManager.loadTenantOptions
+                    );
+                } else {
+                    updateTestStatus('test6', 'fail', '✗ FileManager instance not available');
+                }
+            } catch (e) {
+                updateTestStatus('test6', 'fail', '✗ Error: ' + e.message);
+            }
+
+            // Test 7: createRootFolder method
+            try {
+                if (window.fileManager && typeof window.fileManager.createRootFolder === 'function') {
+                    updateTestStatus('test7', 'pass',
+                        '✓ Method createRootFolder exists and is callable<br>' +
+                        '<div class="code-block">typeof = "function"</div>'
+                    );
+                } else if (window.fileManager) {
+                    updateTestStatus('test7', 'fail',
+                        '✗ Method createRootFolder not found<br>' +
+                        'Type: ' + typeof window.fileManager.createRootFolder
+                    );
+                } else {
+                    updateTestStatus('test7', 'fail', '✗ FileManager instance not available');
+                }
+            } catch (e) {
+                updateTestStatus('test7', 'fail', '✗ Error: ' + e.message);
+            }
+
+            // Show final results
+            await new Promise(resolve => setTimeout(resolve, 500));
+            showFinalResults();
+        }
+
+        function showFinalResults() {
+            const resultsContainer = document.getElementById('resultsContainer');
+
+            if (failCount === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>✓ All Tests Passed!</strong><br>
+                        The tenant folder button system is working correctly.
+                        You can now use the "Cartella Tenant" button in the file manager.
+                    </div>
+                `;
+            } else {
+                resultsContainer.innerHTML = `
+                    <div class="alert alert-warning">
+                        <strong>⚠ Some Tests Failed</strong><br>
+                        ${failCount} test${failCount > 1 ? 's' : ''} failed.
+                        Most likely cause: <strong>Browser cache</strong> is serving old JavaScript.<br><br>
+                        <strong>Solution:</strong> Press <code>Ctrl+Shift+R</code> (Windows/Linux) or <code>Cmd+Shift+R</code> (Mac) to hard refresh the browser.
+                        After refreshing, run these tests again.
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -36,14 +36,14 @@ if (session_status() === PHP_SESSION_NONE) {
     }
 
     // Configura le impostazioni della sessione PRIMA di avviarla
-    // Timeout inattivita: 10 minuti (600 secondi)
-    $inactivity_timeout = 600;
+    // Timeout inattivita: 5 minuti (300 secondi)
+    $inactivity_timeout = 300;
 
     ini_set('session.cookie_lifetime', '0');  // Session cookie - scade alla chiusura browser
     ini_set('session.cookie_httponly', '1');
     ini_set('session.use_only_cookies', '1');
     ini_set('session.use_strict_mode', '0');  // Disabled to avoid regeneration issues
-    ini_set('session.gc_maxlifetime', (string)$inactivity_timeout);  // 10 minuti
+    ini_set('session.gc_maxlifetime', (string)$inactivity_timeout);  // 5 minuti
     ini_set('session.cookie_secure', $cookieSecure ? '1' : '0');
     ini_set('session.cookie_samesite', 'Lax'); // Lax per permettere navigazione cross-domain
 
@@ -71,7 +71,7 @@ if (session_status() === PHP_SESSION_NONE) {
     // Avvia la sessione
     session_start();
 
-    // Gestione timeout inattivita (10 minuti)
+    // Gestione timeout inattivita (5 minuti)
     if (isset($_SESSION['last_activity'])) {
         $elapsed = time() - $_SESSION['last_activity'];
         if ($elapsed > $inactivity_timeout) {

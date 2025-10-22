@@ -51,11 +51,12 @@ if ($action === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo = $db->getConnection();
 
         // Cerca l'utente (con LEFT JOIN per supportare utenti senza tenant)
+        // CRITICAL FIX: Added deleted_at IS NULL check to prevent soft-deleted users from logging in
         $stmt = $pdo->prepare("
             SELECT u.*, t.name as tenant_name, t.code as tenant_code, t.status as tenant_status
             FROM users u
             LEFT JOIN tenants t ON u.tenant_id = t.id
-            WHERE u.email = ? AND u.is_active = 1
+            WHERE u.email = ? AND u.is_active = 1 AND u.deleted_at IS NULL
         ");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);

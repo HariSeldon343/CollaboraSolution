@@ -4,6 +4,12 @@ require_once __DIR__ . '/includes/session_init.php';
 // Authentication check - redirect to login if not authenticated
 require_once __DIR__ . '/includes/auth_simple.php';
 require_once __DIR__ . '/includes/company_filter.php';
+
+// Force no-cache headers for files.php page (BUG-008 cache fix)
+header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+
 $auth = new Auth();
 
 if (!$auth->checkAuth()) {
@@ -34,6 +40,10 @@ $csrfToken = $auth->generateCSRFToken();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <!-- Force no-cache for files.php page (BUG-008 cache fix) -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>File Manager - CollaboraNexio</title>
 
     <?php require_once __DIR__ . '/includes/favicon.php'; ?>
@@ -48,6 +58,8 @@ $csrfToken = $auth->generateCSRFToken();
     <link rel="stylesheet" href="assets/css/filemanager_enhanced.css">
     <!-- Document Editor CSS -->
     <link rel="stylesheet" href="assets/css/documentEditor.css">
+    <!-- PDF Viewer CSS -->
+    <link rel="stylesheet" href="assets/css/pdfViewer.css">
 
     <style>
         /* Logo image style */
@@ -883,10 +895,14 @@ $csrfToken = $auth->generateCSRFToken();
     </script>
 
     <!-- Core Application JavaScript -->
-    <script src="assets/js/app.js"></script>
-    <!-- Enhanced File Manager JavaScript with Upload & Document Creation -->
-    <script src="assets/js/filemanager_enhanced.js"></script>
+    <script src="assets/js/app.js?v=<?php echo time(); ?>"></script>
+    <!-- PDF Viewer JavaScript -->
+    <script src="assets/js/pdfViewer.js?v=<?php echo time(); ?>"></script>
+    <!-- Enhanced File Manager JavaScript with Upload & Document Creation - CACHE BUSTING -->
+    <script src="assets/js/filemanager_enhanced.js?v=<?php echo time(); ?>"></script>
     <!-- Document Editor JavaScript -->
-    <script src="assets/js/documentEditor.js"></script>
+    <script src="assets/js/documentEditor.js?v=<?php echo time(); ?>"></script>
+    <!-- Session Timeout Warning System -->
+    <script src="assets/js/session-timeout.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

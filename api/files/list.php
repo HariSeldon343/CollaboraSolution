@@ -12,9 +12,10 @@
 declare(strict_types=1);
 
 // Include centralized API authentication
+require_once __DIR__ . '/../../config.php';  // Config should be loaded first
+require_once __DIR__ . '/../../includes/db.php';  // Load Database class
 require_once __DIR__ . '/../../includes/api_auth.php';
 require_once __DIR__ . '/../../includes/file_helper.php';
-require_once __DIR__ . '/../../includes/config.php';
 
 // Initialize API environment
 initializeApiEnvironment();

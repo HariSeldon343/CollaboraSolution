@@ -1,0 +1,41 @@
+# Enable RewriteEngine
+RewriteEngine On
+
+# CRITICAL FIX FOR BUG-008 (ULTIMATE VERSION - Query String Support)
+# Problem: POST requests with query string (?_t=timestamp) were getting 404
+# Root Cause: REQUEST_URI includes query string, patterns didn't account for it
+# Solution: Strip query string OR use patterns that ignore it
+
+# STEP 1: Bypass rewrite for ANY .php file in /api/files/ (with or without query params)
+# Pattern matches /api/files/filename.php with optional ?query=string
+RewriteCond %{REQUEST_URI} ^/CollaboraNexio/api/files/[^/]+\.php
+RewriteRule ^ - [L,QSA]
+
+# STEP 2: Bypass rewrite for ANY .php file directly in /api/ (with or without query params)
+RewriteCond %{REQUEST_URI} ^/CollaboraNexio/api/[^/]+\.php
+RewriteRule ^ - [L,QSA]
+
+# STEP 3: For safety, also check if file physically exists (works for GET)
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L,QSA]
+
+# Handle notifications routes (only if not a real file)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^notifications/unread/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^notifications/all/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^notifications/mark-read/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^notifications/mark-all-read/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^notifications/?$ notifications.php [L]
+
+# Other API routes - ONLY for non-existent files
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ router.php?route=$1 [QSA,L]

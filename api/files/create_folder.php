@@ -11,9 +11,10 @@
 declare(strict_types=1);
 
 // Include centralized API authentication
+require_once __DIR__ . '/../../config.php';  // Config should be loaded first
+require_once __DIR__ . '/../../includes/db.php';  // Load Database class
 require_once __DIR__ . '/../../includes/api_auth.php';
 require_once __DIR__ . '/../../includes/file_helper.php';
-require_once __DIR__ . '/../../includes/config.php';
 
 // Initialize API environment
 initializeApiEnvironment();
@@ -104,12 +105,15 @@ try {
         'action' => 'folder_created',
         'entity_type' => 'folder',
         'entity_id' => $folderId,
-        'details' => json_encode([
+        'description' => "Cartella creata: {$name}",
+        'new_values' => json_encode([
             'folder_name' => $name,
             'parent_folder_id' => $parentId
         ]),
         'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
         'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+        'severity' => 'info',
+        'status' => 'success',
         'created_at' => date('Y-m-d H:i:s')
     ]);
 

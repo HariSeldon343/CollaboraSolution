@@ -54,6 +54,23 @@
                 this.showUploadDialog();
             });
 
+            // New folder button
+            document.getElementById('newFolderBtn')?.addEventListener('click', () => {
+                this.createNewFolder();
+            });
+
+            // Create Tenant Folder button (for Admin/Super Admin)
+            const createRootFolderBtn = document.getElementById('createRootFolderBtn');
+            if (createRootFolderBtn) {
+                console.log('✓ Create Root Folder button found, binding event...');
+                createRootFolderBtn.addEventListener('click', () => {
+                    console.log('🔘 Create Root Folder button clicked!');
+                    this.showCreateTenantFolderModal();
+                });
+            } else {
+                console.warn('⚠ Create Root Folder button NOT found in DOM');
+            }
+
             // New document button
             const createDocBtn = document.getElementById('createDocumentBtn');
             if (!createDocBtn) {
@@ -608,8 +625,13 @@
                     this.state.activeUploads.delete(uploadId);
                 });
 
-                // Send request
-                xhr.open('POST', this.config.uploadApi);
+                // Send request with cache busting
+                const cacheBustUrl = this.config.uploadApi + '?_t=' + Date.now() + Math.random();
+                xhr.open('POST', cacheBustUrl);
+                // Force no-cache headers to bypass browser cache
+                xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+                xhr.setRequestHeader('Pragma', 'no-cache');
+                xhr.setRequestHeader('Expires', '0');
                 xhr.send(formData);
 
             } catch (error) {
@@ -678,8 +700,13 @@
                     const overallProgress = ((chunkIndex + 1) / totalChunks) * 100;
                     this.updateUploadProgress(uploadId, overallProgress);
 
-                    // Send chunk
-                    xhr.open('POST', this.config.uploadApi);
+                    // Send chunk with cache busting
+                    const cacheBustUrl = this.config.uploadApi + '?_t=' + Date.now() + Math.random();
+                    xhr.open('POST', cacheBustUrl);
+                    // Force no-cache headers to bypass browser cache
+                    xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+                    xhr.setRequestHeader('Pragma', 'no-cache');
+                    xhr.setRequestHeader('Expires', '0');
                     xhr.send(formData);
 
                     // Wait for chunk to complete
@@ -1411,6 +1438,14 @@
             if (isFolder) {
                 this.navigateToFolder(itemId, fileName);
             } else {
+                // Check if file is a PDF
+                if (window.pdfViewer && typeof window.pdfViewer.isPDF === 'function' && window.pdfViewer.isPDF(fileName)) {
+                    // Open in PDF viewer
+                    console.log(`Opening PDF in viewer: ${fileName} (ID: ${itemId})`);
+                    window.pdfViewer.openPDF(itemId, fileName);
+                    return;
+                }
+
                 // Check if file is editable and document editor is available
                 if (window.documentEditor && typeof window.documentEditor.openDocument === 'function') {
                     const isEditable = window.documentEditor.isFileEditable(fileName);
@@ -2144,7 +2179,15 @@
         handleFileMenuAction(action, fileName, fileElement) {
             switch (action) {
                 case 'open':
-                    this.openFile(fileElement);
+                    // Double-click logic: check for PDF first
+                    const itemId = fileElement.dataset.id || fileElement.dataset.fileId;
+
+                    if (window.pdfViewer && typeof window.pdfViewer.isPDF === 'function' && window.pdfViewer.isPDF(fileName)) {
+                        console.log(`Opening PDF from menu: ${fileName} (ID: ${itemId})`);
+                        window.pdfViewer.openPDF(itemId, fileName);
+                    } else {
+                        this.openFile(fileElement);
+                    }
                     break;
                 case 'download':
                     this.downloadFile(fileName);
@@ -2182,12 +2225,136 @@
                 this.updateSelectionCount();
             }
         }
+
+        // ========================================
+        // TENANT FOLDER CREATION FUNCTIONALITY
+        // ========================================
+
+        async showCreateTenantFolderModal() {
+            const modal = document.getElementById('createTenantFolderModal');
+            if (!modal) {
+                console.error('Tenant folder modal not found');
+                return;
+            }
+
+            // Load tenants and populate dropdown
+            await this.loadTenantOptions();
+
+            // Show modal
+            modal.style.display = 'flex';
+
+            // Reset form
+            document.getElementById('tenantSelect').value = '';
+            document.getElementById('folderName').value = '';
+        }
+
+        async loadTenantOptions() {
+            try {
+                const response = await fetch('/CollaboraNexio/api/tenants/list.php', {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load tenants');
+                }
+
+                const result = await response.json();
+
+                if (result.success && result.data && result.data.tenants) {
+                    const select = document.getElementById('tenantSelect');
+                    if (!select) return;
+
+                    // Clear existing options
+                    select.innerHTML = '<option value="">-- Seleziona un tenant --</option>';
+
+                    // Add tenant options
+                    result.data.tenants.forEach(tenant => {
+                        const option = document.createElement('option');
+                        option.value = tenant.id;
+                        option.textContent = tenant.denominazione; // API returns 'denominazione', not 'name'
+                        select.appendChild(option);
+                    });
+
+                    console.log('Loaded', result.data.tenants.length, 'tenant(s)');
+                } else {
+                    this.showToast(result.error || 'Errore nel caricamento dei tenant', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading tenants:', error);
+                this.showToast('Errore nel caricamento dei tenant', 'error');
+            }
+        }
+
+        async createRootFolder(folderName, tenantId) {
+            try {
+                const response = await fetch(this.config.filesApi + '?action=create_root_folder', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': this.csrfToken
+                    },
+                    body: JSON.stringify({
+                        name: folderName,
+                        tenant_id: tenantId,
+                        csrf_token: this.csrfToken
+                    }),
+                    credentials: 'same-origin'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    this.showToast(result.message || 'Cartella tenant creata con successo', 'success');
+                    return result;
+                } else {
+                    this.showToast(result.error || 'Errore nella creazione della cartella', 'error');
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error creating root folder:', error);
+                this.showToast('Errore di rete nella creazione della cartella', 'error');
+                return null;
+            }
+        }
+
+        createNewFolder() {
+            if (this.state.isRoot) {
+                this.showToast('Seleziona prima una cartella tenant', 'error');
+                return;
+            }
+
+            const folderName = prompt('Inserisci il nome della nuova cartella:');
+            if (folderName && folderName.trim()) {
+                // Implement folder creation logic
+                this.showToast(`Creazione cartella "${folderName}"...`, 'info');
+                // TODO: Call API to create folder
+            }
+        }
     }
 
-    // Initialize when DOM is ready
-    document.addEventListener('DOMContentLoaded', () => {
+    // Initialize EnhancedFileManager
+    const initEnhancedFileManager = () => {
+        console.log('🚀 Initializing EnhancedFileManager...');
         window.fileManager = new EnhancedFileManager();
-    });
+        console.log('✅ EnhancedFileManager initialized successfully');
+    };
+
+    // Initialize when DOM is ready, or immediately if already loaded
+    if (document.readyState === 'loading') {
+        // DOM is still loading
+        console.log('⏳ DOM is loading, waiting for DOMContentLoaded event...');
+        document.addEventListener('DOMContentLoaded', initEnhancedFileManager);
+    } else {
+        // DOM is already loaded (script loaded late)
+        console.log('⚡ DOM already loaded, initializing immediately');
+        initEnhancedFileManager();
+    }
 
     // Add required animations
     const animationStyles = document.createElement('style');
