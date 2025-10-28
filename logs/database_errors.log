@@ -25,3 +25,4 @@
 [2025-10-28 06:50:19] [ERROR] Errore query: SQLSTATE[23000]: Integrity constraint violation: 4025 CONSTRAINT `chk_audit_action` failed for `collaboranexio`.`audit_logs` - SQL: INSERT INTO `audit_logs` (`user_id`, `tenant_id`, `action`, `entity_type`, `entity_id`, `description`, `ip_address`, `user_agent`, `severity`, `status`, `created_at`) VALUES (:user_id, :tenant_id, :action, :entity_type, :entity_id, :description, :ip_address, :user_agent, :severity, :status, :created_at)
 [2025-10-28 06:50:19] [ERROR] Errore insert in audit_logs: Errore database: SQLSTATE[23000]: Integrity constraint violation: 4025 CONSTRAINT `chk_audit_action` failed for `collaboranexio`.`audit_logs`
 [2025-10-28 07:07:29] [ERROR] Errore commit transazione: There is no active transaction
+[2025-10-28 09:30:34] [ERROR] Errore commit transazione: There is no active transaction

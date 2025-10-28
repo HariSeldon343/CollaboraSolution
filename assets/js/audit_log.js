@@ -57,8 +57,12 @@ class AuditLogManager {
         console.log('[AuditLog] Loading statistics...');
 
         try {
+            const token = this.getCsrfToken();
             const response = await fetch(`${this.apiBase}/stats.php`, {
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRF-Token': token
+                }
             });
 
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -100,11 +104,13 @@ class AuditLogManager {
 
         try {
             // Add timestamp cache-buster to force fresh fetch (BUG-040/042)
+            const token = this.getCsrfToken();
             const cacheBuster = `?_=${new Date().getTime()}`;
             const response = await fetch(`/CollaboraNexio/api/users/list_managers.php${cacheBuster}`, {
                 credentials: 'same-origin',
                 cache: 'no-store',
                 headers: {
+                    'X-CSRF-Token': token,
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Pragma': 'no-cache',
                     'Expires': '0'
@@ -162,8 +168,12 @@ class AuditLogManager {
                 if (value) params.append(key, value);
             });
 
+            const token = this.getCsrfToken();
             const response = await fetch(`${this.apiBase}/list.php?${params}`, {
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRF-Token': token
+                }
             });
 
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -336,8 +346,12 @@ class AuditLogManager {
         console.log('[AuditLog] Opening detail modal for log:', logId);
 
         try {
+            const token = this.getCsrfToken();
             const response = await fetch(`${this.apiBase}/detail.php?id=${logId}`, {
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRF-Token': token
+                }
             });
 
             if (!response.ok) throw new Error(`HTTP ${response.status}`);

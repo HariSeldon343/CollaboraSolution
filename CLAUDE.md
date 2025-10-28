@@ -92,6 +92,60 @@ api_error('Error message', 403);
 - User-specific data endpoints
 - Admin/role-based access endpoints
 
+### Frontend CSRF Token Pattern (BUG-043 - MANDATORY)
+```javascript
+// ✅ CORRECT - Always include CSRF token in ALL fetch calls
+class MyManager {
+    getCsrfToken() {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+    }
+
+    async loadData() {
+        const token = this.getCsrfToken();  // CRITICAL: Get token first
+        const response = await fetch('/CollaboraNexio/api/endpoint.php', {
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRF-Token': token  // CRITICAL: Include in ALL requests
+            }
+        });
+    }
+
+    async postData(body) {
+        const token = this.getCsrfToken();
+        const response = await fetch('/CollaboraNexio/api/endpoint.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': token  // CRITICAL: Required for POST/DELETE
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(body)
+        });
+    }
+}
+
+// ❌ WRONG - Missing CSRF token
+async loadData() {
+    const response = await fetch('/api/endpoint.php', {
+        credentials: 'same-origin'
+    });
+    // Result: 403 Forbidden from verifyApiCsrfToken()
+}
+```
+
+**Why Critical (BUG-043):**
+- All API endpoints call `verifyApiCsrfToken()` which returns 403 if token missing/invalid
+- Applies to ALL HTTP methods (GET, POST, DELETE, PUT)
+- Token must be in `X-CSRF-Token` header (exact name, case-sensitive)
+- Use centralized `getCsrfToken()` method for consistency
+- Backend security validation is correct (should validate all requests)
+
+**HTML Meta Tag (Required):**
+```php
+<meta name="csrf-token" content="<?php echo htmlspecialchars($csrfToken); ?>">
+```
+
 ### Database Access
 ```php
 $db = Database::getInstance();
