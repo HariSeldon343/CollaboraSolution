@@ -1,0 +1,194 @@
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuovo Ticket Creato</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f7fa;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .header .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .greeting {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .ticket-card {
+            background: #f8f9fa;
+            border-left: 4px solid {{TICKET_URGENCY_COLOR}};
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .ticket-number {
+            font-size: 14px;
+            color: #666;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .ticket-subject {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0 0 15px 0;
+        }
+        .ticket-description {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+            margin: 15px 0;
+        }
+        .ticket-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #dee2e6;
+        }
+        .ticket-meta-item {
+            font-size: 14px;
+            color: #666;
+        }
+        .ticket-meta-item strong {
+            color: #333;
+        }
+        .urgency-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: {{TICKET_URGENCY_COLOR}};
+            color: white;
+        }
+        .category-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .info-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #856404;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">🎫</div>
+            <h1>Nuovo Ticket di Supporto</h1>
+        </div>
+
+        <div class="content">
+            <p class="greeting">Ciao <strong>{{USER_NAME}}</strong>,</p>
+
+            <p>È stato creato un nuovo ticket di supporto che richiede la tua attenzione.</p>
+
+            <div class="ticket-card">
+                <div class="ticket-number">#{{TICKET_NUMBER}}</div>
+                <h2 class="ticket-subject">{{TICKET_SUBJECT}}</h2>
+
+                <div class="ticket-description">
+                    {{TICKET_DESCRIPTION}}
+                </div>
+
+                <div class="ticket-meta">
+                    <div class="ticket-meta-item">
+                        <strong>Categoria:</strong> <span class="category-badge">{{TICKET_CATEGORY_LABEL}}</span>
+                    </div>
+                    <div class="ticket-meta-item">
+                        <strong>Urgenza:</strong> <span class="urgency-badge">{{TICKET_URGENCY_LABEL}}</span>
+                    </div>
+                    <div class="ticket-meta-item">
+                        <strong>Creato da:</strong> {{CREATED_BY_NAME}}
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <strong>💡 Nota:</strong> Puoi assegnare questo ticket a un membro del team e rispondere direttamente dall'interfaccia.
+            </div>
+
+            <div class="button-container">
+                <a href="{{TICKET_URL}}" class="button">Visualizza Ticket →</a>
+            </div>
+
+            <p style="font-size: 14px; color: #666; text-align: center;">
+                oppure <a href="{{TICKET_LIST_URL}}" style="color: #3b82f6;">visualizza tutti i ticket</a>
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>© {{YEAR}} CollaboraNexio. Tutti i diritti riservati.</p>
+            <p>Questa è una email automatica, si prega di non rispondere.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -116,7 +116,7 @@ try {
 
         // If it's a folder, update paths of all children
         if ($item['is_folder']) {
-            updateChildrenPaths($fileId, $item['path'], $newRelativePath, $db);
+            updateChildrenPaths($fileId, $item['path'], $newRelativePath, $tenantId, $db);
         }
 
         // Update thumbnail path if exists
@@ -135,26 +135,21 @@ try {
         }
     }
 
-    // Log audit
-    $db->insert('audit_logs', [
-        'tenant_id' => $tenantId,
-        'user_id' => $userId,
-        'action' => 'file_renamed',
-        'entity_type' => $item['is_folder'] ? 'folder' : 'file',
-        'entity_id' => $fileId,
-        'description' => ($item['is_folder'] ? 'Cartella rinominata' : 'File rinominato') . ": {$item['name']} → {$newName}",
-        'old_values' => json_encode([
-            'name' => $item['name']
-        ]),
-        'new_values' => json_encode([
-            'name' => $newName
-        ]),
-        'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
-        'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
-        'severity' => 'info',
-        'status' => 'success',
-        'created_at' => date('Y-m-d H:i:s')
-    ]);
+    // Audit log - Track file/folder rename
+    try {
+        require_once '../../includes/audit_helper.php';
+        AuditLogger::logUpdate(
+            $userId,
+            $tenantId,
+            $item['is_folder'] ? 'folder' : 'file',
+            $fileId,
+            ($item['is_folder'] ? 'Cartella rinominata' : 'File rinominato') . ": {$item['name']} → {$newName}",
+            ['name' => $item['name']],
+            ['name' => $newName]
+        );
+    } catch (Exception $e) {
+        error_log("[AUDIT LOG FAILURE] File rename tracking failed: " . $e->getMessage());
+    }
 
     apiSuccess([
         'id' => $fileId,
@@ -174,11 +169,11 @@ try {
 /**
  * Update paths of all children when a folder is renamed
  */
-function updateChildrenPaths(int $folderId, string $oldPath, string $newPath, $db): void {
-    // Get all children
+function updateChildrenPaths(int $folderId, string $oldPath, string $newPath, int $tenantId, $db): void {
+    // Get all children (SECURITY FIX: Added tenant_id to prevent cross-tenant data exposure)
     $children = $db->fetchAll(
-        "SELECT id, path, is_folder FROM files WHERE path LIKE ?",
-        [$oldPath . '/%']
+        "SELECT id, path, is_folder FROM files WHERE path LIKE ? AND tenant_id = ?",
+        [$oldPath . '/%', $tenantId]
     );
 
     foreach ($children as $child) {
@@ -191,7 +186,7 @@ function updateChildrenPaths(int $folderId, string $oldPath, string $newPath, $d
 
         // Recursively update if it's a folder
         if ($child['is_folder']) {
-            updateChildrenPaths($child['id'], $child['path'], $childNewPath, $db);
+            updateChildrenPaths($child['id'], $child['path'], $childNewPath, $tenantId, $db);
         }
     }
 }

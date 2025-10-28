@@ -8,14 +8,19 @@
 require_once '../../includes/api_auth.php';
 initializeApiEnvironment();
 
+// Force no-cache headers to prevent 403 stale errors (BUG-040)
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+
 // Verify authentication
 verifyApiAuthentication();
 $userInfo = getApiUserInfo();
 verifyApiCsrfToken();
 
-// Check if user is admin or super_admin
-if (!in_array($userInfo['role'], ['admin', 'super_admin'])) {
-    api_error('Accesso non autorizzato. Solo Admin e Super Admin possono accedere.', 403);
+// Check if user is manager, admin or super_admin (BUG-040 FIX)
+if (!in_array($userInfo['role'], ['manager', 'admin', 'super_admin'])) {
+    api_error('Accesso non autorizzato', 403);
 }
 
 try {
@@ -32,12 +37,10 @@ try {
             u.name,
             u.email,
             u.role,
-            u.status,
             t.name as tenant_name
         FROM users u
         LEFT JOIN tenants t ON u.tenant_id = t.id
         WHERE u.role IN ('manager', 'admin', 'super_admin')
-            AND u.status = 'active'
             AND u.deleted_at IS NULL
         ORDER BY u.role DESC, u.name ASC
     ";
@@ -63,7 +66,8 @@ try {
         ];
     }, $managers);
 
-    api_success($formattedManagers, 'Lista manager caricata con successo');
+    // BUG-040 FIX: Wrap in 'users' key for frontend compatibility (data.data.users)
+    api_success(['users' => $formattedManagers], 'Lista manager caricata con successo');
 
 } catch (Exception $e) {
     error_log('Error in list_managers.php: ' . $e->getMessage());

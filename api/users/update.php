@@ -178,6 +178,48 @@ try {
         apiError('Errore nell\'aggiornamento dell\'utente', 500);
     }
 
+    // Audit log - Track user update
+    try {
+        require_once '../../includes/audit_helper.php';
+
+        // Build old/new values for comparison
+        $oldValues = [
+            'name' => $existingUser['name'] ?? '',
+            'email' => $existingUser['email'],
+            'role' => $existingUser['role'],
+            'tenant_id' => $existingUser['tenant_id']
+        ];
+
+        $newValues = [
+            'name' => $name,
+            'email' => $email
+        ];
+
+        if (isset($params[':role'])) {
+            $newValues['role'] = $role;
+        }
+        if (isset($params[':tenant_id'])) {
+            $newValues['tenant_id'] = $tenantId;
+        }
+        if (!empty($password)) {
+            $newValues['password'] = '[CHANGED]';
+            $oldValues['password'] = '[REDACTED]';
+        }
+
+        AuditLogger::logUpdate(
+            $currentUserId,
+            $currentTenantId,
+            'user',
+            $userId,
+            "Updated user: $email",
+            $oldValues,
+            $newValues,
+            !empty($password) ? 'warning' : 'info'
+        );
+    } catch (Exception $e) {
+        error_log("[AUDIT LOG FAILURE] User update tracking failed: " . $e->getMessage());
+    }
+
     // Success response
     apiSuccess(null, 'Utente aggiornato con successo');
 

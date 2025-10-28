@@ -34,6 +34,7 @@ $csrfToken = $auth->generateCSRFToken();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="csrf-token" content="<?php echo htmlspecialchars($csrfToken); ?>">
     <title>Ticket - CollaboraNexio</title>
 
     <!-- Main CSS -->
@@ -391,6 +392,273 @@ $csrfToken = $auth->generateCSRFToken();
             background: var(--color-gray-100);
             color: var(--color-primary);
         }
+
+        /* ========================================
+           MODAL STYLES FOR TICKET CREATION
+           ======================================== */
+
+        /* Modal Overlay */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(4px);
+            animation: modalFadeIn 0.2s ease-out;
+        }
+
+        /* Modal when hidden */
+        .modal[style*="display: none"] {
+            animation: none;
+        }
+
+        /* Modal Content Box */
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Modal Header */
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #E5E7EB;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+            color: #1F2937;
+        }
+
+        /* Close Button */
+        .modal-close {
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+            color: #6B7280;
+            transition: all 0.2s;
+            border-radius: 6px;
+            font-size: 24px;
+            line-height: 1;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            color: #1F2937;
+            background: #F3F4F6;
+        }
+
+        /* Modal Body */
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        /* Form Groups in Modal */
+        .modal-body .form-group {
+            margin-bottom: 20px;
+        }
+
+        .modal-body .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .modal-body .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #1F2937;
+            background-color: white;
+            border: 1px solid #D1D5DB;
+            border-radius: 6px;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+            box-sizing: border-box;
+        }
+
+        .modal-body .form-control:focus {
+            outline: 0;
+            border-color: #2563EB;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .modal-body textarea.form-control {
+            resize: vertical;
+            min-height: 100px;
+            font-family: inherit;
+        }
+
+        .modal-body select.form-control {
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 20px;
+            padding-right: 40px;
+        }
+
+        .modal-body small.text-muted {
+            display: block;
+            margin-top: 4px;
+            font-size: 12px;
+            color: #6B7280;
+        }
+
+        /* Alert Box in Modal */
+        .modal-body .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-top: 16px;
+        }
+
+        .modal-body .alert-danger {
+            background-color: #FEE2E2;
+            border: 1px solid #FECACA;
+            color: #991B1B;
+        }
+
+        /* Modal Footer */
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #E5E7EB;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        /* Buttons in Modal */
+        .modal-footer .btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-footer .btn--primary {
+            background-color: #2563EB;
+            color: white;
+            border-color: #2563EB;
+        }
+
+        .modal-footer .btn--primary:hover {
+            background-color: #1D4ED8;
+            border-color: #1D4ED8;
+        }
+
+        .modal-footer .btn--secondary {
+            background-color: white;
+            color: #374151;
+            border-color: #D1D5DB;
+        }
+
+        .modal-footer .btn--secondary:hover {
+            background-color: #F9FAFB;
+            border-color: #9CA3AF;
+        }
+
+        /* Icon in button */
+        .modal-footer .btn .icon {
+            width: 16px;
+            height: 16px;
+        }
+
+        .modal-footer .btn .icon--save::before {
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/%3E%3Cpolyline points='17 21 17 13 7 13 7 21'/%3E%3Cpolyline points='7 3 7 8 15 8'/%3E%3C/svg%3E");
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'/%3E%3Cpolyline points='17 21 17 13 7 13 7 21'/%3E%3Cpolyline points='7 3 7 8 15 8'/%3E%3C/svg%3E");
+        }
+
+        /* Animations */
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 640px) {
+            .modal-content {
+                width: 95%;
+                max-width: none;
+                margin: 16px;
+                max-height: calc(100vh - 32px);
+            }
+
+            .modal-header {
+                padding: 16px 20px;
+            }
+
+            .modal-body {
+                padding: 20px;
+            }
+
+            .modal-footer {
+                padding: 12px 20px;
+                flex-direction: column-reverse;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Dark overlay adjustment for better contrast */
+        @media (prefers-color-scheme: dark) {
+            .modal {
+                background: rgba(0, 0, 0, 0.7);
+            }
+        }
     </style>
 </head>
 <body>
@@ -465,7 +733,7 @@ $csrfToken = $auth->generateCSRFToken();
                     <!-- Header with actions -->
                     <div class="tickets-header">
                         <h2>Gestione Ticket</h2>
-                        <button class="btn btn--primary" onclick="openNewTicketModal()">
+                        <button class="btn btn--primary" id="create-ticket-btn">
                             <i class="icon icon--plus"></i> Nuovo Ticket
                         </button>
                     </div>
@@ -493,31 +761,33 @@ $csrfToken = $auth->generateCSRFToken();
                     <!-- Filters -->
                     <div class="tickets-filters">
                         <div class="filter-group">
-                            <select class="form-control">
-                                <option>Tutti i ticket</option>
-                                <option>I miei ticket</option>
-                                <option>Assegnati a me</option>
+                            <select id="assigned-filter" class="form-control">
+                                <option value="">Tutti i ticket</option>
+                                <option value="mine">I miei ticket</option>
+                                <option value="assigned">Assegnati a me</option>
                             </select>
                         </div>
                         <div class="filter-group">
-                            <select class="form-control">
-                                <option>Tutti gli stati</option>
-                                <option>Aperti</option>
-                                <option>In corso</option>
-                                <option>Risolti</option>
-                                <option>Chiusi</option>
+                            <select id="status-filter" class="form-control">
+                                <option value="">Tutti gli stati</option>
+                                <option value="open">Aperti</option>
+                                <option value="in_progress">In Lavorazione</option>
+                                <option value="waiting_customer,waiting_staff">In Attesa</option>
+                                <option value="resolved">Risolti</option>
+                                <option value="closed">Chiusi</option>
                             </select>
                         </div>
                         <div class="filter-group">
-                            <select class="form-control">
-                                <option>Tutte le priorità</option>
-                                <option>Alta</option>
-                                <option>Media</option>
-                                <option>Bassa</option>
+                            <select id="priority-filter" class="form-control">
+                                <option value="">Tutte le urgenze</option>
+                                <option value="critical">Critica</option>
+                                <option value="high">Alta</option>
+                                <option value="medium">Normale</option>
+                                <option value="low">Bassa</option>
                             </select>
                         </div>
                         <div class="filter-group">
-                            <input type="text" class="form-control" placeholder="Cerca ticket...">
+                            <input type="text" id="search-input" class="form-control" placeholder="Cerca ticket...">
                         </div>
                     </div>
 
@@ -595,26 +865,231 @@ $csrfToken = $auth->generateCSRFToken();
         </div>
     </div>
 
+    <!-- Create Ticket Modal -->
+    <div id="create-ticket-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>Nuovo Ticket di Supporto</h3>
+                <button class="modal-close" onclick="window.ticketManager.closeCreateModal()">&times;</button>
+            </div>
+            <form id="create-ticket-form" onsubmit="window.ticketManager.handleCreateSubmit(event); return false;">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="ticket-subject">Oggetto *</label>
+                        <input type="text" id="ticket-subject" name="subject" class="form-control" required maxlength="200" placeholder="Breve descrizione del problema">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ticket-category">Categoria *</label>
+                        <select id="ticket-category" name="category" class="form-control" required>
+                            <option value="">Seleziona categoria...</option>
+                            <option value="technical">Tecnico</option>
+                            <option value="billing">Fatturazione</option>
+                            <option value="feature_request">Richiesta Funzionalità</option>
+                            <option value="bug_report">Segnalazione Bug</option>
+                            <option value="general">Generale</option>
+                            <option value="other">Altro</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ticket-urgency">Urgenza *</label>
+                        <select id="ticket-urgency" name="urgency" class="form-control" required>
+                            <option value="medium" selected>Normale</option>
+                            <option value="low">Bassa</option>
+                            <option value="high">Alta</option>
+                            <option value="critical">Critica</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ticket-description">Descrizione Dettagliata *</label>
+                        <textarea id="ticket-description" name="description" class="form-control" rows="6" required placeholder="Descrivi il problema in dettaglio..."></textarea>
+                        <small class="text-muted">Fornisci quante più informazioni possibili per aiutarci a risolvere il problema</small>
+                    </div>
+
+                    <div id="create-ticket-error" class="alert alert-danger" style="display: none;"></div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn--secondary" onclick="window.ticketManager.closeCreateModal()">Annulla</button>
+                    <button type="submit" class="btn btn--primary" id="create-ticket-submit-btn">
+                        <i class="icon icon--save"></i> Crea Ticket
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Ticket Detail Modal - Redesigned Compact Layout -->
+    <div id="ticket-detail-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 1200px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="flex-shrink: 0; padding: 16px 24px; border-bottom: 2px solid #E5E7EB;">
+                <div style="flex: 1;">
+                    <h3 id="detail-modal-title" style="margin: 0; font-size: 20px;">Dettaglio Ticket</h3>
+                    <div id="detail-ticket-number" style="font-size: 13px; color: #6B7280; margin-top: 2px;"></div>
+                </div>
+                <button class="modal-close" onclick="window.ticketManager.closeTicketDetailModal()" style="font-size: 28px;">&times;</button>
+            </div>
+
+            <div class="modal-body" style="flex: 1; overflow: hidden; padding: 0; display: flex; gap: 0;">
+
+                <!-- LEFT COLUMN: Ticket Info & Actions (35%) -->
+                <div style="width: 35%; border-right: 2px solid #E5E7EB; padding: 20px; overflow-y: auto; background: #F9FAFB;">
+
+                    <!-- Ticket Header -->
+                    <div style="margin-bottom: 20px;">
+                        <h2 id="detail-ticket-subject" style="margin: 0 0 10px 0; font-size: 20px; color: #1F2937; line-height: 1.3;"></h2>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;">
+                            <span id="detail-ticket-status-badge" class="status-badge"></span>
+                            <span id="detail-ticket-urgency-badge" class="priority-badge"></span>
+                            <span id="detail-ticket-category-badge" style="display: inline-block; padding: 3px 8px; background: #E5E7EB; color: #374151; border-radius: 4px; font-size: 11px; font-weight: 500;"></span>
+                        </div>
+                    </div>
+
+                    <!-- Metadata Compact -->
+                    <div style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px;">
+                            <span style="font-size: 11px; font-weight: 600; color: #6B7280; width: 80px;">Creato da:</span>
+                            <span id="detail-ticket-creator" style="font-size: 13px; color: #1F2937; font-weight: 500;"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px;">
+                            <span style="font-size: 11px; font-weight: 600; color: #6B7280; width: 80px;">Assegnato:</span>
+                            <span id="detail-ticket-assigned" style="font-size: 13px; color: #1F2937; font-weight: 500;"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px;">
+                            <span style="font-size: 11px; font-weight: 600; color: #6B7280; width: 80px;">Creato:</span>
+                            <span id="detail-ticket-created" style="font-size: 13px; color: #1F2937;"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px;">
+                            <span style="font-size: 11px; font-weight: 600; color: #6B7280; width: 80px;">Aggiornato:</span>
+                            <span id="detail-ticket-updated" style="font-size: 13px; color: #1F2937;"></span>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: #374151; text-transform: uppercase;">Descrizione</h4>
+                        <div id="detail-ticket-description" style="padding: 12px; background: white; border-radius: 6px; font-size: 13px; line-height: 1.5; color: #1F2937; white-space: pre-wrap; max-height: 150px; overflow-y: auto;"></div>
+                    </div>
+
+                    <!-- Admin Actions -->
+                    <div id="detail-admin-actions" style="display: none;">
+                        <h4 style="margin: 0 0 12px 0; font-size: 12px; font-weight: 600; color: #374151; text-transform: uppercase; padding-top: 16px; border-top: 2px solid #E5E7EB;">Azioni Admin</h4>
+
+                        <!-- Change Status -->
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-size: 11px; font-weight: 600; color: #6B7280;">Cambia Stato</label>
+                            <select id="detail-change-status" class="form-control" style="font-size: 13px; padding: 8px;" onchange="window.ticketManager.changeTicketStatus(this.value)">
+                                <option value="">Seleziona...</option>
+                                <option value="open">Aperto</option>
+                                <option value="in_progress">In Lavorazione</option>
+                                <option value="waiting_customer">In Attesa Cliente</option>
+                                <option value="waiting_staff">In Attesa Staff</option>
+                                <option value="resolved">Risolto</option>
+                                <option value="closed">Chiuso</option>
+                            </select>
+                        </div>
+
+                        <!-- Assign Ticket -->
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-size: 11px; font-weight: 600; color: #6B7280;">Assegna a</label>
+                            <select id="detail-assign-to" class="form-control" style="font-size: 13px; padding: 8px;" onchange="window.ticketManager.assignTicket(this.value)">
+                                <option value="">Seleziona utente...</option>
+                                <!-- Users will be populated dynamically -->
+                            </select>
+                        </div>
+
+                        <!-- Delete Ticket Button -->
+                        <div id="detail-delete-section" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 2px solid #FEE2E2;">
+                            <div style="background: #FEF2F2; border-left: 3px solid #DC2626; padding: 12px; border-radius: 4px; margin-bottom: 10px;">
+                                <h5 style="margin: 0 0 6px 0; font-size: 12px; font-weight: 600; color: #991B1B;">⚠️ ZONA PERICOLOSA</h5>
+                                <p style="margin: 0 0 8px 0; font-size: 11px; color: #7F1D1D; line-height: 1.4;">Eliminazione permanente. Solo ticket chiusi.</p>
+                                <button id="detail-delete-btn" onclick="window.ticketManager.deleteTicket()" style="background: #DC2626; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; width: 100%;" onmouseover="this.style.background='#B91C1C'" onmouseout="this.style.background='#DC2626'">
+                                    🗑️ Elimina Ticket
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT COLUMN: Conversation & Reply (65%) -->
+                <div style="width: 65%; display: flex; flex-direction: column;">
+
+                    <!-- Conversation Thread -->
+                    <div style="flex: 1; overflow-y: auto; padding: 20px; background: white;">
+                        <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600; color: #374151; text-transform: uppercase; display: flex; align-items: center; gap: 8px;">
+                            <span>💬 Conversazione</span>
+                            <span id="detail-response-count" style="display: inline-block; padding: 2px 8px; background: #2563EB; color: white; border-radius: 12px; font-size: 11px;">0</span>
+                        </h4>
+                        <div id="detail-responses-container" style="min-height: 200px;">
+                            <!-- Responses will be inserted here dynamically -->
+                            <div id="detail-no-responses" style="padding: 40px 20px; text-align: center; color: #9CA3AF; font-size: 13px;">
+                                💬 Nessuna risposta ancora. Sii il primo a rispondere!
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reply Form (Fixed at bottom) -->
+                    <div id="detail-reply-section" style="flex-shrink: 0; padding: 16px 20px; background: #F9FAFB; border-top: 2px solid #E5E7EB;">
+                        <form id="ticket-reply-form" onsubmit="window.ticketManager.submitReply(event); return false;">
+                            <div class="form-group" style="margin-bottom: 10px;">
+                                <textarea id="reply-message" name="message" class="form-control" rows="3" required placeholder="Scrivi la tua risposta..." style="resize: vertical; min-height: 80px; font-size: 13px;"></textarea>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div id="detail-internal-note-section" style="display: none;">
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #374151;">
+                                        <input type="checkbox" id="reply-is-internal" name="is_internal" style="width: 16px; height: 16px; cursor: pointer;">
+                                        <span>Nota interna</span>
+                                    </label>
+                                </div>
+                                <button type="submit" class="btn btn--primary" id="reply-submit-btn" style="margin-left: auto; padding: 8px 16px; font-size: 13px;">
+                                    <i class="icon icon--save"></i> Invia Risposta
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="assets/js/app.js"></script>
+    <script src="assets/js/tickets.js?v=<?php echo time(); ?>"></script>
     <script>
-        function openNewTicketModal() {
-            // Placeholder for new ticket modal
-            alert('Funzionalità nuovo ticket in sviluppo');
-        }
-
-        // Initialize company filter if present
-        <?php if ($currentUser['role'] === 'admin' || $currentUser['role'] === 'super_admin'): ?>
+        // Initialize TicketManager when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('[Ticket Page] Initializing TicketManager...');
+
+            // Initialize ticket manager with user context
+            if (typeof TicketManager !== 'undefined') {
+                window.ticketManager = new TicketManager({
+                    userRole: '<?php echo htmlspecialchars($currentUser['role'], ENT_QUOTES); ?>',
+                    userId: <?php echo (int)$currentUser['id']; ?>,
+                    userName: '<?php echo htmlspecialchars($currentUser['name'], ENT_QUOTES); ?>'
+                });
+                console.log('[Ticket Page] TicketManager initialized successfully with role: <?php echo $currentUser['role']; ?>');
+            } else {
+                console.error('[Ticket Page] TicketManager class not found. Check tickets.js is loaded.');
+            }
+
+            // Initialize company filter if present
+            <?php if ($currentUser['role'] === 'admin' || $currentUser['role'] === 'super_admin'): ?>
             const companySelector = document.getElementById('company-filter');
             if (companySelector) {
                 companySelector.addEventListener('change', function() {
-                    // Handle company filter change
-                    console.log('Company changed:', this.value);
+                    console.log('[Company Filter] Company changed:', this.value);
+                    // Reload tickets for new company if needed
+                    if (window.ticketManager) {
+                        window.ticketManager.loadTickets();
+                        window.ticketManager.loadStats();
+                    }
                 });
             }
+            <?php endif; ?>
         });
-        <?php endif; ?>
     </script>
 </body>
 </html>

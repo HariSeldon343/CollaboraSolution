@@ -8,7 +8,7 @@
     class EnhancedFileManager {
         constructor() {
             this.config = {
-                uploadApi: '/CollaboraNexio/api/files/upload.php',
+                uploadApi: '/CollaboraNexio/api/files_tenant.php?action=upload',
                 createDocumentApi: '/CollaboraNexio/api/files/create_document.php',
                 filesApi: '/CollaboraNexio/api/files_tenant.php',
                 maxFileSize: 100 * 1024 * 1024, // 100MB
@@ -625,8 +625,9 @@
                     this.state.activeUploads.delete(uploadId);
                 });
 
-                // Send request with cache busting (use integer only to avoid decimal point in URL)
-                const cacheBustUrl = this.config.uploadApi + '?_t=' + Date.now() + Math.floor(Math.random() * 1000000);
+                // Send request with cache busting (use '&' if URL already has query params)
+                const sep = this.config.uploadApi.includes('?') ? '&' : '?';
+                const cacheBustUrl = this.config.uploadApi + sep + '_t=' + (Date.now() + Math.floor(Math.random() * 1000000));
                 xhr.open('POST', cacheBustUrl);
                 // Force no-cache headers to bypass browser cache
                 xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -700,8 +701,9 @@
                     const overallProgress = ((chunkIndex + 1) / totalChunks) * 100;
                     this.updateUploadProgress(uploadId, overallProgress);
 
-                    // Send chunk with cache busting (use integer only to avoid decimal point in URL)
-                    const cacheBustUrl = this.config.uploadApi + '?_t=' + Date.now() + Math.floor(Math.random() * 1000000);
+                    // Send chunk with cache busting (use '&' if URL already has query params)
+                    const sep = this.config.uploadApi.includes('?') ? '&' : '?';
+                    const cacheBustUrl = this.config.uploadApi + sep + '_t=' + (Date.now() + Math.floor(Math.random() * 1000000));
                     xhr.open('POST', cacheBustUrl);
                     // Force no-cache headers to bypass browser cache
                     xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -991,7 +993,8 @@
                 `;
                 confirmBtn.disabled = true;
 
-                const response = await fetch(this.config.createDocumentApi, {
+                // Prefer router-style create to avoid 404 in some setups
+                const response = await fetch('/CollaboraNexio/api/files_tenant.php?action=create_document', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1537,7 +1540,7 @@
             const createDocumentBtn = document.getElementById('createDocumentBtn');
 
             if (uploadBtn) {
-                uploadBtn.style.display = this.state.isRoot ? 'none' : 'inline-flex';
+                uploadBtn.style.display = 'inline-flex';
             }
 
             if (newFolderBtn) {
@@ -1545,7 +1548,7 @@
             }
 
             if (createDocumentBtn) {
-                createDocumentBtn.style.display = this.state.isRoot ? 'none' : 'inline-flex';
+                createDocumentBtn.style.display = 'inline-flex';
             }
 
             if (this.state.isRoot) {

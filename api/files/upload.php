@@ -260,26 +260,26 @@ function processFileUpload(array $file, int $tenantId, ?int $folderId, int $user
             ]);
         }
 
-        // Log audit
-        $db->insert('audit_logs', [
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'action' => 'file_uploaded',
-            'entity_type' => 'file',
-            'entity_id' => $fileId,
-            'description' => "File caricato: {$originalName} (" . FileHelper::formatFileSize($fileSize) . ")",
-            'new_values' => json_encode([
-                'file_name' => $originalName,
-                'file_size' => $fileSize,
-                'mime_type' => $mimeType,
-                'folder_id' => $folderId
-            ]),
-            'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
-            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
-            'severity' => 'info',
-            'status' => 'success',
-            'created_at' => date('Y-m-d H:i:s')
-        ]);
+        // Audit log - Track file upload using AuditLogger
+        try {
+            require_once '../../includes/audit_helper.php';
+            AuditLogger::logCreate(
+                $userId,
+                $tenantId,
+                'file',
+                $fileId,
+                "File caricato: {$originalName} (" . FileHelper::formatFileSize($fileSize) . ")",
+                [
+                    'file_name' => $originalName,
+                    'file_size' => $fileSize,
+                    'mime_type' => $mimeType,
+                    'folder_id' => $folderId,
+                    'is_editable' => $isEditable
+                ]
+            );
+        } catch (Exception $e) {
+            error_log("[AUDIT LOG FAILURE] File upload tracking failed: " . $e->getMessage());
+        }
 
         return [
             'success' => true,

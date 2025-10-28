@@ -1,4 +1,10 @@
 <?php
+// Force no-cache headers to prevent 403/500 stale errors (BUG-040)
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Cache-Control: post-check=0, pre-check=0', false);
+header('Pragma: no-cache');
+header('Expires: Sat, 26 Jul 1997 05:00:00 GMT'); // Date in the past
+
 // Initialize session with proper configuration
 require_once __DIR__ . '/includes/session_init.php';
 // Authentication check - redirect to login if not authenticated
@@ -22,8 +28,8 @@ if (!$currentUser) {
 require_once __DIR__ . '/includes/tenant_access_check.php';
 requireTenantAccess($currentUser['id'], $currentUser['role']);
 
-// Only super_admin can access this page
-if ($currentUser['role'] !== 'super_admin') {
+// Only admin and super_admin can access this page
+if (!in_array($currentUser['role'], ['admin', 'super_admin'])) {
     header('Location: dashboard.php');
     exit;
 }
@@ -40,7 +46,8 @@ $csrfToken = $auth->generateCSRFToken();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Audit Log - CollaboraNexio</title>
+    <meta name="csrf-token" content="<?php echo htmlspecialchars($csrfToken); ?>">
+    <title>Registro Audit - CollaboraNexio</title>
 
     <!-- Main CSS -->
     <link rel="stylesheet" href="assets/css/styles.css">
@@ -49,441 +56,442 @@ $csrfToken = $auth->generateCSRFToken();
     <!-- Page specific CSS -->
     <link rel="stylesheet" href="assets/css/dashboard.css">
 
+    <!-- Custom Styles for Audit Log Page -->
     <style>
-        /* Logo image style */
-        .logo-img {
-            width: 32px;
-            height: 32px;
-            background: white;
-            padding: 4px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        /* Sidebar navigation styles */
-        .nav-section {
-            margin-bottom: var(--space-6);
-        }
-
-        .nav-section-title {
-            padding: var(--space-2) var(--space-4);
-            font-size: var(--text-xs);
-            font-weight: var(--font-semibold);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--color-sidebar-text-muted);
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3) var(--space-4);
-            color: var(--color-sidebar-text);
-            text-decoration: none;
-            transition: all var(--transition-fast);
-            position: relative;
-            font-size: var(--text-sm);
-        }
-
-        .nav-item:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .nav-item.active {
-            background-color: rgba(255, 255, 255, 0.15);
-        }
-
-        .nav-item.active::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            background-color: var(--color-sidebar-active);
-        }
-
-        /* Icon base styles */
-        .icon {
-            width: 20px;
-            height: 20px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-style: normal;
-            color: var(--color-sidebar-text);
-            position: relative;
-        }
-
-        /* White icon styles using CSS masks */
-        .icon::before {
-            content: '';
-            display: block;
-            width: 18px;
-            height: 18px;
-            background-color: currentColor;
-            mask-size: contain;
-            mask-repeat: no-repeat;
-            mask-position: center;
-            -webkit-mask-size: contain;
-            -webkit-mask-repeat: no-repeat;
-            -webkit-mask-position: center;
-        }
-
-        /* Individual icon masks */
-        .icon--home::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpolyline points='9 22 9 12 15 12 15 22'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpolyline points='9 22 9 12 15 12 15 22'/%3E%3C/svg%3E");
-        }
-
-        .icon--folder::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
-        }
-
-        .icon--calendar::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
-        }
-
-        .icon--check::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='9 11 12 14 22 4'/%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='9 11 12 14 22 4'/%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'/%3E%3C/svg%3E");
-        }
-
-        .icon--ticket::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M13 5v2'/%3E%3Cpath d='M13 17v2'/%3E%3Cpath d='M13 11v2'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M13 5v2'/%3E%3Cpath d='M13 17v2'/%3E%3Cpath d='M13 11v2'/%3E%3C/svg%3E");
-        }
-
-        .icon--shield::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E");
-        }
-
-        .icon--cpu::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='4' y='4' width='16' height='16' rx='2'/%3E%3Crect x='9' y='9' width='6' height='6'/%3E%3Cline x1='9' y1='1' x2='9' y2='4'/%3E%3Cline x1='15' y1='1' x2='15' y2='4'/%3E%3Cline x1='9' y1='20' x2='9' y2='23'/%3E%3Cline x1='15' y1='20' x2='15' y2='23'/%3E%3Cline x1='20' y1='9' x2='23' y2='9'/%3E%3Cline x1='20' y1='14' x2='23' y2='14'/%3E%3Cline x1='1' y1='9' x2='4' y2='9'/%3E%3Cline x1='1' y1='14' x2='4' y2='14'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='4' y='4' width='16' height='16' rx='2'/%3E%3Crect x='9' y='9' width='6' height='6'/%3E%3Cline x1='9' y1='1' x2='9' y2='4'/%3E%3Cline x1='15' y1='1' x2='15' y2='4'/%3E%3Cline x1='9' y1='20' x2='9' y2='23'/%3E%3Cline x1='15' y1='20' x2='15' y2='23'/%3E%3Cline x1='20' y1='9' x2='23' y2='9'/%3E%3Cline x1='20' y1='14' x2='23' y2='14'/%3E%3Cline x1='1' y1='9' x2='4' y2='9'/%3E%3Cline x1='1' y1='14' x2='4' y2='14'/%3E%3C/svg%3E");
-        }
-
-        .icon--building::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z'/%3E%3Cpath d='M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'/%3E%3Cpath d='M10 6h4'/%3E%3Cpath d='M10 10h4'/%3E%3Cpath d='M10 14h4'/%3E%3Cpath d='M10 18h4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z'/%3E%3Cpath d='M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'/%3E%3Cpath d='M10 6h4'/%3E%3Cpath d='M10 10h4'/%3E%3Cpath d='M10 14h4'/%3E%3Cpath d='M10 18h4'/%3E%3C/svg%3E");
-        }
-
-        .icon--users::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
-        }
-
-        .icon--chart::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='m19 9-5 5-4-4-3 3'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='m19 9-5 5-4-4-3 3'/%3E%3C/svg%3E");
-        }
-
-        .icon--settings::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 13.54l4.24 4.24M6.34 6.34L2.1 2.1m13.8 13.8l4.24 4.24'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 13.54l4.24 4.24M6.34 6.34L2.1 2.1m13.8 13.8l4.24 4.24'/%3E%3C/svg%3E");
-        }
-
-        .icon--user::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
-        }
-
-        .icon--logout::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E");
-        }
-
-        .icon--download::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='7 10 12 15 17 10'/%3E%3Cline x1='12' y1='15' x2='12' y2='3'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='7 10 12 15 17 10'/%3E%3Cline x1='12' y1='15' x2='12' y2='3'/%3E%3C/svg%3E");
-        }
-
-        .icon--file::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z'/%3E%3Cpolyline points='13 2 13 9 20 9'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z'/%3E%3Cpolyline points='13 2 13 9 20 9'/%3E%3C/svg%3E");
-        }
-
-        .icon--chevron-left::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpolyline points='15 18 9 12 15 6'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpolyline points='15 18 9 12 15 6'/%3E%3C/svg%3E");
-        }
-
-        .icon--chevron-right::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpolyline points='9 18 15 12 9 6'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpolyline points='9 18 15 12 9 6'/%3E%3C/svg%3E");
-        }
-
-        /* Logo styles */
-        .logo-icon {
-            font-size: var(--text-2xl);
-            width: 32px;
-            height: 32px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--color-primary);
-            color: var(--color-white);
-            border-radius: var(--radius-md);
-            font-weight: var(--font-bold);
-        }
-
-        .logo-text {
-            font-size: var(--text-xl);
-            font-weight: var(--font-bold);
-        }
-
-        .sidebar-subtitle {
-            font-size: var(--text-xs);
-            color: var(--color-sidebar-text-muted);
-            margin-top: var(--space-1);
-        }
-
-        /* User info styles */
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3);
-            background-color: rgba(255, 255, 255, 0.05);
-            border-radius: var(--radius-lg);
-        }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            background: var(--color-sidebar-active);
-            color: var(--color-white);
-            border-radius: var(--radius-full);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: var(--text-sm);
-            font-weight: var(--font-semibold);
-        }
-
-        .user-details {
-            flex: 1;
-        }
-
-        .user-name {
-            font-size: var(--text-sm);
-            font-weight: var(--font-medium);
-            color: var(--color-sidebar-text);
-        }
-
-        .user-badge {
-            font-size: 10px;
-            color: var(--color-white);
-            background: var(--color-primary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-top: 4px;
-            padding: 2px 6px;
-            border-radius: var(--radius-sm);
-            display: inline-block;
-            font-weight: var(--font-semibold);
-        }
-
-        /* Page specific styles */
+        /* Page Container */
         .audit-container {
-            padding: var(--space-6);
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
         }
 
-        .audit-header {
+        /* Header Section */
+        .page-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: var(--space-8);
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
         }
 
-        .audit-filters {
-            background: var(--color-white);
-            padding: var(--space-6);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-sm);
-            margin-bottom: var(--space-6);
+        .page-title {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: #1F2937;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
 
-        .filters-row {
+        .page-title-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #2563EB, #1E40AF);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        /* Statistics Cards */
+        .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: var(--space-4);
-            margin-bottom: var(--space-4);
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #E5E7EB;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #2563EB, #3B82F6);
+        }
+
+        .stat-card.critical::before {
+            background: linear-gradient(90deg, #EF4444, #F87171);
+        }
+
+        .stat-card.warning::before {
+            background: linear-gradient(90deg, #F59E0B, #FBB040);
+        }
+
+        .stat-card.success::before {
+            background: linear-gradient(90deg, #10B981, #34D399);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #6B7280;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1F2937;
+            line-height: 1;
+            transition: color 0.2s ease;
+        }
+
+        .stat-card:hover .stat-value {
+            color: #2563EB;
+        }
+
+        .stat-card.critical:hover .stat-value {
+            color: #EF4444;
+        }
+
+        /* Filters Section */
+        .filters-container {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #E5E7EB;
+            margin-bottom: 1.5rem;
+        }
+
+        .filters-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+        }
+
+        .filters-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1F2937;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
         }
 
         .filter-group {
             display: flex;
             flex-direction: column;
-            gap: var(--space-2);
+            gap: 0.375rem;
         }
 
         .filter-label {
-            font-size: var(--text-sm);
-            font-weight: var(--font-medium);
-            color: var(--color-gray-700);
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #4B5563;
         }
 
-        .audit-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: var(--space-4);
-            margin-bottom: var(--space-6);
+        .filter-input,
+        .filter-select {
+            padding: 0.625rem 0.875rem;
+            border: 1px solid #D1D5DB;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            background: white;
         }
 
-        .stat-card {
-            background: var(--color-white);
-            padding: var(--space-4);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-sm);
-            border-left: 4px solid var(--color-primary);
+        .filter-input:focus,
+        .filter-select:focus {
+            outline: none;
+            border-color: #2563EB;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
-        .stat-label {
-            font-size: var(--text-xs);
-            font-weight: var(--font-semibold);
-            color: var(--color-gray-500);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: var(--space-1);
+        .filters-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            margin-top: 1rem;
         }
 
-        .stat-value {
-            font-size: var(--text-2xl);
-            font-weight: var(--font-bold);
-            color: var(--color-gray-900);
-        }
-
-        .audit-table-container {
-            background: var(--color-white);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-sm);
+        /* Table Styles */
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #E5E7EB;
             overflow: hidden;
         }
 
         .table-header {
-            padding: var(--space-4) var(--space-6);
-            background: var(--color-gray-50);
-            border-bottom: 1px solid var(--color-gray-200);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #E5E7EB;
+            background: #F9FAFB;
         }
 
-        .table-wrapper {
-            overflow-x: auto;
+        .table-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1F2937;
         }
 
-        table {
+        .table-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .audit-table {
             width: 100%;
             border-collapse: collapse;
         }
 
-        th {
+        .audit-table thead {
+            background: #F9FAFB;
+            border-bottom: 2px solid #E5E7EB;
+        }
+
+        .audit-table th {
             text-align: left;
-            padding: var(--space-4);
-            background: var(--color-gray-50);
-            font-size: var(--text-xs);
-            font-weight: var(--font-semibold);
-            color: var(--color-gray-700);
+            padding: 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #4B5563;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            white-space: nowrap;
+            letter-spacing: 0.025em;
         }
 
-        td {
-            padding: var(--space-4);
-            border-top: 1px solid var(--color-gray-200);
-            font-size: var(--text-sm);
+        .audit-table tbody tr {
+            border-bottom: 1px solid #F3F4F6;
+            transition: background 0.15s ease;
         }
 
-        tr:hover {
-            background: var(--color-gray-50);
+        .audit-table tbody tr:hover {
+            background: #F9FAFB;
         }
 
+        .audit-table td {
+            padding: 1rem;
+            font-size: 0.875rem;
+            color: #1F2937;
+        }
+
+        /* Action Badge */
         .action-badge {
-            display: inline-block;
-            padding: var(--space-1) var(--space-2);
-            border-radius: var(--radius-sm);
-            font-size: var(--text-xs);
-            font-weight: var(--font-semibold);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.625rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
             text-transform: uppercase;
+            letter-spacing: 0.025em;
         }
 
-        .action-create { background: var(--color-success-100); color: var(--color-success); }
-        .action-update { background: var(--color-primary-100); color: var(--color-primary); }
-        .action-delete { background: var(--color-error-100); color: var(--color-error); }
-        .action-login { background: var(--color-gray-200); color: var(--color-gray-700); }
-        .action-logout { background: var(--color-gray-200); color: var(--color-gray-700); }
-        .action-access { background: var(--color-warning-100); color: var(--color-warning); }
+        .action-badge.create {
+            background: #DBEAFE;
+            color: #1E40AF;
+        }
 
+        .action-badge.update {
+            background: #FEF3C7;
+            color: #92400E;
+        }
+
+        .action-badge.delete {
+            background: #FEE2E2;
+            color: #991B1B;
+        }
+
+        .action-badge.login {
+            background: #EDE9FE;
+            color: #5B21B6;
+        }
+
+        .action-badge.access {
+            background: #E0E7FF;
+            color: #3730A3;
+        }
+
+        /* Severity Badge */
         .severity-badge {
-            display: inline-block;
-            padding: var(--space-1) var(--space-2);
-            border-radius: var(--radius-sm);
-            font-size: var(--text-xs);
-            font-weight: var(--font-semibold);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
         }
 
-        .severity-info { background: var(--color-primary-100); color: var(--color-primary); }
-        .severity-warning { background: var(--color-warning-100); color: var(--color-warning); }
-        .severity-critical { background: var(--color-error-100); color: var(--color-error); }
-
-        .ip-address {
-            font-family: monospace;
-            background: var(--color-gray-100);
-            padding: var(--space-1) var(--space-2);
-            border-radius: var(--radius-sm);
-            font-size: var(--text-xs);
+        .severity-badge.info {
+            background: #E0F2FE;
+            color: #0369A1;
         }
 
-        .timestamp {
-            color: var(--color-gray-600);
-            font-size: var(--text-sm);
+        .severity-badge.warning {
+            background: #FEF3C7;
+            color: #B45309;
         }
 
-        .details-btn {
-            padding: var(--space-1) var(--space-2);
-            background: transparent;
-            border: 1px solid var(--color-gray-300);
-            border-radius: var(--radius-sm);
-            color: var(--color-gray-600);
-            cursor: pointer;
-            font-size: var(--text-xs);
-            transition: all var(--transition-fast);
+        .severity-badge.error {
+            background: #FEE2E2;
+            color: #DC2626;
         }
 
-        .details-btn:hover {
-            background: var(--color-primary);
-            border-color: var(--color-primary);
+        .severity-badge.critical {
+            background: #DC2626;
             color: white;
         }
 
-        .pagination {
-            display: flex;
-            justify-content: center;
+        /* Button Styles */
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
             align-items: center;
-            gap: var(--space-2);
-            padding: var(--space-4);
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #2563EB;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1D4ED8;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #4B5563;
+            border: 1px solid #D1D5DB;
+        }
+
+        .btn-secondary:hover {
+            background: #F9FAFB;
+            border-color: #9CA3AF;
+        }
+
+        .btn-danger {
+            background: #EF4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #DC2626;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+            border-radius: 8px;
+            background: transparent;
+            border: 1px solid #E5E7EB;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-icon:hover {
+            background: #F9FAFB;
+            border-color: #9CA3AF;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .empty-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1rem;
+            background: #F3F4F6;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9CA3AF;
+        }
+
+        .empty-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1F2937;
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-message {
+            color: #6B7280;
+            font-size: 0.875rem;
+        }
+
+        /* Pagination */
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #E5E7EB;
+            background: #F9FAFB;
+        }
+
+        .pagination-info {
+            font-size: 0.875rem;
+            color: #6B7280;
+        }
+
+        .pagination-buttons {
+            display: flex;
+            gap: 0.5rem;
         }
 
         .pagination-btn {
-            padding: var(--space-2) var(--space-3);
-            border: 1px solid var(--color-gray-300);
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #D1D5DB;
             background: white;
-            border-radius: var(--radius-sm);
-            color: var(--color-gray-700);
+            border-radius: 6px;
             cursor: pointer;
-            transition: all var(--transition-fast);
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
         }
 
         .pagination-btn:hover:not(:disabled) {
-            background: var(--color-primary);
-            border-color: var(--color-primary);
+            background: #F9FAFB;
+            border-color: #9CA3AF;
+        }
+
+        .pagination-btn.active {
+            background: #2563EB;
             color: white;
+            border-color: #2563EB;
         }
 
         .pagination-btn:disabled {
@@ -491,27 +499,180 @@ $csrfToken = $auth->generateCSRFToken();
             cursor: not-allowed;
         }
 
-        .pagination-btn.active {
-            background: var(--color-primary);
-            border-color: var(--color-primary);
-            color: white;
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
         }
 
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 85vh;
+            overflow: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #E5E7EB;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1F2937;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: #F3F4F6;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid #E5E7EB;
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+        }
+
+        /* Detail View */
+        .detail-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #6B7280;
+            margin-bottom: 0.375rem;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .detail-value {
+            font-size: 0.875rem;
+            color: #1F2937;
+        }
+
+        .json-view {
+            background: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.75rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* Loading Skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, #F3F4F6 25%, #E5E7EB 50%, #F3F4F6 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s ease-in-out infinite;
+            border-radius: 4px;
+        }
+
+        @keyframes loading {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .skeleton-row {
+            height: 56px;
+            margin-bottom: 1px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .audit-container {
+                padding: 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filters-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .page-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .table-container {
+                overflow-x: auto;
+            }
+
+            .audit-table {
+                min-width: 700px;
+            }
+
+            .modal-content {
+                width: 95%;
+                max-height: 90vh;
+            }
+        }
+
+        /* Export Menu */
         .export-menu {
             position: relative;
             display: inline-block;
         }
 
         .export-dropdown {
+            display: none;
             position: absolute;
             top: 100%;
             right: 0;
-            margin-top: var(--space-2);
+            margin-top: 0.5rem;
             background: white;
-            border: 1px solid var(--color-gray-200);
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-lg);
-            display: none;
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             min-width: 150px;
             z-index: 100;
         }
@@ -521,321 +682,421 @@ $csrfToken = $auth->generateCSRFToken();
         }
 
         .export-option {
-            padding: var(--space-3) var(--space-4);
+            padding: 0.625rem 1rem;
+            font-size: 0.875rem;
+            color: #1F2937;
             cursor: pointer;
-            transition: background var(--transition-fast);
+            transition: background 0.15s ease;
             display: flex;
             align-items: center;
-            gap: var(--space-2);
+            gap: 0.5rem;
         }
 
         .export-option:hover {
-            background: var(--color-gray-50);
+            background: #F9FAFB;
+        }
+
+        .export-option:first-child {
+            border-radius: 8px 8px 0 0;
+        }
+
+        .export-option:last-child {
+            border-radius: 0 0 8px 8px;
         }
     </style>
 </head>
-<body>
-    <div class="main-layout">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">
-                    <img src="assets/images/logo.png" alt="CollaboraNexio" class="logo-img">
-                    <span class="logo-text">NEXIO</span>
+<body data-user-role="<?php echo htmlspecialchars($currentUser['role']); ?>">
+    <!-- Sidebar -->
+    <?php include 'includes/sidebar.php'; ?>
+
+    <!-- Main Content -->
+    <main class="main-content" id="main-content">
+        <div class="audit-container">
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="page-title">
+                    <div class="page-title-icon">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                    </div>
+                    <span>Registro Audit</span>
                 </div>
-                <div class="sidebar-subtitle">Semplifica, Connetti, Cresci Insieme</div>
+                <div class="page-actions">
+                    <?php if ($currentUser['role'] === 'super_admin'): ?>
+                    <button class="btn btn-danger" onclick="auditManager.showDeleteModal()">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                        Elimina Log
+                    </button>
+                    <?php endif; ?>
+                </div>
             </div>
 
-            <nav class="sidebar-nav">
-                <div class="nav-section">
-                    <div class="nav-section-title">AREA OPERATIVA</div>
-                    <a href="dashboard.php" class="nav-item"><i class="icon icon--home"></i> Dashboard</a>
-                    <a href="files.php" class="nav-item"><i class="icon icon--folder"></i> File Manager</a>
-                    <a href="calendar.php" class="nav-item"><i class="icon icon--calendar"></i> Calendario</a>
-                    <a href="tasks.php" class="nav-item"><i class="icon icon--check"></i> Task</a>
-                    <a href="ticket.php" class="nav-item"><i class="icon icon--ticket"></i> Ticket</a>
-                    <a href="conformita.php" class="nav-item"><i class="icon icon--shield"></i> Conformità</a>
-                    <a href="ai.php" class="nav-item"><i class="icon icon--cpu"></i> AI</a>
+            <!-- Statistics Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Eventi Oggi</div>
+                    <div class="stat-value" id="stat-events-today">
+                        <div class="skeleton" style="width: 60px; height: 32px;"></div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Utenti Attivi</div>
+                    <div class="stat-value" id="stat-active-users">
+                        <div class="skeleton" style="width: 40px; height: 32px;"></div>
+                    </div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-label">Accessi</div>
+                    <div class="stat-value" id="stat-accesses">
+                        <div class="skeleton" style="width: 50px; height: 32px;"></div>
+                    </div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-label">Modifiche</div>
+                    <div class="stat-value" id="stat-modifications">
+                        <div class="skeleton" style="width: 45px; height: 32px;"></div>
+                    </div>
+                </div>
+                <div class="stat-card critical">
+                    <div class="stat-label">Eventi Critici</div>
+                    <div class="stat-value" id="stat-critical-events">
+                        <div class="skeleton" style="width: 35px; height: 32px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters Section -->
+            <div class="filters-container">
+                <div class="filters-header">
+                    <div class="filters-title">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                        </svg>
+                        Filtri
+                    </div>
+                </div>
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label class="filter-label" for="filter-date-from">Data Dal</label>
+                        <input type="date" id="filter-date-from" class="filter-input">
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label" for="filter-date-to">Data Al</label>
+                        <input type="date" id="filter-date-to" class="filter-input">
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label" for="filter-user">Utente</label>
+                        <select id="filter-user" class="filter-select">
+                            <option value="">Tutti gli utenti</option>
+                            <option disabled>Caricamento...</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label" for="filter-action">Azione</label>
+                        <select id="filter-action" class="filter-select">
+                            <option value="">Tutte le azioni</option>
+                            <option value="login">Login</option>
+                            <option value="logout">Logout</option>
+                            <option value="access">Accesso Pagina</option>
+                            <option value="create">Creazione</option>
+                            <option value="update">Modifica</option>
+                            <option value="delete">Eliminazione</option>
+                            <option value="download">Download</option>
+                            <option value="upload">Upload</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label" for="filter-severity">Severità</label>
+                        <select id="filter-severity" class="filter-select">
+                            <option value="">Tutte</option>
+                            <option value="info">Info</option>
+                            <option value="warning">Warning</option>
+                            <option value="error">Errore</option>
+                            <option value="critical">Critico</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="filters-actions">
+                    <button class="btn btn-secondary" onclick="auditManager.resetFilters()">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Reset
+                    </button>
+                    <button class="btn btn-primary" onclick="auditManager.applyFilters()">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        Applica Filtri
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table Section -->
+            <div class="table-container">
+                <div class="table-header">
+                    <div class="table-title">Log di Audit</div>
+                    <div class="table-actions">
+                        <div class="export-menu">
+                            <button class="btn btn-secondary" onclick="toggleExportMenu()">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                Esporta
+                            </button>
+                            <div class="export-dropdown" id="export-dropdown">
+                                <div class="export-option" onclick="exportData('csv')">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                    CSV
+                                </div>
+                                <div class="export-option" onclick="exportData('pdf')">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                    </svg>
+                                    PDF
+                                </div>
+                                <div class="export-option" onclick="exportData('excel')">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                                    </svg>
+                                    Excel
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="nav-section">
-                    <div class="nav-section-title">GESTIONE</div>
-                    <a href="aziende.php" class="nav-item"><i class="icon icon--building"></i> Aziende</a>
-                </div>
+                <table class="audit-table">
+                    <thead>
+                        <tr>
+                            <th>Data/Ora</th>
+                            <th>Utente</th>
+                            <th>Azione</th>
+                            <th>Risorsa</th>
+                            <th>IP Address</th>
+                            <th>Severità</th>
+                            <th>Dettagli</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-logs-tbody">
+                        <!-- Loading skeleton rows -->
+                        <tr>
+                            <td colspan="7">
+                                <div class="skeleton skeleton-row"></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="7">
+                                <div class="skeleton skeleton-row"></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="7">
+                                <div class="skeleton skeleton-row"></div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
 
-                <div class="nav-section">
-                    <div class="nav-section-title">AMMINISTRAZIONE</div>
-                    <a href="utenti.php" class="nav-item"><i class="icon icon--users"></i> Utenti</a>
-                    <a href="audit_log.php" class="nav-item active"><i class="icon icon--chart"></i> Audit Log</a>
-                    <a href="configurazioni.php" class="nav-item"><i class="icon icon--settings"></i> Configurazioni</a>
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">ACCOUNT</div>
-                    <a href="profilo.php" class="nav-item"><i class="icon icon--user"></i> Il Mio Profilo</a>
-                    <a href="logout.php" class="nav-item"><i class="icon icon--logout"></i> Esci</a>
-                </div>
-            </nav>
-            <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar"><?php echo strtoupper(substr($currentUser['name'], 0, 2)); ?></div>
-                    <div class="user-details">
-                        <div class="user-name"><?php echo htmlspecialchars($currentUser['name']); ?></div>
-                        <div class="user-badge">SUPER ADMIN</div>
+                <!-- Pagination -->
+                <div class="pagination-container" id="pagination-container" style="display: none;">
+                    <div class="pagination-info" id="pagination-info">
+                        Mostrando 0 di 0 risultati
+                    </div>
+                    <div class="pagination-buttons" id="pagination-buttons">
+                        <!-- Pagination buttons will be inserted here -->
                     </div>
                 </div>
             </div>
         </div>
+    </main>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Top Bar -->
-            <div class="header">
-                <h1 class="page-title">Audit Log</h1>
-                <div class="flex items-center gap-4">
-                    <?php if ($companyFilter->canUseCompanyFilter()): ?>
-                        <?php echo $companyFilter->renderDropdown(); ?>
-                    <?php endif; ?>
-                    <span class="text-sm text-muted">Benvenuto, <?php echo htmlspecialchars($currentUser['name']); ?></span>
-                </div>
+    <!-- Detail Modal -->
+    <div class="modal" id="audit-detail-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Dettagli Audit Log</h3>
+                <button class="modal-close" onclick="auditManager.closeDetailModal()">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
             </div>
-
-            <!-- Page Content -->
-            <div class="page-content">
-                <div class="audit-container">
-                    <!-- Header -->
-                    <div class="audit-header">
-                        <h2>Registro Attività Sistema</h2>
-                        <div class="export-menu">
-                            <button class="btn btn--secondary" onclick="toggleExportMenu()">
-                                <i class="icon icon--download"></i> Esporta
-                            </button>
-                            <div class="export-dropdown" id="export-dropdown">
-                                <div class="export-option" onclick="exportData('csv')">
-                                    <i class="icon icon--file"></i> CSV
-                                </div>
-                                <div class="export-option" onclick="exportData('pdf')">
-                                    <i class="icon icon--file"></i> PDF
-                                </div>
-                                <div class="export-option" onclick="exportData('excel')">
-                                    <i class="icon icon--file"></i> Excel
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Statistics -->
-                    <div class="audit-stats">
-                        <div class="stat-card">
-                            <div class="stat-label">Eventi Oggi</div>
-                            <div class="stat-value">342</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Utenti Attivi</div>
-                            <div class="stat-value">28</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Accessi</div>
-                            <div class="stat-value">156</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Modifiche</div>
-                            <div class="stat-value">89</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Eventi Critici</div>
-                            <div class="stat-value" style="color: var(--color-error)">3</div>
-                        </div>
-                    </div>
-
-                    <!-- Filters -->
-                    <div class="audit-filters">
-                        <h3 style="margin-bottom: var(--space-4)">Filtri</h3>
-                        <div class="filters-row">
-                            <div class="filter-group">
-                                <label class="filter-label">Data Inizio</label>
-                                <input type="datetime-local" class="form-control" value="2024-10-01T00:00">
-                            </div>
-                            <div class="filter-group">
-                                <label class="filter-label">Data Fine</label>
-                                <input type="datetime-local" class="form-control" value="2024-10-07T23:59">
-                            </div>
-                            <div class="filter-group">
-                                <label class="filter-label">Utente</label>
-                                <select class="form-control">
-                                    <option>Tutti gli utenti</option>
-                                    <option>Mario Rossi</option>
-                                    <option>Laura Bianchi</option>
-                                    <option>Giuseppe Verdi</option>
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label class="filter-label">Tipo Azione</label>
-                                <select class="form-control">
-                                    <option>Tutte le azioni</option>
-                                    <option>Login/Logout</option>
-                                    <option>Creazione</option>
-                                    <option>Modifica</option>
-                                    <option>Eliminazione</option>
-                                    <option>Accesso</option>
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label class="filter-label">Severità</label>
-                                <select class="form-control">
-                                    <option>Tutte</option>
-                                    <option>Info</option>
-                                    <option>Warning</option>
-                                    <option>Critico</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4)">
-                            <button class="btn btn--primary">Applica Filtri</button>
-                            <button class="btn btn--secondary">Reset</button>
-                        </div>
-                    </div>
-
-                    <!-- Audit Table -->
-                    <div class="audit-table-container">
-                        <div class="table-header">
-                            <h3>Log Eventi</h3>
-                            <span style="color: var(--color-gray-600); font-size: var(--text-sm)">Totale: 1,234 eventi</span>
-                        </div>
-                        <div class="table-wrapper">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Data/Ora</th>
-                                        <th>Utente</th>
-                                        <th>Azione</th>
-                                        <th>Risorsa</th>
-                                        <th>IP Address</th>
-                                        <th>Severità</th>
-                                        <th>Dettagli</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td class="timestamp">07/10/2024 14:32:15</td>
-                                        <td>Mario Rossi</td>
-                                        <td><span class="action-badge action-update">Update</span></td>
-                                        <td>Documento #4521</td>
-                                        <td><span class="ip-address">192.168.1.105</span></td>
-                                        <td><span class="severity-badge severity-info">Info</span></td>
-                                        <td><button class="details-btn">Dettagli</button></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="timestamp">07/10/2024 14:28:03</td>
-                                        <td>Laura Bianchi</td>
-                                        <td><span class="action-badge action-create">Create</span></td>
-                                        <td>Task #892</td>
-                                        <td><span class="ip-address">192.168.1.112</span></td>
-                                        <td><span class="severity-badge severity-info">Info</span></td>
-                                        <td><button class="details-btn">Dettagli</button></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="timestamp">07/10/2024 14:15:47</td>
-                                        <td>Sistema</td>
-                                        <td><span class="action-badge action-delete">Delete</span></td>
-                                        <td>File temporanei</td>
-                                        <td><span class="ip-address">127.0.0.1</span></td>
-                                        <td><span class="severity-badge severity-warning">Warning</span></td>
-                                        <td><button class="details-btn">Dettagli</button></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="timestamp">07/10/2024 13:45:22</td>
-                                        <td>Giuseppe Verdi</td>
-                                        <td><span class="action-badge action-login">Login</span></td>
-                                        <td>Sistema</td>
-                                        <td><span class="ip-address">82.50.123.45</span></td>
-                                        <td><span class="severity-badge severity-info">Info</span></td>
-                                        <td><button class="details-btn">Dettagli</button></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="timestamp">07/10/2024 13:12:08</td>
-                                        <td>Admin</td>
-                                        <td><span class="action-badge action-access">Access</span></td>
-                                        <td>Configurazioni Sistema</td>
-                                        <td><span class="ip-address">192.168.1.1</span></td>
-                                        <td><span class="severity-badge severity-critical">Critico</span></td>
-                                        <td><button class="details-btn">Dettagli</button></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="timestamp">07/10/2024 12:55:31</td>
-                                        <td>Anna Romano</td>
-                                        <td><span class="action-badge action-update">Update</span></td>
-                                        <td>Profilo Utente</td>
-                                        <td><span class="ip-address">192.168.1.88</span></td>
-                                        <td><span class="severity-badge severity-info">Info</span></td>
-                                        <td><button class="details-btn">Dettagli</button></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="timestamp">07/10/2024 11:30:19</td>
-                                        <td>Sistema</td>
-                                        <td><span class="action-badge action-create">Create</span></td>
-                                        <td>Backup Automatico</td>
-                                        <td><span class="ip-address">127.0.0.1</span></td>
-                                        <td><span class="severity-badge severity-info">Info</span></td>
-                                        <td><button class="details-btn">Dettagli</button></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Pagination -->
-                        <div class="pagination">
-                            <button class="pagination-btn" disabled>
-                                <i class="icon icon--chevron-left"></i>
-                            </button>
-                            <button class="pagination-btn active">1</button>
-                            <button class="pagination-btn">2</button>
-                            <button class="pagination-btn">3</button>
-                            <button class="pagination-btn">4</button>
-                            <button class="pagination-btn">5</button>
-                            <span style="color: var(--color-gray-500)">...</span>
-                            <button class="pagination-btn">124</button>
-                            <button class="pagination-btn">
-                                <i class="icon icon--chevron-right"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            <div class="modal-body" id="audit-detail-content">
+                <!-- Detail content will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="auditManager.closeDetailModal()">Chiudi</button>
             </div>
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="assets/js/app.js"></script>
+    <!-- Delete Modal (super_admin only) -->
+    <?php if ($currentUser['role'] === 'super_admin'): ?>
+    <div class="modal" id="audit-delete-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Elimina Audit Logs</h3>
+                <button class="modal-close" onclick="auditManager.closeDeleteModal()">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="detail-group">
+                    <label class="detail-label">Modalità di Eliminazione</label>
+                    <select id="delete-mode" class="filter-select" onchange="toggleDateRange()">
+                        <option value="all">Elimina tutti i log</option>
+                        <option value="range">Elimina per periodo</option>
+                    </select>
+                </div>
+
+                <div id="date-range-section" style="display: none;">
+                    <div class="detail-group">
+                        <label class="detail-label">Data Inizio</label>
+                        <input type="datetime-local" id="delete-date-from" class="filter-input">
+                    </div>
+                    <div class="detail-group">
+                        <label class="detail-label">Data Fine</label>
+                        <input type="datetime-local" id="delete-date-to" class="filter-input">
+                    </div>
+                </div>
+
+                <div class="detail-group">
+                    <label class="detail-label">Motivo Eliminazione (minimo 10 caratteri)</label>
+                    <textarea id="delete-reason" class="filter-input" rows="3" placeholder="Inserisci il motivo dell'eliminazione..."></textarea>
+                </div>
+
+                <div style="padding: 1rem; background: #FEF3C7; border-radius: 8px; margin-top: 1rem;">
+                    <p style="margin: 0; color: #92400E; font-size: 0.875rem;">
+                        <strong>⚠️ Attenzione:</strong> Questa operazione creerà un record immutabile dell'eliminazione per compliance GDPR. I log eliminati verranno archiviati in formato JSON e non potranno essere recuperati.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="auditManager.closeDeleteModal()">Annulla</button>
+                <button class="btn btn-danger" onclick="auditManager.confirmDelete()">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    Elimina
+                </button>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Include the audit log JavaScript -->
+    <script src="assets/js/audit_log.js?v=<?php echo time(); ?>"></script>
+
+    <!-- Additional inline scripts for utility functions -->
     <script>
+        // Initialize the audit manager
+        let auditManager;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            auditManager = new AuditLogManager();
+        });
+
+        // Export menu toggle
         function toggleExportMenu() {
             const dropdown = document.getElementById('export-dropdown');
             dropdown.classList.toggle('active');
         }
 
-        function exportData(format) {
-            alert(`Esportazione in formato ${format.toUpperCase()} in corso...`);
-            document.getElementById('export-dropdown').classList.remove('active');
-        }
-
-        // Close dropdown when clicking outside
+        // Close export menu when clicking outside
         document.addEventListener('click', function(event) {
-            const exportMenu = document.querySelector('.export-menu');
-            if (!exportMenu.contains(event.target)) {
+            const menu = document.querySelector('.export-menu');
+            if (menu && !menu.contains(event.target)) {
                 document.getElementById('export-dropdown').classList.remove('active');
             }
         });
 
-        // Initialize company filter
-        document.addEventListener('DOMContentLoaded', function() {
-            const companySelector = document.getElementById('company-filter');
-            if (companySelector) {
-                companySelector.addEventListener('change', function() {
-                    // Handle company filter change
-                    console.log('Company changed:', this.value);
-                });
+        // Export data function
+        function exportData(format) {
+            console.log('[Export] Exporting data as:', format);
+
+            // Close dropdown
+            document.getElementById('export-dropdown').classList.remove('active');
+
+            // Show notification
+            showNotification(`Esportazione in formato ${format.toUpperCase()} in corso...`, 'info');
+
+            // TODO: Implement actual export functionality
+            setTimeout(() => {
+                showNotification(`Export ${format.toUpperCase()} completato!`, 'success');
+            }, 1500);
+        }
+
+        // Toggle date range in delete modal
+        function toggleDateRange() {
+            const mode = document.getElementById('delete-mode').value;
+            const rangeSection = document.getElementById('date-range-section');
+            rangeSection.style.display = mode === 'range' ? 'block' : 'none';
+        }
+
+        // Notification helper
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 1rem 1.5rem;
+                background: ${type === 'success' ? '#10B981' : type === 'error' ? '#EF4444' : '#2563EB'};
+                color: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 2000;
+                animation: slideIn 0.3s ease;
+            `;
+
+            document.body.appendChild(notification);
+
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Add slide animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
             }
-        });
+            @keyframes slideOut {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>

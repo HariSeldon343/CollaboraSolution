@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conferma creazione ticket</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f7fa;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .header .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .success-message {
+            background: #d4edda;
+            border-left: 4px solid #10b981;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+            color: #155724;
+            font-weight: 500;
+        }
+        .ticket-card {
+            background: #f8f9fa;
+            border-left: 4px solid #10b981;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .ticket-number {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 15px;
+            letter-spacing: 0.5px;
+        }
+        .ticket-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0 0 15px 0;
+        }
+        .ticket-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .ticket-meta-item {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            color: #666;
+        }
+        .ticket-meta-item strong {
+            color: #333;
+            margin-left: 5px;
+        }
+        .urgency-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .urgency-low { background: #d4edda; color: #155724; }
+        .urgency-medium { background: #fff3cd; color: #856404; }
+        .urgency-high { background: #f8d7da; color: #721c24; }
+        .urgency-critical { background: #dc3545; color: white; }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .category-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .description {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #555;
+            line-height: 1.6;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #1976d2;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #0d47a1;
+        }
+        .next-steps {
+            background: #fff9e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .next-steps h3 {
+            margin: 0 0 15px 0;
+            color: #856404;
+            font-size: 16px;
+        }
+        .next-steps ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #666;
+        }
+        .next-steps li {
+            margin: 8px 0;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">✅</div>
+            <h1>Ticket Creato con Successo</h1>
+        </div>
+
+        <div class="content">
+            <p>Ciao <strong>{{CREATED_BY_NAME}}</strong>,</p>
+
+            <div class="success-message">
+                ✅ Il tuo ticket è stato creato con successo e inviato al nostro team di supporto!
+            </div>
+
+            <p>Ecco il riepilogo del tuo ticket:</p>
+
+            <div class="ticket-card">
+                <span class="ticket-number">{{TICKET_NUMBER}}</span>
+                <div class="ticket-title">{{TICKET_SUBJECT}}</div>
+
+                {{#TICKET_DESCRIPTION}}
+                <div class="description">
+                    {{TICKET_DESCRIPTION}}
+                </div>
+                {{/TICKET_DESCRIPTION}}
+
+                <div class="ticket-meta">
+                    <div class="ticket-meta-item">
+                        🏷️ Status:
+                        <span class="status-badge">{{TICKET_STATUS_LABEL}}</span>
+                    </div>
+                    <div class="ticket-meta-item">
+                        📂 Categoria:
+                        <span class="category-badge">{{TICKET_CATEGORY}}</span>
+                    </div>
+                    <div class="ticket-meta-item">
+                        🚨 Urgenza:
+                        <span class="urgency-badge urgency-{{TICKET_URGENCY}}">
+                            {{TICKET_URGENCY_LABEL}}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box">
+                📧 <strong>Conserva questo numero:</strong> {{TICKET_NUMBER}}<br>
+                Potrai usarlo per tracciare lo stato del tuo ticket e comunicare con il nostro team.
+            </div>
+
+            <div class="next-steps">
+                <h3>📋 Cosa succede adesso?</h3>
+                <ul>
+                    <li><strong>Abbiamo ricevuto la tua richiesta</strong> - Il nostro team è stato notificato</li>
+                    <li><strong>Assegnazione ticket</strong> - Un operatore prenderà in carico il tuo ticket</li>
+                    <li><strong>Riceverai aggiornamenti</strong> - Ti invieremo email per ogni aggiornamento</li>
+                    <li><strong>Tempi di risposta</strong> - {{#URGENCY_HIGH}}Entro 4 ore{{/URGENCY_HIGH}}{{^URGENCY_HIGH}}Entro 24 ore{{/URGENCY_HIGH}}</li>
+                </ul>
+            </div>
+
+            <div class="button-container">
+                <a href="{{TICKET_URL}}" class="button">Visualizza il Tuo Ticket</a>
+            </div>
+
+            <div class="divider"></div>
+
+            <p style="font-size: 13px; color: #666;">
+                💡 <strong>Serve altro?</strong> Puoi aggiungere dettagli o allegati rispondendo direttamente dal sistema.
+                Non rispondere a questa email - utilizza il link sopra per comunicare con il nostro team.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>&copy; {{YEAR}} CollaboraNexio. Tutti i diritti riservati.</p>
+            <p>
+                <a href="{{BASE_URL}}/ticket.php">I Miei Ticket</a> •
+                <a href="{{BASE_URL}}/help.php">Centro Assistenza</a> •
+                <a href="{{BASE_URL}}/settings.php">Impostazioni</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

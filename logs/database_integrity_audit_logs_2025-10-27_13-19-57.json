@@ -1,0 +1,114 @@
+{
+    "timestamp": "2025-10-27 13:19:57",
+    "status": "FUNCTIONAL_WITH_WARNINGS",
+    "sections": {
+        "table_exists": true,
+        "column_count": 24,
+        "required_columns": "MISSING: metadata",
+        "soft_delete_support": true,
+        "total_indexes": 15,
+        "indexes": "MISSING: idx_audit_tenant_created, idx_audit_user",
+        "total_foreign_keys": 3,
+        "foreign_keys": [
+            {
+                "CONSTRAINT_NAME": "fk_audit_logs_tenant",
+                "TABLE_NAME": "audit_logs",
+                "COLUMN_NAME": "tenant_id",
+                "REFERENCED_TABLE_NAME": "tenants",
+                "REFERENCED_COLUMN_NAME": "id"
+            },
+            {
+                "CONSTRAINT_NAME": "fk_audit_tenant",
+                "TABLE_NAME": "audit_logs",
+                "COLUMN_NAME": "tenant_id",
+                "REFERENCED_TABLE_NAME": "tenants",
+                "REFERENCED_COLUMN_NAME": "id"
+            },
+            {
+                "CONSTRAINT_NAME": "fk_audit_user",
+                "TABLE_NAME": "audit_logs",
+                "COLUMN_NAME": "user_id",
+                "REFERENCED_TABLE_NAME": "users",
+                "REFERENCED_COLUMN_NAME": "id"
+            }
+        ],
+        "total_active_logs": 21,
+        "action_breakdown": [
+            {
+                "action": "create",
+                "count": 12
+            },
+            {
+                "action": "delete",
+                "count": 2
+            },
+            {
+                "action": "upload",
+                "count": 1
+            },
+            {
+                "action": "approve",
+                "count": 1
+            },
+            {
+                "action": "update",
+                "count": 1
+            },
+            {
+                "action": "system_update",
+                "count": 1
+            },
+            {
+                "action": "login_failed",
+                "count": 1
+            },
+            {
+                "action": "login",
+                "count": 1
+            },
+            {
+                "action": "view",
+                "count": 1
+            }
+        ],
+        "null_tenant_id": 0,
+        "file_delete_logs": 0,
+        "recent_logs_24h": 1,
+        "system_actions": [
+            {
+                "action": "login",
+                "count": 1
+            }
+        ],
+        "deletions_table_exists": true,
+        "deletion_records": 1,
+        "stored_procedures": [
+            "add_audit_foreign_keys",
+            "record_audit_log_deletion"
+        ],
+        "tenant_stats": [
+            {
+                "tenant_id": 11,
+                "tenant_name": "S.CO Srls",
+                "audit_logs_count": 1
+            }
+        ],
+        "orphaned_logs": 0,
+        "table_corruption": "OK",
+        "deletions_table_corruption": "OK",
+        "query_time_ms": 0.38,
+        "performance": "EXCELLENT",
+        "explain": {
+            "id": 1,
+            "select_type": "SIMPLE",
+            "table": "audit_logs",
+            "type": "ALL",
+            "possible_keys": "idx_fk_tenant,idx_audit_tenant_user,idx_audit_tenant_status,idx_audit_deleted,idx_audit_tenant_deleted",
+            "key": null,
+            "key_len": null,
+            "ref": null,
+            "rows": "21",
+            "Extra": "Using where; Using filesort"
+        }
+    }
+}

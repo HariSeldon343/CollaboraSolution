@@ -157,6 +157,27 @@ try {
 
     $newUserId = $conn->lastInsertId();
 
+    // Audit log - Track user creation
+    try {
+        require_once '../../includes/audit_helper.php';
+        AuditLogger::logCreate(
+            $currentUserId,
+            $tenantId,
+            'user',
+            $newUserId,
+            "Created new user: $email",
+            [
+                'name' => $name,
+                'email' => $email,
+                'role' => $role,
+                'tenant_id' => $tenantId,
+                'is_active' => $isActive
+            ]
+        );
+    } catch (Exception $e) {
+        error_log("[AUDIT LOG FAILURE] User creation tracking failed: " . $e->getMessage());
+    }
+
     // Ottieni il nome del tenant per l'email
     $tenantQuery = "SELECT name FROM tenants WHERE id = :tenant_id";
     $tenantStmt = $conn->prepare($tenantQuery);

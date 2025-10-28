@@ -138,8 +138,8 @@ function createDocument(string $type, string $name, int $tenantId, ?int $folderI
         $fileHash = FileHelper::getFileHash($fullPath);
         $editorFormat = FileHelper::getEditorFormat($mimeType);
 
-        // Create relative path for database
-        $relativePath = 'uploads/' . $tenantId . '/' . $safeName;
+        // Create relative path for database (store only unique filename to match files schema)
+        $relativePath = $safeName;
 
         // Insert file record in database
         $fileId = $db->insert('files', [

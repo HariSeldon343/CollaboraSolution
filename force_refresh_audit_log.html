@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Force Refresh - Audit Log</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 3rem;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 2rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .icon svg {
+            width: 40px;
+            height: 40px;
+            stroke: white;
+        }
+
+        h1 {
+            font-size: 2rem;
+            color: #1F2937;
+            margin-bottom: 1rem;
+        }
+
+        .subtitle {
+            font-size: 1.125rem;
+            color: #6B7280;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .problem {
+            background: #FEF3C7;
+            border-left: 4px solid #F59E0B;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+
+        .problem h3 {
+            color: #92400E;
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .problem p {
+            color: #78350F;
+            font-size: 0.875rem;
+            line-height: 1.6;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 1rem 2.5rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .instructions {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #E5E7EB;
+        }
+
+        .instructions h3 {
+            color: #1F2937;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .instructions ol {
+            text-align: left;
+            color: #6B7280;
+            font-size: 0.875rem;
+            line-height: 1.8;
+            padding-left: 1.5rem;
+        }
+
+        .instructions li {
+            margin-bottom: 0.5rem;
+        }
+
+        .success {
+            display: none;
+            background: #D1FAE5;
+            border-left: 4px solid #10B981;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-top: 2rem;
+        }
+
+        .success.show {
+            display: block;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .success p {
+            color: #065F46;
+            font-weight: 500;
+        }
+
+        .countdown {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+        </div>
+
+        <h1>Forza Refresh Cache</h1>
+        <p class="subtitle">
+            Clicca il pulsante qui sotto per forzare il browser a ricaricare la pagina Audit Log <strong>senza usare la cache</strong>.
+        </p>
+
+        <div class="problem">
+            <h3>⚠️ Problema Rilevato</h3>
+            <p>
+                Il browser sta servendo vecchie risposte dalla cache (errore 403). Questo strumento forza un refresh completo ignorando la cache del browser.
+            </p>
+        </div>
+
+        <button class="btn" onclick="forceRefresh()">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            FORZA REFRESH ORA
+        </button>
+
+        <div class="success" id="success-message">
+            <p>✅ Refresh forzato! Reindirizzamento in corso...</p>
+            <div class="countdown" id="countdown">3</div>
+        </div>
+
+        <div class="instructions">
+            <h3>📋 Cosa farà questo strumento:</h3>
+            <ol>
+                <li>Aggiungerà un timestamp univoco alla URL di audit_log.php</li>
+                <li>Forzerà il browser a ignorare completamente la cache</li>
+                <li>Caricherà la pagina con i dati aggiornati</li>
+                <li>Risolverà gli errori 403 Forbidden</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        function forceRefresh() {
+            // Show success message
+            const successMsg = document.getElementById('success-message');
+            successMsg.classList.add('show');
+
+            // Countdown
+            let count = 3;
+            const countdownEl = document.getElementById('countdown');
+
+            const interval = setInterval(() => {
+                count--;
+                countdownEl.textContent = count;
+
+                if (count === 0) {
+                    clearInterval(interval);
+
+                    // Add multiple cache-busting techniques
+                    const timestamp = new Date().getTime();
+                    const random = Math.random().toString(36).substring(7);
+
+                    // Force reload with cache-buster
+                    window.location.href = `/CollaboraNexio/audit_log.php?_nocache=${timestamp}&_random=${random}`;
+                }
+            }, 1000);
+        }
+
+        // Auto-execute on Ctrl+Enter
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                forceRefresh();
+            }
+        });
+    </script>
+</body>
+</html>

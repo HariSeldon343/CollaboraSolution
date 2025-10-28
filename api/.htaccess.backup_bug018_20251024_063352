@@ -1,0 +1,41 @@
+# Enable RewriteEngine
+RewriteEngine On
+RewriteBase /CollaboraNexio/api/
+
+# CRITICAL FIX FOR BUG-013 - Direct .php file access (ALL HTTP METHODS)
+# This rule MUST come before any other rewrite rules
+# Pattern: Check .php extension FIRST, then directory path
+# Works for GET, POST, PUT, DELETE with or without query strings
+RewriteCond %{REQUEST_URI} \.php$
+RewriteCond %{REQUEST_URI} ^/CollaboraNexio/api/files/
+RewriteRule ^ - [END]
+
+# STEP 2: Also bypass for any .php file directly in /api/ directory
+RewriteCond %{REQUEST_URI} \.php$
+RewriteCond %{REQUEST_URI} ^/CollaboraNexio/api/[^/]+\.php$
+RewriteRule ^ - [END]
+
+# STEP 3: Failsafe - also check if file physically exists (for non-.php files)
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [END]
+
+# Handle notifications routes (only if not a real file)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^notifications/unread/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^notifications/all/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^notifications/mark-read/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^notifications/mark-all-read/?$ notifications.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^notifications/?$ notifications.php [L]
+
+# Router fallback - ONLY for non-existent files/directories
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ router.php?route=$1 [QSA,L]

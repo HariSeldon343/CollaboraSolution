@@ -22,6 +22,10 @@ if (!$currentUser) {
 require_once __DIR__ . '/includes/tenant_access_check.php';
 requireTenantAccess($currentUser['id'], $currentUser['role']);
 
+// Track page access for audit logging
+require_once __DIR__ . '/includes/audit_page_access.php';
+trackPageAccess('dashboard');
+
 // Initialize company filter
 $companyFilter = new CompanyFilter($currentUser);
 

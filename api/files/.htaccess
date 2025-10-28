@@ -1,3 +1,0 @@
-# Disable rewrite engine for this directory
-# All .php files in /api/files/ will be executed directly without routing
-RewriteEngine Off

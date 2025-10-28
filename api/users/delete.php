@@ -112,6 +112,27 @@ try {
         apiError('Errore durante l\'eliminazione dell\'utente', 500);
     }
 
+    // Audit log - Track user deletion
+    try {
+        require_once '../../includes/audit_helper.php';
+        AuditLogger::logDelete(
+            $currentUserId,
+            $currentTenantId,
+            'user',
+            $userId,
+            "Deleted user: {$userToDelete['email']}",
+            [
+                'name' => $userToDelete['name'],
+                'email' => $userToDelete['email'],
+                'role' => $userToDelete['role'],
+                'tenant_id' => $userToDelete['tenant_id']
+            ],
+            false // Soft delete
+        );
+    } catch (Exception $e) {
+        error_log("[AUDIT LOG FAILURE] User deletion tracking failed: " . $e->getMessage());
+    }
+
     // Log the soft delete action
     if (defined('DEBUG_MODE') && DEBUG_MODE) {
         error_log("User ID $userId soft deleted by user ID $currentUserId");

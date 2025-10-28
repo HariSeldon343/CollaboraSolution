@@ -37,7 +37,8 @@ class DocumentEditor {
         };
 
         this.options = {
-            apiBaseUrl: options.apiBaseUrl || `${detectBasePath()}/api/documents`,
+            // Use explicit base to avoid path detection issues
+            apiBaseUrl: options.apiBaseUrl || '/CollaboraNexio/api/documents',
             onlyOfficeApiUrl: options.onlyOfficeApiUrl || 'http://localhost:8083/web-apps/apps/api/documents/api.js',
             autoSaveInterval: options.autoSaveInterval || 30000, // 30 seconds
             csrfToken: options.csrfToken || document.getElementById('csrfToken')?.value || '',
@@ -148,13 +149,18 @@ class DocumentEditor {
             }
 
             // Fetch editor configuration from API
+            // Add cache busting to prevent browser from using cached 404 responses
+            const cacheBuster = `_t=${Date.now()}_${Math.random().toString(36).substring(7)}`;
             const response = await fetch(
-                `${this.options.apiBaseUrl}/open_document.php?file_id=${fileId}&mode=${mode}`,
+                `${this.options.apiBaseUrl}/open_document.php?file_id=${fileId}&mode=${mode}&${cacheBuster}`,
                 {
                     method: 'GET',
                     credentials: 'same-origin',
                     headers: {
-                        'X-CSRF-Token': this.options.csrfToken
+                        'X-CSRF-Token': this.options.csrfToken,
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
                     }
                 }
             );
@@ -183,9 +189,22 @@ class DocumentEditor {
 
         } catch (error) {
             console.error('[DocumentEditor] Error opening document:', error);
+            // Try to surface OnlyOffice error details when available
+            if (error && error.data && error.data.errorCode) {
+                const code = error.data.errorCode;
+                const desc = error.data.errorDescription || 'Errore non specificato';
+                this.showToast(`OnlyOffice errore ${code}: ${desc}`, 'error');
+            } else if (error && typeof error === 'object') {
+                try {
+                    this.showToast(error.message || JSON.stringify(error), 'error');
+                } catch (e) {
+                    this.showToast('Errore durante l\'apertura del documento', 'error');
+                }
+            } else {
+                this.showToast('Errore durante l\'apertura del documento', 'error');
+            }
             this.state.isLoading = false;
             this.hideLoadingOverlay();
-            this.showToast(error.message, 'error');
         }
     }
 
@@ -368,6 +387,18 @@ class DocumentEditor {
     handleError(event) {
         console.error('[DocumentEditor] Editor error:', event);
 
+        // Enhanced logging to capture exact error details
+        console.error('[DocumentEditor] Error event.data:', event.data);
+        console.error('[DocumentEditor] Error event type:', typeof event.data);
+
+        // Log the entire event object for debugging
+        if (event.data && typeof event.data === 'object') {
+            console.error('[DocumentEditor] Error details:', JSON.stringify(event.data, null, 2));
+            if (event.data.errorCode !== undefined) {
+                console.error('[DocumentEditor] Error code from object:', event.data.errorCode);
+            }
+        }
+
         const errorMessages = {
             '-1': 'Errore sconosciuto durante il caricamento dell\'editor',
             '-2': 'Timeout durante la conversione del documento',
@@ -378,13 +409,19 @@ class DocumentEditor {
             '-8': 'Formato file non corretto o documento corrotto'
         };
 
-        const errorMessage = errorMessages[event.data] || `Errore nell'editor (codice: ${event.data})`;
+        // Try to extract error code from different possible locations
+        let errorCode = event.data;
+        if (event.data && typeof event.data === 'object') {
+            errorCode = event.data.errorCode || event.data.error || event.data.code || event.data;
+        }
+
+        const errorMessage = errorMessages[String(errorCode)] || `Errore nell'editor (codice: ${JSON.stringify(errorCode)})`;
 
         // Show error with graceful degradation option
-        this.showErrorWithFallback(errorMessage, event.data);
+        this.showErrorWithFallback(errorMessage, String(errorCode));
 
         // Close editor on critical errors
-        if (['-4', '-5', '-6', '-8'].includes(String(event.data))) {
+        if (['-4', '-5', '-6', '-8'].includes(String(errorCode))) {
             setTimeout(() => {
                 this.closeEditor(true);
             }, 3000);

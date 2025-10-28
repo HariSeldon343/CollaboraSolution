@@ -1,0 +1,129 @@
+{
+    "timestamp": "2025-10-28 06:11:21",
+    "total_tests": 30,
+    "passed": 29,
+    "failed": 1,
+    "pass_rate": 96.66666666666667,
+    "results": [
+        {
+            "test": "audit_logs table exists",
+            "status": "PASS"
+        },
+        {
+            "test": "audit_logs has 25 columns",
+            "status": "PASS"
+        },
+        {
+            "test": "metadata column exists (BUG-031 fix)",
+            "status": "PASS"
+        },
+        {
+            "test": "Zero NULL tenant_id in active records",
+            "status": "PASS"
+        },
+        {
+            "test": "Recent audit logs exist (last 24h)",
+            "status": "PASS"
+        },
+        {
+            "test": "audit_logs table NOT corrupted",
+            "status": "PASS"
+        },
+        {
+            "test": "stats.php API file exists",
+            "status": "PASS"
+        },
+        {
+            "test": "list.php API file exists",
+            "status": "PASS"
+        },
+        {
+            "test": "detail.php API file exists",
+            "status": "PASS"
+        },
+        {
+            "test": "delete.php API file exists",
+            "status": "PASS"
+        },
+        {
+            "test": "stats.php SQL query operational",
+            "status": "PASS"
+        },
+        {
+            "test": "list.php pagination query operational",
+            "status": "PASS"
+        },
+        {
+            "test": "Transaction begin\/rollback works",
+            "status": "PASS"
+        },
+        {
+            "test": "Defensive rollback: State mismatch handled",
+            "status": "PASS"
+        },
+        {
+            "test": "Transaction state synchronized",
+            "status": "PASS"
+        },
+        {
+            "test": "Zero zombie transactions detected",
+            "status": "PASS"
+        },
+        {
+            "test": "audit_log.js file exists",
+            "status": "PASS"
+        },
+        {
+            "test": "AuditLogManager class defined",
+            "status": "PASS"
+        },
+        {
+            "test": "loadUsers() method exists",
+            "status": "PASS"
+        },
+        {
+            "test": "renderStats() method exists",
+            "status": "FAIL"
+        },
+        {
+            "test": "Correct stat-* element IDs used",
+            "status": "PASS"
+        },
+        {
+            "test": "audit_helper.php exists",
+            "status": "PASS"
+        },
+        {
+            "test": "AuditLogger class loadable",
+            "status": "PASS"
+        },
+        {
+            "test": "Login events tracked (BUG-030 integration)",
+            "status": "PASS"
+        },
+        {
+            "test": "Page access events exist",
+            "status": "PASS"
+        },
+        {
+            "test": "List query < 100ms",
+            "status": "PASS"
+        },
+        {
+            "test": "Stats query < 100ms",
+            "status": "PASS"
+        },
+        {
+            "test": "audit_log.php has CSRF meta tag",
+            "status": "PASS"
+        },
+        {
+            "test": "audit_log.php has user-role attribute",
+            "status": "PASS"
+        },
+        {
+            "test": "Multi-tenant isolation enforced",
+            "status": "PASS"
+        }
+    ]
+}

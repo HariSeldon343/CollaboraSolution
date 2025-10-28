@@ -7,6 +7,16 @@
 // Initialize session with proper configuration
 require_once __DIR__ . '/includes/session_init.php';
 
+// Audit log - Track logout BEFORE destroying session
+if (isset($_SESSION['user_id']) && isset($_SESSION['tenant_id'])) {
+    try {
+        require_once __DIR__ . '/includes/audit_helper.php';
+        AuditLogger::logLogout($_SESSION['user_id'], $_SESSION['tenant_id']);
+    } catch (Exception $e) {
+        error_log("[AUDIT LOG FAILURE] Logout tracking failed: " . $e->getMessage());
+    }
+}
+
 // Clear all session variables
 $_SESSION = array();
 

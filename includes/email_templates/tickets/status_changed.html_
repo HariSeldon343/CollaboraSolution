@@ -1,0 +1,195 @@
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .header .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .greeting {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .ticket-info {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .ticket-number {
+            font-size: 14px;
+            color: #666;
+            font-weight: 600;
+        }
+        .ticket-subject {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 5px 0;
+        }
+        .status-change {
+            background: #ffffff;
+            border: 2px solid #f59e0b;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .status-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+        }
+        .status-old {
+            background: #9ca3af;
+        }
+        .status-new {
+            background: {{NEW_STATUS_COLOR}};
+        }
+        .status-arrow {
+            font-size: 24px;
+            color: #9ca3af;
+        }
+        .resolution-notes {
+            background: #f0fdf4;
+            border-left: 4px solid #10b981;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #065f46;
+        }
+        .resolution-notes strong {
+            display: block;
+            margin-bottom: 10px;
+            color: #047857;
+        }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">🔄</div>
+            <h1>Stato Ticket Aggiornato</h1>
+        </div>
+
+        <div class="content">
+            <p class="greeting">Ciao <strong>{{USER_NAME}}</strong>,</p>
+
+            <p>Lo stato del tuo ticket di supporto è stato aggiornato da <strong>{{CHANGED_BY_NAME}}</strong>.</p>
+
+            <div class="ticket-info">
+                <div class="ticket-number">#{{TICKET_NUMBER}}</div>
+                <div class="ticket-subject">{{TICKET_SUBJECT}}</div>
+            </div>
+
+            <div class="status-change">
+                <div style="font-size: 14px; color: #666; margin-bottom: 15px;">Cambio di stato</div>
+                <div class="status-flow">
+                    <span class="status-badge status-old">{{OLD_STATUS}}</span>
+                    <span class="status-arrow">→</span>
+                    <span class="status-badge status-new">{{NEW_STATUS}}</span>
+                </div>
+            </div>
+
+            <!-- IF_RESOLUTION_NOTES -->
+            <div class="resolution-notes">
+                <strong>📝 Note di risoluzione:</strong>
+                {{RESOLUTION_NOTES}}
+            </div>
+            <!-- ENDIF_RESOLUTION_NOTES -->
+
+            <div class="button-container">
+                <a href="{{TICKET_URL}}" class="button">Visualizza Ticket →</a>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>© {{YEAR}} CollaboraNexio. Tutti i diritti riservati.</p>
+            <p>Questa è una email automatica, si prega di non rispondere.</p>
+        </div>
+    </div>
+</body>
+</html>
+```
+
+---
+
+## Frontend JavaScript Controller
+
+Create `/assets/js/tickets.js`:
+
+```javascript
+/**
+ * Ticket Management Frontend Controller
+ * Handles UI interactions for support ticket system
+ *
+ * @version 1.0.0
+ * @author CollaboraNexio
+ */
+
+class TicketManager {
+    constructor() {
+        this.state = {
+            tickets: [],
+            currentTicket: null,
+            filters: {
+                status: 'all',
+                category: 'all',
+                urgency: 'all',
+                search: ''
+            },
+            pagination: {
+                page: 1,
+                limit: 20,
+                total: 0,
+                total_pages: 0
+            },
+            stats: {},
+            csrfToken: document.querySelector('meta[name="csrf-token"]')?.content || ''
+        };
+
+        this.apiBase = '/api/tickets';
+        this.init();
+    }
+

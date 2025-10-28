@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rimosso da un task</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f7fa;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .header .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .task-card {
+            background: #f8f9fa;
+            border-left: 4px solid #6c757d;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .task-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0 0 15px 0;
+        }
+        .info-box {
+            background: #e7f3ff;
+            border-left: 3px solid #0066cc;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 3px;
+            font-size: 14px;
+            color: #004085;
+        }
+        .removed-by {
+            background: #fff3cd;
+            border-left: 3px solid #ffc107;
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">ℹ️</div>
+            <h1>Rimosso da Task</h1>
+        </div>
+
+        <div class="content">
+            <p>Ciao <strong>{{USER_NAME}}</strong>,</p>
+            <p>Sei stato rimosso dal seguente task:</p>
+
+            <div class="task-card">
+                <div class="task-title">{{TASK_TITLE}}</div>
+
+                {{#TASK_DESCRIPTION}}
+                <div style="color: #666; margin-top: 10px;">
+                    {{TASK_DESCRIPTION}}
+                </div>
+                {{/TASK_DESCRIPTION}}
+            </div>
+
+            {{#REMOVED_BY_NAME}}
+            <div class="removed-by">
+                👤 Rimosso da: <strong>{{REMOVED_BY_NAME}}</strong>
+            </div>
+            {{/REMOVED_BY_NAME}}
+
+            <div class="info-box">
+                ℹ️ Non riceverai più notifiche relative a questo task.
+            </div>
+
+            <div class="button-container">
+                <a href="{{TASK_LIST_URL}}" class="button">Visualizza I Miei Task</a>
+            </div>
+
+            <div class="divider"></div>
+
+            <p style="font-size: 13px; color: #666;">
+                Se pensi che questa rimozione sia un errore, contatta il responsabile del progetto.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>&copy; {{YEAR}} CollaboraNexio. Tutti i diritti riservati.</p>
+            <p>
+                <a href="{{BASE_URL}}/tasks.php">Gestione Task</a> •
+                <a href="{{BASE_URL}}/settings.php">Impostazioni</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

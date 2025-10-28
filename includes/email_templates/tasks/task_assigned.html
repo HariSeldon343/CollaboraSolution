@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sei stato assegnato a un task</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f7fa;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .header .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .task-card {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .task-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0 0 15px 0;
+        }
+        .task-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .task-meta-item {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            color: #666;
+        }
+        .task-meta-item strong {
+            color: #333;
+            margin-left: 5px;
+        }
+        .priority-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .priority-low { background: #d4edda; color: #155724; }
+        .priority-medium { background: #fff3cd; color: #856404; }
+        .priority-high { background: #f8d7da; color: #721c24; }
+        .priority-critical { background: #dc3545; color: white; }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .description {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #555;
+            line-height: 1.6;
+        }
+        .assigned-by {
+            background: #e8f4f8;
+            border-left: 3px solid #667eea;
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">✅</div>
+            <h1>Nuovo Task Assegnato</h1>
+        </div>
+
+        <div class="content">
+            <p>Ciao <strong>{{USER_NAME}}</strong>,</p>
+            <p>Sei stato assegnato a un nuovo task su CollaboraNexio.</p>
+
+            <div class="task-card">
+                <div class="task-title">{{TASK_TITLE}}</div>
+
+                {{#TASK_DESCRIPTION}}
+                <div class="description">
+                    {{TASK_DESCRIPTION}}
+                </div>
+                {{/TASK_DESCRIPTION}}
+
+                <div class="task-meta">
+                    <div class="task-meta-item">
+                        📊 Priorità:
+                        <span class="priority-badge priority-{{TASK_PRIORITY}}">
+                            {{TASK_PRIORITY_LABEL}}
+                        </span>
+                    </div>
+                    {{#TASK_DUE_DATE}}
+                    <div class="task-meta-item">
+                        📅 Scadenza: <strong>{{TASK_DUE_DATE}}</strong>
+                    </div>
+                    {{/TASK_DUE_DATE}}
+                    {{#TASK_ESTIMATED_HOURS}}
+                    <div class="task-meta-item">
+                        ⏱️ Stima: <strong>{{TASK_ESTIMATED_HOURS}}h</strong>
+                    </div>
+                    {{/TASK_ESTIMATED_HOURS}}
+                </div>
+            </div>
+
+            {{#ASSIGNED_BY_NAME}}
+            <div class="assigned-by">
+                👤 Assegnato da: <strong>{{ASSIGNED_BY_NAME}}</strong>
+            </div>
+            {{/ASSIGNED_BY_NAME}}
+
+            <div class="button-container">
+                <a href="{{TASK_URL}}" class="button">Visualizza Task</a>
+            </div>
+
+            <div class="divider"></div>
+
+            <p style="font-size: 13px; color: #666;">
+                💡 <strong>Suggerimento:</strong> Puoi modificare le tue preferenze di notifica email
+                dalle impostazioni del tuo profilo.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>&copy; {{YEAR}} CollaboraNexio. Tutti i diritti riservati.</p>
+            <p>
+                <a href="{{BASE_URL}}/tasks.php">Gestione Task</a> •
+                <a href="{{BASE_URL}}/settings.php">Impostazioni</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

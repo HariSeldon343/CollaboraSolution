@@ -340,6 +340,49 @@ function getFileInfoForEditor(int $fileId, int $tenantId): array|false {
 }
 
 /**
+ * Ottiene informazioni dettagliate su un file senza vincolo di tenant
+ * (uso: super_admin)
+ *
+ * @param int $fileId ID del file
+ * @return array|false Informazioni del file o false se non trovato
+ */
+function getFileInfoForEditorAnyTenant(int $fileId): array|false {
+    $db = Database::getInstance();
+
+    try {
+        $file = $db->fetchOne(
+            "SELECT f.*,\n                    u.name as uploaded_by_name,\n                    u.email as uploaded_by_email,\n                    t.name as tenant_name\n             FROM files f\n             LEFT JOIN users u ON f.uploaded_by = u.id\n             LEFT JOIN tenants t ON f.tenant_id = t.id\n             WHERE f.id = ?\n             AND f.deleted_at IS NULL",
+            [$fileId]
+        );
+
+        if (!$file) {
+            return false;
+        }
+
+        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $file['extension'] = strtolower($extension);
+        $file['is_editable'] = isFileEditableInOnlyOffice($extension);
+        $file['is_viewonly'] = isFileViewOnlyInOnlyOffice($extension);
+        $file['document_type'] = getOnlyOfficeDocumentType($extension);
+
+        $file['physical_path'] = UPLOAD_PATH . '/' . $file['tenant_id'] . '/' . $file['file_path'];
+
+        if (file_exists($file['physical_path'])) {
+            $file['file_hash'] = md5_file($file['physical_path']);
+        } else {
+            $file['file_hash'] = md5($file['id'] . '_' . $file['updated_at']);
+        }
+
+        $file['version_count'] = $db->count('file_versions', ['file_id' => $fileId]);
+
+        return $file;
+    } catch (Exception $e) {
+        error_log('Error getting file info (any tenant): ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
  * Salva una nuova versione del file
  *
  * @param int $fileId ID del file
@@ -476,12 +519,16 @@ function logDocumentAudit(string $action, int $fileId, int $userId, array $detai
  * @return string URL di download
  */
 function generateDownloadUrl(int $fileId, string $token): string {
-    return sprintf(
-        '%s?file_id=%d&token=%s',
-        ONLYOFFICE_DOWNLOAD_URL,
-        $fileId,
-        urlencode($token)
-    );
+    if (defined('ONLYOFFICE_JWT_ENABLED') && ONLYOFFICE_JWT_ENABLED && !empty($token)) {
+        return sprintf(
+            '%s?file_id=%d&token=%s',
+            ONLYOFFICE_DOWNLOAD_URL,
+            $fileId,
+            urlencode($token)
+        );
+    }
+    // JWT disabled or token not provided: no token in URL
+    return sprintf('%s?file_id=%d', ONLYOFFICE_DOWNLOAD_URL, $fileId);
 }
 
 /**

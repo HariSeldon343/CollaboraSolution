@@ -488,17 +488,39 @@ class Database {
     }
 
     /**
-     * Annulla una transazione
+     * Annulla una transazione (DEFENSIVE PATTERN - BUG-039)
      *
-     * @return bool True se il rollback è avvenuto con successo
-     * @throws Exception Se non in una transazione
+     * Handles state inconsistencies gracefully without throwing exceptions.
+     * Checks both class variable AND PDO actual state, syncs when needed.
+     *
+     * @return bool True se il rollback è avvenuto con successo, false altrimenti
      */
     public function rollback(): bool {
         try {
+            // Step 1: Check class variable first
             if (!$this->inTransaction) {
-                throw new Exception('Nessuna transazione attiva');
+                $this->log('WARNING', 'rollback() called but class inTransaction is false');
+
+                // Double-check PDO state - maybe out of sync
+                if ($this->connection->inTransaction()) {
+                    $this->log('WARNING', 'PDO has active transaction but class state was false - syncing');
+                    $this->inTransaction = true;
+                    // Continue to rollback below
+                } else {
+                    // Both false - nothing to do
+                    $this->log('DEBUG', 'rollback() called with no transaction active (both states false)');
+                    return false;
+                }
             }
 
+            // Step 2: Check actual PDO transaction state (CRITICAL - BUG-039)
+            if (!$this->connection->inTransaction()) {
+                $this->log('WARNING', 'rollback() called but PDO has no active transaction - state mismatch');
+                $this->inTransaction = false; // Sync state
+                return false;
+            }
+
+            // Step 3: All checks passed - safe to rollback
             $result = $this->connection->rollBack();
             if ($result) {
                 $this->inTransaction = false;
@@ -509,7 +531,12 @@ class Database {
 
         } catch (PDOException $e) {
             $this->log('ERROR', 'Errore rollback transazione: ' . $e->getMessage());
-            throw new Exception('Impossibile annullare la transazione');
+
+            // CRITICAL (BUG-039): Sync state even on error
+            $this->inTransaction = false;
+
+            // Return false instead of throwing - let caller handle
+            return false;
         }
     }
 

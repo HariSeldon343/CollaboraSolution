@@ -230,3 +230,29 @@ function normalizeSessionData(): void {
         $_SESSION['user_role'] = $_SESSION['role'];
     }
 }
+
+/**
+ * Snake_case aliases for backward compatibility
+ * Added 2025-10-25 to fix BUG-021: Task Management API 500 errors
+ *
+ * The task management API endpoints were written using snake_case function calls
+ * (api_success, api_error) but the actual functions are camelCase (apiSuccess, apiError).
+ *
+ * Rather than updating all 8 task API endpoints, these aliases provide backward compatibility.
+ */
+
+/**
+ * Snake_case alias for apiSuccess()
+ * @see apiSuccess()
+ */
+function api_success($data = null, string $message = 'Operazione completata con successo'): void {
+    apiSuccess($data, $message);
+}
+
+/**
+ * Snake_case alias for apiError()
+ * @see apiError()
+ */
+function api_error(string $message, int $httpCode = 500, $additionalData = null): void {
+    apiError($message, $httpCode, $additionalData);
+}

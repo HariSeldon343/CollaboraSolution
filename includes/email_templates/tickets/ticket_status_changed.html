@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stato ticket aggiornato</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f7fa;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .header .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .ticket-card {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .ticket-number {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 15px;
+            letter-spacing: 0.5px;
+        }
+        .ticket-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0 0 15px 0;
+        }
+        .status-transition {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 25px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+        }
+        .status-box {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status-old {
+            background: #e0e0e0;
+            color: #666;
+        }
+        .status-new {
+            background: {{NEW_STATUS_COLOR}};
+            color: white;
+        }
+        .arrow {
+            font-size: 32px;
+            margin: 0 20px;
+            color: #667eea;
+        }
+        .ticket-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .ticket-meta-item {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            color: #666;
+        }
+        .ticket-meta-item strong {
+            color: #333;
+            margin-left: 5px;
+        }
+        .urgency-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .urgency-low { background: #d4edda; color: #155724; }
+        .urgency-normal { background: #fff3cd; color: #856404; }
+        .urgency-high { background: #f8d7da; color: #721c24; }
+        .urgency-critical { background: #dc3545; color: white; }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .info-box {
+            background: #e8f5e9;
+            border-left: 4px solid #10b981;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .changed-by {
+            background: #f3e5f5;
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #555;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 20px 0;
+        }
+        .next-steps {
+            background: #fff9e6;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .next-steps h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #856404;
+        }
+        .next-steps p {
+            margin: 8px 0;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">🔄</div>
+            <h1>Stato Ticket Aggiornato</h1>
+        </div>
+
+        <div class="content">
+            <p>Ciao <strong>{{USER_NAME}}</strong>,</p>
+            <p>Lo stato del tuo ticket di supporto è stato aggiornato:</p>
+
+            <div class="ticket-card">
+                <span class="ticket-number">{{TICKET_NUMBER}}</span>
+                <div class="ticket-title">{{TICKET_SUBJECT}}</div>
+
+                <div class="ticket-meta">
+                    <div class="ticket-meta-item">
+                        🚨 Urgenza:
+                        <span class="urgency-badge urgency-{{URGENCY}}">
+                            {{URGENCY_LABEL}}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="status-transition">
+                <div class="status-box status-old">{{OLD_STATUS_LABEL}}</div>
+                <div class="arrow">→</div>
+                <div class="status-box status-new">{{NEW_STATUS_LABEL}}</div>
+            </div>
+
+            <div class="changed-by">
+                👤 Aggiornato da: <strong>{{CHANGED_BY_NAME}}</strong>
+            </div>
+
+            <div class="next-steps">
+                <h3>📋 Prossimi Passi</h3>
+                <p>{{NEXT_STEPS}}</p>
+            </div>
+
+            <div class="button-container">
+                <a href="{{TICKET_URL}}" class="button">Visualizza Ticket</a>
+            </div>
+
+            <div class="divider"></div>
+
+            <p style="font-size: 13px; color: #666;">
+                💡 <strong>Nota:</strong> Riceverai notifiche email per ogni aggiornamento importante del tuo ticket.
+                Puoi rispondere direttamente dalla pagina del ticket o via email.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>&copy; {{YEAR}} CollaboraNexio. Tutti i diritti riservati.</p>
+            <p>
+                <a href="{{TICKET_URL}}">Visualizza Ticket</a> •
+                <a href="{{BASE_URL}}/ticket.php">Tutti i Ticket</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

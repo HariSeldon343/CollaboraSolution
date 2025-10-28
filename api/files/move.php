@@ -139,7 +139,7 @@ try {
 
         // If it's a folder, update paths of all children
         if ($item['is_folder']) {
-            updateChildrenPathsAfterMove($fileId, $item['path'], $newRelativePath, $db);
+            updateChildrenPathsAfterMove($fileId, $item['path'], $newRelativePath, $tenantId, $db);
         }
 
         // Move thumbnail if exists
@@ -238,11 +238,11 @@ function isChildFolder(int $sourceFolderId, int $targetFolderId, $db): bool {
 /**
  * Update paths of all children after a folder is moved
  */
-function updateChildrenPathsAfterMove(int $folderId, string $oldPath, string $newPath, $db): void {
-    // Get all children
+function updateChildrenPathsAfterMove(int $folderId, string $oldPath, string $newPath, int $tenantId, $db): void {
+    // Get all children (SECURITY FIX: Added tenant_id to prevent cross-tenant data exposure)
     $children = $db->fetchAll(
-        "SELECT id, path, is_folder FROM files WHERE path LIKE ?",
-        [$oldPath . '/%']
+        "SELECT id, path, is_folder FROM files WHERE path LIKE ? AND tenant_id = ?",
+        [$oldPath . '/%', $tenantId]
     );
 
     foreach ($children as $child) {

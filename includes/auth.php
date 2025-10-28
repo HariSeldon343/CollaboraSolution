@@ -92,6 +92,15 @@ class Auth {
 
             if (!$user) {
                 $this->recordLoginAttempt($email, false);
+
+                // Audit log - Track failed login (user not found)
+                try {
+                    require_once __DIR__ . '/audit_helper.php';
+                    AuditLogger::logLogin(0, 0, false, 'User not found');
+                } catch (Exception $e) {
+                    error_log("[AUDIT LOG FAILURE] Failed login tracking failed: " . $e->getMessage());
+                }
+
                 return ['success' => false, 'message' => 'Credenziali non valide'];
             }
 
@@ -103,6 +112,15 @@ class Auth {
             // Verifica password
             if (!password_verify($password, $user['password_hash'])) {
                 $this->recordLoginAttempt($email, false, $user['id'], $user['tenant_id']);
+
+                // Audit log - Track failed login (invalid password)
+                try {
+                    require_once __DIR__ . '/audit_helper.php';
+                    AuditLogger::logLogin($user['id'], $user['tenant_id'], false, 'Invalid password');
+                } catch (Exception $e) {
+                    error_log("[AUDIT LOG FAILURE] Failed login tracking failed: " . $e->getMessage());
+                }
+
                 return ['success' => false, 'message' => 'Credenziali non valide'];
             }
 
@@ -145,6 +163,14 @@ class Auth {
 
             // Registra accesso nei log
             $this->logActivity($user['id'], $user['tenant_id'], 'login', 'Login effettuato con successo');
+
+            // Audit log - Track successful login
+            try {
+                require_once __DIR__ . '/audit_helper.php';
+                AuditLogger::logLogin($user['id'], $user['tenant_id'], true);
+            } catch (Exception $e) {
+                error_log("[AUDIT LOG FAILURE] Login tracking failed: " . $e->getMessage());
+            }
 
             // Registra tentativo riuscito
             $this->recordLoginAttempt($email, true, $user['id'], $user['tenant_id']);

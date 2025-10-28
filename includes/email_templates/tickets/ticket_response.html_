@@ -1,0 +1,185 @@
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuova Risposta al Ticket</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f7fa;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .header .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .greeting {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .ticket-info {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .ticket-number {
+            font-size: 14px;
+            color: #666;
+            font-weight: 600;
+        }
+        .ticket-subject {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 5px 0;
+        }
+        .response-card {
+            background: #ffffff;
+            border: 2px solid #10b981;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .response-header {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .response-text {
+            font-size: 15px;
+            color: #333;
+            line-height: 1.7;
+            white-space: pre-wrap;
+        }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #dee2e6;
+        }
+        .read-more {
+            font-size: 13px;
+            color: #10b981;
+            font-style: italic;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">💬</div>
+            <h1>Nuova Risposta al Tuo Ticket</h1>
+        </div>
+
+        <div class="content">
+            <p class="greeting">Ciao <strong>{{USER_NAME}}</strong>,</p>
+
+            <p>Hai ricevuto una nuova risposta al tuo ticket di supporto.</p>
+
+            <div class="ticket-info">
+                <div class="ticket-number">#{{TICKET_NUMBER}}</div>
+                <div class="ticket-subject">{{TICKET_SUBJECT}}</div>
+            </div>
+
+            <div class="response-card">
+                <div class="response-header">
+                    Risposta da <strong>{{RESPONDER_NAME}}</strong>
+                </div>
+                <div class="response-text">{{RESPONSE_TEXT}}</div>
+                <!-- IF_RESPONSE_TEXT_FULL -->
+                <div class="read-more">... leggi il resto sulla piattaforma</div>
+                <!-- ENDIF_RESPONSE_TEXT_FULL -->
+            </div>
+
+            <div class="button-container">
+                <a href="{{TICKET_URL}}" class="button">Visualizza Conversazione →</a>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>© {{YEAR}} CollaboraNexio. Tutti i diritti riservati.</p>
+            <p>Questa è una email automatica, si prega di non rispondere.</p>
+        </div>
+    </div>
+</body>
+</html>
+```
+
+### 4. `/includes/email_templates/tickets/status_changed.html`
+
+```html
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stato Ticket Aggiornato</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f7fa;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);

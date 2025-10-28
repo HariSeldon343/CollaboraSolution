@@ -17,6 +17,7 @@ if (!defined('BASE_URL')) {
 }
 
 // OnlyOffice Server Configuration
+// CRITICAL: OnlyOffice Document Server runs on port 8083 (not 8888!)
 define('ONLYOFFICE_SERVER_URL', getenv('ONLYOFFICE_SERVER_URL') ?: 'http://localhost:8083');
 define('ONLYOFFICE_API_URL', ONLYOFFICE_SERVER_URL . '/web-apps/apps/api/documents/api.js');
 
@@ -28,18 +29,64 @@ define('ONLYOFFICE_JWT_ENABLED', true);
 // Document Server Endpoints
 // ONLYOFFICE_DOWNLOAD_URL - Must be reachable from Docker container
 if (defined('PRODUCTION_MODE') && PRODUCTION_MODE) {
-    // Production: BASE_URL should be publicly accessible domain
     define('ONLYOFFICE_DOWNLOAD_URL', BASE_URL . '/api/documents/download_for_editor.php');
-} else {
-    // Development (Docker on Windows): Use host.docker.internal to reach XAMPP on host
-    define('ONLYOFFICE_DOWNLOAD_URL', 'http://host.docker.internal:8888/CollaboraNexio/api/documents/download_for_editor.php');
-}
-
-// Use host.docker.internal for callback so Docker can reach XAMPP on Windows (Development)
-if (defined('PRODUCTION_MODE') && PRODUCTION_MODE) {
     define('ONLYOFFICE_CALLBACK_URL', BASE_URL . '/api/documents/save_document.php');
 } else {
-    define('ONLYOFFICE_CALLBACK_URL', 'http://host.docker.internal:8888/CollaboraNexio/api/documents/save_document.php');
+    // Development: resolve host for Docker container access
+    $detectedHost = getenv('ONLYOFFICE_DEV_HOST');
+
+    if (empty($detectedHost)) {
+        // CRITICAL FIX: For Docker Desktop on Windows, MUST use host.docker.internal
+        // This allows Docker container to reach host Windows machine on port 8888
+        // Detection: Running on Windows OR in WSL environment
+        $isWindows = (PHP_OS_FAMILY === 'Windows' || stripos(PHP_OS, 'WIN') === 0);
+        $isWSL = (stripos(php_uname(), 'microsoft') !== false || file_exists('/proc/sys/fs/binfmt_misc/WSLInterop'));
+
+        if ($isWindows || $isWSL) {
+            // Windows Docker Desktop or WSL - use special DNS name
+            $detectedHost = 'host.docker.internal';
+            error_log('[OnlyOffice Config] Detected Windows/WSL environment - using host.docker.internal');
+        } else {
+            // Try to detect local LAN IP for Linux/Mac
+            $detectedHost = null;
+            try {
+                $sock = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+                if ($sock) {
+                    @socket_connect($sock, '8.8.8.8', 53);
+                    @socket_getsockname($sock, $addr);
+                    if (!empty($addr) && $addr !== '127.0.0.1') {
+                        $detectedHost = $addr;
+                    }
+                    @socket_close($sock);
+                }
+            } catch (Throwable $e) {
+                // ignore and fallback below
+            }
+
+            if (empty($detectedHost)) {
+                // Fallback to gethostbynamel
+                $ips = @gethostbynamel(gethostname()) ?: [];
+                foreach ($ips as $ip) {
+                    if ($ip !== '127.0.0.1') { $detectedHost = $ip; break; }
+                }
+            }
+
+            if (empty($detectedHost)) {
+                // Final fallback for Docker - try bridge network
+                $detectedHost = '172.17.0.1';
+            }
+        }
+    }
+
+    define('ONLYOFFICE_DOWNLOAD_URL', 'http://' . $detectedHost . ':8888/CollaboraNexio/api/documents/download_for_editor.php');
+    define('ONLYOFFICE_CALLBACK_URL', 'http://' . $detectedHost . ':8888/CollaboraNexio/api/documents/save_document.php');
+
+    // Log the resolved URLs for debugging
+    if (defined('DEBUG_MODE') && DEBUG_MODE) {
+        error_log('[OnlyOffice Config] Host detected: ' . $detectedHost);
+        error_log('[OnlyOffice Config] Download URL: ' . ONLYOFFICE_DOWNLOAD_URL);
+        error_log('[OnlyOffice Config] Callback URL: ' . ONLYOFFICE_CALLBACK_URL);
+    }
 }
 
 // Editor Configuration

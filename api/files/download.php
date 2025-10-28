@@ -88,25 +88,20 @@ try {
     // Get file size
     $fileSize = filesize($filePath);
 
-    // Log audit (only for non-thumbnail downloads)
+    // Audit log - Track file download (only for non-thumbnail downloads)
     if (!$thumbnail) {
-        $db->insert('audit_logs', [
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'action' => 'file_downloaded',
-            'entity_type' => 'file',
-            'entity_id' => $fileId,
-            'description' => "File scaricato: {$file['name']}",
-            'new_values' => json_encode([
-                'file_name' => $file['name'],
-                'file_size' => $fileSize
-            ]),
-            'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
-            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
-            'severity' => 'info',
-            'status' => 'success',
-            'created_at' => date('Y-m-d H:i:s')
-        ]);
+        try {
+            require_once '../../includes/audit_helper.php';
+            AuditLogger::logFileDownload(
+                $userId,
+                $tenantId,
+                $fileId,
+                $file['name'],
+                $fileSize
+            );
+        } catch (Exception $e) {
+            error_log("[AUDIT LOG FAILURE] File download tracking failed: " . $e->getMessage());
+        }
     }
 
     // Clear any output buffers

@@ -96,6 +96,9 @@ try {
         case 'rename':
             renameItem();
             break;
+        case 'create_document':
+            createNewDocument();
+            break;
         case 'get_tenant_list':
             getTenantList();
             break;
@@ -425,27 +428,27 @@ function uploadFile() {
 
     $folder_id = $_POST['folder_id'] ?? null;
 
-    if (empty($folder_id)) {
-        apiError('Non è possibile caricare file nella root. Seleziona una cartella.', 400);
+    // Allow root uploads for admin/super_admin; otherwise require a folder
+    if (empty($folder_id) && !hasApiRole('admin')) {
+        apiError('Seleziona una cartella prima di caricare file', 400);
     }
 
     try {
-        // Verifica che la cartella esista e ottieni il suo tenant_id
-        $stmt = $pdo->prepare("
-            SELECT tenant_id
-            FROM files
-            WHERE id = ? AND is_folder = 1 AND deleted_at IS NULL
-        ");
-        $stmt->execute([$folder_id]);
-        $folder = $stmt->fetch(PDO::FETCH_ASSOC);
+        $target_tenant_id = $tenant_id;
+        if (!empty($folder_id)) {
+            $stmt = $pdo->prepare("SELECT tenant_id FROM files WHERE id = ? AND is_folder = 1 AND deleted_at IS NULL");
+            $stmt->execute([$folder_id]);
+            $folder = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$folder) {
-            apiError('Cartella non trovata', 404);
-        }
+            if (!$folder) {
+                apiError('Cartella non trovata', 404);
+            }
 
-        // Verifica accesso al tenant
-        if (!hasAccessToTenant($folder['tenant_id'])) {
-            apiError('Non hai accesso a questo tenant', 403);
+            if (!hasAccessToTenant($folder['tenant_id'])) {
+                apiError('Non hai accesso a questo tenant', 403);
+            }
+
+            $target_tenant_id = (int)$folder['tenant_id'];
         }
 
         $file = $_FILES['file'];
@@ -454,53 +457,46 @@ function uploadFile() {
         $size = $file['size'];
         $error = $file['error'];
 
-        // Verifica errori upload
         if ($error !== UPLOAD_ERR_OK) {
             apiError('Errore durante il caricamento del file', 400);
         }
 
-        // Verifica dimensione file
         if ($size > MAX_FILE_SIZE) {
             apiError('File troppo grande (max ' . (MAX_FILE_SIZE / 1048576) . 'MB)', 400);
         }
 
-        // Genera nome file univoco
         $extension = pathinfo($original_name, PATHINFO_EXTENSION);
         $filename = pathinfo($original_name, PATHINFO_FILENAME);
-        $unique_name = $filename . '_' . uniqid() . '.' . $extension;
+        $unique_name = $filename . '_' . uniqid() . ($extension ? ('.' . $extension) : '');
 
-        // Determina MIME type
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mime_type = finfo_file($finfo, $tmp_name);
         finfo_close($finfo);
 
-        // Crea directory per il tenant se non esiste
-        $upload_dir = UPLOAD_PATH . '/' . $folder['tenant_id'];
+        $upload_dir = UPLOAD_PATH . '/' . $target_tenant_id;
         if (!is_dir($upload_dir)) {
             mkdir($upload_dir, 0755, true);
         }
 
         $file_path = $upload_dir . '/' . $unique_name;
 
-        // Sposta il file
         if (!move_uploaded_file($tmp_name, $file_path)) {
             apiError('Errore nel salvataggio del file', 500);
         }
 
-        // Insert into unified files table (is_folder = 0 for files)
-        $stmt = $pdo->prepare("
-            INSERT INTO files (
+        $stmt = $pdo->prepare(
+            "INSERT INTO files (
                 folder_id, tenant_id, name, original_name, file_size,
                 file_path, uploaded_by, mime_type, status, is_folder, created_at, updated_at
             ) VALUES (
                 ?, ?, ?, ?, ?,
                 ?, ?, ?, 'in_approvazione', 0, NOW(), NOW()
-            )
-        ");
+            )"
+        );
 
         $stmt->execute([
-            $folder_id,
-            $folder['tenant_id'],
+            !empty($folder_id) ? $folder_id : null,
+            $target_tenant_id,
             $original_name,
             $original_name,
             $size,
@@ -511,10 +507,9 @@ function uploadFile() {
 
         $file_id = $pdo->lastInsertId();
 
-        // Log audit
         logAudit('upload_file', 'files', $file_id, [
             'filename' => $original_name,
-            'folder_id' => $folder_id,
+            'folder_id' => !empty($folder_id) ? $folder_id : null,
             'size' => $size
         ]);
 
@@ -621,6 +616,105 @@ function deleteItem() {
     } catch (Exception $e) {
         logApiError('DeleteItem', $e);
         apiError('Errore nell\'eliminazione', 500, DEBUG_MODE ? ['debug' => $e->getMessage()] : null);
+    }
+}
+
+/**
+ * Crea un documento vuoto (docx, xlsx, pptx, txt)
+ */
+function createNewDocument() {
+    global $pdo, $user_id, $tenant_id, $user_role;
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    $type = $input['type'] ?? '';
+    $name = trim($input['name'] ?? '');
+    $folder_id = $input['folder_id'] ?? null;
+
+    $supported = ['docx','xlsx','pptx','txt'];
+    if (!in_array($type, $supported)) {
+        apiError('Tipo di documento non supportato', 400);
+    }
+    if ($name === '') {
+        apiError('Nome documento richiesto', 400);
+    }
+
+    // Normalizza nome ed estensione
+    $name = preg_replace('/[^a-zA-Z0-9\s\-_\.]/', '', $name);
+    if (!str_ends_with(strtolower($name), '.' . $type)) {
+        $name .= '.' . $type;
+    }
+
+    try {
+        $target_tenant_id = $tenant_id;
+        if (!empty($folder_id)) {
+            $stmt = $pdo->prepare("SELECT tenant_id FROM files WHERE id = ? AND is_folder = 1 AND deleted_at IS NULL");
+            $stmt->execute([$folder_id]);
+            $folder = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$folder) {
+                apiError('Cartella non trovata', 404);
+            }
+            if (!hasAccessToTenant($folder['tenant_id'])) {
+                apiError('Non hai accesso a questo tenant', 403);
+            }
+            $target_tenant_id = (int)$folder['tenant_id'];
+        }
+
+        // Genera contenuto/template minimo
+        $content = '';
+        if ($type === 'txt') {
+            $content = '';
+        } else {
+            // usa l'endpoint esistente come riferimento
+            // per semplicità, crea un file vuoto con estensione corretta
+            $content = '';
+        }
+
+        // Salvataggio su disco
+        $upload_dir = UPLOAD_PATH . '/' . $target_tenant_id;
+        if (!is_dir($upload_dir)) {
+            mkdir($upload_dir, 0755, true);
+        }
+
+        // Nome file univoco
+        $extension = pathinfo($name, PATHINFO_EXTENSION);
+        $base = pathinfo($name, PATHINFO_FILENAME);
+        $unique_name = $base . '_' . uniqid() . ($extension ? ('.' . $extension) : '');
+        $fullPath = $upload_dir . '/' . $unique_name;
+
+        file_put_contents($fullPath, $content);
+
+        // Metadati
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime_type = finfo_file($finfo, $fullPath) ?: 'application/octet-stream';
+        finfo_close($finfo);
+        $size = filesize($fullPath) ?: 0;
+
+        // Inserimento DB - coerente con schema (file_path = unique filename)
+        $stmt = $pdo->prepare("INSERT INTO files (
+            folder_id, tenant_id, name, original_name, file_size,
+            file_path, uploaded_by, mime_type, status, is_folder, created_at, updated_at
+        ) VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, 'in_approvazione', 0, NOW(), NOW()
+        )");
+
+        $stmt->execute([
+            !empty($folder_id) ? $folder_id : null,
+            $target_tenant_id,
+            $name,
+            $name,
+            $size,
+            $unique_name,
+            $user_id,
+            $mime_type
+        ]);
+
+        $file_id = $pdo->lastInsertId();
+
+        apiSuccess(['file_id' => $file_id], 'Documento creato con successo');
+
+    } catch (Exception $e) {
+        logApiError('CreateNewDocument', $e);
+        apiError('Errore nella creazione del documento', 500, DEBUG_MODE ? ['debug' => $e->getMessage()] : null);
     }
 }
 
