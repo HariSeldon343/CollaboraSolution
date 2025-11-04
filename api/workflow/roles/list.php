@@ -34,57 +34,106 @@ try {
         apiError('Tenant non valido', 400);
     }
     
-    // Load available users for tenant (for dropdowns)
+    // BUG-062 FIX: Use LEFT JOIN to show ALL users with role indicators
+    // This replaces the old pattern that used NOT IN and resulted in empty arrays
+    // New pattern: Show all tenant users, indicate which roles they have
     $availableUsers = [];
-    if ($tenantId > 0) {
-        $availableUsers = $db->fetchAll(
-            "SELECT id, display_name AS name, email, role AS system_role
-             FROM users
-             WHERE tenant_id = ? AND status = 'active' AND deleted_at IS NULL
-             ORDER BY display_name ASC",
-            [$tenantId]
-        );
-    }
-    
-    // Fetch current role holders if table exists
-    $roles = [];
     $usersWithRoles = [];
-    
-    try {
-        // Ensure table exists (lightweight guard)
-        $db->query("CREATE TABLE IF NOT EXISTS workflow_roles (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            tenant_id INT NOT NULL,
-            user_id INT NOT NULL,
-            role ENUM('validator','approver') NOT NULL,
-            created_at DATETIME NOT NULL,
-            updated_at DATETIME NOT NULL,
-            INDEX (tenant_id), INDEX (user_id), INDEX (role)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        
-        if ($tenantId > 0) {
-            $usersWithRoles = $db->fetchAll(
-                "SELECT wr.user_id, wr.role AS workflow_role, 
-                        u.display_name AS user_name, u.email AS user_email, u.role AS system_role
-                 FROM workflow_roles wr
-                 JOIN users u ON u.id = wr.user_id
-                 WHERE wr.tenant_id = ? AND u.deleted_at IS NULL
-                 ORDER BY u.display_name ASC",
-                [$tenantId]
+    $roles = [];
+
+    if ($tenantId > 0) {
+        try {
+            // Ensure table exists (lightweight guard)
+            $db->query("CREATE TABLE IF NOT EXISTS workflow_roles (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id INT NOT NULL,
+                user_id INT NOT NULL,
+                role ENUM('validator','approver') NOT NULL,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
+                INDEX (tenant_id), INDEX (user_id), INDEX (role)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // LEFT JOIN pattern: Return ALL users with role indicators
+            // This ensures dropdown is always populated
+            $allUsersWithRoles = $db->fetchAll(
+                "SELECT DISTINCT
+                    u.id,
+                    u.display_name AS name,
+                    u.email,
+                    u.role AS system_role,
+                    GROUP_CONCAT(
+                        CASE WHEN wr.role = 'validator' THEN wr.id END
+                    ) AS validator_role_ids,
+                    GROUP_CONCAT(
+                        CASE WHEN wr.role = 'approver' THEN wr.id END
+                    ) AS approver_role_ids,
+                    MAX(CASE WHEN wr.role = 'validator' THEN 1 ELSE 0 END) AS is_validator,
+                    MAX(CASE WHEN wr.role = 'approver' THEN 1 ELSE 0 END) AS is_approver
+                FROM users u
+                LEFT JOIN workflow_roles wr ON wr.user_id = u.id
+                    AND wr.tenant_id = ?
+                WHERE u.tenant_id = ?
+                  AND u.status = 'active'
+                  AND u.deleted_at IS NULL
+                GROUP BY u.id, u.display_name, u.email, u.role
+                ORDER BY u.display_name ASC",
+                [$tenantId, $tenantId]
             );
-            
-            // Also provide compact roles vector for current state
-            $roles = array_map(function($r) {
+
+            // Format for available_users (all users with role indicators)
+            $availableUsers = array_map(function($user) {
                 return [
-                    'user_id' => (int)$r['user_id'],
-                    'role' => $r['workflow_role']
+                    'id' => (int)$user['id'],
+                    'name' => $user['name'],
+                    'email' => $user['email'],
+                    'system_role' => $user['system_role'],
+                    'is_validator' => (bool)$user['is_validator'],
+                    'is_approver' => (bool)$user['is_approver'],
+                    'validator_role_ids' => $user['validator_role_ids'] ? explode(',', $user['validator_role_ids']) : [],
+                    'approver_role_ids' => $user['approver_role_ids'] ? explode(',', $user['approver_role_ids']) : []
                 ];
-            }, $usersWithRoles);
+            }, $allUsersWithRoles);
+
+            // Format for usersWithRoles (only users that have roles - for backward compatibility)
+            $usersWithRoles = [];
+            foreach ($allUsersWithRoles as $user) {
+                if ($user['is_validator'] || $user['is_approver']) {
+                    $usersWithRoles[] = [
+                        'user_id' => (int)$user['id'],
+                        'user_name' => $user['name'],
+                        'user_email' => $user['email'],
+                        'system_role' => $user['system_role'],
+                        'is_validator' => (bool)$user['is_validator'],
+                        'is_approver' => (bool)$user['is_approver']
+                    ];
+                }
+            }
+
+            // Compact roles vector for current state
+            $roles = [];
+            foreach ($allUsersWithRoles as $user) {
+                if ($user['is_validator']) {
+                    $roles[] = [
+                        'user_id' => (int)$user['id'],
+                        'role' => 'validator'
+                    ];
+                }
+                if ($user['is_approver']) {
+                    $roles[] = [
+                        'user_id' => (int)$user['id'],
+                        'role' => 'approver'
+                    ];
+                }
+            }
+
+        } catch (Exception $e) {
+            // Ignore table errors; return empty arrays
+            error_log('[WorkflowRolesList] Database error: ' . $e->getMessage());
+            $availableUsers = [];
+            $usersWithRoles = [];
+            $roles = [];
         }
-    } catch (Exception $e) {
-        // Ignore table errors; return empty roles
-        $roles = [];
-        $usersWithRoles = [];
     }
     
     apiSuccess([

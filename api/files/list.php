@@ -134,9 +134,22 @@ try {
                    WHEN f.mime_type LIKE 'video/%' THEN 'video'
                    ELSE 'file'
                END as item_type,
-               (SELECT COUNT(*) FROM files WHERE folder_id = f.id AND deleted_at IS NULL) as item_count
+               (SELECT COUNT(*) FROM files WHERE folder_id = f.id AND deleted_at IS NULL) as item_count,
+               dw.current_state AS workflow_state,
+               CASE dw.current_state
+                   WHEN 'bozza' THEN 'blue'
+                   WHEN 'in_validazione' THEN 'yellow'
+                   WHEN 'validato' THEN 'green'
+                   WHEN 'in_approvazione' THEN 'orange'
+                   WHEN 'approvato' THEN 'green'
+                   WHEN 'rifiutato' THEN 'red'
+                   ELSE NULL
+               END AS workflow_badge_color
         FROM files f
         LEFT JOIN users u ON f.uploaded_by = u.id
+        LEFT JOIN document_workflow dw ON dw.file_id = f.id
+            AND dw.tenant_id = f.tenant_id
+            AND dw.deleted_at IS NULL
         WHERE $whereClause
         ORDER BY f.is_folder DESC, f.$sort $order
         LIMIT ? OFFSET ?
@@ -169,7 +182,9 @@ try {
             'deleted_at' => $item['deleted_at'],
             'formatted_size' => $item['size'] ? FileHelper::formatFileSize($item['size']) : null,
             'icon' => $item['is_folder'] ? 'folder' : FileHelper::getFileIcon($item['extension'] ?? ''),
-            'item_type' => $item['item_type']
+            'item_type' => $item['item_type'],
+            'workflow_state' => $item['workflow_state'] ?? null,
+            'workflow_badge_color' => $item['workflow_badge_color'] ?? null
         ];
 
         if ($item['is_folder']) {

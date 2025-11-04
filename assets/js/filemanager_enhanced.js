@@ -1472,7 +1472,8 @@
             this.state.currentFolderId = folderId;
             this.state.isRoot = false;
             this.loadFiles();
-            this.showToast(`Aperta cartella: ${folderName}`, 'success');
+            // Removed success toast - folder navigation is evident from UI changes
+            // this.showToast(`Aperta cartella: ${folderName}`, 'success');
         }
 
         navigateToPath(path) {

@@ -104,8 +104,9 @@ try {
     $tenantId = $entity['tenant_id'];
 
     // Usa la funzione MySQL per verificare lo stato del workflow
+    // CRITICAL: Function signature is get_workflow_enabled_for_folder(tenant_id, folder_id)
     $statusQuery = "SELECT get_workflow_enabled_for_folder(?, ?) AS workflow_enabled";
-    $statusResult = $db->fetchOne($statusQuery, [$folderId, $tenantId]);
+    $statusResult = $db->fetchOne($statusQuery, [$tenantId, $folderId]);
 
     $workflowEnabled = $statusResult && $statusResult['workflow_enabled'] == 1;
 

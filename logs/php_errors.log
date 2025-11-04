@@ -6323,3 +6323,189 @@ Stack trace:
 [04-Nov-2025 11:31:07 Europe/Rome] API CSRF Check - Session token: 5206180920...
 [04-Nov-2025 11:31:08 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
 [04-Nov-2025 11:31:08 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:31:37 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:31:37 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:31:37 Europe/Rome] API CSRF Check - Token received: 5206180920...
+[04-Nov-2025 11:31:37 Europe/Rome] API CSRF Check - Session token: 5206180920...
+[04-Nov-2025 11:31:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 356
+[04-Nov-2025 11:31:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 358
+[04-Nov-2025 11:31:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 359
+[04-Nov-2025 11:31:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 360
+[04-Nov-2025 11:31:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 361
+[04-Nov-2025 11:31:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 362
+[04-Nov-2025 11:31:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 363
+[04-Nov-2025 11:32:07 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:32:07 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:32:07 Europe/Rome] API CSRF Check - Token received: 5206180920...
+[04-Nov-2025 11:32:07 Europe/Rome] API CSRF Check - Session token: 5206180920...
+[04-Nov-2025 11:32:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 356
+[04-Nov-2025 11:32:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 358
+[04-Nov-2025 11:32:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 359
+[04-Nov-2025 11:32:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 360
+[04-Nov-2025 11:32:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 361
+[04-Nov-2025 11:32:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 362
+[04-Nov-2025 11:32:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 363
+[04-Nov-2025 11:32:37 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:32:37 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:32:37 Europe/Rome] API CSRF Check - Token received: 5206180920...
+[04-Nov-2025 11:32:37 Europe/Rome] API CSRF Check - Session token: 5206180920...
+[04-Nov-2025 11:32:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 356
+[04-Nov-2025 11:32:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 358
+[04-Nov-2025 11:32:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 359
+[04-Nov-2025 11:32:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 360
+[04-Nov-2025 11:32:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 361
+[04-Nov-2025 11:32:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 362
+[04-Nov-2025 11:32:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 363
+[04-Nov-2025 11:33:07 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:33:07 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:33:07 Europe/Rome] API CSRF Check - Token received: 5206180920...
+[04-Nov-2025 11:33:07 Europe/Rome] API CSRF Check - Session token: 5206180920...
+[04-Nov-2025 11:33:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 356
+[04-Nov-2025 11:33:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 358
+[04-Nov-2025 11:33:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 359
+[04-Nov-2025 11:33:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 360
+[04-Nov-2025 11:33:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 361
+[04-Nov-2025 11:33:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 362
+[04-Nov-2025 11:33:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 363
+[04-Nov-2025 11:33:37 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:33:37 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:33:37 Europe/Rome] API CSRF Check - Token received: 5206180920...
+[04-Nov-2025 11:33:37 Europe/Rome] API CSRF Check - Session token: 5206180920...
+[04-Nov-2025 11:33:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 356
+[04-Nov-2025 11:33:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 358
+[04-Nov-2025 11:33:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 359
+[04-Nov-2025 11:33:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 360
+[04-Nov-2025 11:33:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 361
+[04-Nov-2025 11:33:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 362
+[04-Nov-2025 11:33:37 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 363
+[04-Nov-2025 11:34:07 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:34:07 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:34:07 Europe/Rome] API CSRF Check - Token received: 5206180920...
+[04-Nov-2025 11:34:07 Europe/Rome] API CSRF Check - Session token: 5206180920...
+[04-Nov-2025 11:34:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 356
+[04-Nov-2025 11:34:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 358
+[04-Nov-2025 11:34:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 359
+[04-Nov-2025 11:34:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 360
+[04-Nov-2025 11:34:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 361
+[04-Nov-2025 11:34:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 362
+[04-Nov-2025 11:34:07 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 363
+[04-Nov-2025 11:34:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:34:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:34:49 Europe/Rome] API CSRF Check - Token received: 5206180920...
+[04-Nov-2025 11:34:49 Europe/Rome] API CSRF Check - Session token: 5206180920...
+[04-Nov-2025 11:34:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 356
+[04-Nov-2025 11:34:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 358
+[04-Nov-2025 11:34:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 359
+[04-Nov-2025 11:34:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 360
+[04-Nov-2025 11:34:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 361
+[04-Nov-2025 11:34:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 362
+[04-Nov-2025 11:34:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 363
+[04-Nov-2025 11:35:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:35:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:35:49 Europe/Rome] API CSRF Check - Token received: 5206180920...
+[04-Nov-2025 11:35:49 Europe/Rome] API CSRF Check - Session token: 5206180920...
+[04-Nov-2025 11:35:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 356
+[04-Nov-2025 11:35:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 358
+[04-Nov-2025 11:35:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 359
+[04-Nov-2025 11:35:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 360
+[04-Nov-2025 11:35:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 361
+[04-Nov-2025 11:35:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 362
+[04-Nov-2025 11:35:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 363
+[04-Nov-2025 11:36:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:36:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:36:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 11:36:49 Europe/Rome] API CSRF Check - Token received: 5206180920...
+[04-Nov-2025 11:36:49 Europe/Rome] API CSRF Check - Session token: 5206180920...
+[04-Nov-2025 11:36:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 356
+[04-Nov-2025 11:36:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 358
+[04-Nov-2025 11:36:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 359
+[04-Nov-2025 11:36:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 360
+[04-Nov-2025 11:36:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 361
+[04-Nov-2025 11:36:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 362
+[04-Nov-2025 11:36:49 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 363
+[04-Nov-2025 11:36:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:12:47 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:12:48 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:12:49 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:12:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:12:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:12:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:12:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:12:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:12:51 Europe/Rome] API CSRF Check - Token received: 4196062300...
+[04-Nov-2025 15:12:51 Europe/Rome] API CSRF Check - Session token: 4196062300...
+[04-Nov-2025 15:12:51 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 356
+[04-Nov-2025 15:12:51 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 358
+[04-Nov-2025 15:12:51 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 359
+[04-Nov-2025 15:12:51 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 360
+[04-Nov-2025 15:12:51 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 361
+[04-Nov-2025 15:12:51 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 362
+[04-Nov-2025 15:12:51 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 363
+[04-Nov-2025 15:12:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:12:51 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 1
+[04-Nov-2025 15:12:51 Europe/Rome] API CSRF Check - Token received: 4196062300...
+[04-Nov-2025 15:12:51 Europe/Rome] API CSRF Check - Session token: 4196062300...
+[04-Nov-2025 15:12:51 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:12:51 Europe/Rome] API CSRF Check - Token received: 4196062300...
+[04-Nov-2025 15:12:51 Europe/Rome] API CSRF Check - Session token: 4196062300...
+[04-Nov-2025 15:13:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:00 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:03 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:11 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:11 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:11 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:11 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:11 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:11 Europe/Rome] API CSRF Check - Token received: 4196062300...
+[04-Nov-2025 15:13:11 Europe/Rome] API CSRF Check - Session token: 4196062300...
+[04-Nov-2025 15:13:11 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 356
+[04-Nov-2025 15:13:11 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 358
+[04-Nov-2025 15:13:11 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 359
+[04-Nov-2025 15:13:11 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 360
+[04-Nov-2025 15:13:11 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 361
+[04-Nov-2025 15:13:11 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 362
+[04-Nov-2025 15:13:11 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 363
+[04-Nov-2025 15:13:11 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:11 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 1
+[04-Nov-2025 15:13:11 Europe/Rome] API CSRF Check - Token received: 4196062300...
+[04-Nov-2025 15:13:11 Europe/Rome] API CSRF Check - Session token: 4196062300...
+[04-Nov-2025 15:13:11 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:11 Europe/Rome] API CSRF Check - Token received: 4196062300...
+[04-Nov-2025 15:13:11 Europe/Rome] API CSRF Check - Session token: 4196062300...
+[04-Nov-2025 15:13:14 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:17 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:17 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:26 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:26 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:26 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:26 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:26 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:26 Europe/Rome] API CSRF Check - Token received: 4196062300...
+[04-Nov-2025 15:13:26 Europe/Rome] API CSRF Check - Session token: 4196062300...
+[04-Nov-2025 15:13:26 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 356
+[04-Nov-2025 15:13:26 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 358
+[04-Nov-2025 15:13:26 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 359
+[04-Nov-2025 15:13:26 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 360
+[04-Nov-2025 15:13:26 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 361
+[04-Nov-2025 15:13:26 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 362
+[04-Nov-2025 15:13:26 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 363
+[04-Nov-2025 15:13:26 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:26 Europe/Rome] List API - User ID: 19, Role: super_admin, Tenant: 1
+[04-Nov-2025 15:13:26 Europe/Rome] API CSRF Check - Token received: 4196062300...
+[04-Nov-2025 15:13:26 Europe/Rome] API CSRF Check - Session token: 4196062300...
+[04-Nov-2025 15:13:26 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:26 Europe/Rome] API CSRF Check - Token received: 4196062300...
+[04-Nov-2025 15:13:26 Europe/Rome] API CSRF Check - Session token: 4196062300...
+[04-Nov-2025 15:13:27 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:27 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:56 Europe/Rome] Session initialized - Host: localhost:8888, Domain: , Secure: false, Timeout: 600s
+[04-Nov-2025 15:13:56 Europe/Rome] API CSRF Check - Token received: 4196062300...
+[04-Nov-2025 15:13:56 Europe/Rome] API CSRF Check - Session token: 4196062300...
+[04-Nov-2025 15:13:56 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 356
+[04-Nov-2025 15:13:56 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 358
+[04-Nov-2025 15:13:56 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 359
+[04-Nov-2025 15:13:56 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 360
+[04-Nov-2025 15:13:56 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 361
+[04-Nov-2025 15:13:56 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 362
+[04-Nov-2025 15:13:56 Europe/Rome] PHP Warning:  Trying to access array offset on value of type bool in C:\xampp\htdocs\CollaboraNexio\api\documents\workflow\dashboard.php on line 363

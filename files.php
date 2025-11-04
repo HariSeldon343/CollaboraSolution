@@ -68,7 +68,7 @@ $csrfToken = $auth->generateCSRFToken();
     <!-- PDF Viewer CSS -->
     <link rel="stylesheet" href="assets/css/pdfViewer.css">
     <!-- Workflow Management CSS (BUG-060 CACHE BUST) -->
-    <link rel="stylesheet" href="assets/css/workflow.css?v=<?php echo time() . '_v15'; ?>">
+    <link rel="stylesheet" href="assets/css/workflow.css?v=<?php echo time() . '_v17'; ?>">
 
     <style>
         /* Logo image style */
@@ -665,7 +665,7 @@ $csrfToken = $auth->generateCSRFToken();
                         </svg>
                         <span>Impostazioni Workflow Cartella</span>
                     </button>
-                    <button class="context-item" data-action="workflow-status">
+                    <button class="context-item context-file-only" data-action="workflow-status">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
                         </svg>
@@ -1112,15 +1112,15 @@ $csrfToken = $auth->generateCSRFToken();
     <!-- PDF Viewer JavaScript -->
     <script src="assets/js/pdfViewer.js?v=<?php echo time(); ?>"></script>
     <!-- Enhanced File Manager JavaScript with Upload & Document Creation (BUG-054/056/058/059/060 FIX - CACHE BUST) -->
-    <script src="assets/js/filemanager_enhanced.js?v=<?php echo time() . '_v15'; ?>"></script>
+    <script src="assets/js/filemanager_enhanced.js?v=<?php echo time() . '_v17'; ?>"></script>
     <!-- Document Editor JavaScript -->
     <script src="assets/js/documentEditor.js?v=<?php echo time(); ?>"></script>
     <!-- Session Timeout Warning System -->
     <script src="assets/js/session-timeout.js?v=<?php echo time(); ?>"></script>
-    <!-- File Assignment System (BUG-061 Fix - Modal Auto-Open + Dropdown Empty Debug) -->
-    <script src="assets/js/file_assignment.js?v=<?php echo time() . '_v15'; ?>"></script>
-    <!-- Document Workflow Management System (BUG-061 - NEW FILE to bypass cache) -->
-    <script src="assets/js/document_workflow_v2.js?v=<?php echo time() . '_RELOAD_' . md5(time()); ?>"></script>
+    <!-- File Assignment System (BUG-062 Fix - Workflow Roles Dropdown Empty) -->
+    <script src="assets/js/file_assignment.js?v=<?php echo time() . '_v17'; ?>"></script>
+    <!-- Document Workflow Management System (BUG-062 - Backend Filter + Tenant Context) -->
+    <script src="assets/js/document_workflow_v2.js?v=<?php echo time() . '_v17'; ?>"></script>
 
     <!-- BUG-061 CRITICAL FIX: Force close modal IMMEDIATELY (before any other script) -->
     <script>
