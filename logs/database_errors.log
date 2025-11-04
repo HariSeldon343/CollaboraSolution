@@ -25520,3 +25520,1479 @@ WHERE fa.tenant_id = ?
       AND dw.deleted_at IS NULL
     ORDER BY dw.rejected_at DESC
 [2025-11-04 05:52:08] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 05:52:38] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 05:52:38] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 05:52:38] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 05:52:38] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 05:53:08] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 05:53:08] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 05:53:08] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 05:53:08] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 05:53:38] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 05:53:38] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 05:53:38] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 05:53:38] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 05:54:08] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 05:54:08] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 05:54:08] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 05:54:08] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 05:54:38] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 05:54:38] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 05:54:38] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 05:54:38] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 05:55:49] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 05:55:49] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 05:55:49] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 05:55:49] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 05:56:49] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 05:56:49] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 05:56:49] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 05:56:49] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 11:26:13] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'display_name' in 'field list' - SQL: SELECT id, display_name AS name, email, role AS system_role
+             FROM users
+             WHERE tenant_id = ? AND status = 'active' AND deleted_at IS NULL
+             ORDER BY display_name ASC
+[2025-11-04 11:26:13] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'display_name' in 'field list'
+[2025-11-04 11:26:13] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'wr.role' in 'field list' - SQL: SELECT wr.user_id, wr.role AS workflow_role, 
+                        u.display_name AS user_name, u.email AS user_email, u.role AS system_role
+                 FROM workflow_roles wr
+                 JOIN users u ON u.id = wr.user_id
+                 WHERE wr.tenant_id = ? AND u.deleted_at IS NULL
+                 ORDER BY u.display_name ASC
+[2025-11-04 11:26:13] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'wr.role' in 'field list'
+[2025-11-04 11:26:13] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 11:26:13] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 11:26:13] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 11:26:13] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 11:26:13] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list' - SQL: SELECT COUNT(*) as total FROM (SELECT
+    fa.id,
+    fa.entity_type,
+    fa.file_id,
+    fa.folder_id,
+    fa.assignment_reason,
+    fa.expires_at,
+    fa.created_at,
+    fa.updated_at,
+
+    -- File details
+    f.file_name,
+    f.file_size,
+    f.mime_type,
+    f.uploaded_by as file_creator_id,
+
+    -- Folder details
+    fo.folder_name,
+    fo.created_by as folder_creator_id,
+
+    -- Assigned to user
+    u_to.id as assigned_to_id,
+    u_to.name as assigned_to_name,
+    u_to.email as assigned_to_email,
+
+    -- Assigned by user
+    u_by.id as assigned_by_id,
+    u_by.name as assigned_by_name,
+    u_by.email as assigned_by_email,
+
+    -- Check if expired
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at > NOW() THEN 0
+        ELSE 1
+    END as is_expired,
+
+    -- Check if expiring soon (within 7 days)
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at <= DATE_ADD(NOW(), INTERVAL 7 DAY) AND fa.expires_at > NOW() THEN 1
+        ELSE 0
+    END as is_expiring_soon
+
+FROM file_assignments fa
+LEFT JOIN files f ON fa.file_id = f.id
+LEFT JOIN folders fo ON fa.folder_id = fo.id
+LEFT JOIN users u_to ON fa.assigned_to_user_id = u_to.id
+LEFT JOIN users u_by ON fa.assigned_by_user_id = u_by.id
+WHERE fa.tenant_id = ?
+  AND fa.deleted_at IS NULL AND (fa.expires_at IS NULL OR fa.expires_at > NOW())) as subquery
+[2025-11-04 11:26:13] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list'
+[2025-11-04 11:26:13] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list' - SQL: SELECT
+    fa.id,
+    fa.entity_type,
+    fa.file_id,
+    fa.folder_id,
+    fa.assignment_reason,
+    fa.expires_at,
+    fa.created_at,
+    fa.updated_at,
+
+    -- File details
+    f.file_name,
+    f.file_size,
+    f.mime_type,
+    f.uploaded_by as file_creator_id,
+
+    -- Folder details
+    fo.folder_name,
+    fo.created_by as folder_creator_id,
+
+    -- Assigned to user
+    u_to.id as assigned_to_id,
+    u_to.name as assigned_to_name,
+    u_to.email as assigned_to_email,
+
+    -- Assigned by user
+    u_by.id as assigned_by_id,
+    u_by.name as assigned_by_name,
+    u_by.email as assigned_by_email,
+
+    -- Check if expired
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at > NOW() THEN 0
+        ELSE 1
+    END as is_expired,
+
+    -- Check if expiring soon (within 7 days)
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at <= DATE_ADD(NOW(), INTERVAL 7 DAY) AND fa.expires_at > NOW() THEN 1
+        ELSE 0
+    END as is_expiring_soon
+
+FROM file_assignments fa
+LEFT JOIN files f ON fa.file_id = f.id
+LEFT JOIN folders fo ON fa.folder_id = fo.id
+LEFT JOIN users u_to ON fa.assigned_to_user_id = u_to.id
+LEFT JOIN users u_by ON fa.assigned_by_user_id = u_by.id
+WHERE fa.tenant_id = ?
+  AND fa.deleted_at IS NULL AND (fa.expires_at IS NULL OR fa.expires_at > NOW()) ORDER BY
+    is_expiring_soon DESC,
+    is_expired ASC,
+    fa.created_at DESC
+    LIMIT ? OFFSET ?
+[2025-11-04 11:26:13] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list'
+[2025-11-04 11:26:13] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'folder_id' in 'field list' - SQL: SELECT
+            COUNT(CASE WHEN expires_at IS NULL OR expires_at > NOW() THEN 1 END) as active_count,
+            COUNT(CASE WHEN expires_at IS NOT NULL AND expires_at <= NOW() THEN 1 END) as expired_count,
+            COUNT(CASE WHEN expires_at IS NOT NULL
+                       AND expires_at > NOW()
+                       AND expires_at <= DATE_ADD(NOW(), INTERVAL 7 DAY) THEN 1 END) as expiring_soon_count,
+            COUNT(DISTINCT file_id) as unique_files,
+            COUNT(DISTINCT folder_id) as unique_folders,
+            COUNT(DISTINCT assigned_to_user_id) as unique_users
+        FROM file_assignments
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+[2025-11-04 11:26:13] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'folder_id' in 'field list'
+[2025-11-04 11:26:14] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'file_name' in 'field list' - SQL: SELECT id, file_name, uploaded_by, folder_id, file_size, mime_type, tenant_id
+             FROM files
+             WHERE id = ? AND deleted_at IS NULL
+[2025-11-04 11:26:14] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'file_name' in 'field list'
+[2025-11-04 11:26:21] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'display_name' in 'field list' - SQL: SELECT id, display_name AS name, email, role AS system_role
+             FROM users
+             WHERE tenant_id = ? AND status = 'active' AND deleted_at IS NULL
+             ORDER BY display_name ASC
+[2025-11-04 11:26:21] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'display_name' in 'field list'
+[2025-11-04 11:26:21] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'wr.role' in 'field list' - SQL: SELECT wr.user_id, wr.role AS workflow_role, 
+                        u.display_name AS user_name, u.email AS user_email, u.role AS system_role
+                 FROM workflow_roles wr
+                 JOIN users u ON u.id = wr.user_id
+                 WHERE wr.tenant_id = ? AND u.deleted_at IS NULL
+                 ORDER BY u.display_name ASC
+[2025-11-04 11:26:21] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'wr.role' in 'field list'
+[2025-11-04 11:26:44] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 11:26:44] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 11:26:44] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 11:26:44] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 11:27:14] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 11:27:14] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 11:27:14] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 11:27:14] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 11:27:44] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 11:27:44] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 11:27:44] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 11:27:44] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 11:28:14] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 11:28:14] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 11:28:14] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 11:28:14] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 11:28:44] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 11:28:44] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 11:28:44] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 11:28:44] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 11:28:47] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'display_name' in 'field list' - SQL: SELECT id, display_name AS name, email, role AS system_role
+             FROM users
+             WHERE tenant_id = ? AND status = 'active' AND deleted_at IS NULL
+             ORDER BY display_name ASC
+[2025-11-04 11:28:47] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'display_name' in 'field list'
+[2025-11-04 11:28:47] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'wr.role' in 'field list' - SQL: SELECT wr.user_id, wr.role AS workflow_role, 
+                        u.display_name AS user_name, u.email AS user_email, u.role AS system_role
+                 FROM workflow_roles wr
+                 JOIN users u ON u.id = wr.user_id
+                 WHERE wr.tenant_id = ? AND u.deleted_at IS NULL
+                 ORDER BY u.display_name ASC
+[2025-11-04 11:28:47] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'wr.role' in 'field list'
+[2025-11-04 11:28:47] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 11:28:47] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 11:28:47] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 11:28:47] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 11:28:47] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list' - SQL: SELECT COUNT(*) as total FROM (SELECT
+    fa.id,
+    fa.entity_type,
+    fa.file_id,
+    fa.folder_id,
+    fa.assignment_reason,
+    fa.expires_at,
+    fa.created_at,
+    fa.updated_at,
+
+    -- File details
+    f.file_name,
+    f.file_size,
+    f.mime_type,
+    f.uploaded_by as file_creator_id,
+
+    -- Folder details
+    fo.folder_name,
+    fo.created_by as folder_creator_id,
+
+    -- Assigned to user
+    u_to.id as assigned_to_id,
+    u_to.name as assigned_to_name,
+    u_to.email as assigned_to_email,
+
+    -- Assigned by user
+    u_by.id as assigned_by_id,
+    u_by.name as assigned_by_name,
+    u_by.email as assigned_by_email,
+
+    -- Check if expired
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at > NOW() THEN 0
+        ELSE 1
+    END as is_expired,
+
+    -- Check if expiring soon (within 7 days)
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at <= DATE_ADD(NOW(), INTERVAL 7 DAY) AND fa.expires_at > NOW() THEN 1
+        ELSE 0
+    END as is_expiring_soon
+
+FROM file_assignments fa
+LEFT JOIN files f ON fa.file_id = f.id
+LEFT JOIN folders fo ON fa.folder_id = fo.id
+LEFT JOIN users u_to ON fa.assigned_to_user_id = u_to.id
+LEFT JOIN users u_by ON fa.assigned_by_user_id = u_by.id
+WHERE fa.tenant_id = ?
+  AND fa.deleted_at IS NULL AND (fa.expires_at IS NULL OR fa.expires_at > NOW())) as subquery
+[2025-11-04 11:28:47] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list'
+[2025-11-04 11:28:47] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list' - SQL: SELECT
+    fa.id,
+    fa.entity_type,
+    fa.file_id,
+    fa.folder_id,
+    fa.assignment_reason,
+    fa.expires_at,
+    fa.created_at,
+    fa.updated_at,
+
+    -- File details
+    f.file_name,
+    f.file_size,
+    f.mime_type,
+    f.uploaded_by as file_creator_id,
+
+    -- Folder details
+    fo.folder_name,
+    fo.created_by as folder_creator_id,
+
+    -- Assigned to user
+    u_to.id as assigned_to_id,
+    u_to.name as assigned_to_name,
+    u_to.email as assigned_to_email,
+
+    -- Assigned by user
+    u_by.id as assigned_by_id,
+    u_by.name as assigned_by_name,
+    u_by.email as assigned_by_email,
+
+    -- Check if expired
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at > NOW() THEN 0
+        ELSE 1
+    END as is_expired,
+
+    -- Check if expiring soon (within 7 days)
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at <= DATE_ADD(NOW(), INTERVAL 7 DAY) AND fa.expires_at > NOW() THEN 1
+        ELSE 0
+    END as is_expiring_soon
+
+FROM file_assignments fa
+LEFT JOIN files f ON fa.file_id = f.id
+LEFT JOIN folders fo ON fa.folder_id = fo.id
+LEFT JOIN users u_to ON fa.assigned_to_user_id = u_to.id
+LEFT JOIN users u_by ON fa.assigned_by_user_id = u_by.id
+WHERE fa.tenant_id = ?
+  AND fa.deleted_at IS NULL AND (fa.expires_at IS NULL OR fa.expires_at > NOW()) ORDER BY
+    is_expiring_soon DESC,
+    is_expired ASC,
+    fa.created_at DESC
+    LIMIT ? OFFSET ?
+[2025-11-04 11:28:47] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list'
+[2025-11-04 11:28:47] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'folder_id' in 'field list' - SQL: SELECT
+            COUNT(CASE WHEN expires_at IS NULL OR expires_at > NOW() THEN 1 END) as active_count,
+            COUNT(CASE WHEN expires_at IS NOT NULL AND expires_at <= NOW() THEN 1 END) as expired_count,
+            COUNT(CASE WHEN expires_at IS NOT NULL
+                       AND expires_at > NOW()
+                       AND expires_at <= DATE_ADD(NOW(), INTERVAL 7 DAY) THEN 1 END) as expiring_soon_count,
+            COUNT(DISTINCT file_id) as unique_files,
+            COUNT(DISTINCT folder_id) as unique_folders,
+            COUNT(DISTINCT assigned_to_user_id) as unique_users
+        FROM file_assignments
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+[2025-11-04 11:28:47] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'folder_id' in 'field list'
+[2025-11-04 11:28:49] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'file_name' in 'field list' - SQL: SELECT id, file_name, uploaded_by, folder_id, file_size, mime_type, tenant_id
+             FROM files
+             WHERE id = ? AND deleted_at IS NULL
+[2025-11-04 11:28:49] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'file_name' in 'field list'
+[2025-11-04 11:29:02] [ERROR] Errore query: SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '' at line 1 - SQL: UPDATE `document_editor_sessions` SET `closed_at` = :set_closed_at WHERE `closed_at` IS NULL AND `last_activity <` = :where_last_activity <
+[2025-11-04 11:29:02] [ERROR] Errore update in document_editor_sessions: Errore database: SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '' at line 1
+[2025-11-04 11:29:02] [ERROR] Errore query: SQLSTATE[23000]: Integrity constraint violation: 4025 CONSTRAINT `chk_audit_action` failed for `collaboranexio`.`audit_logs` - SQL: INSERT INTO `audit_logs` (`user_id`, `tenant_id`, `action`, `entity_type`, `entity_id`, `description`, `ip_address`, `user_agent`, `severity`, `status`, `created_at`) VALUES (:user_id, :tenant_id, :action, :entity_type, :entity_id, :description, :ip_address, :user_agent, :severity, :status, :created_at)
+[2025-11-04 11:29:02] [ERROR] Errore insert in audit_logs: Errore database: SQLSTATE[23000]: Integrity constraint violation: 4025 CONSTRAINT `chk_audit_action` failed for `collaboranexio`.`audit_logs`
+[2025-11-04 11:29:03] [ERROR] Errore query: SQLSTATE[23000]: Integrity constraint violation: 4025 CONSTRAINT `chk_audit_action` failed for `collaboranexio`.`audit_logs` - SQL: INSERT INTO `audit_logs` (`user_id`, `tenant_id`, `action`, `entity_type`, `entity_id`, `description`, `new_values`, `ip_address`, `user_agent`, `severity`, `status`, `created_at`) VALUES (:user_id, :tenant_id, :action, :entity_type, :entity_id, :description, :new_values, :ip_address, :user_agent, :severity, :status, :created_at)
+[2025-11-04 11:29:03] [ERROR] Errore insert in audit_logs: Errore database: SQLSTATE[23000]: Integrity constraint violation: 4025 CONSTRAINT `chk_audit_action` failed for `collaboranexio`.`audit_logs`
+[2025-11-04 11:29:03] [ERROR] Errore query: SQLSTATE[23000]: Integrity constraint violation: 4025 CONSTRAINT `chk_audit_action` failed for `collaboranexio`.`audit_logs` - SQL: INSERT INTO `audit_logs` (`user_id`, `tenant_id`, `action`, `entity_type`, `entity_id`, `description`, `ip_address`, `user_agent`, `severity`, `status`, `created_at`) VALUES (:user_id, :tenant_id, :action, :entity_type, :entity_id, :description, :ip_address, :user_agent, :severity, :status, :created_at)
+[2025-11-04 11:29:03] [ERROR] Errore insert in audit_logs: Errore database: SQLSTATE[23000]: Integrity constraint violation: 4025 CONSTRAINT `chk_audit_action` failed for `collaboranexio`.`audit_logs`
+[2025-11-04 11:29:04] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'display_name' in 'field list' - SQL: SELECT id, display_name AS name, email, role AS system_role
+             FROM users
+             WHERE tenant_id = ? AND status = 'active' AND deleted_at IS NULL
+             ORDER BY display_name ASC
+[2025-11-04 11:29:04] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'display_name' in 'field list'
+[2025-11-04 11:29:04] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'wr.role' in 'field list' - SQL: SELECT wr.user_id, wr.role AS workflow_role, 
+                        u.display_name AS user_name, u.email AS user_email, u.role AS system_role
+                 FROM workflow_roles wr
+                 JOIN users u ON u.id = wr.user_id
+                 WHERE wr.tenant_id = ? AND u.deleted_at IS NULL
+                 ORDER BY u.display_name ASC
+[2025-11-04 11:29:04] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'wr.role' in 'field list'
+[2025-11-04 11:29:05] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 11:29:05] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 11:29:05] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 11:29:05] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 11:29:05] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list' - SQL: SELECT COUNT(*) as total FROM (SELECT
+    fa.id,
+    fa.entity_type,
+    fa.file_id,
+    fa.folder_id,
+    fa.assignment_reason,
+    fa.expires_at,
+    fa.created_at,
+    fa.updated_at,
+
+    -- File details
+    f.file_name,
+    f.file_size,
+    f.mime_type,
+    f.uploaded_by as file_creator_id,
+
+    -- Folder details
+    fo.folder_name,
+    fo.created_by as folder_creator_id,
+
+    -- Assigned to user
+    u_to.id as assigned_to_id,
+    u_to.name as assigned_to_name,
+    u_to.email as assigned_to_email,
+
+    -- Assigned by user
+    u_by.id as assigned_by_id,
+    u_by.name as assigned_by_name,
+    u_by.email as assigned_by_email,
+
+    -- Check if expired
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at > NOW() THEN 0
+        ELSE 1
+    END as is_expired,
+
+    -- Check if expiring soon (within 7 days)
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at <= DATE_ADD(NOW(), INTERVAL 7 DAY) AND fa.expires_at > NOW() THEN 1
+        ELSE 0
+    END as is_expiring_soon
+
+FROM file_assignments fa
+LEFT JOIN files f ON fa.file_id = f.id
+LEFT JOIN folders fo ON fa.folder_id = fo.id
+LEFT JOIN users u_to ON fa.assigned_to_user_id = u_to.id
+LEFT JOIN users u_by ON fa.assigned_by_user_id = u_by.id
+WHERE fa.tenant_id = ?
+  AND fa.deleted_at IS NULL AND (fa.expires_at IS NULL OR fa.expires_at > NOW())) as subquery
+[2025-11-04 11:29:05] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list'
+[2025-11-04 11:29:05] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list' - SQL: SELECT
+    fa.id,
+    fa.entity_type,
+    fa.file_id,
+    fa.folder_id,
+    fa.assignment_reason,
+    fa.expires_at,
+    fa.created_at,
+    fa.updated_at,
+
+    -- File details
+    f.file_name,
+    f.file_size,
+    f.mime_type,
+    f.uploaded_by as file_creator_id,
+
+    -- Folder details
+    fo.folder_name,
+    fo.created_by as folder_creator_id,
+
+    -- Assigned to user
+    u_to.id as assigned_to_id,
+    u_to.name as assigned_to_name,
+    u_to.email as assigned_to_email,
+
+    -- Assigned by user
+    u_by.id as assigned_by_id,
+    u_by.name as assigned_by_name,
+    u_by.email as assigned_by_email,
+
+    -- Check if expired
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at > NOW() THEN 0
+        ELSE 1
+    END as is_expired,
+
+    -- Check if expiring soon (within 7 days)
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at <= DATE_ADD(NOW(), INTERVAL 7 DAY) AND fa.expires_at > NOW() THEN 1
+        ELSE 0
+    END as is_expiring_soon
+
+FROM file_assignments fa
+LEFT JOIN files f ON fa.file_id = f.id
+LEFT JOIN folders fo ON fa.folder_id = fo.id
+LEFT JOIN users u_to ON fa.assigned_to_user_id = u_to.id
+LEFT JOIN users u_by ON fa.assigned_by_user_id = u_by.id
+WHERE fa.tenant_id = ?
+  AND fa.deleted_at IS NULL AND (fa.expires_at IS NULL OR fa.expires_at > NOW()) ORDER BY
+    is_expiring_soon DESC,
+    is_expired ASC,
+    fa.created_at DESC
+    LIMIT ? OFFSET ?
+[2025-11-04 11:29:05] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list'
+[2025-11-04 11:29:05] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'folder_id' in 'field list' - SQL: SELECT
+            COUNT(CASE WHEN expires_at IS NULL OR expires_at > NOW() THEN 1 END) as active_count,
+            COUNT(CASE WHEN expires_at IS NOT NULL AND expires_at <= NOW() THEN 1 END) as expired_count,
+            COUNT(CASE WHEN expires_at IS NOT NULL
+                       AND expires_at > NOW()
+                       AND expires_at <= DATE_ADD(NOW(), INTERVAL 7 DAY) THEN 1 END) as expiring_soon_count,
+            COUNT(DISTINCT file_id) as unique_files,
+            COUNT(DISTINCT folder_id) as unique_folders,
+            COUNT(DISTINCT assigned_to_user_id) as unique_users
+        FROM file_assignments
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+[2025-11-04 11:29:05] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'folder_id' in 'field list'
+[2025-11-04 11:29:09] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'display_name' in 'field list' - SQL: SELECT id, display_name AS name, email, role AS system_role
+             FROM users
+             WHERE tenant_id = ? AND status = 'active' AND deleted_at IS NULL
+             ORDER BY display_name ASC
+[2025-11-04 11:29:09] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'display_name' in 'field list'
+[2025-11-04 11:29:09] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'wr.role' in 'field list' - SQL: SELECT wr.user_id, wr.role AS workflow_role, 
+                        u.display_name AS user_name, u.email AS user_email, u.role AS system_role
+                 FROM workflow_roles wr
+                 JOIN users u ON u.id = wr.user_id
+                 WHERE wr.tenant_id = ? AND u.deleted_at IS NULL
+                 ORDER BY u.display_name ASC
+[2025-11-04 11:29:09] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'wr.role' in 'field list'
+[2025-11-04 11:29:35] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 11:29:35] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 11:29:35] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 11:29:35] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 11:30:05] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 11:30:05] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 11:30:05] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 11:30:05] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 11:30:35] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 11:30:35] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 11:30:35] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 11:30:35] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 11:31:05] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 11:31:05] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 11:31:05] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 11:31:05] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 11:31:07] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'display_name' in 'field list' - SQL: SELECT id, display_name AS name, email, role AS system_role
+             FROM users
+             WHERE tenant_id = ? AND status = 'active' AND deleted_at IS NULL
+             ORDER BY display_name ASC
+[2025-11-04 11:31:07] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'display_name' in 'field list'
+[2025-11-04 11:31:07] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'wr.role' in 'field list' - SQL: SELECT wr.user_id, wr.role AS workflow_role, 
+                        u.display_name AS user_name, u.email AS user_email, u.role AS system_role
+                 FROM workflow_roles wr
+                 JOIN users u ON u.id = wr.user_id
+                 WHERE wr.tenant_id = ? AND u.deleted_at IS NULL
+                 ORDER BY u.display_name ASC
+[2025-11-04 11:31:07] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'wr.role' in 'field list'
+[2025-11-04 11:31:07] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list' - SQL: SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        AVG(rejection_count) as avg_rejections,
+        AVG(CASE
+            WHEN approved_at IS NOT NULL
+            THEN TIMESTAMPDIFF(HOUR, submitted_at, approved_at)
+            ELSE NULL
+        END) as avg_completion_hours
+    FROM document_workflow
+    WHERE tenant_id = ?
+      AND deleted_at IS NULL
+[2025-11-04 11:31:07] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'state' in 'field list'
+[2025-11-04 11:31:07] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list' - SQL: SELECT
+        dw.id,
+        dw.file_id,
+        f.file_name,
+        dw.rejected_at,
+        dw.rejection_count,
+        dwh.comment as rejection_reason,
+        ur.name as rejected_by_name
+    FROM document_workflow dw
+    INNER JOIN files f ON dw.file_id = f.id
+    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
+    LEFT JOIN document_workflow_history dwh ON (
+        dwh.workflow_id = dw.id
+        AND dwh.to_state = ?
+        AND dwh.id = (
+            SELECT MAX(id)
+            FROM document_workflow_history
+            WHERE workflow_id = dw.id
+              AND to_state = ?
+        )
+    )
+    WHERE dw.tenant_id = ?
+      AND dw.state = ?
+      AND dw.created_by_user_id = ?
+      AND dw.deleted_at IS NULL
+    ORDER BY dw.rejected_at DESC
+[2025-11-04 11:31:07] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'f.file_name' in 'field list'
+[2025-11-04 11:31:07] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list' - SQL: SELECT COUNT(*) as total FROM (SELECT
+    fa.id,
+    fa.entity_type,
+    fa.file_id,
+    fa.folder_id,
+    fa.assignment_reason,
+    fa.expires_at,
+    fa.created_at,
+    fa.updated_at,
+
+    -- File details
+    f.file_name,
+    f.file_size,
+    f.mime_type,
+    f.uploaded_by as file_creator_id,
+
+    -- Folder details
+    fo.folder_name,
+    fo.created_by as folder_creator_id,
+
+    -- Assigned to user
+    u_to.id as assigned_to_id,
+    u_to.name as assigned_to_name,
+    u_to.email as assigned_to_email,
+
+    -- Assigned by user
+    u_by.id as assigned_by_id,
+    u_by.name as assigned_by_name,
+    u_by.email as assigned_by_email,
+
+    -- Check if expired
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at > NOW() THEN 0
+        ELSE 1
+    END as is_expired,
+
+    -- Check if expiring soon (within 7 days)
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at <= DATE_ADD(NOW(), INTERVAL 7 DAY) AND fa.expires_at > NOW() THEN 1
+        ELSE 0
+    END as is_expiring_soon
+
+FROM file_assignments fa
+LEFT JOIN files f ON fa.file_id = f.id
+LEFT JOIN folders fo ON fa.folder_id = fo.id
+LEFT JOIN users u_to ON fa.assigned_to_user_id = u_to.id
+LEFT JOIN users u_by ON fa.assigned_by_user_id = u_by.id
+WHERE fa.tenant_id = ?
+  AND fa.deleted_at IS NULL AND (fa.expires_at IS NULL OR fa.expires_at > NOW())) as subquery
+[2025-11-04 11:31:07] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list'
+[2025-11-04 11:31:07] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list' - SQL: SELECT
+    fa.id,
+    fa.entity_type,
+    fa.file_id,
+    fa.folder_id,
+    fa.assignment_reason,
+    fa.expires_at,
+    fa.created_at,
+    fa.updated_at,
+
+    -- File details
+    f.file_name,
+    f.file_size,
+    f.mime_type,
+    f.uploaded_by as file_creator_id,
+
+    -- Folder details
+    fo.folder_name,
+    fo.created_by as folder_creator_id,
+
+    -- Assigned to user
+    u_to.id as assigned_to_id,
+    u_to.name as assigned_to_name,
+    u_to.email as assigned_to_email,
+
+    -- Assigned by user
+    u_by.id as assigned_by_id,
+    u_by.name as assigned_by_name,
+    u_by.email as assigned_by_email,
+
+    -- Check if expired
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at > NOW() THEN 0
+        ELSE 1
+    END as is_expired,
+
+    -- Check if expiring soon (within 7 days)
+    CASE
+        WHEN fa.expires_at IS NULL THEN 0
+        WHEN fa.expires_at <= DATE_ADD(NOW(), INTERVAL 7 DAY) AND fa.expires_at > NOW() THEN 1
+        ELSE 0
+    END as is_expiring_soon
+
+FROM file_assignments fa
+LEFT JOIN files f ON fa.file_id = f.id
+LEFT JOIN folders fo ON fa.folder_id = fo.id
+LEFT JOIN users u_to ON fa.assigned_to_user_id = u_to.id
+LEFT JOIN users u_by ON fa.assigned_by_user_id = u_by.id
+WHERE fa.tenant_id = ?
+  AND fa.deleted_at IS NULL AND (fa.expires_at IS NULL OR fa.expires_at > NOW()) ORDER BY
+    is_expiring_soon DESC,
+    is_expired ASC,
+    fa.created_at DESC
+    LIMIT ? OFFSET ?
+[2025-11-04 11:31:07] [ERROR] Errore fetchAll: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'fa.folder_id' in 'field list'
+[2025-11-04 11:31:07] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'folder_id' in 'field list' - SQL: SELECT
+            COUNT(CASE WHEN expires_at IS NULL OR expires_at > NOW() THEN 1 END) as active_count,
+            COUNT(CASE WHEN expires_at IS NOT NULL AND expires_at <= NOW() THEN 1 END) as expired_count,
+            COUNT(CASE WHEN expires_at IS NOT NULL
+                       AND expires_at > NOW()
+                       AND expires_at <= DATE_ADD(NOW(), INTERVAL 7 DAY) THEN 1 END) as expiring_soon_count,
+            COUNT(DISTINCT file_id) as unique_files,
+            COUNT(DISTINCT folder_id) as unique_folders,
+            COUNT(DISTINCT assigned_to_user_id) as unique_users
+        FROM file_assignments
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+[2025-11-04 11:31:07] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'folder_id' in 'field list'
+[2025-11-04 11:31:08] [ERROR] Errore query: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'file_name' in 'field list' - SQL: SELECT id, file_name, uploaded_by, folder_id, file_size, mime_type, tenant_id
+             FROM files
+             WHERE id = ? AND deleted_at IS NULL
+[2025-11-04 11:31:08] [ERROR] Errore fetchOne: Errore database: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'file_name' in 'field list'
