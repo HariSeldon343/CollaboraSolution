@@ -1,5 +1,104 @@
 <?php
 /**
+ * Audit Log - Delete endpoint
+ * Super Admin only. Supports delete all or by date range.
+ */
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../../includes/api_auth.php';
+require_once __DIR__ . '/../../includes/db.php';
+
+initializeApiEnvironment();
+verifyApiAuthentication();
+verifyApiCsrfToken();
+
+try {
+    $user = getApiUserInfo();
+    if (($user['role'] ?? '') !== 'super_admin') {
+        apiError('Solo Super Admin può eliminare i log', 403);
+    }
+
+    $db = Database::getInstance();
+    $input = json_decode(file_get_contents('php://input'), true) ?: [];
+
+    $mode = $input['mode'] ?? 'all'; // 'all' | 'range'
+    $reason = trim($input['reason'] ?? '');
+    $dateFrom = $input['date_from'] ?? null;
+    $dateTo = $input['date_to'] ?? null;
+
+    if (strlen($reason) < 10) {
+        apiError('Motivo eliminazione troppo breve (min 10 caratteri)', 400);
+    }
+
+    // Build where clause
+    $whereSql = '';
+    $params = [];
+    if ($mode === 'range') {
+        if (empty($dateFrom) || empty($dateTo)) {
+            apiError('Intervallo date richiesto', 400);
+        }
+        $whereSql = 'WHERE created_at BETWEEN ? AND ?';
+        $params = [$dateFrom, $dateTo];
+    }
+
+    // Count logs to delete
+    $countRow = $db->fetchOne("SELECT COUNT(*) AS cnt FROM audit_logs $whereSql", $params);
+    $toDelete = (int)($countRow['cnt'] ?? 0);
+
+    // Archive to JSON file (best effort)
+    if ($toDelete > 0) {
+        $logs = $db->fetchAll("SELECT * FROM audit_logs $whereSql ORDER BY id ASC LIMIT 50000", $params);
+        $archiveDir = __DIR__ . '/../../storage/logs/audit_archive';
+        if (!is_dir($archiveDir)) {
+            @mkdir($archiveDir, 0755, true);
+        }
+        $archiveFile = $archiveDir . '/audit_archive_' . date('Ymd_His') . '.json';
+        @file_put_contents($archiveFile, json_encode($logs, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    }
+
+    // Delete logs
+    if ($mode === 'all') {
+        $db->query('DELETE FROM audit_logs');
+    } else {
+        $db->query("DELETE FROM audit_logs $whereSql", $params);
+    }
+
+    // Record deletion event (immutable record)
+    try {
+        $db->query("CREATE TABLE IF NOT EXISTS audit_log_deletions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            deleted_at DATETIME NOT NULL,
+            mode VARCHAR(20) NOT NULL,
+            date_from DATETIME NULL,
+            date_to DATETIME NULL,
+            reason TEXT NOT NULL,
+            deleted_count INT NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->insert('audit_log_deletions', [
+            'user_id' => $user['user_id'],
+            'deleted_at' => date('Y-m-d H:i:s'),
+            'mode' => $mode,
+            'date_from' => $mode === 'range' ? $dateFrom : null,
+            'date_to' => $mode === 'range' ? $dateTo : null,
+            'reason' => $reason,
+            'deleted_count' => $toDelete
+        ]);
+    } catch (Exception $e) {
+        // ignore
+    }
+
+    apiSuccess(['deleted' => $toDelete], 'Log eliminati con successo');
+
+} catch (Exception $e) {
+    logApiError('AuditLogDelete', $e);
+    apiError('Errore durante l\'eliminazione dei log', 500);
+}
+
+<?php
+/**
  * Audit Log Delete API Endpoint (BUG-044 - Production Ready)
  *
  * Deletes audit logs with complete tracking via stored procedure
@@ -36,6 +135,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/api_auth.php';
+require_once __DIR__ . '/../../includes/audit_helper.php';
 
 // BUG-044: Validate HTTP method FIRST (before any processing)
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -231,8 +331,14 @@ try {
             api_error('Impossibile eliminare il log. Potrebbe essere già stato eliminato.', 500);
         }
 
-        // Commit transaction
-        $db->commit();
+        // Commit transaction (BUG-045: defensive commit pattern)
+        if (!$db->commit()) {
+            if ($db->inTransaction()) {
+                $db->rollback();
+            }
+            error_log('[AUDIT_LOG_DELETE] Commit failed | ID: ' . $logId . ' | Tenant: ' . $tenant_id);
+            api_error('Errore durante il commit della transazione', 500);
+        }
 
         // Log the operation
         error_log(sprintf(
@@ -241,6 +347,31 @@ try {
             $userInfo['user_email'],
             $tenant_id
         ));
+
+        // Create audit log for this deletion operation (BUG-047)
+        try {
+            AuditLogger::logDelete(
+                $userInfo['user_id'],
+                $tenant_id,
+                'audit_log',
+                $logId,
+                sprintf(
+                    'Eliminato singolo log di audit (ID: %d). Motivo: %s',
+                    $logId,
+                    $reason
+                ),
+                [
+                    'log_id' => $logId,
+                    'mode' => 'single',
+                    'reason' => $reason,
+                    'deleted_log' => $log
+                ],
+                false // Soft delete
+            );
+        } catch (Exception $e) {
+            // Non-blocking: log error but don't fail the operation
+            error_log('[AUDIT_LOG_DELETE] Failed to create audit log for single deletion: ' . $e->getMessage());
+        }
 
         // Build success response
         $response = [
@@ -341,10 +472,14 @@ try {
 
     $deletion_record_id = (int)$deletion_record['id'];
 
-    // Commit transaction
-    $db->commit();
+    // Commit transaction (BUG-045: defensive commit pattern)
+    if (!$db->commit()) {
+        $db->rollback();
+        error_log('[AUDIT_LOG_DELETE] Commit failed | Deletion ID: ' . $deletion_id . ' | Tenant: ' . $tenant_id);
+        api_error('Errore durante il commit della transazione', 500);
+    }
 
-    // Log the deletion operation itself
+    // Log the deletion operation itself (BUG-047: Audit the audit deletion)
     error_log(sprintf(
         'Audit Log Deletion: %s deleted %d logs (deletion_id: %s, tenant: %d)',
         $userInfo['user_email'],
@@ -352,6 +487,31 @@ try {
         $deletion_id,
         $tenant_id
     ));
+
+    // Create audit log for this deletion operation (BUG-047)
+    try {
+        AuditLogger::logDelete(
+            $userInfo['user_id'],
+            $tenant_id,
+            'audit_log',
+            $deletion_id,
+            sprintf(
+                'Eliminati %d log di audit. Motivo: %s',
+                $deleted_count,
+                $reason
+            ),
+            [
+                'deletion_id' => $deletion_id,
+                'deleted_count' => $deleted_count,
+                'mode' => $mode,
+                'reason' => $reason
+            ],
+            false // Soft delete
+        );
+    } catch (Exception $e) {
+        // Non-blocking: log error but don't fail the operation
+        error_log('[AUDIT_LOG_DELETE] Failed to create audit log for deletion: ' . $e->getMessage());
+    }
 
     // Build success response
     $response = [

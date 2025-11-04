@@ -127,6 +127,27 @@ try {
         // Commit transaction
         $db->commit();
 
+        // BUG-047: Audit log ticket creation (non-blocking)
+        try {
+            require_once __DIR__ . '/../../includes/audit_helper.php';
+            AuditLogger::logCreate(
+                $userInfo['user_id'],
+                $userInfo['tenant_id'],
+                'ticket',
+                $ticketId,
+                "Creato ticket #$ticketNumber: $subject",
+                [
+                    'ticket_number' => $ticketNumber,
+                    'subject' => $subject,
+                    'category' => $category,
+                    'urgency' => $urgency,
+                    'status' => 'open'
+                ]
+            );
+        } catch (Exception $auditEx) {
+            error_log('[TICKET_CREATE] Audit log failed: ' . $auditEx->getMessage());
+        }
+
         // Fetch the created ticket with related data
         $ticket = $db->fetchOne(
             "SELECT

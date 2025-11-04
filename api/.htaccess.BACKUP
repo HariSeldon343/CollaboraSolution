@@ -1,0 +1,21 @@
+# Enable RewriteEngine
+RewriteEngine On
+RewriteBase /CollaboraNexio/api/
+
+# CRITICAL FIX: Allow direct access to existing files (bypass router)
+# This ensures api/files/upload.php and other endpoint files work directly
+# Simplified version - checks if requested file exists, bypasses router if true
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# Handle notifications routes
+RewriteRule ^notifications/unread/?$ notifications.php [L]
+RewriteRule ^notifications/all/?$ notifications.php [L]
+RewriteRule ^notifications/mark-read/?$ notifications.php [L]
+RewriteRule ^notifications/mark-all-read/?$ notifications.php [L]
+RewriteRule ^notifications/?$ notifications.php [L]
+
+# Other API routes (existing or future) - only for non-existent files
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ router.php?route=$1 [QSA,L]

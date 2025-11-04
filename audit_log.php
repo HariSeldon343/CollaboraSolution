@@ -624,36 +624,270 @@ $csrfToken = $auth->generateCSRFToken();
             margin-bottom: 1px;
         }
 
-        /* Responsive Design */
-        @media (max-width: 768px) {
+        /* Table Detail Button */
+        .details-btn {
+            padding: 0.375rem 0.75rem;
+            background: #2563EB;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .details-btn:hover {
+            background: #1D4ED8;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+        }
+
+        /* IP Address Styling */
+        .ip-address {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.75rem;
+            color: #6B7280;
+            background: #F3F4F6;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+
+        /* Timestamp Styling */
+        .timestamp {
+            font-size: 0.875rem;
+            color: #1F2937;
+            white-space: nowrap;
+        }
+
+        .timestamp-date {
+            font-weight: 600;
+        }
+
+        .timestamp-time {
+            color: #6B7280;
+            font-size: 0.75rem;
+        }
+
+        /* Description Truncation */
+        .description-text {
+            max-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #4B5563;
+            font-size: 0.875rem;
+        }
+
+        /* Responsive Design - Mobile First */
+        /* Small devices (phones, 320px and up) */
+        @media (max-width: 480px) {
             .audit-container {
-                padding: 1rem;
+                padding: 0.75rem;
             }
 
-            .stats-grid {
-                grid-template-columns: 1fr;
+            .page-title {
+                font-size: 1.25rem;
             }
 
-            .filters-grid {
-                grid-template-columns: 1fr;
+            .page-title-icon {
+                width: 28px;
+                height: 28px;
             }
 
             .page-header {
                 flex-direction: column;
-                align-items: flex-start;
+                align-items: stretch;
+                gap: 0.75rem;
+            }
+
+            .page-actions {
+                width: 100%;
+            }
+
+            .page-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+
+            .stat-card {
+                padding: 1rem;
+            }
+
+            .stat-value {
+                font-size: 1.5rem;
+            }
+
+            .filters-container {
+                padding: 1rem;
+            }
+
+            .filters-grid {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+
+            .filters-actions {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .filters-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .table-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.75rem;
+                padding: 1rem;
+            }
+
+            .table-actions {
+                width: 100%;
+                justify-content: stretch;
+            }
+
+            .table-actions .btn {
+                flex: 1;
             }
 
             .table-container {
                 overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
             }
 
             .audit-table {
-                min-width: 700px;
+                min-width: 900px;
+            }
+
+            .audit-table th,
+            .audit-table td {
+                padding: 0.75rem 0.5rem;
+                font-size: 0.75rem;
             }
 
             .modal-content {
                 width: 95%;
+                max-width: 100%;
+                max-height: 95vh;
+                margin: 1rem;
+            }
+
+            .modal-header,
+            .modal-body,
+            .modal-footer {
+                padding: 1rem;
+            }
+
+            .modal-title {
+                font-size: 1.125rem;
+            }
+
+            .modal-footer {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .pagination-container {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1rem;
+            }
+
+            .pagination-buttons {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .pagination-btn {
+                min-width: 44px;
+            }
+        }
+
+        /* Medium devices (tablets, 481px to 768px) */
+        @media (min-width: 481px) and (max-width: 768px) {
+            .audit-container {
+                padding: 1.25rem;
+            }
+
+            .page-title {
+                font-size: 1.5rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+
+            .filters-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .page-header {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .audit-table {
+                min-width: 800px;
+            }
+
+            .modal-content {
+                width: 90%;
                 max-height: 90vh;
+            }
+        }
+
+        /* Large tablets and small desktops (769px to 1024px) */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .audit-container {
+                padding: 1.5rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .filters-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .modal-content {
+                width: 85%;
+            }
+        }
+
+        /* Landscape orientation adjustments */
+        @media (max-height: 600px) and (orientation: landscape) {
+            .modal-content {
+                max-height: 95vh;
+                margin: 0.5rem auto;
+            }
+
+            .stat-card {
+                padding: 1rem;
+            }
+
+            .stat-value {
+                font-size: 1.5rem;
             }
         }
 
@@ -997,11 +1231,11 @@ $csrfToken = $auth->generateCSRFToken();
 
     <!-- Additional inline scripts for utility functions -->
     <script>
-        // Initialize the audit manager
+        // Alias for backward compatibility - audit_log.js creates window.auditLogManager
+        // We alias it as auditManager for use in onclick handlers
         let auditManager;
-
         document.addEventListener('DOMContentLoaded', function() {
-            auditManager = new AuditLogManager();
+            auditManager = window.auditLogManager;
         });
 
         // Export menu toggle
@@ -1028,10 +1262,58 @@ $csrfToken = $auth->generateCSRFToken();
             // Show notification
             showNotification(`Esportazione in formato ${format.toUpperCase()} in corso...`, 'info');
 
-            // TODO: Implement actual export functionality
+            // Get current filters from the page
+            const filters = new URLSearchParams();
+            filters.append('format', format);
+
+            // Add date range filter
+            const dateFrom = document.getElementById('filter-date-from').value;
+            const dateTo = document.getElementById('filter-date-to').value;
+            if (dateFrom) filters.append('date_from', dateFrom);
+            if (dateTo) filters.append('date_to', dateTo);
+
+            // Add user filter
+            const userFilter = document.getElementById('filter-user').value;
+            if (userFilter) filters.append('user', userFilter);
+
+            // Add action filter
+            const actionFilter = document.getElementById('filter-action').value;
+            if (actionFilter) filters.append('action', actionFilter);
+
+            // Add severity filter
+            const severityFilter = document.getElementById('filter-severity').value;
+            if (severityFilter) filters.append('severity', severityFilter);
+
+            // Add search filter
+            const searchInput = document.querySelector('.search-input');
+            if (searchInput && searchInput.value) {
+                filters.append('search', searchInput.value);
+            }
+
+            // BUG-043 Pattern: Get CSRF token from meta tag
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            if (csrfToken) {
+                filters.append('csrf_token', csrfToken);
+            }
+
+            // Build export URL
+            const exportUrl = `/CollaboraNexio/api/audit_log/export.php?${filters.toString()}`;
+
+            // Trigger download via hidden iframe (avoids page navigation)
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = exportUrl;
+            document.body.appendChild(iframe);
+
+            // Show success notification after download starts
             setTimeout(() => {
-                showNotification(`Export ${format.toUpperCase()} completato!`, 'success');
-            }, 1500);
+                showNotification(`Export ${format.toUpperCase()} avviato! Il download inizierà a breve.`, 'success');
+
+                // Remove iframe after 5 seconds
+                setTimeout(() => {
+                    document.body.removeChild(iframe);
+                }, 5000);
+            }, 500);
         }
 
         // Toggle date range in delete modal

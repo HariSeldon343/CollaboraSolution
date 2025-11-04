@@ -184,6 +184,58 @@ function createDocument(string $type, string $name, int $tenantId, ?int $folderI
             error_log('Audit log failed: ' . $auditError->getMessage());
         }
 
+        // Check if workflow is enabled for this folder and auto-create workflow entry
+        try {
+            $workflowEnabled = $db->fetchOne(
+                "SELECT get_workflow_enabled_for_folder(?, ?) as enabled",
+                [$tenantId, $folderId]
+            );
+
+            if ($workflowEnabled && $workflowEnabled['enabled'] == 1) {
+                // Create document_workflow in bozza state
+                $workflowId = $db->insert('document_workflow', [
+                    'tenant_id' => $tenantId,
+                    'file_id' => $fileId,
+                    'current_state' => 'bozza',
+                    'created_by_user_id' => $userId,
+                    'created_at' => date('Y-m-d H:i:s')
+                ]);
+
+                // Log to workflow history
+                $db->insert('document_workflow_history', [
+                    'tenant_id' => $tenantId,
+                    'file_id' => $fileId,
+                    'from_state' => null,
+                    'to_state' => 'bozza',
+                    'performed_by_user_id' => $userId,
+                    'comments' => 'Documento creato con workflow attivo - stato iniziale bozza',
+                    'created_at' => date('Y-m-d H:i:s')
+                ]);
+
+                // Log audit for workflow creation
+                try {
+                    require_once __DIR__ . '/../../includes/audit_helper.php';
+                    AuditLogger::logCreate(
+                        $userId,
+                        $tenantId,
+                        'workflow',
+                        $workflowId,
+                        "Workflow creato automaticamente per documento: {$name}",
+                        [
+                            'file_id' => $fileId,
+                            'initial_state' => 'bozza',
+                            'reason' => 'workflow_enabled_for_folder'
+                        ]
+                    );
+                } catch (Exception $auditEx) {
+                    error_log("[AUDIT LOG FAILURE] Workflow creation tracking failed: " . $auditEx->getMessage());
+                }
+            }
+        } catch (Exception $workflowEx) {
+            // Non-blocking: if workflow creation fails, document creation should still succeed
+            error_log("[WORKFLOW AUTO-CREATE] Failed to create workflow for document {$fileId}: " . $workflowEx->getMessage());
+        }
+
         return [
             'success' => true,
             'file' => [

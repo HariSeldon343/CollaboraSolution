@@ -1,0 +1,979 @@
+/**
+ * Workflow Management System - Styles
+ * Professional enterprise design for document workflow and file assignments
+ *
+ * @version 1.0.0
+ */
+
+/* ========================================
+   WORKFLOW BADGES
+   ======================================== */
+
+.workflow-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 4px;
+    color: white;
+    margin-left: 8px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.workflow-badge:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Workflow state colors */
+.workflow-badge.bozza {
+    background: #3b82f6;
+}
+
+.workflow-badge.in-validazione {
+    background: #eab308;
+}
+
+.workflow-badge.validato {
+    background: #22c55e;
+}
+
+.workflow-badge.in-approvazione {
+    background: #f97316;
+}
+
+.workflow-badge.approvato {
+    background: #10b981;
+}
+
+.workflow-badge.rifiutato {
+    background: #ef4444;
+}
+
+/* ========================================
+   ASSIGNMENT INDICATORS
+   ======================================== */
+
+.assignment-indicator {
+    display: inline-block;
+    padding: 2px 6px;
+    background: #f59e0b;
+    color: white;
+    font-size: 10px;
+    border-radius: 3px;
+    margin-left: 8px;
+    font-weight: 600;
+    vertical-align: middle;
+    transition: transform 0.2s ease;
+}
+
+.assignment-indicator:hover {
+    transform: scale(1.05);
+}
+
+/* ========================================
+   WORKFLOW TIMELINE
+   ======================================== */
+
+.workflow-timeline {
+    position: relative;
+    padding: 20px;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.timeline-item {
+    position: relative;
+    padding-left: 60px;
+    margin-bottom: 30px;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 29px;
+    top: 40px;
+    width: 2px;
+    height: calc(100% + 30px);
+    background: #e5e7eb;
+}
+
+.timeline-item-last::before {
+    display: none;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: 16px;
+    top: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #6b7280;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.timeline-content {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.timeline-state-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: white;
+}
+
+.timeline-date {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.timeline-body {
+    font-size: 14px;
+}
+
+.timeline-user {
+    margin-bottom: 8px;
+}
+
+.timeline-comment {
+    background: #f9fafb;
+    border-left: 3px solid #3b82f6;
+    padding: 8px 12px;
+    margin: 12px 0;
+    border-radius: 4px;
+    font-style: italic;
+    color: #4b5563;
+}
+
+.timeline-transition {
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: #f3f4f6;
+    border-radius: 4px;
+    font-size: 13px;
+    display: inline-block;
+}
+
+.timeline-meta {
+    margin-top: 8px;
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+/* ========================================
+   WORKFLOW MODALS
+   ======================================== */
+
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+.modal-content {
+    position: relative;
+    max-width: 600px;
+    max-height: 90vh;
+    margin: 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+                0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    animation: modalSlideIn 0.3s ease;
+    overflow: hidden;
+}
+
+.modal-content.modal-lg {
+    max-width: 900px;
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.modal-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+}
+
+.modal-close {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: background 0.2s ease;
+}
+
+.modal-close:hover {
+    background: #f3f4f6;
+}
+
+.modal-close span {
+    font-size: 24px;
+    color: #6b7280;
+    line-height: 1;
+}
+
+.modal-body {
+    padding: 24px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+/* ========================================
+   FORM CONTROLS
+   ======================================== */
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 6px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+    transition: all 0.2s ease;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+textarea.form-control {
+    resize: vertical;
+    min-height: 100px;
+}
+
+select.form-control[multiple] {
+    padding: 4px;
+}
+
+.form-text {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: #3b82f6;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2563eb;
+}
+
+.btn-success {
+    background: #10b981;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #059669;
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}
+
+.btn-warning {
+    background: #f59e0b;
+    color: white;
+}
+
+.btn-warning:hover {
+    background: #d97706;
+}
+
+.btn-secondary {
+    background: #6b7280;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #4b5563;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.btn-outline-primary {
+    background: white;
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
+}
+
+.btn-outline-primary:hover {
+    background: #3b82f6;
+    color: white;
+}
+
+.btn-outline-primary.active {
+    background: #3b82f6;
+    color: white;
+}
+
+/* ========================================
+   ALERTS
+   ======================================== */
+
+.alert {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    font-size: 14px;
+}
+
+.alert-info {
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+}
+
+.alert-success {
+    background: #f0fdf4;
+    color: #14532d;
+    border: 1px solid #bbf7d0;
+}
+
+.alert-warning {
+    background: #fffbeb;
+    color: #713f12;
+    border: 1px solid #fde68a;
+}
+
+.alert-danger {
+    background: #fef2f2;
+    color: #7f1d1d;
+    border: 1px solid #fecaca;
+}
+
+/* ========================================
+   TABLES
+   ======================================== */
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.table td {
+    padding: 12px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.table-striped tbody tr:nth-child(odd) {
+    background: #f9fafb;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+/* ========================================
+   WORKFLOW DASHBOARD WIDGET
+   ======================================== */
+
+.workflow-widget {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 20px;
+}
+
+.widget-header {
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.widget-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.widget-body {
+    padding: 16px;
+}
+
+.workflow-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+}
+
+.stat-item {
+    padding: 12px;
+    background: #f9fafb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.stat-item:hover {
+    background: #f3f4f6;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 4px;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ========================================
+   ASSIGNMENTS STYLES
+   ======================================== */
+
+.assignments-filter-bar {
+    margin-bottom: 16px;
+    display: flex;
+    gap: 8px;
+}
+
+.badge-user {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    font-size: 16px;
+}
+
+.badge-danger {
+    background: #fef2f2;
+    color: #dc2626;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* ========================================
+   CONTEXT MENU ENHANCEMENTS
+   ======================================== */
+
+.context-menu-separator {
+    height: 1px;
+    background: rgba(0, 0, 0, 0.1);
+    margin: 4px 0;
+}
+
+.context-menu-title {
+    padding: 4px 12px;
+    font-weight: 600;
+    color: #6b7280;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.context-menu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.context-menu-item:hover {
+    background: #f3f4f6;
+}
+
+.context-menu-item .icon {
+    font-size: 16px;
+}
+
+/* ========================================
+   TOAST NOTIFICATIONS
+   ======================================== */
+
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 10000;
+    animation: slideIn 0.3s ease;
+    max-width: 350px;
+}
+
+.toast-success {
+    background: #10b981;
+    color: white;
+}
+
+.toast-error {
+    background: #ef4444;
+    color: white;
+}
+
+.toast-info {
+    background: #3b82f6;
+    color: white;
+}
+
+.toast-warning {
+    background: #f59e0b;
+    color: white;
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* ========================================
+   UTILITIES
+   ======================================== */
+
+.text-center {
+    text-align: center;
+}
+
+.text-muted {
+    color: #6b7280;
+}
+
+.text-danger {
+    color: #ef4444;
+}
+
+.text-success {
+    color: #10b981;
+}
+
+.text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.d-flex {
+    display: flex;
+}
+
+.align-items-center {
+    align-items: center;
+}
+
+.justify-content-between {
+    justify-content: space-between;
+}
+
+.gap-8 {
+    gap: 8px;
+}
+
+.mr-1 { margin-right: 4px; }
+.mr-2 { margin-right: 8px; }
+.ml-1 { margin-left: 4px; }
+.ml-2 { margin-left: 8px; }
+.mb-3 { margin-bottom: 12px; }
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+@media (max-width: 768px) {
+    .modal-content {
+        margin: 20px;
+        max-width: calc(100% - 40px);
+    }
+
+    .modal-content.modal-lg {
+        max-width: calc(100% - 40px);
+    }
+
+    .workflow-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .timeline-item {
+        padding-left: 40px;
+    }
+
+    .timeline-marker {
+        left: 8px;
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
+    }
+
+    .timeline-item::before {
+        left: 19px;
+    }
+
+    .row {
+        display: block;
+    }
+
+    .col-md-6 {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .workflow-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+
+    .btn {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+
+    .modal-header {
+        padding: 16px 20px;
+    }
+
+    .modal-body {
+        padding: 20px;
+    }
+
+    .modal-footer {
+        padding: 12px 20px;
+    }
+}
+
+/* ========================================
+   WORKFLOW FOLDER BADGES
+   ======================================== */
+
+.workflow-folder-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #10b981;
+    color: white;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    z-index: 10;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.workflow-folder-badge.inherited {
+    background: #3b82f6;
+}
+
+.workflow-folder-badge:before {
+    content: '📋';
+    font-size: 12px;
+}
+
+.workflow-folder-badge.inherited:before {
+    content: '📘';
+}
+
+/* File grid view - folder with workflow badge */
+.file-grid .file-item[data-type="folder"] {
+    position: relative;
+}
+
+.file-grid .file-item[data-type="folder"] .workflow-folder-badge {
+    top: 5px;
+    right: 5px;
+}
+
+/* File list view - folder with workflow badge */
+.file-list .file-item[data-type="folder"] {
+    position: relative;
+}
+
+.file-list .file-item[data-type="folder"] .workflow-folder-badge {
+    position: static;
+    margin-left: 8px;
+}
+
+/* ========================================
+   WORKFLOW SETTINGS MODAL
+   ======================================== */
+
+#workflowSettingsModal .modal-content {
+    max-width: 600px;
+    width: 90%;
+}
+
+#workflowSettingsModal .current-status {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+#workflowSettingsModal .current-status h4 {
+    margin: 0 0 10px 0;
+    color: #374151;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#workflowSettingsModal .workflow-status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+#workflowSettingsModal .workflow-status-indicator .status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+#workflowSettingsModal .workflow-status-indicator .status-dot.enabled {
+    background: #10b981;
+    animation: pulse 2s infinite;
+}
+
+#workflowSettingsModal .workflow-status-indicator .status-dot.disabled {
+    background: #6b7280;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+#workflowSettingsModal .inherited-info {
+    color: #3b82f6;
+    margin-top: 10px;
+    font-style: italic;
+    padding: 10px;
+    background: #eff6ff;
+    border-radius: 6px;
+    border-left: 3px solid #3b82f6;
+}
+
+#workflowSettingsModal .workflow-toggle,
+#workflowSettingsModal .apply-to-subfolders {
+    margin-bottom: 20px;
+}
+
+#workflowSettingsModal .workflow-toggle label,
+#workflowSettingsModal .apply-to-subfolders label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+#workflowSettingsModal .workflow-toggle input[type="checkbox"],
+#workflowSettingsModal .apply-to-subfolders input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+    cursor: pointer;
+}
+
+#workflowSettingsModal .workflow-info {
+    padding: 15px;
+    background: #fef3c7;
+    border-radius: 8px;
+    border-left: 4px solid #f59e0b;
+}
+
+#workflowSettingsModal .workflow-info p {
+    margin: 0;
+    color: #92400e;
+    line-height: 1.6;
+}
+
+#workflowSettingsModal .workflow-info strong {
+    color: #78350f;
+}
+
+/* ========================================
+   PRINT STYLES
+   ======================================== */
+
+@media print {
+    .modal,
+    .toast,
+    .context-menu,
+    .btn,
+    button {
+        display: none !important;
+    }
+
+    .workflow-timeline {
+        max-height: none;
+    }
+}

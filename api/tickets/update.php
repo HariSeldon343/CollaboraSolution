@@ -202,6 +202,29 @@ try {
         // Commit transaction
         $db->commit();
 
+        // BUG-047: Audit log ticket update (non-blocking)
+        try {
+            require_once __DIR__ . '/../../includes/audit_helper.php';
+            $oldValues = [];
+            $newValues = [];
+            foreach ($changes as $change) {
+                $oldValues[$change['field']] = $change['old'];
+                $newValues[$change['field']] = $change['new'];
+            }
+            AuditLogger::logUpdate(
+                $userInfo['user_id'],
+                $userInfo['tenant_id'],
+                'ticket',
+                $ticketId,
+                "Aggiornato ticket #{$ticket['ticket_number']}",
+                $oldValues,
+                $newValues,
+                'info'
+            );
+        } catch (Exception $auditEx) {
+            error_log('[TICKET_UPDATE] Audit log failed: ' . $auditEx->getMessage());
+        }
+
         // Fetch updated ticket
         $updatedTicket = $db->fetchOne(
             "SELECT

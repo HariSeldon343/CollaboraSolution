@@ -129,6 +129,16 @@ class AuthSimple {
             require_once __DIR__ . '/session_init.php';
         }
 
+        // Audit log - Track logout BEFORE destroying session
+        if (isset($_SESSION['user_id']) && isset($_SESSION['tenant_id'])) {
+            try {
+                require_once __DIR__ . '/audit_helper.php';
+                AuditLogger::logLogout($_SESSION['user_id'], $_SESSION['tenant_id']);
+            } catch (Exception $e) {
+                error_log("[AUDIT LOG FAILURE] AuthSimple::logout() tracking failed: " . $e->getMessage());
+            }
+        }
+
         // Pulisci tutte le variabili di sessione
         $_SESSION = array();
 

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documento rifiutato</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f7fa;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .header .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .alert-message {
+            background: #fee2e2;
+            border: 1px solid #ef4444;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #991b1b;
+        }
+        .alert-message .icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .document-card {
+            background: #f8f9fa;
+            border-left: 4px solid #ef4444;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .document-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0 0 15px 0;
+        }
+        .document-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .document-meta-item {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            color: #666;
+        }
+        .document-meta-item strong {
+            color: #333;
+            margin-left: 5px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: #ef4444;
+            color: white;
+        }
+        .rejection-reason {
+            background: #fff;
+            border: 2px solid #ef4444;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .rejection-reason-label {
+            font-weight: 600;
+            color: #991b1b;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+        }
+        .rejection-reason-text {
+            color: #333;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #2563eb 0%, #4338ca 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .next-steps {
+            background: #f0f9ff;
+            border-left: 3px solid #2563eb;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        .next-steps-title {
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 10px;
+        }
+        .next-steps ul {
+            margin: 10px 0 0 0;
+            padding-left: 20px;
+        }
+        .next-steps li {
+            margin: 5px 0;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .footer a {
+            color: #2563eb;
+            text-decoration: none;
+        }
+        .divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 20px 0;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+            }
+            .content {
+                padding: 20px;
+            }
+            .button {
+                width: 100%;
+                box-sizing: border-box;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">❌</div>
+            <h1>Documento Rifiutato</h1>
+        </div>
+
+        <div class="content">
+            <p>Ciao <strong>{{USER_NAME}}</strong>,</p>
+
+            <div class="alert-message">
+                <strong>⚠️ Il tuo documento è stato rifiutato durante la fase di validazione.</strong>
+            </div>
+
+            <div class="document-card">
+                <div class="document-title">{{FILENAME}}</div>
+
+                <div class="document-meta">
+                    <div class="document-meta-item">
+                        ❌ <strong>Rifiutato da:</strong> {{REJECTOR_NAME}} ({{REJECTOR_ROLE}})
+                    </div>
+                    <div class="document-meta-item">
+                        📅 <strong>Data rifiuto:</strong> {{REJECTION_DATE}}
+                    </div>
+                    <div class="document-meta-item">
+                        🏢 <strong>Azienda:</strong> {{TENANT_NAME}}
+                    </div>
+                    <div class="document-meta-item">
+                        📊 <strong>Stato attuale:</strong>
+                        <span class="status-badge">Rifiutato</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rejection-reason">
+                <div class="rejection-reason-label">
+                    💬 Motivazione del rifiuto:
+                </div>
+                <div class="rejection-reason-text">
+                    {{REJECTION_REASON}}
+                </div>
+            </div>
+
+            <div class="next-steps">
+                <div class="next-steps-title">📋 Prossimi passi:</div>
+                <ul>
+                    <li>Rivedi le motivazioni del rifiuto</li>
+                    <li>Apporta le modifiche necessarie al documento</li>
+                    <li>Sottometti nuovamente il documento per la validazione</li>
+                </ul>
+            </div>
+
+            <div class="button-container">
+                <a href="{{DOCUMENT_URL}}" class="button">Visualizza il Documento</a>
+            </div>
+
+            <div class="divider"></div>
+
+            <p style="font-size: 13px; color: #666;">
+                <strong>💡 Suggerimento:</strong> Se hai domande sulle motivazioni del rifiuto, contatta il validatore per maggiori chiarimenti.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>&copy; {{YEAR}} CollaboraNexio. Tutti i diritti riservati.</p>
+            <p>
+                <a href="{{BASE_URL}}/files.php">Gestione File</a> •
+                <a href="{{BASE_URL}}/dashboard.php">Dashboard</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

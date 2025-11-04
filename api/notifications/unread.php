@@ -70,27 +70,29 @@ try {
     }
 
     // Ottieni notifiche non lette per l'utente corrente
+    // Note: Using read_at timestamp instead of is_read boolean (actual schema)
     $query = "
         SELECT
             n.id,
             n.type,
             n.title,
             n.message,
-            n.data,
-            n.is_read,
+            NULL as data,
+            CASE WHEN n.read_at IS NULL THEN 0 ELSE 1 END as is_read,
             n.created_at,
-            u.name as from_user_name,
-            u.email as from_user_email
+            n.read_at,
+            NULL as from_user_name,
+            NULL as from_user_email
         FROM notifications n
-        LEFT JOIN users u ON n.from_user_id = u.id
-        WHERE n.user_id = :user_id";
+        WHERE n.user_id = :user_id
+          AND n.deleted_at IS NULL";
 
     // Aggiungi isolamento tenant se disponibile
     if ($tenant_id) {
         $query .= " AND n.tenant_id = :tenant_id";
     }
 
-    $query .= " AND n.is_read = 0
+    $query .= " AND n.read_at IS NULL
         ORDER BY n.created_at DESC
         LIMIT 50";
 
@@ -105,8 +107,11 @@ try {
 
     // Processa i dati delle notifiche
     foreach ($notifications as &$notification) {
+        // Handle data field (NULL safe - will be empty array if null)
         if (!empty($notification['data'])) {
             $notification['data'] = json_decode($notification['data'], true);
+        } else {
+            $notification['data'] = [];
         }
         // Formatta timestamp
         $notification['created_at_formatted'] = date('Y-m-d H:i:s', strtotime($notification['created_at']));

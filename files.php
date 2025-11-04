@@ -44,10 +44,13 @@ $csrfToken = $auth->generateCSRFToken();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <!-- Force no-cache for files.php page (BUG-008 cache fix) -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <!-- CSRF Token for AJAX requests (BUG-043 pattern) -->
+    <meta name="csrf-token" content="<?php echo htmlspecialchars($csrfToken); ?>">
+    <!-- Force no-cache for files.php page (BUG-008/060 cache fix - AGGRESSIVE) -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0, post-check=0, pre-check=0">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+    <meta http-equiv="Last-Modified" content="<?php echo gmdate('D, d M Y H:i:s') . ' GMT'; ?>">
     <title>File Manager - CollaboraNexio</title>
 
     <?php require_once __DIR__ . '/includes/favicon.php'; ?>
@@ -64,6 +67,8 @@ $csrfToken = $auth->generateCSRFToken();
     <link rel="stylesheet" href="assets/css/documentEditor.css">
     <!-- PDF Viewer CSS -->
     <link rel="stylesheet" href="assets/css/pdfViewer.css">
+    <!-- Workflow Management CSS (BUG-060 CACHE BUST) -->
+    <link rel="stylesheet" href="assets/css/workflow.css?v=<?php echo time() . '_v15'; ?>">
 
     <style>
         /* Logo image style */
@@ -283,6 +288,12 @@ $csrfToken = $auth->generateCSRFToken();
     </style>
 </head>
 <body>
+    <!-- Hidden fields for JavaScript access -->
+    <input type="hidden" id="csrfToken" value="<?php echo htmlspecialchars($csrfToken); ?>">
+    <input type="hidden" id="currentUserId" value="<?php echo htmlspecialchars($currentUser['id']); ?>">
+    <input type="hidden" id="userRole" value="<?php echo htmlspecialchars($currentUser['role']); ?>">
+    <input type="hidden" id="currentTenantId" value="<?php echo htmlspecialchars($currentUser['active_tenant_id'] ?? ''); ?>">
+
     <div class="main-layout">
         <!-- Sidebar -->
         <div class="sidebar">
@@ -607,21 +618,14 @@ $csrfToken = $auth->generateCSRFToken();
 
                 <!-- Context Menu -->
                 <div class="context-menu" id="contextMenu">
-                    <button class="context-item">
+                    <button class="context-item" data-action="rename">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                         </svg>
                         <span>Rinomina</span>
                     </button>
-                    <button class="context-item">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                        </svg>
-                        <span>Copia</span>
-                    </button>
-                    <button class="context-item">
+                    <button class="context-item" data-action="download">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                             <polyline points="7 10 12 15 17 10"/>
@@ -629,18 +633,48 @@ $csrfToken = $auth->generateCSRFToken();
                         </svg>
                         <span>Scarica</span>
                     </button>
-                    <button class="context-item">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="18" cy="5" r="3"/>
-                            <circle cx="6" cy="12" r="3"/>
-                            <circle cx="18" cy="19" r="3"/>
-                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-                        </svg>
-                        <span>Condividi</span>
-                    </button>
+
+                    <!-- Workflow Actions (Manager/Admin only) -->
+                    <?php if (in_array($currentUser['role'], ['manager', 'admin', 'super_admin'])): ?>
                     <div class="context-separator"></div>
-                    <button class="context-item danger">
+                    <div class="context-section-title">WORKFLOW</div>
+                    <button class="context-item" data-action="assign">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                        <span>Assegna a Utente</span>
+                    </button>
+                    <button class="context-item" data-action="workflow-roles">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            <polyline points="16 11 12 15 8 11"></polyline>
+                        </svg>
+                        <span>Gestisci Ruoli Workflow</span>
+                    </button>
+                    <button class="context-item context-folder-only" data-action="workflow-settings" style="display:none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
+                            <path d="M12 22V2"/>
+                            <path d="M8 10l4 4 4-4"/>
+                        </svg>
+                        <span>Impostazioni Workflow Cartella</span>
+                    </button>
+                    <button class="context-item" data-action="workflow-status">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                        </svg>
+                        <span>Stato Workflow</span>
+                    </button>
+                    <?php endif; ?>
+
+                    <div class="context-separator"></div>
+                    <button class="context-item danger" data-action="delete">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="3 6 5 6 21 6"/>
                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -648,14 +682,189 @@ $csrfToken = $auth->generateCSRFToken();
                         <span>Elimina</span>
                     </button>
                 </div>
+
+                <!-- File Assignment Modal -->
+                <div class="workflow-modal" id="assignmentModal" style="display: none;">
+                    <div class="workflow-modal-content">
+                        <div class="workflow-modal-header">
+                            <h3>Assegna File/Cartella</h3>
+                            <button class="workflow-modal-close" onclick="window.fileAssignmentManager?.closeAssignmentModal()">&times;</button>
+                        </div>
+                        <div class="workflow-modal-body">
+                            <div class="form-group">
+                                <label>Elemento da Assegnare</label>
+                                <div id="assignmentItemName" class="readonly-field"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="assignToUser">Assegna a Utente *</label>
+                                <select id="assignToUser" class="form-control" required>
+                                    <option value="">-- Seleziona utente --</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="assignmentReason">Motivo Assegnazione</label>
+                                <textarea id="assignmentReason" class="form-control" rows="3" placeholder="Descrivi il motivo dell'assegnazione..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="assignmentExpires">Data Scadenza (opzionale)</label>
+                                <input type="datetime-local" id="assignmentExpires" class="form-control">
+                                <small class="form-text">Lascia vuoto per assegnazione permanente. Invieremo un avviso 7 giorni prima della scadenza.</small>
+                            </div>
+                        </div>
+                        <div class="workflow-modal-footer">
+                            <button class="btn btn-secondary" onclick="window.fileAssignmentManager?.closeAssignmentModal()">Annulla</button>
+                            <button class="btn btn-primary" onclick="window.fileAssignmentManager?.createAssignment()">Assegna</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workflow Status Modal -->
+                <div class="workflow-modal workflow-modal-large" id="workflowStatusModal" style="display: none;">
+                    <div class="workflow-modal-content">
+                        <div class="workflow-modal-header">
+                            <h3>Stato Workflow Documento</h3>
+                            <button class="workflow-modal-close" onclick="window.workflowManager?.closeStatusModal()">&times;</button>
+                        </div>
+                        <div class="workflow-modal-body">
+                            <div id="workflowStatusContent">
+                                <!-- Content will be loaded dynamically -->
+                                <div class="loading-spinner">
+                                    <div class="spinner"></div>
+                                    <p>Caricamento...</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="workflow-modal-footer">
+                            <button class="btn btn-secondary" onclick="window.workflowManager?.closeStatusModal()">Chiudi</button>
+                            <div id="workflowActions"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workflow Submit Modal -->
+                <div class="workflow-modal" id="workflowSubmitModal" style="display: none;">
+                    <div class="workflow-modal-content">
+                        <div class="workflow-modal-header">
+                            <h3>Invia Documento per Validazione</h3>
+                            <button class="workflow-modal-close" onclick="window.workflowManager?.closeSubmitModal()">&times;</button>
+                        </div>
+                        <div class="workflow-modal-body">
+                            <p>Confermi di voler inviare questo documento per la validazione?</p>
+                            <p class="text-muted">Il documento sarà inviato ai validatori configurati per questo tenant.</p>
+                        </div>
+                        <div class="workflow-modal-footer">
+                            <button class="btn btn-secondary" onclick="window.workflowManager?.closeSubmitModal()">Annulla</button>
+                            <button class="btn btn-primary" onclick="window.workflowManager?.confirmSubmit()">Invia per Validazione</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workflow Reject Modal -->
+                <div class="workflow-modal" id="workflowRejectModal" style="display: none;">
+                    <div class="workflow-modal-content">
+                        <div class="workflow-modal-header">
+                            <h3>Rifiuta Documento</h3>
+                            <button class="workflow-modal-close" onclick="window.workflowManager?.closeRejectModal()">&times;</button>
+                        </div>
+                        <div class="workflow-modal-body">
+                            <div class="form-group">
+                                <label for="rejectReason">Motivo Rifiuto *</label>
+                                <textarea id="rejectReason" class="form-control" rows="4" placeholder="Descrivi il motivo del rifiuto e cosa deve essere corretto..." required></textarea>
+                            </div>
+                        </div>
+                        <div class="workflow-modal-footer">
+                            <button class="btn btn-secondary" onclick="window.workflowManager?.closeRejectModal()">Annulla</button>
+                            <button class="btn btn-danger" onclick="window.workflowManager?.confirmReject()">Rifiuta Documento</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workflow History Modal -->
+                <div class="workflow-modal workflow-modal-large" id="workflowHistoryModal" style="display: none;">
+                    <div class="workflow-modal-content">
+                        <div class="workflow-modal-header">
+                            <h3>Storico Workflow</h3>
+                            <button class="workflow-modal-close" onclick="window.workflowManager?.closeHistoryModal()">&times;</button>
+                        </div>
+                        <div class="workflow-modal-body">
+                            <div id="workflowHistoryContent">
+                                <!-- Content will be loaded dynamically -->
+                            </div>
+                        </div>
+                        <div class="workflow-modal-footer">
+                            <button class="btn btn-secondary" onclick="window.workflowManager?.closeHistoryModal()">Chiudi</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workflow Role Configuration Modal -->
+                <div class="workflow-modal workflow-modal-large" id="workflowRoleConfigModal" style="display: none;">
+                    <div class="workflow-modal-content">
+                        <div class="workflow-modal-header">
+                            <h3>Configurazione Ruoli Workflow</h3>
+                            <button class="workflow-modal-close" onclick="window.workflowManager?.closeRoleConfigModal()">&times;</button>
+                        </div>
+                        <div class="workflow-modal-body">
+                            <div class="row" style="display: flex; gap: 20px;">
+                                <div style="flex: 1;">
+                                    <h4 style="margin-top: 0;">Validatori</h4>
+                                    <div class="form-group">
+                                        <label>Seleziona utenti che possono validare documenti:</label>
+                                        <select id="validatorUsers" class="form-control" multiple size="8" style="width: 100%; min-height: 200px;">
+                                            <!-- Users will be loaded here -->
+                                        </select>
+                                        <small class="form-text text-muted">
+                                            Tieni premuto Ctrl per selezione multipla
+                                        </small>
+                                    </div>
+                                    <button class="btn btn-primary btn-sm" onclick="window.workflowManager?.saveValidators()">
+                                        Salva Validatori
+                                    </button>
+                                </div>
+
+                                <div style="flex: 1;">
+                                    <h4 style="margin-top: 0;">Approvatori</h4>
+                                    <div class="form-group">
+                                        <label>Seleziona utenti che possono approvare documenti:</label>
+                                        <select id="approverUsers" class="form-control" multiple size="8" style="width: 100%; min-height: 200px;">
+                                            <!-- Users will be loaded here -->
+                                        </select>
+                                        <small class="form-text text-muted">
+                                            Tieni premuto Ctrl per selezione multipla
+                                        </small>
+                                    </div>
+                                    <button class="btn btn-primary btn-sm" onclick="window.workflowManager?.saveApprovers()">
+                                        Salva Approvatori
+                                    </button>
+                                </div>
+                            </div>
+
+                            <hr style="margin: 24px 0;">
+
+                            <h4>Ruoli Attuali</h4>
+                            <div class="row" style="display: flex; gap: 20px;">
+                                <div style="flex: 1;">
+                                    <h5>Validatori:</h5>
+                                    <ul id="currentValidators" class="list-group" style="list-style: none; padding: 0;">
+                                        <!-- Current validators will be listed here -->
+                                    </ul>
+                                </div>
+                                <div style="flex: 1;">
+                                    <h5>Approvatori:</h5>
+                                    <ul id="currentApprovers" class="list-group" style="list-style: none; padding: 0;">
+                                        <!-- Current approvers will be listed here -->
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="workflow-modal-footer">
+                            <button class="btn btn-secondary" onclick="window.workflowManager?.closeRoleConfigModal()">Chiudi</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
-
-    <!-- Hidden CSRF token and user role -->
-    <input type="hidden" id="csrfToken" value="<?php echo htmlspecialchars($csrfToken); ?>">
-    <input type="hidden" id="userRole" value="<?php echo htmlspecialchars($currentUser['role']); ?>">
-    <input type="hidden" id="currentTenantId" value="<?php echo htmlspecialchars($_SESSION['tenant_id'] ?? ''); ?>">
 
     <!-- Create Tenant Folder Modal -->
     <?php if (in_array($currentUser['role'], ['admin', 'super_admin'])): ?>
@@ -902,11 +1111,335 @@ $csrfToken = $auth->generateCSRFToken();
     <script src="assets/js/app.js?v=<?php echo time(); ?>"></script>
     <!-- PDF Viewer JavaScript -->
     <script src="assets/js/pdfViewer.js?v=<?php echo time(); ?>"></script>
-    <!-- Enhanced File Manager JavaScript with Upload & Document Creation - CACHE BUSTING -->
-    <script src="assets/js/filemanager_enhanced.js?v=<?php echo time(); ?>"></script>
+    <!-- Enhanced File Manager JavaScript with Upload & Document Creation (BUG-054/056/058/059/060 FIX - CACHE BUST) -->
+    <script src="assets/js/filemanager_enhanced.js?v=<?php echo time() . '_v15'; ?>"></script>
     <!-- Document Editor JavaScript -->
     <script src="assets/js/documentEditor.js?v=<?php echo time(); ?>"></script>
     <!-- Session Timeout Warning System -->
     <script src="assets/js/session-timeout.js?v=<?php echo time(); ?>"></script>
+    <!-- File Assignment System (BUG-061 Fix - Modal Auto-Open + Dropdown Empty Debug) -->
+    <script src="assets/js/file_assignment.js?v=<?php echo time() . '_v15'; ?>"></script>
+    <!-- Document Workflow Management System (BUG-061 - NEW FILE to bypass cache) -->
+    <script src="assets/js/document_workflow_v2.js?v=<?php echo time() . '_RELOAD_' . md5(time()); ?>"></script>
+
+    <!-- BUG-061 CRITICAL FIX: Force close modal IMMEDIATELY (before any other script) -->
+    <script>
+    (function() {
+        console.log('[EMERGENCY] Forcing all modals closed IMMEDIATELY');
+        const modals = document.querySelectorAll('.workflow-modal');
+        modals.forEach(m => {
+            m.style.display = 'none';
+            m.style.setProperty('display', 'none', 'important');
+        });
+    })();
+    </script>
+
+    <!-- Workflow System Initialization -->
+    <script>
+    // Extend workflow managers with files.php specific integrations
+    document.addEventListener('DOMContentLoaded', function() {
+        // BUG-061 FIX: Force close all modals on page load to prevent auto-open
+        const workflowRoleConfigModal = document.getElementById('workflowRoleConfigModal');
+        if (workflowRoleConfigModal) {
+            workflowRoleConfigModal.style.display = 'none';
+            workflowRoleConfigModal.style.setProperty('display', 'none', 'important');
+            console.log('[FilesPage] Forced workflowRoleConfigModal to closed state on page load');
+        }
+
+        // Wait for workflow managers to be initialized by their respective JS files
+        const initWorkflowIntegration = setInterval(() => {
+            if (window.fileAssignmentManager && window.workflowManager && window.fileManager) {
+                clearInterval(initWorkflowIntegration);
+
+                // Extend context menu handler for workflow actions
+                const contextMenu = document.getElementById('contextMenu');
+                if (contextMenu) {
+                    contextMenu.addEventListener('click', async function(e) {
+                        const item = e.target.closest('.context-item');
+                        if (!item) return;
+
+                        const action = item.dataset.action;
+                        const fileId = contextMenu.dataset.fileId;
+                        const folderId = contextMenu.dataset.folderId;
+                        const fileName = contextMenu.dataset.fileName;
+                        const isFolder = contextMenu.dataset.isFolder === 'true';
+
+                        // Close context menu
+                        contextMenu.style.display = 'none';
+
+                        // Handle workflow actions
+                        switch(action) {
+                            case 'assign':
+                                if (window.fileAssignmentManager) {
+                                    if (isFolder) {
+                                        await window.fileAssignmentManager.showAssignmentModal(null, folderId, fileName);
+                                    } else {
+                                        await window.fileAssignmentManager.showAssignmentModal(fileId, null, fileName);
+                                    }
+                                }
+                                break;
+
+                            case 'workflow-roles':
+                                if (window.workflowManager) {
+                                    await window.workflowManager.showRoleConfigModal();
+                                }
+                                break;
+
+                            case 'workflow-settings':
+                                if (window.workflowManager && isFolder) {
+                                    const folderName = fileName || 'Cartella';
+                                    await window.workflowManager.showWorkflowSettingsModal(folderId, folderName);
+                                }
+                                break;
+
+                            case 'workflow-status':
+                                if (window.workflowManager && !isFolder) {
+                                    await window.workflowManager.showStatusModal(fileId);
+                                }
+                                break;
+                        }
+                    });
+                }
+
+                // Override file manager's renderFileCard to include workflow badges
+                if (window.fileManager.renderFileCard) {
+                    const originalRenderFileCard = window.fileManager.renderFileCard.bind(window.fileManager);
+
+                    window.fileManager.renderFileCard = function(file) {
+                        const card = originalRenderFileCard(file);
+
+                        // Add workflow badge if document has workflow state
+                        if (file.workflow_state && window.workflowManager) {
+                            const badge = window.workflowManager.renderWorkflowBadge(file.workflow_state);
+                            const cardBody = card.querySelector('.file-card-body');
+                            if (cardBody) {
+                                cardBody.insertAdjacentHTML('beforeend', badge);
+                            }
+                        }
+
+                        // Add assignment badge if file is assigned
+                        if (file.is_assigned && window.fileAssignmentManager) {
+                            const badge = `<div class="assignment-badge" title="Assegnato">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="9" cy="7" r="4"/>
+                                </svg>
+                            </div>`;
+                            const cardIcons = card.querySelector('.file-card-icons');
+                            if (cardIcons) {
+                                cardIcons.insertAdjacentHTML('beforeend', badge);
+                            }
+                        }
+
+                        return card;
+                    };
+                }
+
+                // Extend file load to include workflow data
+                if (window.fileManager.loadFiles) {
+                    const originalLoadFiles = window.fileManager.loadFiles.bind(window.fileManager);
+
+                    window.fileManager.loadFiles = async function(folderId = null) {
+                        await originalLoadFiles(folderId);
+
+                        // After files loaded, fetch workflow states for documents
+                        if (window.workflowManager && typeof window.workflowManager.getWorkflowStatus === 'function') {
+                            const fileCards = document.querySelectorAll('[data-file-id]');
+                            for (const card of fileCards) {
+                                const fileId = parseInt(card.dataset.fileId);
+                                if (fileId && card.dataset.isFolder !== 'true') {
+                                    // Fetch workflow status asynchronously
+                                    window.workflowManager.getWorkflowStatus(fileId).then(status => {
+                                        if (status && status.state) {
+                                            if (typeof window.workflowManager.renderWorkflowBadge === 'function') {
+                                                const badge = window.workflowManager.renderWorkflowBadge(status.state);
+                                                const cardBody = card.querySelector('.file-card-body');
+                                                if (cardBody && !cardBody.querySelector('.workflow-badge')) {
+                                                    cardBody.insertAdjacentHTML('beforeend', badge);
+                                                }
+                                            }
+                                        }
+                                    }).catch(err => {
+                                        console.warn(`[Workflow] Could not load status for file ${fileId}:`, err.message || err);
+                                    });
+                                }
+                            }
+                        } else {
+                            console.warn('[Workflow] WorkflowManager not fully initialized - skipping workflow badges');
+                        }
+                    };
+                }
+
+                console.log('[Workflow] files.php integration complete');
+            }
+        }, 100);
+    });
+    </script>
+
+    <style>
+    /* Workflow System Styles */
+    .workflow-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: none; /* hidden by default, toggle via JS */
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        backdrop-filter: blur(4px);
+    }
+
+    .workflow-modal.active { display: flex; }
+
+    .workflow-modal-content {
+        background: white;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: modalSlideIn 0.3s ease-out;
+    }
+
+    .workflow-modal-large .workflow-modal-content {
+        max-width: 900px;
+    }
+
+    .workflow-modal-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .workflow-modal-header h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #1f2937;
+    }
+
+    .workflow-modal-close {
+        background: none;
+        border: none;
+        font-size: 28px;
+        color: #6b7280;
+        cursor: pointer;
+        line-height: 1;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+
+    .workflow-modal-close:hover {
+        background: #f3f4f6;
+        color: #1f2937;
+    }
+
+    .workflow-modal-body {
+        padding: 24px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .workflow-modal-footer {
+        padding: 16px 24px;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+
+    .readonly-field {
+        padding: 10px 12px;
+        background: #f3f4f6;
+        border-radius: 6px;
+        color: #374151;
+        font-weight: 500;
+    }
+
+    .context-section-title {
+        padding: 8px 16px 4px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #6b7280;
+    }
+
+    .assignment-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: #6366f1;
+        color: white;
+        padding: 4px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .loading-spinner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #f3f4f6;
+        border-top-color: #6366f1;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .text-muted {
+        color: #6b7280;
+        font-size: 14px;
+    }
+    </style>
+
+    <!-- BUG-061 CRITICAL FIX: Force close modal after everything loads -->
+    <script>
+    (function() {
+        // Execute after a short delay to let everything initialize
+        setTimeout(function() {
+            const modal = document.getElementById('workflowRoleConfigModal');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.style.setProperty('display', 'none', 'important');
+                console.log('[BUG-061] Emergency: workflowRoleConfigModal forced closed');
+            }
+
+            // Close ANY other workflow modal that might be open
+            document.querySelectorAll('.workflow-modal').forEach(function(m) {
+                if (m.style.display === 'flex' || m.style.display === 'block') {
+                    m.style.display = 'none';
+                    console.log('[BUG-061] Emergency: Closed auto-opened modal:', m.id);
+                }
+            });
+        }, 100); // 100ms delay to let DOM settle
+    })();
+    </script>
 </body>
 </html>

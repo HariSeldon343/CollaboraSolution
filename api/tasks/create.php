@@ -182,6 +182,27 @@ try {
         // Commit transaction
         $db->commit();
 
+        // BUG-047: Audit log task creation (non-blocking)
+        try {
+            require_once __DIR__ . '/../../includes/audit_helper.php';
+            AuditLogger::logCreate(
+                $userInfo['user_id'],
+                $userInfo['tenant_id'],
+                'task',
+                $taskId,
+                "Creato task: $title",
+                [
+                    'title' => $title,
+                    'description' => $description,
+                    'priority' => $priority,
+                    'status' => 'pending',
+                    'assignees' => $assignees
+                ]
+            );
+        } catch (Exception $auditEx) {
+            error_log('[TASK_CREATE] Audit log failed: ' . $auditEx->getMessage());
+        }
+
         // Fetch the created task with related data
         $task = $db->fetchOne(
             "SELECT

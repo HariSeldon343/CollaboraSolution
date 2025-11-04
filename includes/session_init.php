@@ -75,6 +75,16 @@ if (session_status() === PHP_SESSION_NONE) {
     if (isset($_SESSION['last_activity'])) {
         $elapsed = time() - $_SESSION['last_activity'];
         if ($elapsed > $inactivity_timeout) {
+            // Audit log - Track session timeout logout BEFORE destroying session
+            if (isset($_SESSION['user_id']) && isset($_SESSION['tenant_id'])) {
+                try {
+                    require_once __DIR__ . '/audit_helper.php';
+                    AuditLogger::logLogout($_SESSION['user_id'], $_SESSION['tenant_id']);
+                } catch (Exception $e) {
+                    error_log("[AUDIT LOG FAILURE] Session timeout logout tracking failed: " . $e->getMessage());
+                }
+            }
+
             // Timeout scaduto - distruggi sessione e reindirizza
             $_SESSION = array();
 

@@ -106,6 +106,26 @@ try {
         // Commit transaction
         $db->commit();
 
+        // BUG-047: Audit log ticket close (non-blocking)
+        try {
+            require_once __DIR__ . '/../../includes/audit_helper.php';
+            AuditLogger::logGeneric(
+                $userInfo['user_id'],
+                $userInfo['tenant_id'],
+                'close',
+                'ticket',
+                $ticketId,
+                "Chiuso ticket #{$ticket['ticket_number']}",
+                ['status' => $ticket['status']],
+                ['status' => 'closed', 'closed_at' => $closedAt],
+                null,
+                'info',
+                'success'
+            );
+        } catch (Exception $auditEx) {
+            error_log('[TICKET_CLOSE] Audit log failed: ' . $auditEx->getMessage());
+        }
+
         // Fetch updated ticket
         $updatedTicket = $db->fetchOne(
             "SELECT

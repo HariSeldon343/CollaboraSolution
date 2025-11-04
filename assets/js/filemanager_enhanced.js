@@ -1538,6 +1538,7 @@
             const uploadBtn = document.getElementById('uploadBtn');
             const newFolderBtn = document.getElementById('newFolderBtn');
             const createDocumentBtn = document.getElementById('createDocumentBtn');
+            const createRootFolderBtn = document.getElementById('createRootFolderBtn'); // BUG-059: Tenant folder button
 
             if (uploadBtn) {
                 uploadBtn.style.display = 'inline-flex';
@@ -1549,6 +1550,11 @@
 
             if (createDocumentBtn) {
                 createDocumentBtn.style.display = 'inline-flex';
+            }
+
+            // BUG-059: Show "Cartella Tenant" ONLY at root level
+            if (createRootFolderBtn) {
+                createRootFolderBtn.style.display = this.state.isRoot ? 'inline-flex' : 'none';
             }
 
             if (this.state.isRoot) {
@@ -1732,6 +1738,31 @@
             if (!contextMenu) return;
 
             this.contextFile = fileElement;
+
+            // Populate dataset for workflow integration (BUG-059 fix)
+            // Extract file/folder information from fileElement
+            const isFolder = fileElement.classList.contains('folder-item') || fileElement.dataset.type === 'folder';
+            const fileId = fileElement.dataset.fileId || fileElement.dataset.id;
+            const folderId = isFolder ? (fileElement.dataset.folderId || fileId) : null;
+            const fileName = fileElement.dataset.name || fileElement.querySelector('.file-name')?.textContent || 'Unknown';
+
+            // Set dataset on context menu for workflow handlers
+            contextMenu.dataset.fileId = fileId || '';
+            contextMenu.dataset.folderId = folderId || '';
+            contextMenu.dataset.fileName = fileName;
+            contextMenu.dataset.isFolder = isFolder ? 'true' : 'false';
+
+            // Show/hide folder-only menu items
+            const folderOnlyItems = contextMenu.querySelectorAll('.context-folder-only');
+            folderOnlyItems.forEach(item => {
+                item.style.display = isFolder ? '' : 'none';
+            });
+
+            // Show/hide file-only menu items
+            const fileOnlyItems = contextMenu.querySelectorAll('.context-file-only');
+            fileOnlyItems.forEach(item => {
+                item.style.display = !isFolder ? '' : 'none';
+            });
 
             contextMenu.style.left = `${x}px`;
             contextMenu.style.top = `${y}px`;
@@ -2107,9 +2138,21 @@
                 { label: 'Copia', icon: '📋', action: 'copy' },
                 { label: 'Sposta', icon: '➡', action: 'move' },
                 { divider: true },
-                { label: 'Dettagli', icon: 'ℹ', action: 'details' },
-                { label: 'Elimina', icon: '🗑', action: 'delete', danger: true }
+                { label: 'Dettagli', icon: 'ℹ', action: 'details' }
             ];
+
+            // Add workflow options for Manager/Admin on files only
+            const userRole = window.userRole;
+            const isFolder = fileElement.dataset.isFolder === 'true';
+            if (['manager', 'admin', 'super_admin'].includes(userRole) && !isFolder) {
+                menuOptions.push({ divider: true });
+                menuOptions.push({ label: 'Assegna a Utente', icon: '👤', action: 'assign-file' });
+                menuOptions.push({ label: 'Gestisci Ruoli Workflow', icon: '⚙️', action: 'workflow-roles' });
+                menuOptions.push({ label: 'Stato Workflow', icon: '📊', action: 'workflow-status' });
+            }
+
+            menuOptions.push({ divider: true });
+            menuOptions.push({ label: 'Elimina', icon: '🗑', action: 'delete', danger: true });
 
             menuOptions.forEach(option => {
                 if (option.divider) {
@@ -2211,6 +2254,26 @@
                     this.clearSelection();
                     this.selectFile(fileElement, fileName);
                     this.showDetailsSidebar(fileElement);
+                    break;
+                case 'assign-file':
+                    // Call file assignment manager
+                    if (window.fileAssignmentManager) {
+                        const fileId = fileElement.dataset.fileId || fileElement.dataset.id;
+                        window.fileAssignmentManager.showAssignmentModal(fileId, null, fileName);
+                    }
+                    break;
+                case 'workflow-roles':
+                    // Call workflow manager to show role config modal
+                    if (window.workflowManager) {
+                        window.workflowManager.showRoleConfigModal();
+                    }
+                    break;
+                case 'workflow-status':
+                    // Call workflow manager to show status modal
+                    if (window.workflowManager) {
+                        const fileId = fileElement.dataset.fileId || fileElement.dataset.id;
+                        window.workflowManager.showStatusModal(fileId);
+                    }
                     break;
                 case 'delete':
                     this.deleteFile(fileName);

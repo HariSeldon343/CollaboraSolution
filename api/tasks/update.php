@@ -201,6 +201,29 @@ try {
         // Commit transaction
         $db->commit();
 
+        // BUG-047: Audit log task update (non-blocking)
+        try {
+            require_once __DIR__ . '/../../includes/audit_helper.php';
+            $oldValues = [];
+            $newValues = [];
+            foreach ($changes as $change) {
+                $oldValues[$change['field']] = $change['old'];
+                $newValues[$change['field']] = $change['new'];
+            }
+            AuditLogger::logUpdate(
+                $userInfo['user_id'],
+                $userInfo['tenant_id'],
+                'task',
+                $taskId,
+                "Aggiornato task ID: $taskId",
+                $oldValues,
+                $newValues,
+                'info'
+            );
+        } catch (Exception $auditEx) {
+            error_log('[TASK_UPDATE] Audit log failed: ' . $auditEx->getMessage());
+        }
+
         // Fetch updated task
         $task = $db->fetchOne(
             "SELECT

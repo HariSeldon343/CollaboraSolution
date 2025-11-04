@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISTRUZIONI CRITICAL - Force Reload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .critical {
+            background: #dc2626;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .step {
+            background: #374151;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #10b981;
+            border-radius: 4px;
+        }
+        .success {
+            color: #10b981;
+        }
+        .warning {
+            color: #f59e0b;
+        }
+        code {
+            background: #000;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #22d3ee;
+        }
+        h1 { color: #60a5fa; }
+        h2 { color: #34d399; }
+    </style>
+</head>
+<body>
+    <h1>🚨 ISTRUZIONI CRITICAL - FORCE RELOAD</h1>
+
+    <div class="critical">
+        ⚠️ IL TUO BROWSER STA SERVENDO FILE DALLA CACHE!<br>
+        Devi forzare un reload COMPLETO per vedere i fix implementati.
+    </div>
+
+    <h2>✅ METODO 1: Hard Reload (RACCOMANDATO - 30 secondi)</h2>
+
+    <div class="step">
+        <strong>Step 1:</strong> Chiudi COMPLETAMENTE il browser<br>
+        - Non basta chiudere la tab<br>
+        - Chiudi TUTTE le finestre del browser<br>
+        - Controlla Task Manager che non ci siano processi browser attivi
+    </div>
+
+    <div class="step">
+        <strong>Step 2:</strong> Clear cache tramite OS (Windows)<br>
+        - Premi <code>Windows + R</code><br>
+        - Digita: <code>%LOCALAPPDATA%</code><br>
+        - Apri cartella del tuo browser (es: <code>Google\Chrome\User Data</code> o <code>Microsoft\Edge</code>)<br>
+        - Elimina cartella <code>Cache</code> e <code>Code Cache</code>
+    </div>
+
+    <div class="step">
+        <strong>Step 3:</strong> Riavvia browser e apri con Hard Reload<br>
+        - Apri browser<br>
+        - Vai su: <code>http://localhost:8888/CollaboraNexio/files.php</code><br>
+        - Prima che carichi completamente: <strong>CTRL + SHIFT + R</strong> (Hard Reload)<br>
+        - Oppure: <strong>CTRL + F5</strong><br>
+        - Ripeti 2-3 volte se necessario
+    </div>
+
+    <h2>✅ METODO 2: Developer Tools Clear (VELOCE - 10 secondi)</h2>
+
+    <div class="step">
+        <strong>Step 1:</strong> Apri DevTools<br>
+        - Premi <code>F12</code><br>
+        - Oppure: Right-click → Ispeziona
+    </div>
+
+    <div class="step">
+        <strong>Step 2:</strong> Con DevTools APERTO:<br>
+        - Right-click sul pulsante Reload nel browser<br>
+        - Seleziona: <strong>"Empty Cache and Hard Reload"</strong><br>
+        - Attendi caricamento completo
+    </div>
+
+    <div class="step">
+        <strong>Step 3:</strong> Clear Storage completo<br>
+        - DevTools → Tab <strong>"Application"</strong> (o "Storage")<br>
+        - Left sidebar → <strong>"Clear storage"</strong><br>
+        - Spunta TUTTO (Cache, Cookies, Local Storage, Session Storage)<br>
+        - Click <strong>"Clear site data"</strong>
+    </div>
+
+    <h2>✅ METODO 3: Incognito/Private Mode (GARANTITO - 5 secondi)</h2>
+
+    <div class="step">
+        <strong>Step 1:</strong> Apri finestra Incognito/Private<br>
+        - <strong>CTRL + SHIFT + N</strong> (Chrome/Edge)<br>
+        - <strong>CTRL + SHIFT + P</strong> (Firefox)<br>
+        - Oppure: Menu → New Incognito Window
+    </div>
+
+    <div class="step">
+        <strong>Step 2:</strong> Naviga all'applicazione<br>
+        - Vai su: <code>http://localhost:8888/CollaboraNexio/</code><br>
+        - Login con le tue credenziali<br>
+        - Naviga a files.php
+    </div>
+
+    <div class="step">
+        <strong class="success">✅ GARANTITO:</strong> Incognito NON usa cache esistente<br>
+        - Vedrai immediatamente i fix implementati<br>
+        - Modal chiuso per default<br>
+        - Dropdown popolato (dovrebbe mostrare "Pippo Baudo")
+    </div>
+
+    <h2>🔍 COSA VERIFICARE DOPO RELOAD</h2>
+
+    <div class="step">
+        <strong>1. Console deve mostrare:</strong><br>
+        <code>[EMERGENCY] Forcing all modals closed IMMEDIATELY</code><br>
+        <code>[FilesPage] Forced workflowRoleConfigModal to closed state on page load</code>
+    </div>
+
+    <div class="step">
+        <strong>2. Modal deve essere CHIUSO:</strong><br>
+        - Nessun modal visibile all'apertura pagina<br>
+        - Modal si apre SOLO quando clicchi "Gestisci Ruoli Workflow"
+    </div>
+
+    <div class="step">
+        <strong>3. Dropdown deve mostrare utenti:</strong><br>
+        - Right-click file → "Gestisci Ruoli Workflow"<br>
+        - Console mostra: <code>[WorkflowManager] Combined users list: 1</code><br>
+        - Dropdown validatori/approvatori mostra: <strong>"Pippo Baudo (a.oedoma@gmail.com)"</strong>
+    </div>
+
+    <h2>⚠️ SE ANCORA NON FUNZIONA</h2>
+
+    <div class="step">
+        <strong class="warning">Verifica file caricato:</strong><br>
+        - Console DevTools → Tab "Network"<br>
+        - Reload pagina<br>
+        - Cerca: <code>document_workflow_v2.js</code><br>
+        - Verifica: Se vedi <code>document_workflow.js</code> invece → CACHE PROBLEMA<br>
+        - Deve essere: <code>document_workflow_v2.js?v=TIMESTAMP_RELOAD_HASH</code>
+    </div>
+
+    <div class="step">
+        <strong class="warning">Alternativa NUCLEAR:</strong><br>
+        - Usa browser DIVERSO (es: se usi Chrome, prova Edge o Firefox)<br>
+        - Browser nuovo = zero cache = garantito funzionante
+    </div>
+
+    <h2>✅ COSA È STATO FIXATO</h2>
+
+    <ul>
+        <li class="success">✅ Modal forzato chiuso con !important</li>
+        <li class="success">✅ Script IMMEDIATO prima di DOMContentLoaded</li>
+        <li class="success">✅ File rinominato: document_workflow_v2.js (bypass cache)</li>
+        <li class="success">✅ Cache buster MD5 random ogni reload</li>
+        <li class="success">✅ 12 console logs per debug dropdown</li>
+        <li class="success">✅ API testata: ritorna 1 utente (Pippo Baudo)</li>
+        <li class="success">✅ user_tenant_access popolata (tenant 1 + tenant 11)</li>
+    </ul>
+
+    <p style="margin-top: 40px; padding: 20px; background: #10b981; color: white; border-radius: 8px; text-align: center;">
+        <strong>🚀 USA METODO 3 (Incognito) PER RISULTATO GARANTITO IMMEDIATO</strong>
+    </p>
+
+</body>
+</html>

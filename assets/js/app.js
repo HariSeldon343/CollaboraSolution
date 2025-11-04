@@ -136,9 +136,9 @@
                 this.state.company = response.company;
                 this.showToast('Company switched successfully', 'success');
 
-                // Reload current page data
+                // Reload immediately without delay (BUG-060 fix - remove loading overlay)
                 if (window.location.reload) {
-                    setTimeout(() => window.location.reload(), 500);
+                    window.location.reload();
                 }
             }
         }).catch(error => {

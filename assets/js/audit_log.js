@@ -226,11 +226,15 @@ class AuditLogManager {
         this.state.logs.forEach(log => {
             const row = document.createElement('tr');
 
+            // Format description with truncation
+            const description = log.description || `${log.entity_type} #${log.entity_id}`;
+            const truncatedDesc = this.truncateText(description, 50);
+
             row.innerHTML = `
-                <td class="timestamp">${this.formatTimestamp(log.created_at)}</td>
+                <td>${this.formatTimestamp(log.created_at)}</td>
                 <td>${this.escapeHtml(log.user_name || 'Sistema')}</td>
                 <td>${this.renderActionBadge(log.action)}</td>
-                <td>${this.escapeHtml(log.description || `${log.entity_type} #${log.entity_id}`)}</td>
+                <td><span class="description-text" title="${this.escapeHtml(description)}">${this.escapeHtml(truncatedDesc)}</span></td>
                 <td><span class="ip-address">${this.escapeHtml(log.ip_address || 'N/A')}</span></td>
                 <td>${this.renderSeverityBadge(log.severity)}</td>
                 <td><button class="details-btn" data-log-id="${log.id}">Dettagli</button></td>
@@ -249,7 +253,7 @@ class AuditLogManager {
     }
 
     formatTimestamp(timestamp) {
-        if (!timestamp) return 'N/A';
+        if (!timestamp) return '<span class="timestamp">N/A</span>';
 
         try {
             const date = new Date(timestamp);
@@ -258,11 +262,16 @@ class AuditLogManager {
             const year = date.getFullYear();
             const hours = String(date.getHours()).padStart(2, '0');
             const minutes = String(date.getMinutes()).padStart(2, '0');
-            const seconds = String(date.getSeconds()).padStart(2, '0');
 
-            return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+            // Format with separate date and time for better mobile display
+            return `
+                <div class="timestamp">
+                    <div class="timestamp-date">${day}/${month}/${year}</div>
+                    <div class="timestamp-time">${hours}:${minutes}</div>
+                </div>
+            `;
         } catch (e) {
-            return timestamp;
+            return `<span class="timestamp">${timestamp}</span>`;
         }
     }
 
@@ -458,12 +467,13 @@ class AuditLogManager {
             </div>
         `;
 
-        modal.style.display = 'block';
+        // BUG-048: Use .active class to trigger flexbox centering
+        modal.classList.add('active');
     }
 
     closeDetailModal() {
         const modal = document.getElementById('audit-detail-modal');
-        if (modal) modal.style.display = 'none';
+        if (modal) modal.classList.remove('active');
     }
 
     showDeleteModal() {
@@ -479,7 +489,8 @@ class AuditLogManager {
             return;
         }
 
-        modal.style.display = 'block';
+        // BUG-048: Use .active class to trigger flexbox centering
+        modal.classList.add('active');
 
         // Setup mode toggle
         const modeSelect = document.getElementById('delete-mode');
@@ -494,7 +505,7 @@ class AuditLogManager {
 
     closeDeleteModal() {
         const modal = document.getElementById('audit-delete-modal');
-        if (modal) modal.style.display = 'none';
+        if (modal) modal.classList.remove('active');
     }
 
     async confirmDelete() {
@@ -606,6 +617,12 @@ class AuditLogManager {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    truncateText(text, maxLength) {
+        if (!text) return '';
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
     }
 
     showError(message) {
