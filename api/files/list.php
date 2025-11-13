@@ -144,7 +144,14 @@ try {
                    WHEN 'approvato' THEN 'green'
                    WHEN 'rifiutato' THEN 'red'
                    ELSE NULL
-               END AS workflow_badge_color
+               END AS workflow_badge_color,
+               -- Check if workflow is enabled for this file/folder
+               CASE
+                   WHEN f.is_folder = 1 THEN
+                       get_workflow_enabled_for_folder(f.tenant_id, f.id)
+                   ELSE
+                       get_workflow_enabled_for_folder(f.tenant_id, f.folder_id)
+               END AS workflow_enabled
         FROM files f
         LEFT JOIN users u ON f.uploaded_by = u.id
         LEFT JOIN document_workflow dw ON dw.file_id = f.id
@@ -167,6 +174,7 @@ try {
     foreach ($items as $item) {
         $formattedItem = [
             'id' => $item['id'],
+            'tenant_id' => $item['tenant_id'],  // Include tenant_id for multi-tenant context
             'name' => $item['name'],
             'size' => $item['size'],
             'mime_type' => $item['mime_type'],
@@ -184,7 +192,8 @@ try {
             'icon' => $item['is_folder'] ? 'folder' : FileHelper::getFileIcon($item['extension'] ?? ''),
             'item_type' => $item['item_type'],
             'workflow_state' => $item['workflow_state'] ?? null,
-            'workflow_badge_color' => $item['workflow_badge_color'] ?? null
+            'workflow_badge_color' => $item['workflow_badge_color'] ?? null,
+            'workflow_enabled' => (bool)($item['workflow_enabled'] ?? 0)  // Include workflow enabled status
         ];
 
         if ($item['is_folder']) {

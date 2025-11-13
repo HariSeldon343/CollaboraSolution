@@ -113,11 +113,11 @@ try {
     }
 
     // Check if document is in approval state
-    if ($workflow['state'] !== WORKFLOW_STATE_IN_APPROVAL) {
+    if ($workflow['current_state'] !== WORKFLOW_STATE_IN_APPROVAL) {
         throw new Exception(
             sprintf(
                 'Il documento non è in fase di approvazione. Stato attuale: %s',
-                getWorkflowStateLabel($workflow['state'])
+                getWorkflowStateLabel($workflow['current_state'])
             )
         );
     }
@@ -147,7 +147,7 @@ try {
     // ============================================
 
     $updateData = [
-        'state' => WORKFLOW_STATE_APPROVED,
+        'current_state' => WORKFLOW_STATE_APPROVED,
         'approved_at' => date('Y-m-d H:i:s'),
         'approved_by_user_id' => $userId,
         'updated_at' => date('Y-m-d H:i:s')

@@ -644,11 +644,16 @@ class DocumentWorkflowManager {
     async showRoleConfigModal() {
         const modal = document.getElementById('workflowRoleConfigModal');
 
-        // Load users
+        // Load users (this method already populates both dropdowns AND current roles lists)
+        // via updateCurrentValidatorsList() and updateCurrentApproversList() at lines 936-937
         await this.loadUsersForRoleConfig();
 
-        // Show current roles
-        this.updateCurrentRolesList();
+        // BUG-071 FIX: Removed legacy updateCurrentRolesList() call
+        // The legacy method uses this.state.validators/approvers which are EMPTY (pre-BUG-066 structure)
+        // loadUsersForRoleConfig() already correctly populates the UI via:
+        // - updateCurrentValidatorsList(availableUsers, currentValidators) [line 936]
+        // - updateCurrentApproversList(availableUsers, currentApprovers) [line 937]
+        // These methods use the normalized API structure (BUG-066) and populate the DOM correctly
 
         modal.style.display = 'flex';
     }
@@ -887,91 +892,61 @@ class DocumentWorkflowManager {
      */
     async loadUsersForRoleConfig() {
         try {
-            // Get current tenant from file manager state or DOM (BUG-060 fix)
-            const currentTenantId = this.getCurrentTenantId();
-
-            console.log('[WorkflowManager] Loading users for role config, tenant:', currentTenantId);
+            // Get current tenant ID from file manager or hidden field
+            const tenantId = this.getCurrentTenantId();
 
             // Build API URL with tenant_id parameter
-            const apiUrl = currentTenantId
-                ? `${this.config.rolesApi}list.php?tenant_id=${currentTenantId}`
+            const apiUrl = tenantId
+                ? `${this.config.rolesApi}list.php?tenant_id=${tenantId}`
                 : `${this.config.rolesApi}list.php`;
 
-            console.log('[WorkflowManager] Fetching from API:', apiUrl);
+            console.log('[WorkflowManager] Loading roles from:', apiUrl);
 
-            // Use workflow roles list API - already uses user_tenant_access validation
+            // Fetch with CSRF token
+            const token = this.getCsrfToken();
             const response = await fetch(apiUrl, {
                 method: 'GET',
+                credentials: 'same-origin',
                 headers: {
-                    'X-CSRF-Token': this.getCsrfToken()
-                },
-                credentials: 'same-origin'
+                    'X-CSRF-Token': token
+                }
             });
 
-            console.log('[WorkflowManager] API response status:', response.status);
-
-            const data = await response.json();
-            console.log('[WorkflowManager] API response data:', data);
-
-            if (data.success) {
-                // Get users from available_users (filtered by user_tenant_access)
-                const availableUsers = data.data?.available_users || [];
-
-                console.log('[WorkflowManager] Available users from API:', availableUsers.length, availableUsers);
-
-                // Also get current role holders (users with existing workflow roles)
-                const roleHolders = data.data?.users || [];
-
-                console.log('[WorkflowManager] Role holders from API:', roleHolders.length, roleHolders);
-
-                // Combine both lists (deduplicate by ID)
-                const allUsers = [...availableUsers];
-                roleHolders.forEach(holder => {
-                    if (!allUsers.find(u => u.id === holder.user_id)) {
-                        allUsers.push({
-                            id: holder.user_id,
-                            name: holder.user_name,
-                            email: holder.user_email,
-                            system_role: holder.system_role || 'user'
-                        });
-                    }
-                });
-
-                // Sort by name
-                allUsers.sort((a, b) => a.name.localeCompare(b.name));
-
-                console.log('[WorkflowManager] Combined users list:', allUsers.length, allUsers);
-
-                // Populate validator dropdown
-                const validatorSelect = document.getElementById('validatorUsers');
-                if (validatorSelect) {
-                    validatorSelect.innerHTML = allUsers.map(user => `
-                        <option value="${user.id}" ${this.isValidator(user.id) ? 'selected' : ''}>
-                            ${user.name} (${user.email}) - ${user.system_role}
-                        </option>
-                    `).join('');
-                    console.log('[WorkflowManager] Populated validator dropdown with', allUsers.length, 'users');
-                } else {
-                    console.error('[WorkflowManager] validatorUsers dropdown NOT FOUND in DOM!');
-                }
-
-                // Populate approver dropdown
-                const approverSelect = document.getElementById('approverUsers');
-                if (approverSelect) {
-                    approverSelect.innerHTML = allUsers.map(user => `
-                        <option value="${user.id}" ${this.isApprover(user.id) ? 'selected' : ''}>
-                            ${user.name} (${user.email}) - ${user.system_role}
-                        </option>
-                    `).join('');
-                    console.log('[WorkflowManager] Populated approver dropdown with', allUsers.length, 'users');
-                } else {
-                    console.error('[WorkflowManager] approverUsers dropdown NOT FOUND in DOM!');
-                }
-            } else {
-                console.error('[WorkflowManager] API returned success=false:', data.message || data.error);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
             }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.message || 'Unknown error');
+            }
+
+            // Extract from FIXED structure (BUG-066)
+            const availableUsers = result.data?.available_users || [];
+            const currentValidators = result.data?.current?.validators || [];
+            const currentApprovers = result.data?.current?.approvers || [];
+
+            console.log('[WorkflowManager] Roles payload:', {
+                available: availableUsers.length,
+                validators: currentValidators.length,
+                approvers: currentApprovers.length
+            });
+
+            // Populate dropdowns
+            this.populateValidatorDropdown(availableUsers, currentValidators);
+            this.populateApproverDropdown(availableUsers, currentApprovers);
+
+            // Update "Current Roles" sections
+            this.updateCurrentValidatorsList(availableUsers, currentValidators);
+            this.updateCurrentApproversList(availableUsers, currentApprovers);
+
+            console.log('[WorkflowManager] Populated validator dropdown with', availableUsers.length, 'users');
+            console.log('[WorkflowManager] Populated approver dropdown with', availableUsers.length, 'users');
+
         } catch (error) {
-            console.error('[WorkflowManager] Failed to load users:', error);
+            console.error('[WorkflowManager] Failed to load roles:', error);
+            this.showToast('Errore durante il caricamento degli utenti', 'error');
         }
     }
 
@@ -990,7 +965,137 @@ class DocumentWorkflowManager {
     }
 
     /**
-     * Update current roles list in modal
+     * Populate validator dropdown with users (BUG-066 implementation)
+     */
+    populateValidatorDropdown(users, selectedIds) {
+        const select = document.getElementById('validatorUsers');
+        if (!select) {
+            console.error('[WorkflowManager] #validatorUsers not found');
+            return;
+        }
+
+        // Clear existing options
+        select.innerHTML = '';
+
+        // Empty state
+        if (users.length === 0) {
+            const emptyOption = document.createElement('option');
+            emptyOption.value = '';
+            emptyOption.textContent = '— Nessun utente disponibile per questo tenant —';
+            emptyOption.disabled = true;
+            select.appendChild(emptyOption);
+            return;
+        }
+
+        // Populate with users
+        users.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = `${user.name} (${user.email}) - ${user.system_role}`;
+
+            // Pre-select if in current validators
+            if (selectedIds.includes(user.id)) {
+                option.selected = true;
+            }
+
+            select.appendChild(option);
+        });
+    }
+
+    /**
+     * Populate approver dropdown with users (BUG-066 implementation)
+     */
+    populateApproverDropdown(users, selectedIds) {
+        const select = document.getElementById('approverUsers');
+        if (!select) {
+            console.error('[WorkflowManager] #approverUsers not found');
+            return;
+        }
+
+        // Clear existing options
+        select.innerHTML = '';
+
+        // Empty state
+        if (users.length === 0) {
+            const emptyOption = document.createElement('option');
+            emptyOption.value = '';
+            emptyOption.textContent = '— Nessun utente disponibile per questo tenant —';
+            emptyOption.disabled = true;
+            select.appendChild(emptyOption);
+            return;
+        }
+
+        // Populate with users
+        users.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = `${user.name} (${user.email}) - ${user.system_role}`;
+
+            // Pre-select if in current approvers
+            if (selectedIds.includes(user.id)) {
+                option.selected = true;
+            }
+
+            select.appendChild(option);
+        });
+    }
+
+    /**
+     * Update current validators list in modal (BUG-066 implementation)
+     */
+    updateCurrentValidatorsList(users, validatorIds) {
+        const container = document.getElementById('currentValidators');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (validatorIds.length === 0) {
+            container.innerHTML = '<p class="text-muted">Nessun validatore assegnato</p>';
+            return;
+        }
+
+        const ul = document.createElement('ul');
+        ul.className = 'list-unstyled';
+        validatorIds.forEach(id => {
+            const user = users.find(u => u.id === id);
+            if (user) {
+                const li = document.createElement('li');
+                li.textContent = `${user.name} (${user.email})`;
+                ul.appendChild(li);
+            }
+        });
+        container.appendChild(ul);
+    }
+
+    /**
+     * Update current approvers list in modal (BUG-066 implementation)
+     */
+    updateCurrentApproversList(users, approverIds) {
+        const container = document.getElementById('currentApprovers');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (approverIds.length === 0) {
+            container.innerHTML = '<p class="text-muted">Nessun approvatore assegnato</p>';
+            return;
+        }
+
+        const ul = document.createElement('ul');
+        ul.className = 'list-unstyled';
+        approverIds.forEach(id => {
+            const user = users.find(u => u.id === id);
+            if (user) {
+                const li = document.createElement('li');
+                li.textContent = `${user.name} (${user.email})`;
+                ul.appendChild(li);
+            }
+        });
+        container.appendChild(ul);
+    }
+
+    /**
+     * Update current roles list in modal (Legacy method - kept for compatibility)
      */
     updateCurrentRolesList() {
         // Update validators list
@@ -1065,7 +1170,8 @@ class DocumentWorkflowManager {
                         credentials: 'same-origin',
                         body: JSON.stringify({
                             user_id: userId,  // Changed from user_ids to user_id (API expects single)
-                            workflow_role: role  // Changed from role to workflow_role (API parameter name)
+                            workflow_role: role,  // Changed from role to workflow_role (API parameter name)
+                            tenant_id: this.getCurrentTenantId() || null  // BUG-072 FIX: Pass current tenant_id to prevent wrong tenant context
                         })
                     });
 
@@ -1094,7 +1200,7 @@ class DocumentWorkflowManager {
 
             // Reload roles and update UI
             await this.loadWorkflowRoles();
-            this.updateCurrentRolesList();
+            await this.loadUsersForRoleConfig(); // Refresh dropdowns with new data (BUG-066)
 
         } catch (error) {
             console.error('[WorkflowManager] Failed to save roles:', error);

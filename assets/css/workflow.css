@@ -6,6 +6,158 @@
  */
 
 /* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ========================================
+   SIDEBAR WORKFLOW SECTION
+   ======================================== */
+
+.workflow-details-section {
+    margin-top: 24px;
+    padding-top: 24px;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.section-divider {
+    height: 1px;
+    background: #E5E7EB;
+    margin-bottom: 20px;
+}
+
+.section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1F2937;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.workflow-current-state {
+    margin-bottom: 16px;
+}
+
+.workflow-badge-container {
+    margin-top: 8px;
+}
+
+.workflow-people {
+    margin-bottom: 20px;
+}
+
+.workflow-sidebar-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+}
+
+.workflow-sidebar-actions .btn {
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.workflow-sidebar-actions .btn:hover {
+    transform: translateX(2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.workflow-sidebar-actions .btn svg {
+    flex-shrink: 0;
+}
+
+.btn-workflow-submit {
+    background: #3B82F6;
+}
+
+.btn-workflow-submit:hover {
+    background: #2563EB;
+}
+
+.btn-workflow-validate {
+    background: #10B981;
+}
+
+.btn-workflow-validate:hover {
+    background: #059669;
+}
+
+.btn-workflow-approve {
+    background: #8B5CF6;
+}
+
+.btn-workflow-approve:hover {
+    background: #7C3AED;
+}
+
+.btn-workflow-reject {
+    background: #EF4444;
+}
+
+.btn-workflow-reject:hover {
+    background: #DC2626;
+}
+
+.btn-workflow-recall {
+    background: #F59E0B;
+}
+
+.btn-workflow-recall:hover {
+    background: #D97706;
+}
+
+.workflow-history-link {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #E5E7EB;
+}
+
+.workflow-history-link .btn-link {
+    background: none;
+    border: none;
+    color: #3B82F6;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.2s ease;
+}
+
+.workflow-history-link .btn-link:hover {
+    color: #2563EB;
+}
+
+.workflow-history-link .btn-link svg {
+    stroke: currentColor;
+}
+
+/* ========================================
    WORKFLOW BADGES
    ======================================== */
 
@@ -958,6 +1110,138 @@ select.form-control[multiple] {
 
 #workflowSettingsModal .workflow-info strong {
     color: #78350f;
+}
+
+/* ========================================
+   APPROVAL STAMP SECTION
+   ======================================== */
+
+.approval-stamp-section {
+    margin-top: 24px;
+    padding: 20px;
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    border: 2px solid #28a745;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.2);
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.approval-stamp-section .section-title {
+    color: #155724;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+}
+
+.approval-stamp-section .section-title svg {
+    color: #28a745;
+}
+
+.approval-stamp-card {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.stamp-header {
+    text-align: center;
+    font-weight: 700;
+    font-size: 16px;
+    color: #28a745;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #28a745;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    letter-spacing: 0.5px;
+}
+
+.stamp-header svg {
+    color: #28a745;
+    flex-shrink: 0;
+}
+
+.stamp-metadata {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.stamp-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 14px;
+    gap: 16px;
+}
+
+.stamp-row:last-child {
+    border-bottom: none;
+}
+
+.stamp-row strong {
+    color: #495057;
+    font-weight: 600;
+    min-width: 140px;
+    flex-shrink: 0;
+}
+
+.stamp-row span {
+    color: #212529;
+    font-weight: 500;
+    text-align: right;
+    flex: 1;
+    word-break: break-word;
+}
+
+#approvalCommentRow {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+#approvalCommentRow strong {
+    margin-bottom: 6px;
+}
+
+#approvalCommentRow span {
+    text-align: left;
+    color: #6c757d;
+    font-style: italic;
+    padding-left: 12px;
+    border-left: 3px solid #28a745;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .approval-stamp-section {
+        padding: 16px;
+    }
+
+    .approval-stamp-card {
+        padding: 16px;
+    }
+
+    .stamp-header {
+        font-size: 14px;
+    }
+
+    .stamp-row {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .stamp-row strong {
+        min-width: auto;
+    }
+
+    .stamp-row span {
+        text-align: left;
+    }
 }
 
 /* ========================================

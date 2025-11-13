@@ -1113,6 +1113,13 @@
 
             const items = data.items || [];
 
+            // BUG-070 Phase 4: Extract tenant_id from first item to update context
+            // This ensures getCurrentTenantId() returns the CURRENT FOLDER's tenant
+            if (items.length > 0 && items[0].tenant_id) {
+                this.state.currentTenantId = parseInt(items[0].tenant_id);
+                console.log('[FileManager] Updated currentTenantId from folder items:', this.state.currentTenantId);
+            }
+
             if (!items || items.length === 0) {
                 if (emptyState) {
                     emptyState.classList.remove('hidden');
@@ -1654,6 +1661,8 @@
 
             const fileName = fileElement.dataset.name;
             const fileType = fileElement.dataset.type;
+            const fileId = parseInt(fileElement.dataset.fileId);
+            const isFolder = fileElement.dataset.isFolder === 'true';
 
             // Update sidebar content
             const filename = sidebar.querySelector('.details-filename');
@@ -1669,6 +1678,19 @@
             if (ownerValue) ownerValue.textContent = 'Tu';
 
             this.updateFilePreview(sidebar, fileElement);
+
+            // NEW: Load workflow info for files (not folders)
+            if (!isFolder && fileId && window.workflowManager) {
+                // Store current file ID globally for workflow actions
+                window.currentFileId = fileId;
+                this.loadSidebarWorkflowInfo(fileId);
+            } else {
+                // Hide workflow section for folders
+                const workflowSection = document.getElementById('workflowDetailsSection');
+                if (workflowSection) {
+                    workflowSection.style.display = 'none';
+                }
+            }
 
             sidebar.classList.add('active');
             if (mainContainer) {
@@ -2402,6 +2424,206 @@
                 this.showToast(`Creazione cartella "${folderName}"...`, 'info');
                 // TODO: Call API to create folder
             }
+        }
+
+        // NEW METHODS FOR WORKFLOW SIDEBAR
+        async loadSidebarWorkflowInfo(fileId) {
+            const workflowSection = document.getElementById('workflowDetailsSection');
+            if (!workflowSection) return;
+
+            try {
+                const status = await window.workflowManager.getWorkflowStatus(fileId);
+
+                if (status && status.state) {
+                    // Show workflow section
+                    workflowSection.style.display = 'block';
+
+                    // Populate state badge
+                    const badge = window.workflowManager.renderWorkflowBadge(status.state);
+                    const badgeContainer = document.getElementById('sidebarWorkflowBadge');
+                    if (badgeContainer) {
+                        badgeContainer.innerHTML = badge;
+                    }
+
+                    // Populate people (validator/approver)
+                    const peopleSection = document.getElementById('workflowPeople');
+                    if (status.validator_name || status.approver_name) {
+                        peopleSection.style.display = 'block';
+
+                        const validatorEl = document.getElementById('workflowValidator');
+                        const approverEl = document.getElementById('workflowApprover');
+
+                        if (validatorEl) validatorEl.textContent = status.validator_name || '—';
+                        if (approverEl) approverEl.textContent = status.approver_name || '—';
+                    } else {
+                        peopleSection.style.display = 'none';
+                    }
+
+                    // Render action buttons based on available_actions
+                    this.renderSidebarWorkflowActions(fileId, status.available_actions || []);
+
+                    // Render approval stamp if document is approved
+                    this.renderApprovalStamp(status);
+
+                } else {
+                    // Workflow not enabled or 404
+                    workflowSection.style.display = 'none';
+                }
+            } catch (err) {
+                // Silent fail: 404 = workflow not enabled
+                console.debug('[FileManager] Workflow status not available for file:', fileId);
+                workflowSection.style.display = 'none';
+            }
+        }
+
+        renderSidebarWorkflowActions(fileId, availableActions) {
+            const actionsContainer = document.getElementById('workflowSidebarActions');
+            if (!actionsContainer) return;
+
+            actionsContainer.innerHTML = '';
+
+            const actionConfigs = {
+                'submit': {
+                    label: 'Invia per Validazione',
+                    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="12" y1="18" x2="12" y2="12"/>
+                        <line x1="9" y1="15" x2="15" y2="15"/>
+                    </svg>`,
+                    class: 'btn-workflow-submit',
+                    handler: () => window.workflowManager.submitForValidation(fileId)
+                },
+                'validate': {
+                    label: 'Valida Documento',
+                    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>`,
+                    class: 'btn-workflow-validate',
+                    handler: () => {
+                        const fileName = document.querySelector('.file-name')?.textContent || 'Documento';
+                        window.workflowManager.showActionModal('validate', fileId, fileName);
+                    }
+                },
+                'approve': {
+                    label: 'Approva Documento',
+                    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                        <path d="M9 11l3 3L22 4"/>
+                        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                    </svg>`,
+                    class: 'btn-workflow-approve',
+                    handler: () => {
+                        const fileName = document.querySelector('.file-name')?.textContent || 'Documento';
+                        window.workflowManager.showActionModal('approve', fileId, fileName);
+                    }
+                },
+                'reject': {
+                    label: 'Rifiuta Documento',
+                    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="15" y1="9" x2="9" y2="15"/>
+                        <line x1="9" y1="9" x2="15" y2="15"/>
+                    </svg>`,
+                    class: 'btn-workflow-reject',
+                    handler: () => {
+                        const fileName = document.querySelector('.file-name')?.textContent || 'Documento';
+                        window.workflowManager.showActionModal('reject', fileId, fileName);
+                    }
+                },
+                'recall': {
+                    label: 'Richiama Documento',
+                    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                        <polyline points="1 4 1 10 7 10"/>
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                    </svg>`,
+                    class: 'btn-workflow-recall',
+                    handler: () => {
+                        const fileName = document.querySelector('.file-name')?.textContent || 'Documento';
+                        window.workflowManager.showActionModal('recall', fileId, fileName);
+                    }
+                }
+            };
+
+            // Render only available actions
+            availableActions.forEach(action => {
+                const config = actionConfigs[action];
+                if (config) {
+                    const btn = document.createElement('button');
+                    btn.className = `btn btn-sm ${config.class}`;
+                    btn.innerHTML = `${config.icon} <span>${config.label}</span>`;
+                    btn.onclick = config.handler;
+                    actionsContainer.appendChild(btn);
+                }
+            });
+        }
+
+        renderApprovalStamp(workflowStatus) {
+            const stampSection = document.getElementById('approvalStampSection');
+            if (!stampSection) return;
+
+            // Only show for approved documents
+            if (workflowStatus.current_state !== 'approvato') {
+                stampSection.style.display = 'none';
+                return;
+            }
+
+            // Find approval event in history
+            const approvalEvent = workflowStatus.history?.find(h =>
+                h.to_state === 'approvato' && h.transition_type === 'approve'
+            );
+
+            if (!approvalEvent) {
+                console.debug('[FileManager] No approval event found in history');
+                stampSection.style.display = 'none';
+                return;
+            }
+
+            // Populate approver name
+            const approverNameEl = document.getElementById('approverName');
+            if (approverNameEl) {
+                const approverName = approvalEvent.performed_by?.name ||
+                                   approvalEvent.user_name ||
+                                   'Sistema';
+                approverNameEl.textContent = approverName;
+            }
+
+            // Populate approval date
+            const approvalDateEl = document.getElementById('approvalDate');
+            if (approvalDateEl && approvalEvent.created_at) {
+                try {
+                    const approvalDate = new Date(approvalEvent.created_at);
+                    approvalDateEl.textContent = approvalDate.toLocaleString('it-IT', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                } catch (error) {
+                    console.error('[FileManager] Error formatting approval date:', error);
+                    approvalDateEl.textContent = approvalEvent.created_at;
+                }
+            }
+
+            // Show comment if exists
+            const commentRowEl = document.getElementById('approvalCommentRow');
+            const commentEl = document.getElementById('approvalComment');
+            if (approvalEvent.comment && approvalEvent.comment.trim() !== '') {
+                if (commentEl) {
+                    commentEl.textContent = approvalEvent.comment;
+                }
+                if (commentRowEl) {
+                    commentRowEl.style.display = 'flex';
+                }
+            } else {
+                if (commentRowEl) {
+                    commentRowEl.style.display = 'none';
+                }
+            }
+
+            // Show stamp section with animation
+            stampSection.style.display = 'block';
+            console.log('[FileManager] Approval stamp rendered successfully');
         }
     }
 

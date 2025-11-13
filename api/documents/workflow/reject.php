@@ -117,11 +117,11 @@ try {
     }
 
     // Check if document can be rejected from current state
-    if (in_array($workflow['state'], [WORKFLOW_STATE_APPROVED, WORKFLOW_STATE_REJECTED])) {
+    if (in_array($workflow['current_state'], [WORKFLOW_STATE_APPROVED, WORKFLOW_STATE_REJECTED])) {
         throw new Exception(
             sprintf(
                 'Il documento non può essere rifiutato dallo stato: %s',
-                getWorkflowStateLabel($workflow['state'])
+                getWorkflowStateLabel($workflow['current_state'])
             )
         );
     }
@@ -131,14 +131,14 @@ try {
     $canReject = false;
 
     // Check if user is validator
-    if ($workflow['state'] === WORKFLOW_STATE_IN_VALIDATION &&
+    if ($workflow['current_state'] === WORKFLOW_STATE_IN_VALIDATION &&
         $workflow['current_validator_id'] === $userId) {
         $workflowUserRole = USER_ROLE_VALIDATOR;
         $canReject = true;
     }
 
     // Check if user is approver
-    elseif ($workflow['state'] === WORKFLOW_STATE_IN_APPROVAL &&
+    elseif ($workflow['current_state'] === WORKFLOW_STATE_IN_APPROVAL &&
             $workflow['current_approver_id'] === $userId) {
         $workflowUserRole = USER_ROLE_APPROVER;
         $canReject = true;
@@ -173,7 +173,7 @@ try {
     // ============================================
 
     $updateData = [
-        'state' => WORKFLOW_STATE_REJECTED,
+        'current_state' => WORKFLOW_STATE_REJECTED,
         'rejected_at' => date('Y-m-d H:i:s'),
         'rejected_by_user_id' => $userId,
         'rejection_count' => $previousRejections + 1,
@@ -181,10 +181,10 @@ try {
     ];
 
     // Clear validation/approval timestamps on rejection
-    if ($workflow['state'] === WORKFLOW_STATE_IN_VALIDATION) {
+    if ($workflow['current_state'] === WORKFLOW_STATE_IN_VALIDATION) {
         $updateData['validated_at'] = null;
         $updateData['validated_by_user_id'] = null;
-    } elseif ($workflow['state'] === WORKFLOW_STATE_IN_APPROVAL) {
+    } elseif ($workflow['current_state'] === WORKFLOW_STATE_IN_APPROVAL) {
         $updateData['approved_at'] = null;
         $updateData['approved_by_user_id'] = null;
     }
@@ -207,7 +207,7 @@ try {
         'tenant_id' => $tenantId,
         'workflow_id' => $workflow['id'],
         'file_id' => $fileId,
-        'from_state' => $workflow['state'],
+        'from_state' => $workflow['current_state'],
         'to_state' => WORKFLOW_STATE_REJECTED,
         'transition_type' => TRANSITION_REJECT,
         'performed_by_user_id' => $userId,
@@ -217,7 +217,7 @@ try {
             'rejection_reason' => trim($comment),
             'rejected_by' => $userInfo['user_name'],
             'rejection_count' => $previousRejections + 1,
-            'rejected_at_state' => $workflow['state']
+            'rejected_at_state' => $workflow['current_state']
         ]),
         'created_at' => date('Y-m-d H:i:s')
     ];
@@ -297,7 +297,7 @@ try {
             'workflow_id' => $workflow['id'],
             'file_id' => $fileId,
             'file_name' => $workflow['file_name'],
-            'from_state' => $workflow['state'],
+            'from_state' => $workflow['current_state'],
             'to_state' => WORKFLOW_STATE_REJECTED,
             'rejected_by' => $userInfo['user_name'],
             'rejection_reason' => trim($comment),
@@ -345,7 +345,7 @@ try {
                 ],
                 'rejected_at' => $updateData['rejected_at'],
                 'rejection_count' => $previousRejections + 1,
-                'rejected_from_state' => $workflow['state']
+                'rejected_from_state' => $workflow['current_state']
             ],
             'creator' => [
                 'id' => $workflow['created_by_user_id'],
@@ -374,7 +374,7 @@ try {
             $fileId,
             $userId,
             $tenantId,
-            $workflow['state'],  // Pass current state to determine email recipients
+            $workflow['current_state'],  // Pass current state to determine email recipients
             $comment
         );
     } catch (Exception $emailEx) {

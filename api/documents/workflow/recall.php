@@ -112,10 +112,10 @@ try {
     }
 
     // Check if document can be recalled from current state
-    if (in_array($workflow['state'], [WORKFLOW_STATE_APPROVED, WORKFLOW_STATE_DRAFT])) {
-        if ($workflow['state'] === WORKFLOW_STATE_APPROVED) {
+    if (in_array($workflow['current_state'], [WORKFLOW_STATE_APPROVED, WORKFLOW_STATE_DRAFT])) {
+        if ($workflow['current_state'] === WORKFLOW_STATE_APPROVED) {
             throw new Exception('Non è possibile richiamare un documento già approvato.');
-        } elseif ($workflow['state'] === WORKFLOW_STATE_DRAFT) {
+        } elseif ($workflow['current_state'] === WORKFLOW_STATE_DRAFT) {
             throw new Exception('Il documento è già in stato bozza.');
         }
     }
@@ -131,10 +131,10 @@ try {
     // UPDATE WORKFLOW STATE
     // ============================================
 
-    $previousState = $workflow['state'];
+    $previousState = $workflow['current_state'];
 
     $updateData = [
-        'state' => WORKFLOW_STATE_DRAFT,
+        'current_state' => WORKFLOW_STATE_DRAFT,
         'updated_at' => date('Y-m-d H:i:s'),
         // Clear approval/validation data on recall
         'validated_at' => null,

@@ -111,11 +111,11 @@ try {
     }
 
     // Check if document is in validation state
-    if ($workflow['state'] !== WORKFLOW_STATE_IN_VALIDATION) {
+    if ($workflow['current_state'] !== WORKFLOW_STATE_IN_VALIDATION) {
         throw new Exception(
             sprintf(
                 'Il documento non è in fase di validazione. Stato attuale: %s',
-                getWorkflowStateLabel($workflow['state'])
+                getWorkflowStateLabel($workflow['current_state'])
             )
         );
     }
@@ -131,7 +131,7 @@ try {
 
     // Transition: in_validazione → validato → in_approvazione (automatic)
     $updateData = [
-        'state' => WORKFLOW_STATE_IN_APPROVAL,  // Skip directly to approval
+        'current_state' => WORKFLOW_STATE_IN_APPROVAL,  // Skip directly to approval
         'validated_at' => date('Y-m-d H:i:s'),
         'validated_by_user_id' => $userId,
         'updated_at' => date('Y-m-d H:i:s')

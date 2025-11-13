@@ -58,7 +58,7 @@ try {
             'email' => $manager['email'],
             'role' => $manager['role'],
             'tenant_name' => $manager['tenant_name'] ?? 'N/A',
-            'display_name' => sprintf(
+            'name_with_role' => sprintf(
                 '%s (%s)',
                 $manager['name'],
                 ucfirst(str_replace('_', ' ', $manager['role']))

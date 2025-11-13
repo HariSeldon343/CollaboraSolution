@@ -85,12 +85,12 @@ try {
 
     $statsQuery = "SELECT
         COUNT(*) as total,
-        COUNT(CASE WHEN state = ? THEN 1 END) as draft_count,
-        COUNT(CASE WHEN state = ? THEN 1 END) as in_validation_count,
-        COUNT(CASE WHEN state = ? THEN 1 END) as validated_count,
-        COUNT(CASE WHEN state = ? THEN 1 END) as in_approval_count,
-        COUNT(CASE WHEN state = ? THEN 1 END) as approved_count,
-        COUNT(CASE WHEN state = ? THEN 1 END) as rejected_count,
+        COUNT(CASE WHEN current_state = ? THEN 1 END) as draft_count,
+        COUNT(CASE WHEN current_state = ? THEN 1 END) as in_validation_count,
+        COUNT(CASE WHEN current_state = ? THEN 1 END) as validated_count,
+        COUNT(CASE WHEN current_state = ? THEN 1 END) as in_approval_count,
+        COUNT(CASE WHEN current_state = ? THEN 1 END) as approved_count,
+        COUNT(CASE WHEN current_state = ? THEN 1 END) as rejected_count,
         AVG(rejection_count) as avg_rejections,
         AVG(CASE
             WHEN approved_at IS NOT NULL
@@ -142,7 +142,7 @@ try {
         INNER JOIN files f ON dw.file_id = f.id
         LEFT JOIN users uc ON dw.created_by_user_id = uc.id
         WHERE dw.tenant_id = ?
-          AND dw.state = ?
+          AND dw.current_state = ?
           AND dw.current_validator_id = ?
           AND dw.deleted_at IS NULL
         ORDER BY dw.submitted_at ASC";
@@ -184,7 +184,7 @@ try {
         LEFT JOIN users uc ON dw.created_by_user_id = uc.id
         LEFT JOIN users uv ON dw.validated_by_user_id = uv.id
         WHERE dw.tenant_id = ?
-          AND dw.state = ?
+          AND dw.current_state = ?
           AND dw.current_approver_id = ?
           AND dw.deleted_at IS NULL
         ORDER BY dw.validated_at ASC";
@@ -235,7 +235,7 @@ try {
         )
     )
     WHERE dw.tenant_id = ?
-      AND dw.state = ?
+      AND dw.current_state = ?
       AND dw.created_by_user_id = ?
       AND dw.deleted_at IS NULL
     ORDER BY dw.rejected_at DESC";

@@ -376,7 +376,7 @@ function performLogin(array $data): array {
         SELECT u.*, t.name as tenant_name
         FROM users u
         JOIN tenants t ON u.tenant_id = t.id
-        WHERE u.email = ? AND u.status = 'active'
+        WHERE u.email = ? AND u.is_active = 1
     ");
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -402,7 +402,7 @@ function performLogin(array $data): array {
         'user' => [
             'id' => $user['id'],
             'email' => $user['email'],
-            'display_name' => $user['display_name'],
+            'name' => $user['name'],
             'role' => $user['role'],
             'tenant_name' => $user['tenant_name']
         ]
@@ -451,7 +451,7 @@ function getDashboardStats(int $tenant_id, int $user_id): array {
     $stmt = $pdo->prepare("
         SELECT COUNT(*) as total
         FROM users
-        WHERE tenant_id = ? AND status = 'active'
+        WHERE tenant_id = ? AND is_active = 1
     ");
     $stmt->execute([$tenant_id]);
     $users = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -468,7 +468,7 @@ function getDashboardStats(int $tenant_id, int $user_id): array {
 function getTasksList(int $tenant_id, int $user_id): array {
     global $pdo;
     $stmt = $pdo->prepare("
-        SELECT t.*, p.name as project_name, u.display_name as assigned_to_name
+        SELECT t.*, p.name as project_name, u.name as assigned_to_name
         FROM tasks t
         LEFT JOIN projects p ON t.project_id = p.id
         LEFT JOIN users u ON t.assigned_to = u.id
@@ -483,7 +483,7 @@ function getTasksList(int $tenant_id, int $user_id): array {
 function getCalendarEvents(int $tenant_id, int $user_id): array {
     global $pdo;
     $stmt = $pdo->prepare("
-        SELECT e.*, u.display_name as organizer_name
+        SELECT e.*, u.name as organizer_name
         FROM calendar_events e
         LEFT JOIN users u ON e.organizer_id = u.id
         WHERE e.tenant_id = ?
@@ -497,10 +497,10 @@ function getCalendarEvents(int $tenant_id, int $user_id): array {
 function getUsersList(int $tenant_id): array {
     global $pdo;
     $stmt = $pdo->prepare("
-        SELECT id, email, display_name, role, status, department, position, last_login_at
+        SELECT id, email, name, role, status, department, position, last_login_at
         FROM users
         WHERE tenant_id = ?
-        ORDER BY display_name ASC
+        ORDER BY name ASC
     ");
     $stmt->execute([$tenant_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);

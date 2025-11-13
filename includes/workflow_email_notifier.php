@@ -131,6 +131,151 @@ class WorkflowEmailNotifier {
     }
 
     /**
+     * Send notification when document is created
+     *
+     * @param int $fileId File ID
+     * @param int $creatorId User ID who created the document
+     * @param int $tenantId Tenant ID
+     * @return bool True if all emails sent successfully
+     */
+    public static function notifyDocumentCreated($fileId, $creatorId, $tenantId) {
+        try {
+            $db = Database::getInstance();
+
+            // Get file info
+            $file = $db->fetchOne(
+                "SELECT id, name, created_by FROM files WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL",
+                [$fileId, $tenantId]
+            );
+
+            if (!$file) {
+                error_log("[WORKFLOW_EMAIL] File not found for creation notification: $fileId");
+                return false;
+            }
+
+            // Get creator info
+            $creator = $db->fetchOne(
+                "SELECT id, name, email FROM users WHERE id = ? AND deleted_at IS NULL",
+                [$creatorId]
+            );
+
+            // Get validators (from workflow_roles table)
+            $validators = $db->fetchAll(
+                "SELECT DISTINCT u.id, u.name, u.email
+                 FROM workflow_roles wr
+                 INNER JOIN users u ON u.id = wr.user_id AND u.deleted_at IS NULL
+                 WHERE wr.tenant_id = ?
+                   AND wr.workflow_role = 'validator'
+                   AND wr.is_active = 1
+                   AND wr.deleted_at IS NULL",
+                [$tenantId]
+            );
+
+            // Get tenant info
+            $tenant = $db->fetchOne(
+                "SELECT id, ragione_sociale FROM tenants WHERE id = ? AND deleted_at IS NULL",
+                [$tenantId]
+            );
+
+            // Load template
+            $templatePath = __DIR__ . '/email_templates/workflow/document_created.html';
+            if (!file_exists($templatePath)) {
+                error_log("[WORKFLOW_EMAIL] Template not found: $templatePath");
+                return false;
+            }
+            $template = file_get_contents($templatePath);
+
+            $baseUrl = defined('BASE_URL') ? BASE_URL : 'http://localhost:8888/CollaboraNexio';
+            $documentUrl = $baseUrl . '/files.php?file_id=' . $fileId;
+            $creationDate = date('d/m/Y H:i');
+
+            $success = true;
+            $emailsSent = 0;
+
+            // Send to creator (confirmation)
+            if ($creator) {
+                $creatorTemplate = str_replace(
+                    ['{{USER_NAME}}', '{{FILENAME}}', '{{CREATOR_NAME}}', '{{CREATION_DATE}}',
+                     '{{DOCUMENT_URL}}', '{{TENANT_NAME}}', '{{BASE_URL}}', '{{YEAR}}'],
+                    [htmlspecialchars($creator['name']),
+                     htmlspecialchars($file['name']),
+                     htmlspecialchars($creator['name']),
+                     $creationDate,
+                     $documentUrl,
+                     htmlspecialchars($tenant['ragione_sociale']),
+                     $baseUrl,
+                     date('Y')],
+                    $template
+                );
+
+                $context = [
+                    'action' => 'workflow_document_created',
+                    'tenant_id' => $tenantId,
+                    'user_id' => $creator['id'],
+                    'file_id' => $fileId
+                ];
+
+                if (sendEmail($creator['email'], "Documento creato: {$file['name']}", $creatorTemplate, '', ['context' => $context])) {
+                    $emailsSent++;
+                } else {
+                    error_log("[WORKFLOW_EMAIL] Failed to send creation email to creator: " . $creator['email']);
+                    $success = false;
+                }
+            }
+
+            // Send to validators (FYI notification)
+            foreach ($validators as $validator) {
+                $validatorTemplate = str_replace(
+                    ['{{USER_NAME}}', '{{FILENAME}}', '{{CREATOR_NAME}}', '{{CREATION_DATE}}',
+                     '{{DOCUMENT_URL}}', '{{TENANT_NAME}}', '{{BASE_URL}}', '{{YEAR}}'],
+                    [htmlspecialchars($validator['name']),
+                     htmlspecialchars($file['name']),
+                     htmlspecialchars($creator['name']),
+                     $creationDate,
+                     $documentUrl,
+                     htmlspecialchars($tenant['ragione_sociale']),
+                     $baseUrl,
+                     date('Y')],
+                    $template
+                );
+
+                $context = [
+                    'action' => 'workflow_document_created',
+                    'tenant_id' => $tenantId,
+                    'user_id' => $validator['id'],
+                    'file_id' => $fileId
+                ];
+
+                if (sendEmail($validator['email'], "Nuovo documento da validare: {$file['name']}", $validatorTemplate, '', ['context' => $context])) {
+                    $emailsSent++;
+                } else {
+                    error_log("[WORKFLOW_EMAIL] Failed to send creation email to validator: " . $validator['email']);
+                    $success = false;
+                }
+            }
+
+            // Audit log
+            if ($emailsSent > 0) {
+                AuditLogger::logGeneric(
+                    $creatorId,
+                    $tenantId,
+                    'email_sent',
+                    'notification',
+                    null,
+                    "Sent workflow notifications: document_created for file $fileId to $emailsSent recipients (1 creator + " . count($validators) . " validators)"
+                );
+            }
+
+            return $success;
+
+        } catch (Exception $e) {
+            error_log("[WORKFLOW_EMAIL] Failed to send document creation notification: " . $e->getMessage());
+            // Non-blocking - don't throw
+            return false;
+        }
+    }
+
+    /**
      * Send notification when document is validated
      *
      * @param int $fileId File ID

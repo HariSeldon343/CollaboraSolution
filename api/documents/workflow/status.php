@@ -73,7 +73,7 @@ try {
     // Get file details (handle super_admin cross-tenant access)
     if ($userRole === 'super_admin') {
         $file = $db->fetchOne(
-            "SELECT id, file_name, uploaded_by, folder_id, file_size, mime_type, tenant_id
+            "SELECT id, name, uploaded_by, folder_id, file_size, mime_type, tenant_id, is_folder
              FROM files
              WHERE id = ? AND deleted_at IS NULL",
             [$fileId]
@@ -83,7 +83,7 @@ try {
         }
     } else {
         $file = $db->fetchOne(
-            "SELECT id, file_name, uploaded_by, folder_id, file_size, mime_type, tenant_id
+            "SELECT id, name, uploaded_by, folder_id, file_size, mime_type, tenant_id, is_folder
              FROM files
              WHERE id = ?
                AND tenant_id = ?
@@ -105,47 +105,73 @@ try {
     // GET CURRENT WORKFLOW
     // ============================================
 
+    $isFolder = isset($file['is_folder']) && (int)$file['is_folder'] === 1;
+
     $workflow = false;
-    
-    // Check if document_workflow table exists
-    try {
-        $tableExists = $db->fetchOne(
-            "SELECT 1 FROM information_schema.tables 
-             WHERE table_schema = DATABASE() 
-             AND table_name = 'document_workflow'"
-        );
-        
-        if ($tableExists) {
-            $workflow = $db->fetchOne(
-                "SELECT dw.*,
-                        uv.id as validator_id,
-                        uv.display_name as validator_name,
-                        uv.email as validator_email,
-                        ua.id as approver_id,
-                        ua.display_name as approver_name,
-                        ua.email as approver_email,
-                        uc.id as creator_id,
-                        uc.display_name as creator_name,
-                        uc.email as creator_email,
-                        uvb.display_name as validated_by_name,
-                        urb.display_name as rejected_by_name,
-                        uab.display_name as approved_by_name
-                 FROM document_workflow dw
-                 LEFT JOIN users uv ON dw.current_validator_id = uv.id
-                 LEFT JOIN users ua ON dw.current_approver_id = ua.id
-                 LEFT JOIN users uc ON dw.created_by_user_id = uc.id
-                 LEFT JOIN users uvb ON dw.validated_by_user_id = uvb.id
-                 LEFT JOIN users urb ON dw.rejected_by_user_id = urb.id
-                 LEFT JOIN users uab ON dw.approved_by_user_id = uab.id
-                 WHERE dw.file_id = ?
-                   AND dw.tenant_id = ?
-                   AND dw.deleted_at IS NULL",
-                [$fileId, $tenantId]
+
+    if (!$isFolder) {
+        // Check if document_workflow table exists
+        try {
+            $tableExists = $db->fetchOne(
+                "SELECT 1 FROM information_schema.tables 
+                 WHERE table_schema = DATABASE() 
+                 AND table_name = 'document_workflow'"
             );
+            
+            if ($tableExists) {
+                $workflow = $db->fetchOne(
+                    "SELECT dw.*,
+                            uc.id as creator_id,
+                            uc.name as creator_name,
+                            uc.email as creator_email
+                     FROM document_workflow dw
+                     LEFT JOIN users uc ON dw.created_by_user_id = uc.id
+                     WHERE dw.file_id = ?
+                       AND dw.tenant_id = ?
+                       AND dw.deleted_at IS NULL",
+                    [$fileId, $tenantId]
+                );
+
+                // Get validator/approver info from workflow_roles table (if workflow exists)
+                if ($workflow !== false) {
+                    $validators = $db->fetchAll(
+                        "SELECT u.id, u.name, u.email
+                         FROM workflow_roles wr
+                         JOIN users u ON u.id = wr.user_id
+                         WHERE wr.tenant_id = ?
+                           AND wr.workflow_role = 'validator'
+                           AND wr.deleted_at IS NULL
+                           AND wr.is_active = 1
+                         LIMIT 1",
+                        [$tenantId]
+                    );
+
+                    $approvers = $db->fetchAll(
+                        "SELECT u.id, u.name, u.email
+                         FROM workflow_roles wr
+                         JOIN users u ON u.id = wr.user_id
+                         WHERE wr.tenant_id = ?
+                           AND wr.workflow_role = 'approver'
+                           AND wr.deleted_at IS NULL
+                           AND wr.is_active = 1
+                         LIMIT 1",
+                        [$tenantId]
+                    );
+
+                    // Add validator/approver info to workflow array
+                    $workflow['validator_id'] = !empty($validators) ? $validators[0]['id'] : null;
+                    $workflow['validator_name'] = !empty($validators) ? $validators[0]['name'] : null;
+                    $workflow['validator_email'] = !empty($validators) ? $validators[0]['email'] : null;
+
+                    $workflow['approver_id'] = !empty($approvers) ? $approvers[0]['id'] : null;
+                    $workflow['approver_name'] = !empty($approvers) ? $approvers[0]['name'] : null;
+                    $workflow['approver_email'] = !empty($approvers) ? $approvers[0]['email'] : null;
+                }
+            }
+        } catch (Exception $e) {
+            // Table doesn't exist or query failed - treat as no workflow
+            $workflow = false;
         }
-    } catch (Exception $e) {
-        // Table doesn't exist or query failed - treat as no workflow
-        $workflow = false;
     }
 
     // ============================================
@@ -155,11 +181,12 @@ try {
     $response = [
         'file' => [
             'id' => $fileId,
-            'name' => $file['file_name'],
-            'size' => (int)$file['file_size'],
-            'mime_type' => $file['mime_type'],
+            'name' => $file['name'] ?? $file['file_name'] ?? '',
+            'size' => isset($file['file_size']) ? (int)$file['file_size'] : 0,
+            'mime_type' => $file['mime_type'] ?? null,
             'creator_id' => (int)$file['uploaded_by'],
-            'is_creator' => $file['uploaded_by'] == $userId
+            'is_creator' => (int)$file['uploaded_by'] === (int)$userId,
+            'is_folder' => $isFolder
         ],
         'workflow_exists' => $workflow !== false,
         'workflow' => null,
@@ -173,35 +200,40 @@ try {
     // ============================================
 
     if ($workflow === false) {
-        // Check if user can start workflow
-        $response['can_start_workflow'] = (
-            $file['uploaded_by'] == $userId ||
-            in_array($userRole, ['manager', 'admin', 'super_admin'])
-        );
+        if ($isFolder) {
+            $response['message'] = 'I workflow sono disponibili solo per i documenti.';
+            $response['can_start_workflow'] = false;
+        } else {
+            // Check if user can start workflow
+            $response['can_start_workflow'] = (
+                $file['uploaded_by'] == $userId ||
+                in_array($userRole, ['manager', 'admin', 'super_admin'])
+            );
 
-        if ($response['can_start_workflow']) {
-            $response['available_actions'][] = [
-                'action' => 'submit',
-                'label' => 'Invia per Validazione',
-                'description' => 'Avvia il workflow di approvazione',
-                'endpoint' => '/api/documents/workflow/submit.php',
-                'method' => 'POST',
-                'requirements' => [
-                    'validator_id' => 'optional',
-                    'approver_id' => 'optional',
-                    'notes' => 'optional'
-                ]
-            ];
+            if ($response['can_start_workflow']) {
+                $response['available_actions'][] = [
+                    'action' => 'submit',
+                    'label' => 'Invia per Validazione',
+                    'description' => 'Avvia il workflow di approvazione',
+                    'endpoint' => '/api/documents/workflow/submit.php',
+                    'method' => 'POST',
+                    'requirements' => [
+                        'validator_id' => 'optional',
+                        'approver_id' => 'optional',
+                        'notes' => 'optional'
+                    ]
+                ];
+            }
+
+            $response['message'] = 'Nessun workflow attivo per questo documento';
         }
-
-        $response['message'] = 'Nessun workflow attivo per questo documento';
 
     } else {
         // ============================================
         // WORKFLOW EXISTS - ANALYZE CURRENT STATE
         // ============================================
 
-        $currentState = $workflow['state'];
+        $currentState = $workflow['current_state'];
 
         // Determine user's role in workflow
         $userRoleInWorkflow = null;
@@ -257,23 +289,20 @@ try {
             'last_action' => null
         ];
 
-        // Determine last action
+        // Determine last action (BUG-074 FIX: removed non-existent validated_by_name, rejected_by_name, approved_by_name fields)
         if ($workflow['rejected_at']) {
             $response['workflow']['last_action'] = [
                 'type' => 'rejection',
-                'by' => $workflow['rejected_by_name'],
                 'at' => $workflow['rejected_at']
             ];
         } elseif ($workflow['approved_at']) {
             $response['workflow']['last_action'] = [
                 'type' => 'approval',
-                'by' => $workflow['approved_by_name'],
                 'at' => $workflow['approved_at']
             ];
         } elseif ($workflow['validated_at']) {
             $response['workflow']['last_action'] = [
                 'type' => 'validation',
-                'by' => $workflow['validated_by_name'],
                 'at' => $workflow['validated_at']
             ];
         }
@@ -385,7 +414,16 @@ try {
             'method' => 'GET'
         ];
 
-        $response['available_actions'] = $availableActions;
+        // BUG-083 FIX: Extract action names for frontend compatibility
+        // Frontend expects array of STRINGS ["validate", "reject", ...] not array of OBJECTS
+        // This ensures sidebar buttons render correctly (actionConfigs[action] lookup works)
+        $actionNames = array_map(function($action) {
+            return $action['action'];
+        }, $availableActions);
+
+        // Keep both formats for backward compatibility and future use
+        $response['available_actions'] = $actionNames;  // ✅ Array of strings for button rendering
+        $response['available_actions_detailed'] = $availableActions;  // Full objects with metadata
 
         // Add next step hint
         $response['next_step'] = getNextStepHint($currentState, $userRoleInWorkflow);

@@ -656,56 +656,54 @@ class FileAssignmentManager {
         // Hook into file manager's context menu
         const originalShowContextMenu = window.fileManager.showContextMenu;
 
-        window.fileManager.showContextMenu = function(e, item) {
-            // Call original method
-            originalShowContextMenu?.call(this, e, item);
+        // BUG-065 FIX: Correct parameter signature (x, y, fileElement) not (e, item)
+        window.fileManager.showContextMenu = function(x, y, fileElement) {
+            // Call original method with correct parameters
+            originalShowContextMenu?.call(this, x, y, fileElement);
 
             // Add assignment options to context menu
             setTimeout(() => {
                 const contextMenu = document.querySelector('.context-menu');
-                if (contextMenu) {
-                    // Check if assignment items already exist to prevent duplication (BUG-057 fix)
-                    const existingAssignItem = Array.from(contextMenu.children).find(
-                        el => el.textContent && el.textContent.includes('Assegna') && !el.textContent.includes('Visualizza')
-                    );
+                if (!contextMenu || !fileElement) return; // Guard check
 
-                    if (existingAssignItem) {
-                        console.log('[FileAssignment] Assignment menu items already present, skipping injection');
-                        return;
-                    }
+                // Check if assignment items already exist to prevent duplication (BUG-057 fix)
+                const existingAssignItem = Array.from(contextMenu.children).find(
+                    el => el.textContent && el.textContent.includes('Assegna') && !el.textContent.includes('Visualizza')
+                );
 
-                    // Add separator
-                    const separator = document.createElement('div');
-                    separator.className = 'context-menu-separator';
-                    contextMenu.appendChild(separator);
-
-                    // Add assign option
-                    const assignOption = document.createElement('div');
-                    assignOption.className = 'context-menu-item';
-                    assignOption.innerHTML = '<span class="icon">👤</span> Assegna';
-                    assignOption.onclick = () => {
-                        const fileId = item.dataset.fileId;
-                        const folderId = item.dataset.folderId;
-                        const fileName = item.querySelector('.file-name, .folder-name')?.textContent || '';
-                        fileAssignmentManager.showAssignmentModal(fileId, folderId, fileName);
-                        this.hideContextMenu();
-                    };
-                    contextMenu.appendChild(assignOption);
-
-                    // Add view assignments option
-                    const viewOption = document.createElement('div');
-                    viewOption.className = 'context-menu-item';
-                    viewOption.innerHTML = '<span class="icon">📋</span> Visualizza Assegnazioni';
-                    viewOption.onclick = () => {
-                        const fileId = item.dataset.fileId;
-                        const folderId = item.dataset.folderId;
-                        const fileName = item.querySelector('.file-name, .folder-name')?.textContent || '';
-                        fileAssignmentManager.showAssignmentsListModal(fileId, folderId, fileName);
-                        this.hideContextMenu();
-                    };
-                    contextMenu.appendChild(viewOption);
+                if (existingAssignItem) {
+                    console.log('[FileAssignment] Assignment menu items already present, skipping injection');
+                    return;
                 }
-            }, 10);
+
+                // Add separator
+                const separator = document.createElement('div');
+                separator.className = 'context-menu-separator';
+                contextMenu.appendChild(separator);
+
+                // Add assign option
+                const assignOption = document.createElement('div');
+                assignOption.className = 'context-menu-item';
+                assignOption.innerHTML = '<span class="icon">👤</span> Assegna';
+                assignOption.onclick = () => {
+                    const fileId = fileElement.dataset.fileId || fileElement.dataset.id;
+                    const folderId = fileElement.dataset.folderId;
+                    const fileName = fileElement.querySelector('.file-name, .folder-name')?.textContent || '';
+                    window.fileAssignmentManager?.showAssignmentModal(fileId, folderId, fileName);
+                    window.fileManager?.hideContextMenu();
+                };
+                contextMenu.appendChild(assignOption);
+
+                // Add view assignments option
+                const viewOption = document.createElement('div');
+                viewOption.className = 'context-menu-item';
+                viewOption.innerHTML = '<span class="icon">📋</span> Visualizza Assegnazioni';
+                viewOption.onclick = () => {
+                    window.fileAssignmentManager?.showAssignmentsModal();
+                    window.fileManager?.hideContextMenu();
+                };
+                contextMenu.appendChild(viewOption);
+            }, 50);
         };
 
         console.log('[FileAssignment] UI injection complete');

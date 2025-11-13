@@ -67,8 +67,8 @@ $csrfToken = $auth->generateCSRFToken();
     <link rel="stylesheet" href="assets/css/documentEditor.css">
     <!-- PDF Viewer CSS -->
     <link rel="stylesheet" href="assets/css/pdfViewer.css">
-    <!-- Workflow Management CSS (BUG-060 CACHE BUST) -->
-    <link rel="stylesheet" href="assets/css/workflow.css?v=<?php echo time() . '_v17'; ?>">
+    <!-- Workflow Management CSS (BUG-082/083 - Email + Sidebar Fixes) -->
+    <link rel="stylesheet" href="assets/css/workflow.css?v=<?php echo time() . '_v28'; ?>">
 
     <style>
         /* Logo image style */
@@ -595,6 +595,78 @@ $csrfToken = $auth->generateCSRFToken();
                                         Condividi
                                     </button>
                                 </div>
+
+                                <!-- Workflow Section (ONLY for files with workflow) -->
+                                <div class="workflow-details-section" id="workflowDetailsSection" style="display: none;">
+                                    <div class="section-divider"></div>
+                                    <h5 class="section-title">Workflow Documento</h5>
+
+                                    <div class="workflow-current-state">
+                                        <div class="meta-item">
+                                            <span class="meta-label">Stato Attuale</span>
+                                            <div id="sidebarWorkflowBadge" class="workflow-badge-container">—</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="workflow-people" id="workflowPeople" style="display:none;">
+                                        <div class="meta-item">
+                                            <span class="meta-label">Validatore</span>
+                                            <span id="workflowValidator" class="meta-value">—</span>
+                                        </div>
+                                        <div class="meta-item">
+                                            <span class="meta-label">Approvatore</span>
+                                            <span id="workflowApprover" class="meta-value">—</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="workflow-sidebar-actions" id="workflowSidebarActions">
+                                        <!-- Pulsanti azioni workflow renderizzati dinamicamente -->
+                                    </div>
+
+                                    <div class="workflow-history-link">
+                                        <button class="btn btn-link btn-sm" onclick="window.workflowManager?.showHistoryModal(currentFileId)">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                                                <circle cx="12" cy="12" r="10"/>
+                                                <polyline points="12 6 12 12 16 14"/>
+                                            </svg>
+                                            Visualizza Cronologia Workflow
+                                        </button>
+                                    </div>
+
+                                    <!-- Approval Stamp Section (ONLY for approved documents) -->
+                                    <div class="approval-stamp-section" id="approvalStampSection" style="display: none;">
+                                        <h5 class="section-title">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 6px;">
+                                                <path d="M9 11l3 3L22 4"/>
+                                                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                                            </svg>
+                                            Timbro Approvazione
+                                        </h5>
+                                        <div class="approval-stamp-card">
+                                            <div class="stamp-header">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
+                                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                                    <polyline points="22 4 12 14.01 9 11.01"/>
+                                                </svg>
+                                                <span>DOCUMENTO APPROVATO</span>
+                                            </div>
+                                            <div class="stamp-metadata">
+                                                <div class="stamp-row">
+                                                    <strong>Approvato da:</strong>
+                                                    <span id="approverName">—</span>
+                                                </div>
+                                                <div class="stamp-row">
+                                                    <strong>Data approvazione:</strong>
+                                                    <span id="approvalDate">—</span>
+                                                </div>
+                                                <div class="stamp-row" id="approvalCommentRow" style="display:none;">
+                                                    <strong>Note:</strong>
+                                                    <span id="approvalComment">—</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -783,11 +855,11 @@ $csrfToken = $auth->generateCSRFToken();
                 <div class="workflow-modal workflow-modal-large" id="workflowHistoryModal" style="display: none;">
                     <div class="workflow-modal-content">
                         <div class="workflow-modal-header">
-                            <h3>Storico Workflow</h3>
+                            <h3 class="modal-title">Storico Workflow</h3>
                             <button class="workflow-modal-close" onclick="window.workflowManager?.closeHistoryModal()">&times;</button>
                         </div>
                         <div class="workflow-modal-body">
-                            <div id="workflowHistoryContent">
+                            <div id="workflowTimeline">
                                 <!-- Content will be loaded dynamically -->
                             </div>
                         </div>
@@ -1111,16 +1183,16 @@ $csrfToken = $auth->generateCSRFToken();
     <script src="assets/js/app.js?v=<?php echo time(); ?>"></script>
     <!-- PDF Viewer JavaScript -->
     <script src="assets/js/pdfViewer.js?v=<?php echo time(); ?>"></script>
-    <!-- Enhanced File Manager JavaScript with Upload & Document Creation (BUG-054/056/058/059/060 FIX - CACHE BUST) -->
-    <script src="assets/js/filemanager_enhanced.js?v=<?php echo time() . '_v17'; ?>"></script>
+    <!-- Enhanced File Manager JavaScript with Upload & Document Creation (BUG-081 - Sidebar Workflow Actions Fix) -->
+    <script src="assets/js/filemanager_enhanced.js?v=<?php echo time() . '_v28'; ?>"></script>
     <!-- Document Editor JavaScript -->
     <script src="assets/js/documentEditor.js?v=<?php echo time(); ?>"></script>
     <!-- Session Timeout Warning System -->
     <script src="assets/js/session-timeout.js?v=<?php echo time(); ?>"></script>
-    <!-- File Assignment System (BUG-062 Fix - Workflow Roles Dropdown Empty) -->
-    <script src="assets/js/file_assignment.js?v=<?php echo time() . '_v17'; ?>"></script>
-    <!-- Document Workflow Management System (BUG-062 - Backend Filter + Tenant Context) -->
-    <script src="assets/js/document_workflow_v2.js?v=<?php echo time() . '_v17'; ?>"></script>
+    <!-- File Assignment System (BUG-081 - Sidebar Workflow Actions Fix) -->
+    <script src="assets/js/file_assignment.js?v=<?php echo time() . '_v28'; ?>"></script>
+    <!-- Document Workflow Management System (BUG-081 - Sidebar Workflow Actions Fix) -->
+    <script src="assets/js/document_workflow_v2.js?v=<?php echo time() . '_v28'; ?>"></script>
 
     <!-- BUG-061 CRITICAL FIX: Force close modal IMMEDIATELY (before any other script) -->
     <script>
@@ -1132,6 +1204,9 @@ $csrfToken = $auth->generateCSRFToken();
             m.style.setProperty('display', 'none', 'important');
         });
     })();
+    </script>
+</body>
+</html>
     </script>
 
     <!-- Workflow System Initialization -->
@@ -1201,37 +1276,88 @@ $csrfToken = $auth->generateCSRFToken();
                     });
                 }
 
-                // Override file manager's renderFileCard to include workflow badges
-                if (window.fileManager.renderFileCard) {
-                    const originalRenderFileCard = window.fileManager.renderFileCard.bind(window.fileManager);
+                // BUG-075 FIX: Override ACTUAL methods renderGridItem + renderListItem (NOT renderFileCard which doesn't exist)
 
-                    window.fileManager.renderFileCard = function(file) {
-                        const card = originalRenderFileCard(file);
+                // Override renderGridItem for grid view badges
+                if (window.fileManager && window.fileManager.renderGridItem) {
+                    const originalRenderGridItem = window.fileManager.renderGridItem.bind(window.fileManager);
 
-                        // Add workflow badge if document has workflow state
-                        if (file.workflow_state && window.workflowManager) {
-                            const badge = window.workflowManager.renderWorkflowBadge(file.workflow_state);
-                            const cardBody = card.querySelector('.file-card-body');
-                            if (cardBody) {
-                                cardBody.insertAdjacentHTML('beforeend', badge);
+                    window.fileManager.renderGridItem = function(item) {
+                        // Call original method to create and append the card
+                        originalRenderGridItem(item);
+
+                        // BUG-075 FIX: Use lastElementChild instead of querySelector (more reliable)
+                        const filesGrid = document.getElementById('filesGrid');
+                        if (!filesGrid) return;
+
+                        const card = filesGrid.lastElementChild;
+                        if (!card) return;
+
+                        // Add workflow badge if file has workflow_state
+                        if (item.workflow_state && window.workflowManager) {
+                            const badge = window.workflowManager.renderWorkflowBadge(item.workflow_state);
+                            const cardInfo = card.querySelector('.file-card-info');
+                            if (cardInfo && !cardInfo.querySelector('.workflow-badge')) {
+                                cardInfo.insertAdjacentHTML('beforeend', badge);
                             }
                         }
 
                         // Add assignment badge if file is assigned
-                        if (file.is_assigned && window.fileAssignmentManager) {
-                            const badge = `<div class="assignment-badge" title="Assegnato">
+                        if (item.is_assigned && window.fileAssignmentManager) {
+                            const assignmentBadge = `<div class="assignment-badge" title="Assegnato">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
                                     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
                                     <circle cx="9" cy="7" r="4"/>
                                 </svg>
                             </div>`;
-                            const cardIcons = card.querySelector('.file-card-icons');
-                            if (cardIcons) {
-                                cardIcons.insertAdjacentHTML('beforeend', badge);
+                            const cardInfo = card.querySelector('.file-card-info');
+                            if (cardInfo && !cardInfo.querySelector('.assignment-badge')) {
+                                cardInfo.insertAdjacentHTML('beforeend', assignmentBadge);
+                            }
+                        }
+                    };
+                }
+
+                // Override renderListItem for list view badges
+                if (window.fileManager && window.fileManager.renderListItem) {
+                    const originalRenderListItem = window.fileManager.renderListItem.bind(window.fileManager);
+
+                    window.fileManager.renderListItem = function(file) {
+                        // Call original method to create and append the row
+                        originalRenderListItem(file);
+
+                        // BUG-075 FIX: Use lastElementChild instead of querySelector (more reliable)
+                        const filesList = document.getElementById('filesList');
+                        if (!filesList) return;
+
+                        const tbody = filesList.querySelector('tbody');
+                        if (!tbody) return;
+
+                        const row = tbody.lastElementChild;
+                        if (!row) return;
+
+                        // Add workflow badge to name cell
+                        if (file.workflow_state && window.workflowManager) {
+                            const badge = window.workflowManager.renderWorkflowBadge(file.workflow_state);
+                            const nameWrapper = row.querySelector('.file-name-wrapper');
+                            if (nameWrapper && !nameWrapper.querySelector('.workflow-badge')) {
+                                nameWrapper.insertAdjacentHTML('beforeend', badge);
                             }
                         }
 
-                        return card;
+                        // Add assignment badge to name cell
+                        if (file.is_assigned && window.fileAssignmentManager) {
+                            const assignmentBadge = `<span class="assignment-badge-inline" title="Assegnato" style="margin-left: 6px;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; vertical-align: middle;">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="9" cy="7" r="4"/>
+                                </svg>
+                            </span>`;
+                            const nameWrapper = row.querySelector('.file-name-wrapper');
+                            if (nameWrapper && !nameWrapper.querySelector('.assignment-badge-inline')) {
+                                nameWrapper.insertAdjacentHTML('beforeend', assignmentBadge);
+                            }
+                        }
                     };
                 }
 
@@ -1441,5 +1567,194 @@ $csrfToken = $auth->generateCSRFToken();
         }, 100); // 100ms delay to let DOM settle
     })();
     </script>
-</body>
-</html>
+
+    <!-- BUG-076 FIX: WORKFLOW BADGE INJECTION - POST-RENDER APPROACH -->
+    <!-- This injects badges AFTER file cards are rendered, bypassing the override timing issue -->
+    <script>
+    (function() {
+        console.log('[WorkflowBadge] Initializing post-render badge injection system...');
+
+        // State color mapping (matches WorkflowManager.workflowStates)
+        const stateColors = {
+            'bozza': '#3498db',
+            'in_validazione': '#f39c12',
+            'validato': '#27ae60',
+            'in_approvazione': '#e67e22',
+            'approvato': '#27ae60',
+            'rifiutato': '#e74c3c'
+        };
+
+        /**
+         * Inject workflow badges into ALL rendered file cards
+         * Uses POST-RENDER approach to avoid timing issues with renderGridItem/renderListItem
+         */
+        function injectWorkflowBadges() {
+            console.log('[WorkflowBadge] Scanning DOM for file cards...');
+
+            // Find all file cards (both grid and list view)
+            const fileCards = document.querySelectorAll('[data-file-id]');
+            console.log('[WorkflowBadge] Found ' + fileCards.length + ' file cards to process');
+
+            if (fileCards.length === 0) {
+                console.log('[WorkflowBadge] No file cards found, will retry on next loadFiles call');
+                return;
+            }
+
+            let badgesAdded = 0;
+            let badgesSkippedExisting = 0;
+            let foldersIgnored = 0;
+            let apiCallsFailed = 0;
+
+            fileCards.forEach(function(card) {
+                const fileId = card.dataset.fileId;
+                if (!fileId) {
+                    console.debug('[WorkflowBadge] Card missing fileId, skipping');
+                    return;
+                }
+
+                const typeAttr = (card.dataset.type || '').toLowerCase();
+                const isFolder = typeAttr === 'folder' || card.classList.contains('folder') || card.dataset.isFolder === 'true';
+                if (isFolder) {
+                    foldersIgnored++;
+                    console.debug('[WorkflowBadge] Skipping folder #' + fileId + ' (workflow non applicabile)');
+                    return;
+                }
+
+                // Skip if badge already exists (prevent duplicates)
+                if (card.querySelector('.workflow-badge-injected')) {
+                    badgesSkippedExisting++;
+                    return;
+                }
+
+                // Get CSRF token for API call
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+                // Call workflow status API
+                fetch('/CollaboraNexio/api/documents/workflow/status.php?file_id=' + fileId, {
+                    method: 'GET',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    },
+                    credentials: 'same-origin'
+                })
+                .then(function(response) {
+                    if (response.status === 404) {
+                        console.debug('[WorkflowBadge] Workflow not available for file #' + fileId + ' (404)');
+                        return null;
+                    }
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (!data) {
+                        return;
+                    }
+
+                    if (data.success && data.data) {
+                        const workflow = data.data.workflow || null;
+                        const state = workflow ? workflow.state : null;
+
+                        if (!state) {
+                            console.debug('[WorkflowBadge] File #' + fileId + ' has no workflow state');
+                            return;
+                        }
+
+                        const color = stateColors[state] || '#95a5a6';
+                        const label = workflow.state_label || state.toUpperCase();
+
+                        // Create badge element with inline styles (no CSS dependency)
+                        const badge = document.createElement('span');
+                        badge.className = 'workflow-badge-injected';
+                        badge.style.cssText = [
+                            'display: inline-block',
+                            'padding: 4px 10px',
+                            'background: ' + color,
+                            'color: white',
+                            'border-radius: 4px',
+                            'font-size: 11px',
+                            'font-weight: 600',
+                            'margin-left: 8px',
+                            'white-space: nowrap',
+                            'vertical-align: middle'
+                        ].join('; ');
+                        badge.textContent = label;
+
+                        // Find insertion point (try multiple selectors for grid/list views)
+                        const nameElement = card.querySelector('.file-name, .file-card-info h4, .file-name-wrapper, td.name-col .file-name-wrapper');
+
+                        if (nameElement && !nameElement.querySelector('.workflow-badge-injected')) {
+                            nameElement.appendChild(badge);
+                            badgesAdded++;
+                            console.log('[WorkflowBadge] ✅ Added badge to file #' + fileId + ': ' + state);
+                        } else {
+                            console.warn('[WorkflowBadge] ⚠️ Could not find insertion point for file #' + fileId);
+                        }
+                    }
+                })
+                .catch(function(error) {
+                    apiCallsFailed++;
+                    console.debug('[WorkflowBadge] API error for file #' + fileId + ': ' + error.message);
+                });
+            });
+
+            // Summary log
+            setTimeout(function() {
+                console.log('[WorkflowBadge] Badge injection complete:');
+                console.log('  - Badges added: ' + badgesAdded);
+                console.log('  - Badges skipped (già presenti): ' + badgesSkippedExisting);
+                console.log('  - Folders ignored: ' + foldersIgnored);
+                console.log('  - API errors: ' + apiCallsFailed);
+            }, 1000); // Wait for async API calls to complete
+        }
+
+        /**
+         * Hook into fileManager.loadFiles to inject badges after each folder load
+         */
+        function hookFileManagerLoadFiles() {
+            if (!window.fileManager) {
+                console.warn('[WorkflowBadge] fileManager not ready, retrying in 100ms...');
+                setTimeout(hookFileManagerLoadFiles, 100);
+                return;
+            }
+
+            const originalLoadFiles = window.fileManager.loadFiles;
+
+            window.fileManager.loadFiles = async function(folderId) {
+                console.log('[WorkflowBadge] fileManager.loadFiles called for folder:', folderId);
+
+                // Call original method
+                const result = await originalLoadFiles.call(this, folderId);
+
+                // Inject badges after render completes (give time for DOM to update)
+                setTimeout(function() {
+                    console.log('[WorkflowBadge] Post-render delay complete, injecting badges...');
+                    injectWorkflowBadges();
+                }, 600); // Increased to 600ms for safety
+
+                return result;
+            };
+
+            console.log('[WorkflowBadge] ✅ Successfully hooked into fileManager.loadFiles');
+        }
+
+        /**
+         * Initialize on page load
+         */
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('[WorkflowBadge] DOMContentLoaded event fired');
+                hookFileManagerLoadFiles();
+
+                // Initial injection for files already rendered
+                setTimeout(injectWorkflowBadges, 1500);
+            });
+        } else {
+            console.log('[WorkflowBadge] Document already loaded, initializing immediately');
+            hookFileManagerLoadFiles();
+            setTimeout(injectWorkflowBadges, 1500);
+        }
+
+        console.log('[WorkflowBadge] ✅ Initialization script complete');
+    })();

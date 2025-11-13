@@ -171,13 +171,16 @@ try {
             'from_state_label' => $entry['from_state_label'],
             'from_state_color' => getWorkflowStateColor($entry['from_state']),
             'to_state' => $entry['to_state'],
+            'new_state' => $entry['to_state'],  // ALIAS for JavaScript compatibility
             'to_state_label' => $entry['to_state_label'],
             'to_state_color' => getWorkflowStateColor($entry['to_state']),
             'transition_type' => $entry['transition_type'],
+            'action' => $entry['transition_type'],  // ALIAS for JavaScript compatibility
             'transition_label' => getTransitionLabel($entry['transition_type']),
             'performed_by' => null,
             'comment' => $entry['comment'],
             'created_at' => $entry['created_at'],
+            'ip_address' => $entry['ip_address'] ?? 'N/A',  // Missing property from database
             'duration' => null,
             'metadata' => $metadata
         ];
@@ -191,12 +194,18 @@ try {
                 'avatar' => $entry['performed_by_avatar'],
                 'role' => $entry['performed_by_role']
             ];
+            // Flat properties for easy access
+            $formattedEntry['user_name'] = $entry['performed_by_name'];
+            $formattedEntry['user_role'] = $entry['performed_by_role'] ?? 'user';
         } else {
             // System transition
             $formattedEntry['performed_by'] = [
                 'name' => 'Sistema',
                 'role' => 'system'
             ];
+            // Flat properties for easy access
+            $formattedEntry['user_name'] = 'Sistema';
+            $formattedEntry['user_role'] = 'system';
         }
 
         // Format duration
@@ -249,7 +258,7 @@ try {
     if ($currentWorkflow && $currentWorkflow['submitted_at']) {
         $startTime = strtotime($currentWorkflow['submitted_at']);
 
-        if ($currentWorkflow['state'] === WORKFLOW_STATE_APPROVED && $currentWorkflow['approved_at']) {
+        if ($currentWorkflow['current_state'] === WORKFLOW_STATE_APPROVED && $currentWorkflow['approved_at']) {
             $endTime = strtotime($currentWorkflow['approved_at']);
         } else {
             $endTime = time();
@@ -270,9 +279,9 @@ try {
 
     // Current state and completion
     if ($currentWorkflow) {
-        $statistics['current_state'] = $currentWorkflow['state'];
-        $statistics['current_state_label'] = getWorkflowStateLabel($currentWorkflow['state']);
-        $statistics['current_state_color'] = getWorkflowStateColor($currentWorkflow['state']);
+        $statistics['current_state'] = $currentWorkflow['current_state'];
+        $statistics['current_state_label'] = getWorkflowStateLabel($currentWorkflow['current_state']);
+        $statistics['current_state_color'] = getWorkflowStateColor($currentWorkflow['current_state']);
 
         // Calculate completion percentage
         $stateProgress = [
@@ -284,7 +293,7 @@ try {
             WORKFLOW_STATE_REJECTED => 0
         ];
 
-        $statistics['completion_percentage'] = $stateProgress[$currentWorkflow['state']] ?? 0;
+        $statistics['completion_percentage'] = $stateProgress[$currentWorkflow['current_state']] ?? 0;
     }
 
     // ============================================
@@ -305,9 +314,9 @@ try {
     if ($currentWorkflow) {
         $response['current_workflow'] = [
             'id' => (int)$currentWorkflow['id'],
-            'state' => $currentWorkflow['state'],
-            'state_label' => getWorkflowStateLabel($currentWorkflow['state']),
-            'state_color' => getWorkflowStateColor($currentWorkflow['state']),
+            'state' => $currentWorkflow['current_state'],
+            'state_label' => getWorkflowStateLabel($currentWorkflow['current_state']),
+            'state_color' => getWorkflowStateColor($currentWorkflow['current_state']),
             'validator' => $currentWorkflow['validator_name'],
             'approver' => $currentWorkflow['approver_name'],
             'creator' => $currentWorkflow['creator_name'],

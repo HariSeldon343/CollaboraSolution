@@ -138,7 +138,7 @@ function getProjects(): array {
     $sql = "
         SELECT
             p.*,
-            u.display_name as owner_name,
+            u.name as owner_name,
             u.avatar_url as owner_avatar,
             (SELECT COUNT(*) FROM project_members WHERE project_id = p.id) as member_count,
             (SELECT COUNT(*) FROM tasks WHERE project_id = p.id) as task_count,
@@ -269,7 +269,7 @@ function getProjectDetail(int $project_id): array {
     $stmt = $pdo->prepare("
         SELECT
             p.*,
-            u.display_name as owner_name,
+            u.name as owner_name,
             u.email as owner_email,
             u.avatar_url as owner_avatar
         FROM projects p
@@ -299,7 +299,7 @@ function getProjectDetail(int $project_id): array {
     $stmt = $pdo->prepare("
         SELECT
             pm.*,
-            u.display_name,
+            u.name,
             u.email,
             u.avatar_url,
             u.position,
@@ -307,7 +307,7 @@ function getProjectDetail(int $project_id): array {
         FROM project_members pm
         JOIN users u ON pm.user_id = u.id
         WHERE pm.project_id = ?
-        ORDER BY pm.role DESC, u.display_name
+        ORDER BY pm.role DESC, u.name
     ");
     $stmt->execute([$project_id]);
     $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -341,7 +341,7 @@ function getProjectDetail(int $project_id): array {
     $stmt = $pdo->prepare("
         SELECT
             al.*,
-            u.display_name as user_name
+            u.name as user_name
         FROM audit_logs al
         JOIN users u ON al.user_id = u.id
         WHERE al.resource_type IN ('project', 'task')
@@ -604,7 +604,7 @@ function addProjectMember(array $data): array {
 
     // Verifica che l'utente esista nel tenant
     $stmt = $pdo->prepare("
-        SELECT id, display_name, email FROM users
+        SELECT id, name, email FROM users
         WHERE id = ? AND tenant_id = ?
     ");
     $stmt->execute([$new_user_id, $tenant_id]);
@@ -642,13 +642,13 @@ function addProjectMember(array $data): array {
 
     // Log
     logActivity('project_member_add', 'project', $project_id, [
-        'user_added' => $new_user['display_name'],
+        'user_added' => $new_user['name'],
         'role' => $role
     ]);
 
     return [
         'success' => true,
-        'message' => "Utente {$new_user['display_name']} aggiunto al progetto"
+        'message' => "Utente {$new_user['name']} aggiunto al progetto"
     ];
 }
 
@@ -703,7 +703,7 @@ function getMyProjects(): array {
     global $pdo, $tenant_id, $user_id;
 
     $stmt = $pdo->prepare("
-        SELECT p.*, u.display_name as owner_name, pm.role as my_role
+        SELECT p.*, u.name as owner_name, pm.role as my_role
         FROM project_members pm
         JOIN projects p ON pm.project_id = p.id
         LEFT JOIN users u ON p.owner_id = u.id
@@ -720,7 +720,7 @@ function getProjectMembers(int $project_id): array {
     global $pdo, $tenant_id;
 
     $stmt = $pdo->prepare("
-        SELECT pm.*, u.display_name, u.email, u.avatar_url
+        SELECT pm.*, u.name, u.email, u.avatar_url
         FROM project_members pm
         JOIN users u ON pm.user_id = u.id
         WHERE pm.project_id = ? AND pm.tenant_id = ?
@@ -734,7 +734,7 @@ function getProjectTasks(int $project_id): array {
     global $pdo, $tenant_id;
 
     $stmt = $pdo->prepare("
-        SELECT t.*, u.display_name as assigned_to_name
+        SELECT t.*, u.name as assigned_to_name
         FROM tasks t
         LEFT JOIN users u ON t.assigned_to = u.id
         WHERE t.project_id = ? AND t.tenant_id = ?

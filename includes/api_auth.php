@@ -22,6 +22,9 @@ function initializeApiEnvironment(): void {
     // Usa il file di inizializzazione centralizzato delle sessioni
     require_once __DIR__ . '/session_init.php';
 
+    // Normalize session data (ensure role and user_role are synced) - BUG-070
+    normalizeSessionData();
+
     // Set JSON headers immediately
     header('Content-Type: application/json; charset=utf-8');
     header('X-Content-Type-Options: nosniff');
@@ -124,9 +127,10 @@ function verifyApiCsrfToken(bool $required = true): bool {
  */
 function getApiUserInfo(): array {
     return [
-        'user_id' => $_SESSION['user_id'] ?? null,
+        'id' => $_SESSION['user_id'] ?? null,  // Primary key (BUG-070 fix)
+        'user_id' => $_SESSION['user_id'] ?? null,  // Backward compatibility
         'tenant_id' => $_SESSION['tenant_id'] ?? null,
-        'role' => $_SESSION['role'] ?? $_SESSION['user_role'] ?? 'user',
+        'role' => $_SESSION['user_role'] ?? $_SESSION['role'] ?? 'user',  // BUG-070: user_role has priority
         'user_name' => $_SESSION['user_name'] ?? '',
         'user_email' => $_SESSION['user_email'] ?? '',
         'is_multi_tenant' => $_SESSION['is_multi_tenant'] ?? false

@@ -194,7 +194,7 @@ function listFiles(): array {
 
     // Query per le cartelle
     $folders_sql = "
-        SELECT f.*, u.display_name as owner_name,
+        SELECT f.*, u.name as owner_name,
                (SELECT COUNT(*) FROM files WHERE folder_id = f.id) as file_count,
                (SELECT COUNT(*) FROM folders WHERE parent_id = f.id) as folder_count
         FROM folders f
@@ -221,7 +221,7 @@ function listFiles(): array {
     // Query per i file
     // Schema: files table uses uploaded_by (not owner_id)
     $files_sql = "
-        SELECT f.*, u.display_name as owner_name,
+        SELECT f.*, u.name as owner_name,
                COALESCE(fv.version_count, 0) as version_count,
                COALESCE(fs.share_count, 0) as share_count
         FROM files f
@@ -592,7 +592,7 @@ function shareFile(array $data): array {
     foreach ($share_with as $target_user_id) {
         // Verifica che l'utente esista nel tenant
         $stmt = $pdo->prepare("
-            SELECT id, email, display_name FROM users
+            SELECT id, email, name FROM users
             WHERE id = ? AND tenant_id = ?
         ");
         $stmt->execute([$target_user_id, $tenant_id]);
@@ -627,11 +627,11 @@ function shareFile(array $data): array {
         // Invia notifica
         sendNotification($target_user_id, 'file_shared',
             'File condiviso con te',
-            $user['display_name'] . ' ha condiviso "' . $file['name'] . '" con te',
+            $user['name'] . ' ha condiviso "' . $file['name'] . '" con te',
             ['file_id' => $file_id, 'permissions' => $permissions]
         );
 
-        $shared_with[] = $target_user['display_name'];
+        $shared_with[] = $target_user['name'];
     }
 
     return [
@@ -749,7 +749,7 @@ function searchFiles(string $query): array {
 
     // Schema: files table uses uploaded_by (not owner_id)
     $stmt = $pdo->prepare("
-        SELECT f.*, u.display_name as owner_name
+        SELECT f.*, u.name as owner_name
         FROM files f
         LEFT JOIN users u ON f.uploaded_by = u.id
         WHERE f.tenant_id = ?
@@ -770,7 +770,7 @@ function getSharedFiles(): array {
 
     // Schema: files table uses uploaded_by (not owner_id)
     $stmt = $pdo->prepare("
-        SELECT f.*, u.display_name as owner_name,
+        SELECT f.*, u.name as owner_name,
                fs.permissions, fs.shared_by, fs.created_at as shared_at
         FROM file_shares fs
         JOIN files f ON fs.file_id = f.id
@@ -792,7 +792,7 @@ function getRecentFiles(): array {
 
     // Schema: files table uses uploaded_by (not owner_id)
     $stmt = $pdo->prepare("
-        SELECT f.*, u.display_name as owner_name
+        SELECT f.*, u.name as owner_name
         FROM files f
         LEFT JOIN users u ON f.uploaded_by = u.id
         WHERE f.tenant_id = ?

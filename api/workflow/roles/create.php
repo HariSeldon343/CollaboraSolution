@@ -15,24 +15,25 @@ verifyApiCsrfToken();
 try {
     $db = Database::getInstance();
     $userInfo = getApiUserInfo();
-    $currentUserId = (int)$userInfo['user_id'];
+    $currentUserId = (int)$userInfo['id'];
     $currentRole = $userInfo['role'];
 
     // Only manager/admin/super_admin can modify roles
     if (!in_array($currentRole, ['manager', 'admin', 'super_admin'])) {
-        apiError('Non autorizzato', 403);
+        api_error('Non autorizzato', 403);
     }
 
     $input = json_decode(file_get_contents('php://input'), true) ?: [];
-    $role = $input['role'] ?? '';
+    // Accept both 'role' and 'workflow_role' for backward compatibility
+    $role = $input['workflow_role'] ?? $input['role'] ?? '';
     $targetUserId = isset($input['user_id']) ? (int)$input['user_id'] : 0;
     $tenantId = isset($input['tenant_id']) ? (int)$input['tenant_id'] : 0;
 
     if (!in_array($role, ['validator','approver'], true)) {
-        apiError('Ruolo non valido', 400);
+        api_error('Ruolo non valido. Usa "validator" o "approver"', 400);
     }
     if ($targetUserId <= 0) {
-        apiError('user_id richiesto', 400);
+        api_error('user_id richiesto e deve essere positivo', 400);
     }
 
     // Determine tenant
@@ -40,57 +41,87 @@ try {
         $tenantId = (int)($userInfo['tenant_id'] ?? 0);
     }
     if ($tenantId <= 0) {
-        apiError('tenant_id richiesto', 400);
+        api_error('tenant_id richiesto', 400);
+    }
+
+    // Validate user exists and belongs to tenant
+    $userCheck = $db->fetchOne(
+        "SELECT u.id
+         FROM users u
+         INNER JOIN user_tenant_access uta ON u.id = uta.user_id
+         WHERE u.id = ?
+           AND uta.tenant_id = ?
+           AND u.deleted_at IS NULL
+           AND uta.deleted_at IS NULL",
+        [$targetUserId, $tenantId]
+    );
+
+    if (!$userCheck) {
+        api_error('Utente non trovato o non appartiene a questo tenant', 404);
     }
 
     // Authorization: admin must have access to tenant
     if ($currentRole === 'admin') {
         $hasAccess = $db->fetchOne(
-            "SELECT 1 FROM user_tenant_access WHERE user_id = ? AND tenant_id = ?",
+            "SELECT 1 FROM user_tenant_access
+             WHERE user_id = ?
+               AND tenant_id = ?
+               AND deleted_at IS NULL",
             [$currentUserId, $tenantId]
         );
         if (!$hasAccess) {
-            apiError('Accesso negato al tenant', 403);
+            api_error('Accesso negato al tenant', 403);
         }
     }
 
-    // Ensure table exists
-    $db->query("CREATE TABLE IF NOT EXISTS workflow_roles (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        tenant_id INT NOT NULL,
-        user_id INT NOT NULL,
-        role ENUM('validator','approver') NOT NULL,
-        created_at DATETIME NOT NULL,
-        updated_at DATETIME NOT NULL,
-        UNIQUE KEY uniq_role (tenant_id, user_id, role),
-        INDEX (tenant_id), INDEX (user_id), INDEX (role)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // Check if workflow_roles table exists (should exist from migration)
+    $tableCheck = $db->fetchOne(
+        "SELECT 1 FROM information_schema.tables
+         WHERE table_schema = DATABASE()
+           AND table_name = 'workflow_roles'"
+    );
 
-    // Upsert role
+    if (!$tableCheck) {
+        api_error('Tabella workflow_roles non trovata. Eseguire la migrazione.', 500);
+    }
+
+    // Upsert role using workflow_role column name
     $now = date('Y-m-d H:i:s');
-    // Try insert; if duplicate, update timestamp
-    try {
-        $db->insert('workflow_roles', [
-            'tenant_id' => $tenantId,
-            'user_id' => $targetUserId,
-            'role' => $role,
-            'created_at' => $now,
-            'updated_at' => $now
-        ]);
-    } catch (Exception $e) {
-        // If duplicate, update updated_at
+
+    // Check if role already exists
+    $existingRole = $db->fetchOne(
+        "SELECT id FROM workflow_roles
+         WHERE tenant_id = ?
+           AND user_id = ?
+           AND workflow_role = ?
+           AND deleted_at IS NULL",
+        [$tenantId, $targetUserId, $role]
+    );
+
+    if ($existingRole) {
+        // Update timestamp
         $db->update('workflow_roles', [
             'updated_at' => $now
         ], [
+            'id' => $existingRole['id']
+        ]);
+    } else {
+        // Insert new role
+        $db->insert('workflow_roles', [
             'tenant_id' => $tenantId,
             'user_id' => $targetUserId,
-            'role' => $role
+            'workflow_role' => $role,
+            'assigned_by_user_id' => $currentUserId,
+            'created_at' => $now,
+            'updated_at' => $now
         ]);
     }
 
-    apiSuccess(null, 'Ruolo salvato');
+    api_success(null, 'Ruolo salvato con successo');
 
 } catch (Exception $e) {
-    logApiError('WorkflowRolesCreate', $e);
-    apiError('Errore nel salvataggio del ruolo', 500);
+    error_log('[API Workflow Roles Create] Error: ' . $e->getMessage());
+    error_log('[API Workflow Roles Create] User ID: ' . ($currentUserId ?? 'unknown'));
+    error_log('[API Workflow Roles Create] Tenant ID: ' . ($tenantId ?? 'unknown'));
+    api_error('Errore nel salvataggio del ruolo', 500);
 }

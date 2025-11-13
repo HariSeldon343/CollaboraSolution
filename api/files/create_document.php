@@ -201,6 +201,10 @@ function createDocument(string $type, string $name, int $tenantId, ?int $folderI
                     'created_at' => date('Y-m-d H:i:s')
                 ]);
 
+                // BUG-082 FIX: Set flag to trigger email notification after workflow creation
+                // This variable is checked on line 240 to send creation emails to creator + validators
+                $workflowCreated = true;
+
                 // Log to workflow history
                 $db->insert('document_workflow_history', [
                     'tenant_id' => $tenantId,
@@ -234,6 +238,19 @@ function createDocument(string $type, string $name, int $tenantId, ?int $folderI
         } catch (Exception $workflowEx) {
             // Non-blocking: if workflow creation fails, document creation should still succeed
             error_log("[WORKFLOW AUTO-CREATE] Failed to create workflow for document {$fileId}: " . $workflowEx->getMessage());
+        }
+
+        // Send email notification if workflow was successfully created
+        // BUG-082 FIX: Simplified condition - $workflowCreated is set to true after successful workflow insert
+        // No need to re-check $workflowEnabled here (already verified when setting $workflowCreated)
+        if (isset($workflowCreated) && $workflowCreated) {
+            try {
+                require_once __DIR__ . '/../../includes/workflow_email_notifier.php';
+                WorkflowEmailNotifier::notifyDocumentCreated($fileId, $userId, $tenantId);
+            } catch (Exception $emailEx) {
+                error_log("[CREATE_DOCUMENT] Email notification failed: " . $emailEx->getMessage());
+                // DO NOT throw - operation already committed
+            }
         }
 
         return [
