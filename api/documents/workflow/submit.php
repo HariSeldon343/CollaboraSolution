@@ -31,15 +31,51 @@ header('Expires: 0');
 verifyApiAuthentication();  // IMMEDIATELY after init
 
 $userInfo = getApiUserInfo();
-$tenantId = $userInfo['tenant_id'];
 $userId = $userInfo['user_id'];
 $userRole = $userInfo['role'];
 
 verifyApiCsrfToken();
 
-// Database connection
+// BUG-088 FIX: Initialize database BEFORE multi-tenant context (needed for all code paths)
 require_once __DIR__ . '/../../../includes/db.php';
 $db = Database::getInstance();
+
+// ============================================
+// MULTI-TENANT CONTEXT HANDLING (BUG-087)
+// ============================================
+// Parse JSON input early to get tenant_id
+$input = json_decode(file_get_contents('php://input'), true);
+
+if (json_last_error() !== JSON_ERROR_NONE) {
+    api_error('Dati JSON non validi: ' . json_last_error_msg(), 400);
+}
+
+// BUG-087 FIX: Accept tenant_id from frontend for multi-tenant navigation
+// Same pattern as BUG-072 fix for role assignments
+$requestedTenantId = isset($input['tenant_id']) ? (int)$input['tenant_id'] : null;
+
+if ($requestedTenantId !== null) {
+    if ($userRole === 'super_admin') {
+        $tenantId = $requestedTenantId;
+    } else {
+        // Validate user has access to requested tenant
+        // BUG-088 FIX: Database already initialized above
+
+        $accessCheck = $db->fetchOne(
+            "SELECT COUNT(*) as cnt FROM user_tenant_access
+             WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL",
+            [$userId, $requestedTenantId]
+        );
+
+        if ($accessCheck && $accessCheck['cnt'] > 0) {
+            $tenantId = $requestedTenantId;
+        } else {
+            api_error('Non hai accesso a questo tenant', 403);
+        }
+    }
+} else {
+    $tenantId = $userInfo['tenant_id'];
+}
 
 // Include workflow constants
 require_once __DIR__ . '/../../../includes/workflow_constants.php';
@@ -58,13 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // ============================================
 // INPUT VALIDATION
 // ============================================
-
-// Parse JSON input
-$input = json_decode(file_get_contents('php://input'), true);
-
-if (json_last_error() !== JSON_ERROR_NONE) {
-    api_error('Dati JSON non validi: ' . json_last_error_msg(), 400);
-}
+// (JSON input already parsed above for tenant_id handling)
 
 // Extract parameters
 $fileId = isset($input['file_id']) ? (int)$input['file_id'] : null;
@@ -89,7 +119,7 @@ try {
     // ============================================
 
     $file = $db->fetchOne(
-        "SELECT id, file_name, uploaded_by, folder_id
+        "SELECT id, name AS file_name, created_by AS uploaded_by, folder_id
          FROM files
          WHERE id = ?
            AND tenant_id = ?
@@ -111,7 +141,7 @@ try {
     // ============================================
 
     $existingWorkflow = $db->fetchOne(
-        "SELECT id, state, current_validator_id, current_approver_id
+        "SELECT id, current_state, current_handler_user_id
          FROM document_workflow
          WHERE file_id = ?
            AND tenant_id = ?
@@ -121,11 +151,11 @@ try {
 
     if ($existingWorkflow !== false) {
         // Check if workflow is in a state that allows resubmission
-        if (!in_array($existingWorkflow['state'], [WORKFLOW_STATE_DRAFT, WORKFLOW_STATE_REJECTED])) {
+        if (!in_array($existingWorkflow['current_state'], [WORKFLOW_STATE_DRAFT, WORKFLOW_STATE_REJECTED])) {
             throw new Exception(
                 sprintf(
                     'Il documento è già nel workflow con stato: %s',
-                    getWorkflowStateLabel($existingWorkflow['state'])
+                    getWorkflowStateLabel($existingWorkflow['current_state'])
                 )
             );
         }
@@ -199,10 +229,9 @@ try {
     $workflowData = [
         'tenant_id' => $tenantId,
         'file_id' => $fileId,
-        'state' => WORKFLOW_STATE_IN_VALIDATION,
+        'current_state' => WORKFLOW_STATE_IN_VALIDATION,
         'created_by_user_id' => $file['uploaded_by'],
-        'current_validator_id' => $validatorId,
-        'current_approver_id' => $approverId,
+        'current_handler_user_id' => $validatorId,  // Validator handles first
         'submitted_at' => date('Y-m-d H:i:s'),
         'updated_at' => date('Y-m-d H:i:s')
     ];
@@ -237,18 +266,17 @@ try {
         'tenant_id' => $tenantId,
         'workflow_id' => $workflowId,
         'file_id' => $fileId,
-        'from_state' => $existingWorkflow ? $existingWorkflow['state'] : WORKFLOW_STATE_DRAFT,
+        'from_state' => $existingWorkflow ? $existingWorkflow['current_state'] : WORKFLOW_STATE_DRAFT,
         'to_state' => WORKFLOW_STATE_IN_VALIDATION,
         'transition_type' => TRANSITION_SUBMIT,
         'performed_by_user_id' => $userId,
-        'performed_by_role' => USER_ROLE_CREATOR,
+        'user_role_at_time' => USER_ROLE_CREATOR,
         'comment' => $notes,
         'metadata' => buildWorkflowMetadata([
             'validator_id' => $validatorId,
             'approver_id' => $approverId,
             'operation' => $operation
-        ]),
-        'created_at' => date('Y-m-d H:i:s')
+        ])
     ];
 
     $historyId = $db->insert('document_workflow_history', $historyData);
@@ -358,21 +386,20 @@ try {
     // GET COMPLETE WORKFLOW DATA
     // ============================================
 
-    $workflow = $db->fetchOne(
-        "SELECT
-            dw.*,
-            uv.name as validator_name,
-            uv.email as validator_email,
-            ua.name as approver_name,
-            ua.email as approver_email,
-            uc.name as creator_name,
-            uc.email as creator_email
-         FROM document_workflow dw
-         LEFT JOIN users uv ON dw.current_validator_id = uv.id
-         LEFT JOIN users ua ON dw.current_approver_id = ua.id
-         LEFT JOIN users uc ON dw.created_by_user_id = uc.id
-         WHERE dw.id = ?",
-        [$workflowId]
+    // Get validator and approver details separately (they're not in workflow table)
+    $validator = $db->fetchOne(
+        "SELECT name, email FROM users WHERE id = ?",
+        [$validatorId]
+    );
+
+    $approver = $db->fetchOne(
+        "SELECT name, email FROM users WHERE id = ?",
+        [$approverId]
+    );
+
+    $creator = $db->fetchOne(
+        "SELECT name, email FROM users WHERE id = ?",
+        [$file['uploaded_by']]
     );
 
     // ============================================
@@ -389,18 +416,18 @@ try {
             'state_color' => getWorkflowStateColor(WORKFLOW_STATE_IN_VALIDATION),
             'validator' => [
                 'id' => $validatorId,
-                'name' => $workflow['validator_name'],
-                'email' => $workflow['validator_email']
+                'name' => $validator ? $validator['name'] : 'Unknown',
+                'email' => $validator ? $validator['email'] : ''
             ],
             'approver' => [
                 'id' => $approverId,
-                'name' => $workflow['approver_name'],
-                'email' => $workflow['approver_email']
+                'name' => $approver ? $approver['name'] : 'Unknown',
+                'email' => $approver ? $approver['email'] : ''
             ],
             'creator' => [
                 'id' => $file['uploaded_by'],
-                'name' => $workflow['creator_name'],
-                'email' => $workflow['creator_email']
+                'name' => $creator ? $creator['name'] : 'Unknown',
+                'email' => $creator ? $creator['email'] : ''
             ],
             'submitted_at' => $workflowData['submitted_at'],
             'notes' => $notes,

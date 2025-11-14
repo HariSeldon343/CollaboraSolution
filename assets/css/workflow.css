@@ -351,18 +351,30 @@
     justify-content: center;
 }
 
-.modal-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(2px);
+/* BUG-086 FIX: Use highly specific selectors to override filemanager_enhanced.css */
+/* Specificity: #id .class = 110 (beats .class = 10) */
+#workflowActionModal .modal-overlay,
+#workflowHistoryModal .modal-overlay,
+.modal .modal-overlay {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: none !important; /* BUG-086: Override blur(4px) from filemanager_enhanced.css */
+    z-index: 1 !important; /* BUG-086: Override z-index 9999 from filemanager_enhanced.css */
+    pointer-events: none !important; /* BUG-086 CRITICAL: Overlay doesn't capture clicks */
+    display: block !important; /* BUG-086: Override display flex from filemanager_enhanced.css */
 }
 
-.modal-content {
-    position: relative;
+#workflowActionModal .modal-content,
+#workflowHistoryModal .modal-content,
+.modal .modal-content {
+    position: relative !important;
+    z-index: 2 !important; /* BUG-086: Content sits ABOVE overlay (clickable) */
+    pointer-events: auto !important; /* BUG-086: Ensure content captures clicks normally */
+    filter: none !important; /* BUG-086: Ensure no blur applied to content itself */
     max-width: 600px;
     max-height: 90vh;
     margin: 0;

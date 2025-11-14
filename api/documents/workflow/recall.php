@@ -31,15 +31,52 @@ header('Expires: 0');
 verifyApiAuthentication();  // IMMEDIATELY after init
 
 $userInfo = getApiUserInfo();
-$tenantId = $userInfo['tenant_id'];
 $userId = $userInfo['user_id'];
 $userRole = $userInfo['role'];
 
 verifyApiCsrfToken();
 
-// Database connection
+// BUG-088 FIX: Initialize database BEFORE multi-tenant context (needed for all code paths)
 require_once __DIR__ . '/../../../includes/db.php';
 $db = Database::getInstance();
+
+// ============================================
+// MULTI-TENANT CONTEXT HANDLING (BUG-087)
+// ============================================
+// Parse JSON input early to get tenant_id
+$input = json_decode(file_get_contents('php://input'), true);
+
+if (json_last_error() !== JSON_ERROR_NONE) {
+    api_error('Dati JSON non validi: ' . json_last_error_msg(), 400);
+}
+
+// BUG-087 FIX: Accept tenant_id from frontend for multi-tenant navigation
+// Same pattern as BUG-072 fix for role assignments
+$requestedTenantId = isset($input['tenant_id']) ? (int)$input['tenant_id'] : null;
+
+if ($requestedTenantId !== null) {
+    if ($userRole === 'super_admin') {
+        $tenantId = $requestedTenantId;
+    } else {
+        // Validate user has access to requested tenant
+        // BUG-088 FIX: Database already initialized above
+
+        $accessCheck = $db->fetchOne(
+            "SELECT COUNT(*) as cnt FROM user_tenant_access
+             WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL",
+            [$userId, $requestedTenantId]
+        );
+
+        if ($accessCheck && $accessCheck['cnt'] > 0) {
+            $tenantId = $requestedTenantId;
+        } else {
+            if ($db->inTransaction()) $db->rollback();
+            api_error('Non hai accesso a questo tenant', 403);
+        }
+    }
+} else {
+    $tenantId = $userInfo['tenant_id'];
+}
 
 // Include workflow constants
 require_once __DIR__ . '/../../../includes/workflow_constants.php';
@@ -58,13 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // ============================================
 // INPUT VALIDATION
 // ============================================
-
-// Parse JSON input
-$input = json_decode(file_get_contents('php://input'), true);
-
-if (json_last_error() !== JSON_ERROR_NONE) {
-    api_error('Dati JSON non validi: ' . json_last_error_msg(), 400);
-}
+// (JSON input already parsed above for tenant_id handling)
 
 // Extract parameters
 $fileId = isset($input['file_id']) ? (int)$input['file_id'] : null;
@@ -167,13 +198,12 @@ try {
         'to_state' => WORKFLOW_STATE_DRAFT,
         'transition_type' => TRANSITION_RECALL,
         'performed_by_user_id' => $userId,
-        'performed_by_role' => USER_ROLE_CREATOR,
+        'user_role_at_time' => USER_ROLE_CREATOR,
         'comment' => $reason,
         'metadata' => buildWorkflowMetadata([
             'recall_reason' => $reason,
             'recalled_from_state' => $previousState
-        ]),
-        'created_at' => date('Y-m-d H:i:s')
+        ])
     ];
 
     $historyId = $db->insert('document_workflow_history', $historyData);

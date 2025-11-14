@@ -405,14 +405,10 @@ try {
                 break;
         }
 
-        // Always allow viewing history if user has access
-        $availableActions[] = [
-            'action' => 'view_history',
-            'label' => 'Visualizza Storia',
-            'description' => 'Visualizza la storia completa del workflow',
-            'endpoint' => '/api/documents/workflow/history.php',
-            'method' => 'GET'
-        ];
+        // BUG-084 FIX: Removed view_history from available_actions
+        // User already has dedicated "Visualizza Storico" button at modal bottom (line 845 document_workflow_v2.js)
+        // view_history action had no frontend handler in showActionModal(), causing debug-style button with literal text
+        // Keeping workflow actions limited to state-changing operations: submit, validate, approve, reject, recall
 
         // BUG-083 FIX: Extract action names for frontend compatibility
         // Frontend expects array of STRINGS ["validate", "reject", ...] not array of OBJECTS

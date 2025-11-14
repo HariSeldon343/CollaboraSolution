@@ -67,8 +67,8 @@ $csrfToken = $auth->generateCSRFToken();
     <link rel="stylesheet" href="assets/css/documentEditor.css">
     <!-- PDF Viewer CSS -->
     <link rel="stylesheet" href="assets/css/pdfViewer.css">
-    <!-- Workflow Management CSS (BUG-082/083 - Email + Sidebar Fixes) -->
-    <link rel="stylesheet" href="assets/css/workflow.css?v=<?php echo time() . '_v28'; ?>">
+    <!-- Workflow Management CSS (BUG-086 NUCLEAR FIX - Inline Styles) -->
+    <link rel="stylesheet" href="assets/css/workflow.css?v=<?php echo time() . '_v34'; ?>">
 
     <style>
         /* Logo image style */
@@ -1183,16 +1183,16 @@ $csrfToken = $auth->generateCSRFToken();
     <script src="assets/js/app.js?v=<?php echo time(); ?>"></script>
     <!-- PDF Viewer JavaScript -->
     <script src="assets/js/pdfViewer.js?v=<?php echo time(); ?>"></script>
-    <!-- Enhanced File Manager JavaScript with Upload & Document Creation (BUG-081 - Sidebar Workflow Actions Fix) -->
-    <script src="assets/js/filemanager_enhanced.js?v=<?php echo time() . '_v28'; ?>"></script>
+    <!-- Enhanced File Manager JavaScript with Upload & Document Creation (BUG-086 NUCLEAR - Inline Styles) -->
+    <script src="assets/js/filemanager_enhanced.js?v=<?php echo time() . '_v35'; ?>"></script>
     <!-- Document Editor JavaScript -->
     <script src="assets/js/documentEditor.js?v=<?php echo time(); ?>"></script>
     <!-- Session Timeout Warning System -->
     <script src="assets/js/session-timeout.js?v=<?php echo time(); ?>"></script>
-    <!-- File Assignment System (BUG-081 - Sidebar Workflow Actions Fix) -->
-    <script src="assets/js/file_assignment.js?v=<?php echo time() . '_v28'; ?>"></script>
-    <!-- Document Workflow Management System (BUG-081 - Sidebar Workflow Actions Fix) -->
-    <script src="assets/js/document_workflow_v2.js?v=<?php echo time() . '_v28'; ?>"></script>
+    <!-- File Assignment System (BUG-086 NUCLEAR - Inline Styles) -->
+    <script src="assets/js/file_assignment.js?v=<?php echo time() . '_v35'; ?>"></script>
+    <!-- Document Workflow Management System (BUG-087 FIX - Multi-Tenant Context) -->
+    <script src="assets/js/document_workflow_v2.js?v=<?php echo time() . '_v36'; ?>"></script>
 
     <!-- BUG-061 CRITICAL FIX: Force close modal IMMEDIATELY (before any other script) -->
     <script>

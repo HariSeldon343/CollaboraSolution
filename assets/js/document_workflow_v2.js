@@ -225,8 +225,8 @@ class DocumentWorkflowManager {
     createActionModal() {
         const modalHtml = `
             <div id="workflowActionModal" class="modal" style="display: none;">
-                <div class="modal-overlay"></div>
-                <div class="modal-content">
+                <div class="modal-overlay" style="position: absolute !important; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); backdrop-filter: none !important; z-index: 1 !important; pointer-events: none !important; display: block !important;"></div>
+                <div class="modal-content" style="position: relative; z-index: 2 !important; pointer-events: auto !important; filter: none !important;">
                     <div class="modal-header">
                         <h3 class="modal-title" id="workflowActionTitle">Azione Workflow</h3>
                         <button type="button" class="modal-close" onclick="workflowManager.closeActionModal()">
@@ -288,8 +288,8 @@ class DocumentWorkflowManager {
     createHistoryModal() {
         const modalHtml = `
             <div id="workflowHistoryModal" class="modal" style="display: none;">
-                <div class="modal-overlay"></div>
-                <div class="modal-content modal-lg">
+                <div class="modal-overlay" style="position: absolute !important; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); backdrop-filter: none !important; z-index: 1 !important; pointer-events: none !important; display: block !important;"></div>
+                <div class="modal-content modal-lg" style="position: relative; z-index: 2 !important; pointer-events: auto !important; filter: none !important;">
                     <div class="modal-header">
                         <h3 class="modal-title">Storico Workflow</h3>
                         <button type="button" class="modal-close" onclick="workflowManager.closeHistoryModal()">
@@ -404,20 +404,30 @@ class DocumentWorkflowManager {
 
     /**
      * Show workflow action modal
+     * BUG-085 FIX: Close status modal FIRST to prevent overlay stacking blur
+     * Previous behavior: Action modal opened while status modal still visible → overlays stacked → blur applied to everything
+     * New behavior: Status modal closes cleanly BEFORE action modal opens → single overlay → no blur issues
      */
     showActionModal(action, fileId, fileName) {
-        this.currentAction = action;
-        this.state.currentFileId = fileId;
+        // BUG-085 FIX: Close status modal FIRST to prevent overlay stacking
+        // This ensures clean transition and prevents blur from stacking overlays
+        this.closeStatusModal();
 
-        const modal = document.getElementById('workflowActionModal');
-        const title = document.getElementById('workflowActionTitle');
-        const description = document.getElementById('actionDescription');
-        const button = document.getElementById('workflowActionButton');
-        const commentRequired = document.getElementById('commentRequired');
-        const commentMinimum = document.getElementById('commentMinimum');
+        // Small delay ensures status modal closes completely before action modal opens
+        // This prevents race conditions with modal overlay z-index and blur effects
+        setTimeout(() => {
+            this.currentAction = action;
+            this.state.currentFileId = fileId;
 
-        // Configure modal based on action
-        switch (action) {
+            const modal = document.getElementById('workflowActionModal');
+            const title = document.getElementById('workflowActionTitle');
+            const description = document.getElementById('actionDescription');
+            const button = document.getElementById('workflowActionButton');
+            const commentRequired = document.getElementById('commentRequired');
+            const commentMinimum = document.getElementById('commentMinimum');
+
+            // Configure modal based on action
+            switch (action) {
             case 'submit':
                 title.textContent = 'Invia in Validazione';
                 description.textContent = `Stai per inviare il documento "${fileName}" in validazione. I validatori riceveranno una notifica.`;
@@ -458,14 +468,15 @@ class DocumentWorkflowManager {
                 button.className = 'btn btn-warning';
                 commentRequired.style.display = 'none';
                 break;
-        }
+            }
 
-        // Reset form
-        document.getElementById('workflowActionForm').reset();
-        document.getElementById('commentCharCount').textContent = '0';
+            // Reset form
+            document.getElementById('workflowActionForm').reset();
+            document.getElementById('commentCharCount').textContent = '0';
 
-        // Show modal
-        modal.style.display = 'flex';
+            // Show modal
+            modal.style.display = 'flex';
+        }, 50); // BUG-085 FIX: 50ms delay ensures clean modal transition without overlay stacking
     }
 
     /**
@@ -492,7 +503,8 @@ class DocumentWorkflowManager {
 
             const body = {
                 file_id: this.state.currentFileId,
-                comment: comment || null
+                comment: comment || null,
+                tenant_id: this.getCurrentTenantId() || null  // BUG-087 FIX: Pass current folder tenant_id
             };
 
             const response = await fetch(endpoint, {
@@ -530,14 +542,20 @@ class DocumentWorkflowManager {
 
     /**
      * Show workflow history modal
+     * BUG-085 FIX: Close status modal FIRST to prevent overlay stacking (same pattern as showActionModal)
      */
     async showHistoryModal(fileId, fileName) {
-        const modal = document.getElementById('workflowHistoryModal');
-        const title = modal.querySelector('.modal-title');
-        title.textContent = `Storico Workflow - ${fileName}`;
+        // BUG-085 FIX: Close status modal before opening history modal
+        this.closeStatusModal();
 
-        // Load history
-        try {
+        // Small delay for clean modal transition
+        setTimeout(async () => {
+            const modal = document.getElementById('workflowHistoryModal');
+            const title = modal.querySelector('.modal-title');
+            title.textContent = `Storico Workflow - ${fileName}`;
+
+            // Load history
+            try {
             const response = await fetch(`${this.config.workflowApi}history.php?file_id=${fileId}`, {
                 method: 'GET',
                 headers: {
@@ -546,18 +564,19 @@ class DocumentWorkflowManager {
                 credentials: 'same-origin'
             });
 
-            const data = await response.json();
+                const data = await response.json();
 
-            if (data.success) {
-                const history = data.data?.history || [];
-                this.renderHistoryTimeline(history);
+                if (data.success) {
+                    const history = data.data?.history || [];
+                    this.renderHistoryTimeline(history);
+                }
+            } catch (error) {
+                console.error('[WorkflowManager] Failed to load history:', error);
+                this.showToast('Errore caricamento storico', 'error');
             }
-        } catch (error) {
-            console.error('[WorkflowManager] Failed to load history:', error);
-            this.showToast('Errore caricamento storico', 'error');
-        }
 
-        modal.style.display = 'flex';
+            modal.style.display = 'flex';
+        }, 50); // BUG-085 FIX: 50ms delay ensures clean modal transition
     }
 
     /**
@@ -835,14 +854,17 @@ class DocumentWorkflowManager {
                                     label = 'Richiama';
                                 }
 
-                                return `<button class="btn ${btnClass} mr-2 mb-2" onclick="window.workflowManager.showActionModal('${action}', ${fileId}, '${file.name.replace(/'/g, "\\'")}'); window.workflowManager.closeStatusModal();">${label}</button>`;
+                                // BUG-085 FIX: Removed closeStatusModal() call - now handled internally by showActionModal()
+                                // This prevents double-close and ensures proper modal transition timing
+                                return `<button class="btn ${btnClass} mr-2 mb-2" onclick="window.workflowManager.showActionModal('${action}', ${fileId}, '${file.name.replace(/'/g, "\\'")}')">${label}</button>`;
                             }).join('')}
                         </div>
                     </div>
                 ` : '<div class="alert alert-info">Nessuna azione disponibile al momento.</div>'}
 
                 <div class="mt-4">
-                    <button class="btn btn-info" onclick="window.workflowManager.showHistoryModal(${fileId}, '${file.name.replace(/'/g, "\\'")}'); window.workflowManager.closeStatusModal();">
+                    <!-- BUG-085 FIX: Removed closeStatusModal() call - now handled internally by showHistoryModal() -->
+                    <button class="btn btn-info" onclick="window.workflowManager.showHistoryModal(${fileId}, '${file.name.replace(/'/g, "\\'")}')">
                         Visualizza Storico
                     </button>
                 </div>

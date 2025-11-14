@@ -95,6 +95,7 @@ try {
 
     $historyQuery = "SELECT
         dwh.*,
+        dwh.user_role_at_time as performed_by_role,
         u_performed.name as performed_by_name,
         u_performed.email as performed_by_email,
         u_performed.profile_image as performed_by_avatar,
@@ -140,13 +141,11 @@ try {
 
     $currentWorkflow = $db->fetchOne(
         "SELECT dw.*,
-                uv.name as validator_name,
-                ua.name as approver_name,
-                uc.name as creator_name
+                uc.name as creator_name,
+                uh.name as handler_name
          FROM document_workflow dw
-         LEFT JOIN users uv ON dw.current_validator_id = uv.id
-         LEFT JOIN users ua ON dw.current_approver_id = ua.id
          LEFT JOIN users uc ON dw.created_by_user_id = uc.id
+         LEFT JOIN users uh ON dw.current_handler_user_id = uh.id
          WHERE dw.file_id = ?
            AND dw.tenant_id = ?
            AND dw.deleted_at IS NULL",
