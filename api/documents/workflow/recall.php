@@ -117,26 +117,43 @@ try {
     // GET WORKFLOW AND VALIDATE PERMISSIONS
     // ============================================
 
-    $workflow = $db->fetchOne(
-        "SELECT dw.*,
-                f.file_name,
-                f.uploaded_by,
-                uv.name as validator_name,
-                uv.email as validator_email,
-                ua.name as approver_name,
-                ua.email as approver_email,
-                uc.name as creator_name,
-                uc.email as creator_email
-         FROM document_workflow dw
-         INNER JOIN files f ON dw.file_id = f.id
-         LEFT JOIN users uv ON dw.current_validator_id = uv.id
-         LEFT JOIN users ua ON dw.current_approver_id = ua.id
-         LEFT JOIN users uc ON dw.created_by_user_id = uc.id
-         WHERE dw.file_id = ?
-           AND dw.tenant_id = ?
-           AND dw.deleted_at IS NULL",
-        [$fileId, $tenantId]
-    );
+    // BUG-089 FIX: Super admin can access workflows across tenants
+    // BUG-091 FIX: Column name is 'name' not 'file_name', remove non-existent validator/approver columns
+    if ($userRole === 'super_admin') {
+        $workflow = $db->fetchOne(
+            "SELECT dw.*,
+                    f.name AS file_name,
+                    f.uploaded_by,
+                    uc.name as creator_name,
+                    uc.email as creator_email
+             FROM document_workflow dw
+             INNER JOIN files f ON dw.file_id = f.id
+             LEFT JOIN users uc ON dw.created_by_user_id = uc.id
+             WHERE dw.file_id = ?
+               AND (dw.deleted_at IS NULL OR dw.deleted_at = '')",
+            [$fileId]
+        );
+
+        if ($workflow !== false) {
+            // Use workflow's actual tenant, not session tenant
+            $tenantId = $workflow['tenant_id'];
+        }
+    } else {
+        $workflow = $db->fetchOne(
+            "SELECT dw.*,
+                    f.name AS file_name,
+                    f.uploaded_by,
+                    uc.name as creator_name,
+                    uc.email as creator_email
+             FROM document_workflow dw
+             INNER JOIN files f ON dw.file_id = f.id
+             LEFT JOIN users uc ON dw.created_by_user_id = uc.id
+             WHERE dw.file_id = ?
+               AND dw.tenant_id = ?
+               AND (dw.deleted_at IS NULL OR dw.deleted_at = '')",
+            [$fileId, $tenantId]
+        );
+    }
 
     if ($workflow === false) {
         throw new Exception('Workflow non trovato per questo documento.');
@@ -164,22 +181,22 @@ try {
 
     $previousState = $workflow['current_state'];
 
+    // BUG-093 FIX: Remove non-existent columns (validated_by_user_id, approved_by_user_id, rejected_by_user_id)
+    // These columns don't exist in document_workflow table - only tracked in history table
     $updateData = [
         'current_state' => WORKFLOW_STATE_DRAFT,
+        'current_handler_user_id' => $workflow['created_by_user_id'],  // Reset to creator
         'updated_at' => date('Y-m-d H:i:s'),
         // Clear approval/validation data on recall
         'validated_at' => null,
-        'validated_by_user_id' => null,
         'approved_at' => null,
-        'approved_by_user_id' => null,
-        'rejected_at' => null,
-        'rejected_by_user_id' => null
+        'rejected_at' => null
     ];
 
     $updated = $db->update(
         'document_workflow',
         $updateData,
-        ['id' => $workflow['id']]
+        ['id' => $workflow['id']]  // Simple WHERE by primary key
     );
 
     if (!$updated) {
@@ -226,51 +243,9 @@ try {
     // ============================================
     // SEND EMAIL NOTIFICATIONS
     // ============================================
-
-    try {
-        require_once __DIR__ . '/../../../includes/mailer.php';
-
-        // Notify validator if document was in validation
-        if ($previousState === WORKFLOW_STATE_IN_VALIDATION && $workflow['validator_email']) {
-            $emailData = [
-                'to' => $workflow['validator_email'],
-                'to_name' => $workflow['validator_name'],
-                'subject' => sprintf('Documento richiamato: %s', $workflow['file_name']),
-                'template' => 'workflow_recalled',
-                'variables' => [
-                    'recipient_name' => $workflow['validator_name'],
-                    'document_name' => $workflow['file_name'],
-                    'creator_name' => $workflow['creator_name'],
-                    'reason' => $reason ?: 'Nessun motivo specificato',
-                    'previous_state' => getWorkflowStateLabel($previousState)
-                ]
-            ];
-
-            sendWorkflowEmail($emailData);
-        }
-
-        // Notify approver if document was in approval
-        if ($previousState === WORKFLOW_STATE_IN_APPROVAL && $workflow['approver_email']) {
-            $emailData = [
-                'to' => $workflow['approver_email'],
-                'to_name' => $workflow['approver_name'],
-                'subject' => sprintf('Documento richiamato: %s', $workflow['file_name']),
-                'template' => 'workflow_recalled',
-                'variables' => [
-                    'recipient_name' => $workflow['approver_name'],
-                    'document_name' => $workflow['file_name'],
-                    'creator_name' => $workflow['creator_name'],
-                    'reason' => $reason ?: 'Nessun motivo specificato',
-                    'previous_state' => getWorkflowStateLabel($previousState)
-                ]
-            ];
-
-            sendWorkflowEmail($emailData);
-        }
-    } catch (Exception $e) {
-        error_log("[EMAIL] Failed to send recall notification: " . $e->getMessage());
-        // Non-blocking - continue
-    }
+    // BUG-091 FIX: Removed email notifications for validators/approvers
+    // (validator_email/approver_email no longer retrieved from query)
+    // Email notification system will be refactored to query workflow_roles table
 
     // ============================================
     // AUDIT LOGGING (BUG-029/030)
@@ -337,16 +312,7 @@ try {
         ]
     ];
 
-    // Notify who was previously working on it
-    if ($previousState === WORKFLOW_STATE_IN_VALIDATION) {
-        $response['workflow']['notified'] = [
-            'validator' => $workflow['validator_name']
-        ];
-    } elseif ($previousState === WORKFLOW_STATE_IN_APPROVAL) {
-        $response['workflow']['notified'] = [
-            'approver' => $workflow['approver_name']
-        ];
-    }
+    // BUG-091 FIX: Removed notified section (validator_name/approver_name not retrieved)
 
     api_success(
         $response,
@@ -388,10 +354,10 @@ function sendWorkflowEmail(array $data): bool {
         }
 
         require_once __DIR__ . '/../../../includes/mailer.php';
-        $emailSender = new EmailSender();
-        return $emailSender->send(
+
+        // BUG-082 FIX: Use global sendEmail() function (EmailSender::send() doesn't exist)
+        return sendEmail(
             $data['to'],
-            $data['to_name'],
             $data['subject'],
             $emailContent
         );

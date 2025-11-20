@@ -178,7 +178,7 @@ try {
     $stmt->execute(array_merge($userIdsToDelete, $userIdsToDelete));
 
     // 15. Elimina eventi calendario
-    $stmt = $conn->prepare("DELETE FROM calendar_events WHERE organizer_id IN ($placeholders)");
+    $stmt = $conn->prepare("DELETE FROM events WHERE organizer_id IN ($placeholders)");
     $stmt->execute($userIdsToDelete);
 
     // 16. Elimina condivisioni calendario

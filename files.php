@@ -1192,7 +1192,7 @@ $csrfToken = $auth->generateCSRFToken();
     <!-- File Assignment System (BUG-086 NUCLEAR - Inline Styles) -->
     <script src="assets/js/file_assignment.js?v=<?php echo time() . '_v35'; ?>"></script>
     <!-- Document Workflow Management System (BUG-087 FIX - Multi-Tenant Context) -->
-    <script src="assets/js/document_workflow_v2.js?v=<?php echo time() . '_v36'; ?>"></script>
+    <script src="assets/js/document_workflow_v2.js?v=<?php echo time() . '_v37_bug090'; ?>"></script>
 
     <!-- BUG-061 CRITICAL FIX: Force close modal IMMEDIATELY (before any other script) -->
     <script>

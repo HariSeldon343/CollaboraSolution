@@ -123,25 +123,41 @@ try {
     // GET WORKFLOW AND VALIDATE PERMISSIONS
     // ============================================
 
-    $workflow = $db->fetchOne(
-        "SELECT dw.*,
-                f.file_name,
-                uv.name as validator_name,
-                uv.email as validator_email,
-                ua.name as approver_name,
-                ua.email as approver_email,
-                uc.name as creator_name,
-                uc.email as creator_email
-         FROM document_workflow dw
-         INNER JOIN files f ON dw.file_id = f.id
-         LEFT JOIN users uv ON dw.current_validator_id = uv.id
-         LEFT JOIN users ua ON dw.current_approver_id = ua.id
-         LEFT JOIN users uc ON dw.created_by_user_id = uc.id
-         WHERE dw.file_id = ?
-           AND dw.tenant_id = ?
-           AND dw.deleted_at IS NULL",
-        [$fileId, $tenantId]
-    );
+    // BUG-089 FIX: Super admin can access workflows across tenants
+    // BUG-091 FIX: Column name is 'name' not 'file_name', remove non-existent validator/approver columns
+    if ($userRole === 'super_admin') {
+        $workflow = $db->fetchOne(
+            "SELECT dw.*,
+                    f.name AS file_name,
+                    uc.name as creator_name,
+                    uc.email as creator_email
+             FROM document_workflow dw
+             INNER JOIN files f ON dw.file_id = f.id
+             LEFT JOIN users uc ON dw.created_by_user_id = uc.id
+             WHERE dw.file_id = ?
+               AND (dw.deleted_at IS NULL OR dw.deleted_at = '')",
+            [$fileId]
+        );
+
+        if ($workflow !== false) {
+            // Use workflow's actual tenant, not session tenant
+            $tenantId = $workflow['tenant_id'];
+        }
+    } else {
+        $workflow = $db->fetchOne(
+            "SELECT dw.*,
+                    f.name AS file_name,
+                    uc.name as creator_name,
+                    uc.email as creator_email
+             FROM document_workflow dw
+             INNER JOIN files f ON dw.file_id = f.id
+             LEFT JOIN users uc ON dw.created_by_user_id = uc.id
+             WHERE dw.file_id = ?
+               AND dw.tenant_id = ?
+               AND (dw.deleted_at IS NULL OR dw.deleted_at = '')",
+            [$fileId, $tenantId]
+        );
+    }
 
     if ($workflow === false) {
         throw new Exception('Workflow non trovato per questo documento.');
@@ -157,28 +173,52 @@ try {
         );
     }
 
-    // Determine user role in workflow
+    // BUG-091 FIX: Check workflow_roles table instead of non-existent columns
     $workflowUserRole = null;
     $canReject = false;
 
-    // Check if user is validator
-    if ($workflow['current_state'] === WORKFLOW_STATE_IN_VALIDATION &&
-        $workflow['current_validator_id'] === $userId) {
-        $workflowUserRole = USER_ROLE_VALIDATOR;
-        $canReject = true;
-    }
-
-    // Check if user is approver
-    elseif ($workflow['current_state'] === WORKFLOW_STATE_IN_APPROVAL &&
-            $workflow['current_approver_id'] === $userId) {
-        $workflowUserRole = USER_ROLE_APPROVER;
-        $canReject = true;
-    }
-
     // Admins can always reject
-    elseif (in_array($userRole, ['admin', 'super_admin'])) {
+    if (in_array($userRole, ['admin', 'super_admin'])) {
         $workflowUserRole = USER_ROLE_ADMIN;
         $canReject = true;
+    } else {
+        // Check if user is validator and document is in validation
+        if ($workflow['current_state'] === WORKFLOW_STATE_IN_VALIDATION) {
+            $hasValidatorRole = $db->fetchOne(
+                "SELECT COUNT(*) as cnt
+                 FROM workflow_roles
+                 WHERE user_id = ?
+                   AND tenant_id = ?
+                   AND workflow_role = 'validator'
+                   AND is_active = 1
+                   AND (deleted_at IS NULL OR deleted_at = '')",
+                [$userId, $tenantId]
+            );
+
+            if ($hasValidatorRole && $hasValidatorRole['cnt'] > 0) {
+                $workflowUserRole = USER_ROLE_VALIDATOR;
+                $canReject = true;
+            }
+        }
+
+        // Check if user is approver and document is in approval
+        elseif ($workflow['current_state'] === WORKFLOW_STATE_IN_APPROVAL) {
+            $hasApproverRole = $db->fetchOne(
+                "SELECT COUNT(*) as cnt
+                 FROM workflow_roles
+                 WHERE user_id = ?
+                   AND tenant_id = ?
+                   AND workflow_role = 'approver'
+                   AND is_active = 1
+                   AND (deleted_at IS NULL OR deleted_at = '')",
+                [$userId, $tenantId]
+            );
+
+            if ($hasApproverRole && $hasApproverRole['cnt'] > 0) {
+                $workflowUserRole = USER_ROLE_APPROVER;
+                $canReject = true;
+            }
+        }
     }
 
     if (!$canReject) {
@@ -203,27 +243,27 @@ try {
     // UPDATE WORKFLOW STATE
     // ============================================
 
+    // BUG-092 FIX: rejected_by_user_id column doesn't exist (tracked in history table)
     $updateData = [
         'current_state' => WORKFLOW_STATE_REJECTED,
         'rejected_at' => date('Y-m-d H:i:s'),
-        'rejected_by_user_id' => $userId,
+        'current_handler_user_id' => $userId,  // Update handler to rejector
         'rejection_count' => $previousRejections + 1,
         'updated_at' => date('Y-m-d H:i:s')
     ];
 
     // Clear validation/approval timestamps on rejection
+    // BUG-092 FIX: Only timestamp columns exist (no *_by_user_id columns)
     if ($workflow['current_state'] === WORKFLOW_STATE_IN_VALIDATION) {
         $updateData['validated_at'] = null;
-        $updateData['validated_by_user_id'] = null;
     } elseif ($workflow['current_state'] === WORKFLOW_STATE_IN_APPROVAL) {
         $updateData['approved_at'] = null;
-        $updateData['approved_by_user_id'] = null;
     }
 
     $updated = $db->update(
         'document_workflow',
         $updateData,
-        ['id' => $workflow['id']]
+        ['id' => $workflow['id']]  // Simple WHERE by primary key
     );
 
     if (!$updated) {
@@ -453,10 +493,10 @@ function sendWorkflowEmail(array $data): bool {
         }
 
         require_once __DIR__ . '/../../../includes/mailer.php';
-        $emailSender = new EmailSender();
-        return $emailSender->send(
+
+        // BUG-082 FIX: Use global sendEmail() function (EmailSender::send() doesn't exist)
+        return sendEmail(
             $data['to'],
-            $data['to_name'],
             $data['subject'],
             $emailContent
         );

@@ -66,8 +66,9 @@ try {
         ];
     }, $managers);
 
-    // BUG-040 FIX: Wrap in 'users' key for frontend compatibility (data.data.users)
-    api_success(['users' => $formattedManagers], 'Lista manager caricata con successo');
+    // BUG-099 FIX: Return direct array (tickets.js expects data.data as array, not data.data.users)
+    // JavaScript pattern: this.state.users = data.data || []
+    api_success($formattedManagers, 'Lista manager caricata con successo');
 
 } catch (Exception $e) {
     error_log('Error in list_managers.php: ' . $e->getMessage());

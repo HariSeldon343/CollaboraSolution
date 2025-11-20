@@ -39,6 +39,10 @@ try {
     $limit = isset($_GET['limit']) ? min(100, max(1, (int)$_GET['limit'])) : 50;
     $offset = ($page - 1) * $limit;
 
+    // BUG-101 FIX: Handle boolean filters created_by_me and assigned_to_me
+    $createdByMe = isset($_GET['created_by_me']) ? filter_var($_GET['created_by_me'], FILTER_VALIDATE_BOOLEAN) : false;
+    $assignedToMe = isset($_GET['assigned_to_me']) ? filter_var($_GET['assigned_to_me'], FILTER_VALIDATE_BOOLEAN) : false;
+
     // Validate sort order
     if (!in_array($sortOrder, ['ASC', 'DESC'])) {
         $sortOrder = 'DESC';
@@ -98,6 +102,18 @@ try {
     if ($createdBy !== null) {
         $where[] = 't.created_by = ?';
         $params[] = $createdBy;
+    }
+
+    // BUG-101 FIX: Apply created_by_me filter (overrides explicit created_by if both present)
+    if ($createdByMe) {
+        $where[] = 't.created_by = ?';
+        $params[] = $userInfo['user_id'];
+    }
+
+    // BUG-101 FIX: Apply assigned_to_me filter (overrides explicit assigned_to if both present)
+    if ($assignedToMe) {
+        $where[] = 't.assigned_to = ?';
+        $params[] = $userInfo['user_id'];
     }
 
     if ($search) {
@@ -186,6 +202,8 @@ try {
             'urgency' => $urgency,
             'assigned_to' => $assignedTo,
             'created_by' => $createdBy,
+            'created_by_me' => $createdByMe,  // BUG-101 FIX
+            'assigned_to_me' => $assignedToMe, // BUG-101 FIX
             'search' => $search
         ],
         'sort' => [

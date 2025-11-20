@@ -20,6 +20,6 @@ define('EMAIL_FROM_NAME', 'CollaboraNexio');
 define('EMAIL_REPLY_TO', 'info@nexiosolution.it');
 
 // Opzioni
-define('EMAIL_DEBUG_MODE', true); // true in sviluppo per debug
+define('EMAIL_DEBUG_MODE', false); // false per produzione
 define('EMAIL_SMTP_VERIFY_SSL', false); // false solo in locale se problemi SSL
 define('EMAIL_SMTP_TIMEOUT', 10);

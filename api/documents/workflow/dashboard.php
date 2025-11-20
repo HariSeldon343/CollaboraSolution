@@ -131,6 +131,7 @@ try {
 
     // Documents awaiting my validation
     if (userHasWorkflowRole($userId, $tenantId, WORKFLOW_ROLE_VALIDATOR)) {
+        // BUG-094 FIX: current_validator_id doesn't exist - get pending documents from workflow_roles
         $validationQuery = "SELECT
             dw.id,
             dw.file_id,
@@ -143,14 +144,12 @@ try {
         LEFT JOIN users uc ON dw.created_by_user_id = uc.id
         WHERE dw.tenant_id = ?
           AND dw.current_state = ?
-          AND dw.current_validator_id = ?
           AND dw.deleted_at IS NULL
         ORDER BY dw.submitted_at ASC";
 
         $validationPending = $db->fetchAll($validationQuery, [
             $tenantId,
-            WORKFLOW_STATE_IN_VALIDATION,
-            $userId
+            WORKFLOW_STATE_IN_VALIDATION
         ]);
 
         foreach ($validationPending as $doc) {
@@ -171,6 +170,8 @@ try {
 
     // Documents awaiting my approval
     if (userHasWorkflowRole($userId, $tenantId, WORKFLOW_ROLE_APPROVER)) {
+        // BUG-093 FIX: validated_by_user_id column doesn't exist - get validator from history table
+        // BUG-094 FIX: current_approver_id doesn't exist - get pending documents from workflow_roles
         $approvalQuery = "SELECT
             dw.id,
             dw.file_id,
@@ -182,17 +183,23 @@ try {
         FROM document_workflow dw
         INNER JOIN files f ON dw.file_id = f.id
         LEFT JOIN users uc ON dw.created_by_user_id = uc.id
-        LEFT JOIN users uv ON dw.validated_by_user_id = uv.id
+        LEFT JOIN document_workflow_history dwh_val ON (
+            dwh_val.workflow_id = dw.id
+            AND dwh_val.transition_type = 'validate'
+            AND dwh_val.id = (
+                SELECT MAX(id) FROM document_workflow_history
+                WHERE workflow_id = dw.id AND transition_type = 'validate'
+            )
+        )
+        LEFT JOIN users uv ON dwh_val.performed_by_user_id = uv.id
         WHERE dw.tenant_id = ?
           AND dw.current_state = ?
-          AND dw.current_approver_id = ?
           AND dw.deleted_at IS NULL
         ORDER BY dw.validated_at ASC";
 
         $approvalPending = $db->fetchAll($approvalQuery, [
             $tenantId,
-            WORKFLOW_STATE_IN_APPROVAL,
-            $userId
+            WORKFLOW_STATE_IN_APPROVAL
         ]);
 
         foreach ($approvalPending as $doc) {
@@ -213,6 +220,7 @@ try {
     }
 
     // My documents that were rejected
+    // BUG-093 FIX: rejected_by_user_id column doesn't exist - get rejector from history table
     $rejectedQuery = "SELECT
         dw.id,
         dw.file_id,
@@ -223,7 +231,6 @@ try {
         ur.name as rejected_by_name
     FROM document_workflow dw
     INNER JOIN files f ON dw.file_id = f.id
-    LEFT JOIN users ur ON dw.rejected_by_user_id = ur.id
     LEFT JOIN document_workflow_history dwh ON (
         dwh.workflow_id = dw.id
         AND dwh.to_state = ?
@@ -234,6 +241,7 @@ try {
               AND to_state = ?
         )
     )
+    LEFT JOIN users ur ON dwh.performed_by_user_id = ur.id
     WHERE dw.tenant_id = ?
       AND dw.current_state = ?
       AND dw.created_by_user_id = ?

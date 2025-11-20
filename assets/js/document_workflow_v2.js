@@ -507,6 +507,13 @@ class DocumentWorkflowManager {
                 tenant_id: this.getCurrentTenantId() || null  // BUG-087 FIX: Pass current folder tenant_id
             };
 
+            // BUG-090 DEBUG: Log exact request being sent
+            console.log('[WorkflowManager] executeAction:', {
+                action: this.currentAction,
+                endpoint: endpoint,
+                body: body
+            });
+
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
@@ -518,6 +525,14 @@ class DocumentWorkflowManager {
             });
 
             const data = await response.json();
+
+            // BUG-090 DEBUG: Log response
+            console.log('[WorkflowManager] Response:', {
+                status: response.status,
+                success: data.success,
+                message: data.message,
+                error: data.error
+            });
 
             if (data.success) {
                 this.showToast(data.message || 'Azione completata con successo', 'success');
@@ -1761,15 +1776,24 @@ class DocumentWorkflowManager {
      * Show toast notification
      */
     showToast(message, type = 'info') {
+        const allowedTypes = ['success', 'error', 'info', 'warning'];
+        const toastType = allowedTypes.includes(type) ? type : 'info';
+        const colors = {
+            success: '#10b981',
+            error: '#ef4444',
+            warning: '#f59e0b',
+            info: '#3b82f6'
+        };
+
         const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
+        toast.className = `workflow-toast workflow-toast-${toastType}`;
         toast.textContent = message;
         toast.style.cssText = `
             position: fixed;
             top: 20px;
             right: 20px;
             padding: 12px 20px;
-            background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6'};
+            background: ${colors[toastType]};
             color: white;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);

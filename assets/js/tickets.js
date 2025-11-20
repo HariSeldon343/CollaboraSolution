@@ -494,6 +494,14 @@ class TicketManager {
         const deleteSection = document.getElementById('detail-delete-section');
 
         if (deleteSection) {
+            // BUG-102 FIX: SEMPRE resetta lo stato del pulsante delete prima di mostrare
+            const deleteBtn = document.getElementById('detail-delete-btn');
+            if (deleteBtn) {
+                deleteBtn.disabled = false;
+                deleteBtn.innerHTML = '<i class="icon icon--trash"></i> Elimina Ticket';
+            }
+
+            // Poi mostra/nascondi in base a permessi
             if (isSuperAdmin && isTicketClosed) {
                 deleteSection.style.display = 'block';
             } else {
@@ -809,12 +817,12 @@ class TicketManager {
                 alert(`✅ Ticket #${ticket.ticket_number} eliminato con successo!\n\nL'eliminazione è stata registrata nel log di sistema.`);
             } else {
                 this.showError(response.message || 'Errore nell\'eliminazione del ticket');
-                deleteBtn.disabled = false;
-                deleteBtn.innerHTML = originalText;
             }
         } catch (error) {
             console.error('[TicketManager] Error deleting ticket:', error);
             this.showError('Errore di connessione durante l\'eliminazione');
+        } finally {
+            // BUG-102 FIX: Garantisci reset button state in TUTTI i casi
             deleteBtn.disabled = false;
             deleteBtn.innerHTML = originalText;
         }
@@ -870,8 +878,11 @@ class TicketManager {
                     const data = await response.json();
 
                     if (data.success) {
-                        // API returns data directly as array, not nested in data.users
-                        this.state.users = data.data || [];
+                        // BUG-100 FIX: Handle both array and object response formats
+                        // After BUG-099 fix, API returns direct array (data.data)
+                        // Fallback to data.data.users for backward compatibility
+                        const usersData = data.data;
+                        this.state.users = Array.isArray(usersData) ? usersData : (usersData?.users || []);
                         console.log(`[TicketManager] Loaded ${this.state.users.length} users for assignment dropdown`);
                     } else {
                         throw new Error(data.error || data.message || 'Failed to load users');

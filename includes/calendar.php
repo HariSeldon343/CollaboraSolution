@@ -114,10 +114,11 @@ class Calendar {
         }
 
         try {
+            // BUG-105 FIX: Use ONLY positional parameters (?) to avoid PDO mixed parameters error
             // Query principale per eventi singoli e ricorrenti
             $sql = "SELECT e.*,
-                           u.name as creator_name,
-                           u.email as creator_email,
+                           u.name as organizer_name,
+                           u.email as organizer_email,
                            (SELECT GROUP_CONCAT(ep.user_id)
                             FROM event_participants ep
                             WHERE ep.event_id = e.id) as participants,
@@ -125,47 +126,66 @@ class Calendar {
                             FROM event_reminders er
                             WHERE er.event_id = e.id) as reminders
                     FROM events e
-                    LEFT JOIN users u ON e.created_by = u.id
-                    WHERE e.tenant_id = :tenant_id
+                    LEFT JOIN users u ON e.organizer_id = u.id
+                    WHERE e.tenant_id = ?
                       AND e.deleted_at IS NULL
                       AND (
                           -- Eventi singoli nell'intervallo
                           (e.recurrence_rule IS NULL AND
-                           e.start_date <= :end_date AND e.end_date >= :start_date)
+                           e.start_datetime <= ? AND e.end_datetime >= ?)
                           OR
                           -- Eventi ricorrenti attivi nell'intervallo
                           (e.recurrence_rule IS NOT NULL AND
-                           e.start_date <= :end_date AND
-                           (e.recurrence_end IS NULL OR e.recurrence_end >= :start_date))
+                           e.start_datetime <= ? AND
+                           (e.recurrence_end IS NULL OR e.recurrence_end >= ?))
                       )";
 
+            // Use positional parameters array (order matters!)
             $params = [
-                ':tenant_id' => $this->tenant_id,
-                ':start_date' => $start->format('Y-m-d H:i:s'),
-                ':end_date' => $end->format('Y-m-d H:i:s')
+                $this->tenant_id,                 // ? for tenant_id (1st)
+                $end->format('Y-m-d H:i:s'),      // ? for end_datetime (2nd)
+                $start->format('Y-m-d H:i:s'),    // ? for start_datetime (3rd)
+                $end->format('Y-m-d H:i:s'),      // ? for end_datetime recurrence (4th)
+                $start->format('Y-m-d H:i:s')     // ? for start_datetime recurrence (5th)
             ];
 
             // Applica filtri opzionali
             if ($filters) {
+                // BUG-105 FIX: Support calendar_id(s) filtering
+                if (isset($filters['calendar_ids']) && is_array($filters['calendar_ids']) && !empty($filters['calendar_ids'])) {
+                    // Multi-calendar filtering with IN clause
+                    $placeholders = implode(',', array_fill(0, count($filters['calendar_ids']), '?'));
+                    $sql .= " AND e.calendar_id IN ($placeholders)";
+                    // Add parameters to params array (append to existing params)
+                    foreach ($filters['calendar_ids'] as $calId) {
+                        $params[] = $calId;
+                    }
+                } elseif (isset($filters['calendar_id'])) {
+                    // Single calendar filtering (backward compatibility)
+                    $sql .= " AND e.calendar_id = ?";
+                    $params[] = $filters['calendar_id'];
+                }
+
                 if (isset($filters['user_id'])) {
-                    $sql .= " AND (e.created_by = :user_id OR
+                    $sql .= " AND (e.organizer_id = ? OR
                                    EXISTS (SELECT 1 FROM event_participants ep
-                                          WHERE ep.event_id = e.id AND ep.user_id = :user_id))";
-                    $params[':user_id'] = $filters['user_id'];
+                                          WHERE ep.event_id = e.id AND ep.user_id = ?))";
+                    $params[] = $filters['user_id'];
+                    $params[] = $filters['user_id'];  // Appears twice in EXISTS subquery
                 }
 
                 if (isset($filters['category'])) {
-                    $sql .= " AND e.category = :category";
-                    $params[':category'] = $filters['category'];
+                    $sql .= " AND e.category = ?";
+                    $params[] = $filters['category'];
                 }
 
                 if (isset($filters['location'])) {
-                    $sql .= " AND e.location = :location";
-                    $params[':location'] = $filters['location'];
+                    $sql .= " AND e.location = ?";
+                    $params[] = $filters['location'];
                 }
             }
 
-            $sql .= " ORDER BY e.start_date ASC";
+            $sql .= " ORDER BY e.start_datetime ASC";
 
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($params);
@@ -184,7 +204,7 @@ class Calendar {
 
             // Ordina per data inizio
             usort($expandedEvents, function($a, $b) {
-                return $a['start_date'] <=> $b['start_date'];
+                return $a['start_datetime'] <=> $b['start_datetime'];
             });
 
             // Cache risultati
@@ -214,8 +234,8 @@ class Calendar {
             // Controlla conflitti se richiesto
             if ($data['check_conflicts'] ?? true) {
                 $conflicts = $this->detectConflicts(
-                    new DateTime($data['start_date']),
-                    new DateTime($data['end_date']),
+                    new DateTime($data['start_datetime']),
+                    new DateTime($data['end_datetime']),
                     $data['participants'] ?? []
                 );
 
@@ -226,13 +246,13 @@ class Calendar {
 
             // Inserisci evento principale
             $sql = "INSERT INTO events (
-                        tenant_id, title, description, location, start_date, end_date,
+                        tenant_id, title, description, location, start_datetime, end_datetime,
                         all_day, category, color, recurrence_rule, recurrence_end,
-                        timezone, created_by, visibility, status, metadata
+                        timezone, organizer_id, visibility, status, metadata
                     ) VALUES (
-                        :tenant_id, :title, :description, :location, :start_date, :end_date,
+                        :tenant_id, :title, :description, :location, :start_datetime, :end_datetime,
                         :all_day, :category, :color, :recurrence_rule, :recurrence_end,
-                        :timezone, :created_by, :visibility, :status, :metadata
+                        :timezone, :organizer_id, :visibility, :status, :metadata
                     )";
 
             $stmt = $this->pdo->prepare($sql);
@@ -241,15 +261,15 @@ class Calendar {
                 ':title' => $data['title'],
                 ':description' => $data['description'] ?? null,
                 ':location' => $data['location'] ?? null,
-                ':start_date' => $data['start_date'],
-                ':end_date' => $data['end_date'],
+                ':start_datetime' => $data['start_datetime'],
+                ':end_datetime' => $data['end_datetime'],
                 ':all_day' => $data['all_day'] ?? false,
                 ':category' => $data['category'] ?? 'general',
                 ':color' => $data['color'] ?? '#3788d8',
                 ':recurrence_rule' => $data['recurrence_rule'] ?? null,
                 ':recurrence_end' => $data['recurrence_end'] ?? null,
                 ':timezone' => $data['timezone'] ?? date_default_timezone_get(),
-                ':created_by' => $this->user_id,
+                ':organizer_id' => $this->user_id,
                 ':visibility' => $data['visibility'] ?? 'private',
                 ':status' => $data['status'] ?? 'confirmed',
                 ':metadata' => isset($data['metadata']) ? json_encode($data['metadata']) : null
@@ -313,9 +333,9 @@ class Calendar {
             }
 
             // Controlla conflitti se date modificate
-            if (isset($data['start_date']) || isset($data['end_date'])) {
-                $startDate = new DateTime($data['start_date'] ?? $existingEvent['start_date']);
-                $endDate = new DateTime($data['end_date'] ?? $existingEvent['end_date']);
+            if (isset($data['start_datetime']) || isset($data['end_datetime'])) {
+                $startDate = new DateTime($data['start_datetime'] ?? $existingEvent['start_datetime']);
+                $endDate = new DateTime($data['end_datetime'] ?? $existingEvent['end_datetime']);
 
                 $conflicts = $this->detectConflicts($startDate, $endDate,
                     $data['participants'] ?? $existingEvent['participants']);
@@ -333,7 +353,7 @@ class Calendar {
             $params = [':id' => $id, ':tenant_id' => $this->tenant_id];
 
             $allowedFields = [
-                'title', 'description', 'location', 'start_date', 'end_date',
+                'title', 'description', 'location', 'start_datetime', 'end_datetime',
                 'all_day', 'category', 'color', 'recurrence_rule', 'recurrence_end',
                 'timezone', 'visibility', 'status', 'metadata'
             ];
@@ -409,11 +429,19 @@ class Calendar {
                     invited_at = NOW()";
 
             $stmt = $this->pdo->prepare($sql);
+            $invitedUsers = [];  // Track successfully invited users
 
             foreach ($userIds as $userId) {
                 // Valida esistenza utente
                 if (!$this->userExists($userId)) {
+                    error_log("[RBAC] User {$userId} does not exist, skipping invitation");
                     continue;
+                }
+
+                // RBAC validation - check if current user can invite this target user
+                if (!$this->canInviteUser($userId)) {
+                    error_log("[RBAC] User {$this->user_id} cannot invite user {$userId}, skipping (RBAC blocked)");
+                    continue;  // Skip this user - RBAC restriction
                 }
 
                 $stmt->execute([
@@ -421,12 +449,19 @@ class Calendar {
                     ':user_id' => $userId
                 ]);
 
+                $invitedUsers[] = $userId;  // Track successful invitation
+
                 // Crea notifica in-app
                 $this->createInAppNotification($userId, ['event_id' => $eventId], self::NOTIFICATION_INVITE);
             }
 
-            // Invia inviti email (asincrono)
-            $this->scheduleEmailInvitations($eventId, $userIds);
+            // Invia inviti email solo agli utenti effettivamente invitati
+            if (!empty($invitedUsers)) {
+                $this->scheduleEmailInvitations($eventId, $invitedUsers);
+                error_log("[RBAC] Successfully invited " . count($invitedUsers) . " users to event {$eventId}");
+            } else {
+                error_log("[RBAC] No users were invited to event {$eventId} (all blocked by RBAC or invalid)");
+            }
 
             return true;
 
@@ -541,8 +576,8 @@ class Calendar {
             foreach ($events as $event) {
                 if ($event['status'] !== 'cancelled') {
                     $busySlots[] = [
-                        'start' => new DateTime($event['start_date']),
-                        'end' => new DateTime($event['end_date'])
+                        'start' => new DateTime($event['start_datetime']),
+                        'end' => new DateTime($event['end_datetime'])
                     ];
                 }
             }
@@ -594,20 +629,20 @@ class Calendar {
 
         try {
             // Prepara query base
-            $sql = "SELECT e.*, u.name as creator_name
+            $sql = "SELECT e.*, u.name as organizer_name
                     FROM events e
-                    LEFT JOIN users u ON e.created_by = u.id
+                    LEFT JOIN users u ON e.organizer_id = u.id
                     WHERE e.tenant_id = :tenant_id
                       AND e.deleted_at IS NULL
                       AND e.status != 'cancelled'
                       AND (
-                          (e.start_date < :end_date AND e.end_date > :start_date)
+                          (e.start_datetime < :end_datetime AND e.end_datetime > :start_datetime)
                       )";
 
             $params = [
                 ':tenant_id' => $this->tenant_id,
-                ':start_date' => $start->format('Y-m-d H:i:s'),
-                ':end_date' => $end->format('Y-m-d H:i:s')
+                ':start_datetime' => $start->format('Y-m-d H:i:s'),
+                ':end_datetime' => $end->format('Y-m-d H:i:s')
             ];
 
             // Se ci sono partecipanti, controlla solo i loro conflitti
@@ -635,14 +670,14 @@ class Calendar {
                     foreach ($instances as $instance) {
                         if ($this->eventsOverlap(
                             $start, $end,
-                            new DateTime($instance['start_date']),
-                            new DateTime($instance['end_date'])
+                            new DateTime($instance['start_datetime']),
+                            new DateTime($instance['end_datetime'])
                         )) {
                             $conflicts[] = [
                                 'event_id' => $instance['id'],
                                 'title' => $instance['title'],
-                                'start' => $instance['start_date'],
-                                'end' => $instance['end_date'],
+                                'start' => $instance['start_datetime'],
+                                'end' => $instance['end_datetime'],
                                 'type' => 'time_conflict',
                                 'severity' => 'high'
                             ];
@@ -652,8 +687,8 @@ class Calendar {
                     $conflicts[] = [
                         'event_id' => $row['id'],
                         'title' => $row['title'],
-                        'start' => $row['start_date'],
-                        'end' => $row['end_date'],
+                        'start' => $row['start_datetime'],
+                        'end' => $row['end_datetime'],
                         'type' => 'time_conflict',
                         'severity' => 'high'
                     ];
@@ -764,8 +799,8 @@ class Calendar {
                     $newSlot = $this->findNextAvailableSlot($event);
                     if ($newSlot) {
                         return $this->updateEvent($eventId, [
-                            'start_date' => $newSlot['start']->format('Y-m-d H:i:s'),
-                            'end_date' => $newSlot['end']->format('Y-m-d H:i:s'),
+                            'start_datetime' => $newSlot['start']->format('Y-m-d H:i:s'),
+                            'end_datetime' => $newSlot['end']->format('Y-m-d H:i:s'),
                             'check_conflicts' => false
                         ]);
                     }
@@ -799,14 +834,14 @@ class Calendar {
                       AND er.resource_type = 'room'
                       AND e.deleted_at IS NULL
                       AND e.status != 'cancelled'
-                      AND e.start_date < :end_date
-                      AND e.end_date > :start_date";
+                      AND e.start_datetime < :end_datetime
+                      AND e.end_datetime > :start_datetime";
 
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute([
                 ':room_id' => $roomId,
-                ':start_date' => $start->format('Y-m-d H:i:s'),
-                ':end_date' => $end->format('Y-m-d H:i:s')
+                ':start_datetime' => $start->format('Y-m-d H:i:s'),
+                ':end_datetime' => $end->format('Y-m-d H:i:s')
             ]);
 
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -838,7 +873,7 @@ class Calendar {
                       AND ep.status IN ('accepted', 'tentative')
                       AND er.type = 'email'
                       AND er.sent_at IS NULL
-                      AND DATE_SUB(e.start_date, INTERVAL er.minutes_before MINUTE) <= NOW()";
+                      AND DATE_SUB(e.start_datetime, INTERVAL er.minutes_before MINUTE) <= NOW()";
 
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute([':tenant_id' => $this->tenant_id]);
@@ -951,14 +986,14 @@ class Calendar {
 
             $htmlMessage = "<h2>Sei stato invitato all'evento</h2>";
             $htmlMessage .= "<p><strong>Titolo:</strong> {$event['title']}</p>";
-            $htmlMessage .= "<p><strong>Data:</strong> " . date('d/m/Y H:i', strtotime($event['start_date'])) . "</p>";
+            $htmlMessage .= "<p><strong>Data:</strong> " . date('d/m/Y H:i', strtotime($event['start_datetime'])) . "</p>";
             $htmlMessage .= "<p><strong>Luogo:</strong> " . ($event['location'] ?? 'Da definire') . "</p>";
             $htmlMessage .= "<p><strong>Descrizione:</strong><br>" . nl2br(htmlspecialchars($event['description'])) . "</p>";
             $htmlMessage .= "<p>Accetta o rifiuta l'invito dal file iCal allegato.</p>";
 
             $textMessage = "Sei stato invitato all'evento:\n\n";
             $textMessage .= "Titolo: {$event['title']}\n";
-            $textMessage .= "Data: " . date('d/m/Y H:i', strtotime($event['start_date'])) . "\n";
+            $textMessage .= "Data: " . date('d/m/Y H:i', strtotime($event['start_datetime'])) . "\n";
             $textMessage .= "Luogo: " . ($event['location'] ?? 'Da definire') . "\n\n";
             $textMessage .= "Descrizione:\n{$event['description']}\n\n";
             $textMessage .= "Accetta o rifiuta l'invito dal tuo calendario.";
@@ -981,25 +1016,42 @@ class Calendar {
     }
 
     /**
-     * Invia notifica cancellazione
+     * Invia notifica cancellazione (in-app + email)
      */
     public function sendCancellation(array $event, array $participants): bool {
         try {
-            foreach ($participants as $userId) {
-                // Notifica in-app
-                $this->createInAppNotification($userId, $event, self::NOTIFICATION_CANCEL);
+            $sentCount = 0;
+            $failedCount = 0;
 
-                // Email cancellazione
+            foreach ($participants as $participant) {
+                $userId = is_array($participant) ? $participant['user_id'] : $participant;
+
+                // 1. IN-APP NOTIFICATION (già implementato)
+                $this->createInAppNotification(
+                    $userId,
+                    $event,
+                    self::NOTIFICATION_CANCEL
+                );
+
+                // 2. EMAIL NOTIFICATION (implementato ora)
                 $user = $this->getUserById($userId);
                 if ($user && $user['email']) {
-                    $this->sendCancellationEmail($event, $user);
+                    if ($this->sendCancellationEmail($event, $user)) {
+                        $sentCount++;
+                    } else {
+                        $failedCount++;
+                    }
+                } else {
+                    $failedCount++;
+                    error_log("[CALENDAR_EMAIL] User $userId not found or no email for cancellation");
                 }
             }
 
-            return true;
+            error_log("[CALENDAR_EMAIL] Cancellation emails sent: $sentCount, failed: $failedCount");
+            return true;  // Non-blocking, sempre ritorna true
 
         } catch (Exception $e) {
-            error_log("Errore sendCancellation: " . $e->getMessage());
+            error_log("[CALENDAR_EMAIL] Error in sendCancellation: " . $e->getMessage());
             return false;
         }
     }
@@ -1138,7 +1190,7 @@ class Calendar {
             }
 
             // Ordina per data
-            usort($allEvents, fn($a, $b) => $a['start_date'] <=> $b['start_date']);
+            usort($allEvents, fn($a, $b) => $a['start_datetime'] <=> $b['start_datetime']);
 
             // Aggrega statistiche
             $stats = [
@@ -1228,8 +1280,8 @@ class Calendar {
         $instances = [];
         $rules = $this->parseRecurrenceRule($event['recurrence_rule']);
 
-        $eventStart = new DateTime($event['start_date']);
-        $eventEnd = new DateTime($event['end_date']);
+        $eventStart = new DateTime($event['start_datetime']);
+        $eventEnd = new DateTime($event['end_datetime']);
         $duration = $eventStart->diff($eventEnd);
 
         // Determina fine ricorrenza
@@ -1256,8 +1308,8 @@ class Calendar {
                 if (!$this->isExceptionDate($event['id'], $current)) {
                     $instance = $event;
                     $instance['id'] = $event['id'] . '_' . $current->format('Ymd');
-                    $instance['start_date'] = $current->format('Y-m-d H:i:s');
-                    $instance['end_date'] = $instanceEnd->format('Y-m-d H:i:s');
+                    $instance['start_datetime'] = $current->format('Y-m-d H:i:s');
+                    $instance['end_datetime'] = $instanceEnd->format('Y-m-d H:i:s');
                     $instance['is_recurring_instance'] = true;
                     $instance['parent_event_id'] = $event['id'];
 
@@ -1320,31 +1372,41 @@ class Calendar {
      * Formatta evento per output
      */
     private function formatEvent(array $event): array {
+        $organizerInfo = [
+            'id' => $event['organizer_id'],
+            'name' => $event['organizer_name'] ?? null,
+            'email' => $event['organizer_email'] ?? null
+        ];
+
+        $metadataRaw = $event['metadata'] ?? null;
+
         return [
-            'id' => $event['id'],
-            'title' => $event['title'],
-            'description' => $event['description'],
-            'location' => $event['location'],
-            'start_date' => $event['start_date'],
-            'end_date' => $event['end_date'],
-            'all_day' => (bool) $event['all_day'],
-            'category' => $event['category'],
-            'color' => $event['color'],
-            'status' => $event['status'],
-            'visibility' => $event['visibility'],
-            'creator' => [
-                'id' => $event['created_by'],
-                'name' => $event['creator_name'] ?? null,
-                'email' => $event['creator_email'] ?? null
-            ],
-            'participants' => $event['participants'] ?
-                array_map('intval', explode(',', $event['participants'])) : [],
-            'reminders' => $event['reminders'] ?
-                $this->parseReminders($event['reminders']) : [],
+            'id' => $event['id'] ?? null,
+            'title' => $event['title'] ?? '',
+            'description' => $event['description'] ?? null,
+            'location' => $event['location'] ?? null,
+            'start_datetime' => $event['start_datetime'] ?? null,
+            'end_datetime' => $event['end_datetime'] ?? null,
+            'all_day' => (bool) ($event['all_day'] ?? false),
+            'category' => $event['category'] ?? 'general',
+            'color' => $event['color'] ?? '#3788d8',
+            'status' => $event['status'] ?? 'confirmed',
+            'visibility' => $event['visibility'] ?? 'private',
+            'organizer_id' => $event['organizer_id'] ?? null,
+            'organizer' => $organizerInfo,
+            // Backward compatibility: retain creator field pointing to organizer data
+            'creator' => $organizerInfo,
+            'participants' => !empty($event['participants'])
+                ? array_map('intval', explode(',', $event['participants']))
+                : [],
+            'reminders' => !empty($event['reminders'])
+                ? $this->parseReminders($event['reminders'])
+                : [],
             'is_recurring' => !empty($event['recurrence_rule']),
-            'recurrence_rule' => $event['recurrence_rule'],
-            'metadata' => $event['metadata'] ?
-                json_decode($event['metadata'], true) : null
+            'recurrence_rule' => $event['recurrence_rule'] ?? null,
+            'metadata' => $metadataRaw !== null && $metadataRaw !== ''
+                ? json_decode($metadataRaw, true)
+                : null
         ];
     }
 
@@ -1361,8 +1423,8 @@ class Calendar {
         foreach ($events as $event) {
             $ical .= "BEGIN:VEVENT\r\n";
             $ical .= "UID:" . md5($event['id'] . '@collaboranexio') . "\r\n";
-            $ical .= "DTSTART:" . date('Ymd\THis', strtotime($event['start_date'])) . "\r\n";
-            $ical .= "DTEND:" . date('Ymd\THis', strtotime($event['end_date'])) . "\r\n";
+            $ical .= "DTSTART:" . date('Ymd\THis', strtotime($event['start_datetime'])) . "\r\n";
+            $ical .= "DTEND:" . date('Ymd\THis', strtotime($event['end_datetime'])) . "\r\n";
             $ical .= "SUMMARY:" . $this->escapeICalText($event['title']) . "\r\n";
 
             if ($event['description']) {
@@ -1407,17 +1469,17 @@ class Calendar {
             throw new InvalidArgumentException('Titolo evento obbligatorio');
         }
 
-        if (empty($data['start_date'])) {
+        if (empty($data['start_datetime'])) {
             throw new InvalidArgumentException('Data inizio obbligatoria');
         }
 
-        if (empty($data['end_date'])) {
+        if (empty($data['end_datetime'])) {
             throw new InvalidArgumentException('Data fine obbligatoria');
         }
 
         // Valida date
-        $start = new DateTime($data['start_date']);
-        $end = new DateTime($data['end_date']);
+        $start = new DateTime($data['start_datetime']);
+        $end = new DateTime($data['end_datetime']);
 
         if ($end < $start) {
             throw new InvalidArgumentException('Data fine deve essere dopo data inizio');
@@ -1465,7 +1527,7 @@ class Calendar {
             return false;
         }
 
-        $sql = "SELECT created_by FROM events
+        $sql = "SELECT organizer_id FROM events
                 WHERE id = :id AND tenant_id = :tenant_id";
 
         $stmt = $this->pdo->prepare($sql);
@@ -1481,7 +1543,7 @@ class Calendar {
         }
 
         // Proprietario o admin
-        return $event['created_by'] == $this->user_id || $this->isAdmin();
+        return $event['organizer_id'] == $this->user_id || $this->isAdmin();
     }
 
     /**
@@ -1504,6 +1566,203 @@ class Calendar {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $user && in_array($user['role'], ['admin', 'super_admin']);
+    }
+
+    /**
+     * Get current user role from session
+     * @return string user|manager|admin|super_admin (defaults to 'user' if not found)
+     */
+    private function getCurrentUserRole(): string {
+        if (!$this->user_id) {
+            return 'user';
+        }
+
+        try {
+            $stmt = $this->pdo->prepare(
+                "SELECT role FROM users WHERE id = ? AND deleted_at IS NULL"
+            );
+            $stmt->execute([$this->user_id]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $user['role'] ?? 'user';
+        } catch (Exception $e) {
+            error_log("[RBAC] Error getCurrentUserRole: " . $e->getMessage());
+            return 'user';  // Fallback to least privileged
+        }
+    }
+
+    /**
+     * Check if current user can invite target user to event
+     *
+     * RBAC Rules:
+     * - User: Can invite users from same company + managers from same company
+     * - Manager: Can invite all users from company + admin + super_admin
+     * - Admin: Can invite users from assigned companies + super_admin
+     * - Super Admin: Can invite anyone
+     *
+     * @param int $targetUserId User to be invited
+     * @return bool True if can invite
+     */
+    public function canInviteUser(int $targetUserId): bool {
+        if (!$this->user_id) {
+            error_log("[RBAC] Cannot invite - no user_id in session");
+            return false;
+        }
+
+        try {
+            // Get target user info
+            $stmt = $this->pdo->prepare(
+                "SELECT id, role, tenant_id FROM users WHERE id = ? AND deleted_at IS NULL"
+            );
+            $stmt->execute([$targetUserId]);
+            $targetUser = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$targetUser) {
+                error_log("[RBAC] Target user {$targetUserId} not found");
+                return false;
+            }
+
+            // Get current user role
+            $currentUserRole = $this->getCurrentUserRole();
+
+            // Super Admin: Can invite ANYONE
+            if ($currentUserRole === 'super_admin') {
+                error_log("[RBAC] User {$this->user_id} (super_admin) CAN invite user {$targetUserId}");
+                return true;
+            }
+
+            // Admin: Can invite users from assigned companies + super_admin
+            if ($currentUserRole === 'admin') {
+                if ($targetUser['role'] === 'super_admin') {
+                    error_log("[RBAC] User {$this->user_id} (admin) CAN invite user {$targetUserId} (super_admin)");
+                    return true;
+                }
+
+                // Check if admin has access to target user's tenant
+                $stmt = $this->pdo->prepare(
+                    "SELECT COUNT(*) as cnt FROM user_tenant_access
+                     WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL"
+                );
+                $stmt->execute([$this->user_id, $targetUser['tenant_id']]);
+                $accessCheck = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                $hasAccess = $accessCheck && $accessCheck['cnt'] > 0;
+                error_log("[RBAC] User {$this->user_id} (admin) " . ($hasAccess ? "CAN" : "CANNOT") . " invite user {$targetUserId} (tenant access check)");
+                return $hasAccess;
+            }
+
+            // Manager: Can invite all from company + admin + super_admin
+            if ($currentUserRole === 'manager') {
+                if (in_array($targetUser['role'], ['admin', 'super_admin'])) {
+                    error_log("[RBAC] User {$this->user_id} (manager) CAN invite user {$targetUserId} ({$targetUser['role']})");
+                    return true;
+                }
+                // Same tenant check
+                $canInvite = $targetUser['tenant_id'] === $this->tenant_id;
+                error_log("[RBAC] User {$this->user_id} (manager) " . ($canInvite ? "CAN" : "CANNOT") . " invite user {$targetUserId} (same tenant: " . ($canInvite ? "yes" : "no") . ")");
+                return $canInvite;
+            }
+
+            // User (base): Can invite from same company + managers from same company
+            if ($currentUserRole === 'user') {
+                // Same tenant required
+                if ($targetUser['tenant_id'] !== $this->tenant_id) {
+                    error_log("[RBAC] User {$this->user_id} (user) CANNOT invite user {$targetUserId} (different tenant)");
+                    return false;
+                }
+                // Can invite other users OR managers from same company
+                $canInvite = in_array($targetUser['role'], ['user', 'manager']);
+                error_log("[RBAC] User {$this->user_id} (user) " . ($canInvite ? "CAN" : "CANNOT") . " invite user {$targetUserId} (role: {$targetUser['role']})");
+                return $canInvite;
+            }
+
+            error_log("[RBAC] User {$this->user_id} (unknown role: {$currentUserRole}) CANNOT invite user {$targetUserId}");
+            return false;
+
+        } catch (Exception $e) {
+            error_log("[RBAC] Error canInviteUser: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Get list of users that current user can invite to events
+     * Filtered by role-based permissions
+     *
+     * @param int|null $eventId Optional - exclude already invited users
+     * @return array List of invitable users [{id, name, email, role, tenant_id, company_name}]
+     */
+    public function getAvailableUsersForInvitation(?int $eventId = null): array {
+        if (!$this->user_id) {
+            error_log("[RBAC] Cannot get available users - no user_id in session");
+            return [];
+        }
+
+        try {
+            $currentUserRole = $this->getCurrentUserRole();
+            $users = [];
+
+            // Build query based on role
+            $sql = "SELECT u.id, u.name, u.email, u.role, u.tenant_id, t.name as company_name
+                    FROM users u
+                    LEFT JOIN tenants t ON u.tenant_id = t.id
+                    WHERE u.deleted_at IS NULL AND u.is_active = 1";
+
+            $params = [];
+
+            // Role-specific filtering
+            if ($currentUserRole === 'super_admin') {
+                // Super admin: ALL users
+                // No additional WHERE clause
+                error_log("[RBAC] Loading users for super_admin (all users)");
+            } elseif ($currentUserRole === 'admin') {
+                // Admin: Users from assigned companies OR super_admin
+                $sql .= " AND (u.role = 'super_admin' OR EXISTS (
+                            SELECT 1 FROM user_tenant_access uta
+                            WHERE uta.user_id = :current_user_id
+                              AND uta.tenant_id = u.tenant_id
+                              AND uta.deleted_at IS NULL
+                          ))";
+                $params[':current_user_id'] = $this->user_id;
+                error_log("[RBAC] Loading users for admin (assigned companies + super_admin)");
+            } elseif ($currentUserRole === 'manager') {
+                // Manager: Same company + admin + super_admin
+                $sql .= " AND (u.role IN ('admin', 'super_admin') OR u.tenant_id = :tenant_id)";
+                $params[':tenant_id'] = $this->tenant_id;
+                error_log("[RBAC] Loading users for manager (same company + admin/super_admin)");
+            } else {  // user
+                // User: Same company users + managers only
+                $sql .= " AND u.tenant_id = :tenant_id AND u.role IN ('user', 'manager')";
+                $params[':tenant_id'] = $this->tenant_id;
+                error_log("[RBAC] Loading users for user (same company users/managers)");
+            }
+
+            // Exclude already invited (if event_id provided)
+            if ($eventId !== null) {
+                $sql .= " AND u.id NOT IN (
+                            SELECT user_id FROM event_participants
+                            WHERE event_id = :event_id AND deleted_at IS NULL
+                          )";
+                $params[':event_id'] = $eventId;
+            }
+
+            // Exclude self
+            $sql .= " AND u.id != :user_id";
+            $params[':user_id'] = $this->user_id;
+
+            $sql .= " ORDER BY u.name ASC LIMIT 100";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+
+            $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            error_log("[RBAC] Found " . count($users) . " available users for invitation (role: {$currentUserRole})");
+
+            return $users;
+
+        } catch (Exception $e) {
+            error_log("[RBAC] Error getAvailableUsersForInvitation: " . $e->getMessage());
+            return [];
+        }
     }
 
     /**
@@ -1584,5 +1843,321 @@ class Calendar {
         DateTime $start2, DateTime $end2
     ): bool {
         return $start1 < $end2 && $end1 > $start2;
+    }
+
+    // ========================================
+    // EMAIL NOTIFICATION METHODS
+    // ========================================
+
+    /**
+     * Recupera dati utente per email notifications
+     * @param int $userId User ID
+     * @return array|null ['id', 'name', 'email'] o null se non trovato
+     */
+    private function getUserById(int $userId): ?array {
+        $sql = "SELECT id, name, email
+                FROM users
+                WHERE id = :id
+                AND tenant_id = :tenant_id
+                AND deleted_at IS NULL";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':id' => $userId,
+            ':tenant_id' => $this->tenant_id
+        ]);
+
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $user ?: null;
+    }
+
+    /**
+     * Formatta data evento per email (es. "15 Nov 2024, 10:00-11:00 UTC")
+     * @param array $event Evento con start_datetime, end_datetime, all_day, timezone
+     * @return string Data formattata in italiano
+     */
+    private function formatEventDate(array $event): string {
+        try {
+            $start = new DateTime($event['start_datetime']);
+            $end = new DateTime($event['end_datetime']);
+
+            // Mesi italiani
+            $months = [
+                1 => 'Gen', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr',
+                5 => 'Mag', 6 => 'Giu', 7 => 'Lug', 8 => 'Ago',
+                9 => 'Set', 10 => 'Ott', 11 => 'Nov', 12 => 'Dic'
+            ];
+
+            if (!empty($event['all_day'])) {
+                // Evento tutto il giorno
+                if ($start->format('Y-m-d') === $end->format('Y-m-d')) {
+                    return $start->format('d') . ' ' . $months[(int)$start->format('n')] . ' ' . $start->format('Y');
+                } else {
+                    return $start->format('d') . ' ' . $months[(int)$start->format('n')] . ' ' . $start->format('Y') .
+                           ' - ' . $end->format('d') . ' ' . $months[(int)$end->format('n')] . ' ' . $end->format('Y');
+                }
+            }
+
+            $timezone = $event['timezone'] ?? 'UTC';
+
+            if ($start->format('Y-m-d') === $end->format('Y-m-d')) {
+                // Stesso giorno
+                return $start->format('d') . ' ' . $months[(int)$start->format('n')] . ' ' . $start->format('Y') .
+                       ', ' . $start->format('H:i') . ' - ' . $end->format('H:i') . ' ' . $timezone;
+            } else {
+                // Multi-giorno
+                return $start->format('d') . ' ' . $months[(int)$start->format('n')] . ' ' . $start->format('Y, H:i') .
+                       ' - ' . $end->format('d') . ' ' . $months[(int)$end->format('n')] . ' ' . $end->format('Y, H:i') .
+                       ' ' . $timezone;
+            }
+        } catch (Exception $e) {
+            error_log("[CALENDAR] Error formatting date: " . $e->getMessage());
+            return ($event['start_datetime'] ?? 'Unknown') . ' to ' . ($event['end_datetime'] ?? 'Unknown');
+        }
+    }
+
+    /**
+     * Invia email di cancellazione evento
+     * @param array $event Dati evento
+     * @param array $user Dati utente destinatario
+     * @return bool True se inviata con successo
+     */
+    private function sendCancellationEmail(array $event, array $user): bool {
+        try {
+            $templatePath = __DIR__ . '/email_templates/calendar/event_deleted.html';
+            if (!file_exists($templatePath)) {
+                error_log("[CALENDAR_EMAIL] Template missing: $templatePath");
+                return false;
+            }
+
+            $template = file_get_contents($templatePath);
+            $baseUrl = defined('BASE_URL') ? BASE_URL : 'http://localhost:8888/CollaboraNexio';
+
+            // Recupera nome organizzatore
+            $organizer = $this->getUserById($event['organizer_id']);
+            $organizerName = $organizer ? $organizer['name'] : 'Unknown';
+
+            $replacements = [
+                '{{EVENT_TITLE}}' => htmlspecialchars($event['title'] ?? 'Evento'),
+                '{{EVENT_DATE}}' => $this->formatEventDate($event),
+                '{{EVENT_LOCATION}}' => htmlspecialchars($event['location'] ?? 'Non specificato'),
+                '{{EVENT_DESCRIPTION}}' => htmlspecialchars($event['description'] ?? 'Nessuna descrizione'),
+                '{{ORGANIZER_NAME}}' => htmlspecialchars($organizerName),
+                '{{PARTICIPANT_NAME}}' => htmlspecialchars($user['name']),
+                '{{BASE_URL}}' => $baseUrl
+            ];
+
+            $htmlBody = str_replace(array_keys($replacements), array_values($replacements), $template);
+
+            return sendEmail($user['email'], 'Evento Cancellato: ' . $event['title'], $htmlBody);
+
+        } catch (Exception $e) {
+            error_log("[CALENDAR_EMAIL] Error in sendCancellationEmail: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Invia inviti email ai partecipanti
+     * @param int $eventId ID evento
+     * @param array $userIds Array di user IDs da invitare
+     * @return bool True se tutti gli inviti sono stati inviati
+     */
+    public function scheduleEmailInvitations(int $eventId, array $userIds): bool {
+        try {
+            $event = $this->getEventById($eventId);
+            if (!$event) {
+                error_log("[CALENDAR_EMAIL] Event $eventId not found");
+                return false;
+            }
+
+            $templatePath = __DIR__ . '/email_templates/calendar/event_invitation.html';
+            if (!file_exists($templatePath)) {
+                error_log("[CALENDAR_EMAIL] Template missing: $templatePath");
+                return false;
+            }
+
+            $template = file_get_contents($templatePath);
+            $baseUrl = defined('BASE_URL') ? BASE_URL : 'http://localhost:8888/CollaboraNexio';
+
+            // Recupera nome organizzatore
+            $organizer = $this->getUserById($event['organizer_id']);
+            $organizerName = $organizer ? $organizer['name'] : 'Unknown';
+
+            $sentCount = 0;
+            $failedCount = 0;
+
+            foreach ($userIds as $userId) {
+                $user = $this->getUserById($userId);
+                if (!$user || !$user['email']) {
+                    $failedCount++;
+                    error_log("[CALENDAR_EMAIL] User $userId not found or no email");
+                    continue;
+                }
+
+                $replacements = [
+                    '{{EVENT_TITLE}}' => htmlspecialchars($event['title'] ?? 'Evento'),
+                    '{{EVENT_DATE}}' => $this->formatEventDate($event),
+                    '{{EVENT_LOCATION}}' => htmlspecialchars($event['location'] ?? 'Non specificato'),
+                    '{{EVENT_DESCRIPTION}}' => htmlspecialchars($event['description'] ?? 'Nessuna descrizione'),
+                    '{{ORGANIZER_NAME}}' => htmlspecialchars($organizerName),
+                    '{{PARTICIPANT_NAME}}' => htmlspecialchars($user['name']),
+                    '{{RESPOND_URL}}' => $baseUrl . '/calendar.php?event=' . $eventId,
+                    '{{BASE_URL}}' => $baseUrl
+                ];
+
+                $htmlBody = str_replace(array_keys($replacements), array_values($replacements), $template);
+
+                if (sendEmail($user['email'], 'Invito Evento: ' . $event['title'], $htmlBody)) {
+                    $sentCount++;
+                } else {
+                    $failedCount++;
+                    error_log("[CALENDAR_EMAIL] Failed to send invitation to " . $user['email']);
+                }
+            }
+
+            error_log("[CALENDAR_EMAIL] Invitations sent: $sentCount, failed: $failedCount for event $eventId");
+
+            return $failedCount == 0;
+
+        } catch (Exception $e) {
+            error_log("[CALENDAR_EMAIL] Error in scheduleEmailInvitations: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Invia notifiche email per eventi (update/reminder)
+     * @param int $eventId ID evento
+     * @param string $type Tipo notifica (self::NOTIFICATION_UPDATE, self::NOTIFICATION_REMINDER)
+     * @return bool True se notifiche inviate con successo
+     */
+    public function scheduleNotifications(int $eventId, string $type): bool {
+        try {
+            $event = $this->getEventById($eventId);
+            if (!$event) {
+                error_log("[CALENDAR_EMAIL] Event $eventId not found for notification $type");
+                return false;
+            }
+
+            // Determina template in base al tipo
+            $templateFile = '';
+            $subject = '';
+
+            switch ($type) {
+                case self::NOTIFICATION_UPDATE:
+                    $templateFile = 'event_updated.html';
+                    $subject = 'Evento Modificato: ' . $event['title'];
+                    break;
+
+                case self::NOTIFICATION_REMINDER:
+                    $templateFile = 'event_reminder.html';
+                    $subject = 'Promemoria Evento: ' . $event['title'];
+                    break;
+
+                case self::NOTIFICATION_INVITE:
+                    $templateFile = 'event_invitation.html';
+                    $subject = 'Invito Evento: ' . $event['title'];
+                    break;
+
+                default:
+                    error_log("[CALENDAR_EMAIL] Unknown notification type: $type");
+                    return false;
+            }
+
+            $templatePath = __DIR__ . '/email_templates/calendar/' . $templateFile;
+            if (!file_exists($templatePath)) {
+                error_log("[CALENDAR_EMAIL] Template missing: $templatePath");
+                return false;
+            }
+
+            $template = file_get_contents($templatePath);
+            $baseUrl = defined('BASE_URL') ? BASE_URL : 'http://localhost:8888/CollaboraNexio';
+
+            // Recupera partecipanti
+            $sql = "SELECT user_id FROM event_participants
+                    WHERE event_id = :event_id
+                    AND tenant_id = :tenant_id
+                    AND deleted_at IS NULL";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                ':event_id' => $eventId,
+                ':tenant_id' => $this->tenant_id
+            ]);
+
+            $participants = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            if (empty($participants)) {
+                error_log("[CALENDAR_EMAIL] No participants found for event $eventId");
+                return true; // Non è un errore se non ci sono partecipanti
+            }
+
+            // Recupera nome organizzatore
+            $organizer = $this->getUserById($event['organizer_id']);
+            $organizerName = $organizer ? $organizer['name'] : 'Unknown';
+
+            $sentCount = 0;
+            $failedCount = 0;
+
+            foreach ($participants as $userId) {
+                $user = $this->getUserById($userId);
+                if (!$user || !$user['email']) {
+                    $failedCount++;
+                    error_log("[CALENDAR_EMAIL] User $userId not found or no email");
+                    continue;
+                }
+
+                // Calcola tempo al reminder (per reminder type)
+                $reminderTime = '';
+                if ($type === self::NOTIFICATION_REMINDER) {
+                    try {
+                        $now = new DateTime();
+                        $start = new DateTime($event['start_datetime']);
+                        $diff = $now->diff($start);
+
+                        if ($diff->days > 0) {
+                            $reminderTime = "L'evento inizia tra " . $diff->days . " giorni";
+                        } else if ($diff->h > 0) {
+                            $reminderTime = "L'evento inizia tra " . $diff->h . " ore";
+                        } else {
+                            $reminderTime = "L'evento inizia tra " . $diff->i . " minuti";
+                        }
+                    } catch (Exception $e) {
+                        $reminderTime = "L'evento sta per iniziare";
+                    }
+                }
+
+                $replacements = [
+                    '{{EVENT_TITLE}}' => htmlspecialchars($event['title'] ?? 'Evento'),
+                    '{{EVENT_DATE}}' => $this->formatEventDate($event),
+                    '{{EVENT_LOCATION}}' => htmlspecialchars($event['location'] ?? 'Non specificato'),
+                    '{{EVENT_DESCRIPTION}}' => htmlspecialchars($event['description'] ?? 'Nessuna descrizione'),
+                    '{{ORGANIZER_NAME}}' => htmlspecialchars($organizerName),
+                    '{{PARTICIPANT_NAME}}' => htmlspecialchars($user['name']),
+                    '{{RESPOND_URL}}' => $baseUrl . '/calendar.php?event=' . $eventId,
+                    '{{BASE_URL}}' => $baseUrl,
+                    '{{CHANGE_SUMMARY}}' => 'L\'evento è stato aggiornato. Verifica i nuovi dettagli.',
+                    '{{REMINDER_TIME}}' => $reminderTime
+                ];
+
+                $htmlBody = str_replace(array_keys($replacements), array_values($replacements), $template);
+
+                if (sendEmail($user['email'], $subject, $htmlBody)) {
+                    $sentCount++;
+                } else {
+                    $failedCount++;
+                    error_log("[CALENDAR_EMAIL] Failed to send $type notification to " . $user['email']);
+                }
+            }
+
+            error_log("[CALENDAR_EMAIL] Notifications ($type) sent: $sentCount, failed: $failedCount for event $eventId");
+
+            return $failedCount == 0;
+
+        } catch (Exception $e) {
+            error_log("[CALENDAR_EMAIL] Error in scheduleNotifications: " . $e->getMessage());
+            return false;
+        }
     }
 }

@@ -118,14 +118,31 @@ try {
     // VALIDATION - File exists and user is creator
     // ============================================
 
-    $file = $db->fetchOne(
-        "SELECT id, name AS file_name, created_by AS uploaded_by, folder_id
-         FROM files
-         WHERE id = ?
-           AND tenant_id = ?
-           AND deleted_at IS NULL",
-        [$fileId, $tenantId]
-    );
+    // BUG-089 FIX: Super admin can access files across tenants
+    // BUG-090 FIX: Column name is 'uploaded_by' not 'created_by'
+    if ($userRole === 'super_admin') {
+        $file = $db->fetchOne(
+            "SELECT id, name AS file_name, uploaded_by, folder_id, tenant_id
+             FROM files
+             WHERE id = ?
+               AND (deleted_at IS NULL OR deleted_at = '')",
+            [$fileId]
+        );
+
+        if ($file !== false) {
+            // Use file's actual tenant, not session tenant
+            $tenantId = $file['tenant_id'];
+        }
+    } else {
+        $file = $db->fetchOne(
+            "SELECT id, name AS file_name, uploaded_by, folder_id, tenant_id
+             FROM files
+             WHERE id = ?
+               AND tenant_id = ?
+               AND (deleted_at IS NULL OR deleted_at = '')",
+            [$fileId, $tenantId]
+        );
+    }
 
     if ($file === false) {
         throw new Exception('File non trovato nel tenant corrente.');
@@ -327,8 +344,8 @@ try {
                 ]
             ];
 
-            // Send email (non-blocking)
-            sendWorkflowEmail($emailData);
+            // BUG-091 FIX: Commented out - use WorkflowEmailNotifier instead (already implemented)
+            // sendWorkflowEmail($emailData);
         }
     } catch (Exception $e) {
         error_log("[EMAIL] Failed to send workflow notification: " . $e->getMessage());
@@ -476,15 +493,15 @@ function sendWorkflowEmail(array $data): bool {
             }
         }
 
-        // Use existing mailer
+        // BUG-091 FIX: Use correct sendEmail() function (not EmailSender class)
         require_once __DIR__ . '/../../../includes/mailer.php';
 
-        $emailSender = new EmailSender();
-        return $emailSender->send(
+        return sendEmail(
             $data['to'],
-            $data['to_name'],
             $data['subject'],
-            $emailContent
+            $emailContent,
+            '', // Text body optional
+            ['context' => ['action' => 'workflow_submit', 'file_id' => $data['file_id'] ?? null]]
         );
 
     } catch (Exception $e) {

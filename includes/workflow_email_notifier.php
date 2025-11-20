@@ -16,6 +16,20 @@ require_once __DIR__ . '/audit_helper.php';
 class WorkflowEmailNotifier {
 
     /**
+     * Cached tenant names to avoid repeated lookups.
+     *
+     * @var array<int,string>
+     */
+    private static array $tenantNameCache = [];
+
+    /**
+     * Preferred tenant name columns ordered by availability.
+     *
+     * @var array<int,string>|null
+     */
+    private static ?array $tenantNameColumns = null;
+
+    /**
      * Send notification when document is submitted for validation
      *
      * @param int $fileId File ID
@@ -29,12 +43,15 @@ class WorkflowEmailNotifier {
 
             // Get file details
             $file = $db->fetchOne(
-                "SELECT f.*, u.name as creator_name, u.email as creator_email,
-                        t.name as tenant_name
+                "SELECT f.id,
+                        f.name,
+                        f.tenant_id,
+                        f.uploaded_by AS creator_id,
+                        u.name AS creator_name,
+                        u.email AS creator_email
                  FROM files f
-                 JOIN users u ON u.id = f.created_by
-                 JOIN tenants t ON t.id = f.tenant_id
-                 WHERE f.id = ? AND f.tenant_id = ? AND f.deleted_at IS NULL",
+                 JOIN users u ON u.id = f.uploaded_by AND u.deleted_at IS NULL
+                 WHERE f.id = ? AND f.tenant_id = ? AND (f.deleted_at IS NULL OR f.deleted_at = '')",
                 [$fileId, $tenantId]
             );
 
@@ -42,6 +59,8 @@ class WorkflowEmailNotifier {
                 error_log("[WORKFLOW_EMAIL] File not found: ID=$fileId");
                 return false;
             }
+
+            $tenantName = self::getTenantName((int)$file['tenant_id']);
 
             // Get all validators for tenant
             $validators = $db->fetchAll(
@@ -77,7 +96,7 @@ class WorkflowEmailNotifier {
                 '{{CREATOR_NAME}}' => htmlspecialchars($file['creator_name']),
                 '{{SUBMISSION_DATE}}' => date('d/m/Y H:i'),
                 '{{DOCUMENT_URL}}' => $documentUrl,
-                '{{TENANT_NAME}}' => htmlspecialchars($file['tenant_name']),
+                '{{TENANT_NAME}}' => htmlspecialchars($tenantName),
                 '{{BASE_URL}}' => $baseUrl,
                 '{{YEAR}}' => date('Y')
             ];
@@ -144,7 +163,9 @@ class WorkflowEmailNotifier {
 
             // Get file info
             $file = $db->fetchOne(
-                "SELECT id, name, created_by FROM files WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL",
+                "SELECT id, name, uploaded_by AS creator_id, tenant_id
+                 FROM files
+                 WHERE id = ? AND tenant_id = ? AND (deleted_at IS NULL OR deleted_at = '')",
                 [$fileId, $tenantId]
             );
 
@@ -155,7 +176,7 @@ class WorkflowEmailNotifier {
 
             // Get creator info
             $creator = $db->fetchOne(
-                "SELECT id, name, email FROM users WHERE id = ? AND deleted_at IS NULL",
+                "SELECT id, name, email FROM users WHERE id = ? AND (deleted_at IS NULL OR deleted_at = '')",
                 [$creatorId]
             );
 
@@ -171,11 +192,7 @@ class WorkflowEmailNotifier {
                 [$tenantId]
             );
 
-            // Get tenant info
-            $tenant = $db->fetchOne(
-                "SELECT id, ragione_sociale FROM tenants WHERE id = ? AND deleted_at IS NULL",
-                [$tenantId]
-            );
+            $tenantName = self::getTenantName($tenantId);
 
             // Load template
             $templatePath = __DIR__ . '/email_templates/workflow/document_created.html';
@@ -202,7 +219,7 @@ class WorkflowEmailNotifier {
                      htmlspecialchars($creator['name']),
                      $creationDate,
                      $documentUrl,
-                     htmlspecialchars($tenant['ragione_sociale']),
+                     htmlspecialchars($tenantName),
                      $baseUrl,
                      date('Y')],
                     $template
@@ -233,7 +250,7 @@ class WorkflowEmailNotifier {
                      htmlspecialchars($creator['name']),
                      $creationDate,
                      $documentUrl,
-                     htmlspecialchars($tenant['ragione_sociale']),
+                     htmlspecialchars($tenantName),
                      $baseUrl,
                      date('Y')],
                     $template
@@ -290,15 +307,19 @@ class WorkflowEmailNotifier {
 
             // Get file and validator details
             $file = $db->fetchOne(
-                "SELECT f.*,
-                        creator.name as creator_name, creator.email as creator_email,
-                        validator.name as validator_name,
-                        t.name as tenant_name
+                "SELECT f.id,
+                        f.name,
+                        f.tenant_id,
+                        f.uploaded_by AS creator_id,
+                        creator.name as creator_name,
+                        creator.email as creator_email,
+                        validator.name as validator_name
                  FROM files f
-                 JOIN users creator ON creator.id = f.created_by
+                 JOIN users creator ON creator.id = f.uploaded_by AND (creator.deleted_at IS NULL OR creator.deleted_at = '')
                  JOIN users validator ON validator.id = ?
-                 JOIN tenants t ON t.id = f.tenant_id
-                 WHERE f.id = ? AND f.tenant_id = ? AND f.deleted_at IS NULL",
+                 WHERE f.id = ?
+                   AND f.tenant_id = ?
+                   AND (f.deleted_at IS NULL OR f.deleted_at = '')",
                 [$validatorId, $fileId, $tenantId]
             );
 
@@ -306,6 +327,8 @@ class WorkflowEmailNotifier {
                 error_log("[WORKFLOW_EMAIL] File not found: ID=$fileId");
                 return false;
             }
+
+            $tenantName = self::getTenantName((int)$file['tenant_id']);
 
             // Get all approvers for tenant
             $approvers = $db->fetchAll(
@@ -341,7 +364,7 @@ class WorkflowEmailNotifier {
                 '{{VALIDATOR_NAME}}' => htmlspecialchars($file['validator_name']),
                 '{{VALIDATION_DATE}}' => date('d/m/Y H:i'),
                 '{{DOCUMENT_URL}}' => $documentUrl,
-                '{{TENANT_NAME}}' => htmlspecialchars($file['tenant_name']),
+                '{{TENANT_NAME}}' => htmlspecialchars($tenantName),
                 '{{BASE_URL}}' => $baseUrl,
                 '{{YEAR}}' => date('Y')
             ];
@@ -397,11 +420,11 @@ class WorkflowEmailNotifier {
             );
 
             $context = [
-                'action' => 'workflow_document_validated_fyi',
-                'tenant_id' => $tenantId,
-                'user_id' => $file['created_by'],
-                'file_id' => $fileId
-            ];
+                    'action' => 'workflow_document_validated_fyi',
+                    'tenant_id' => $tenantId,
+                    'user_id' => $file['creator_id'],
+                    'file_id' => $fileId
+                ];
 
             sendEmail($file['creator_email'], $creatorSubject, $htmlBody, '', ['context' => $context]);
 
@@ -428,15 +451,19 @@ class WorkflowEmailNotifier {
 
             // Get file and approver details
             $file = $db->fetchOne(
-                "SELECT f.*,
-                        creator.name as creator_name, creator.email as creator_email,
-                        approver.name as approver_name,
-                        t.name as tenant_name
+                "SELECT f.id,
+                        f.name,
+                        f.tenant_id,
+                        f.uploaded_by AS creator_id,
+                        creator.name as creator_name,
+                        creator.email as creator_email,
+                        approver.name as approver_name
                  FROM files f
-                 JOIN users creator ON creator.id = f.created_by
+                 JOIN users creator ON creator.id = f.uploaded_by AND (creator.deleted_at IS NULL OR creator.deleted_at = '')
                  JOIN users approver ON approver.id = ?
-                 JOIN tenants t ON t.id = f.tenant_id
-                 WHERE f.id = ? AND f.tenant_id = ? AND f.deleted_at IS NULL",
+                 WHERE f.id = ?
+                   AND f.tenant_id = ?
+                   AND (f.deleted_at IS NULL OR f.deleted_at = '')",
                 [$approverId, $fileId, $tenantId]
             );
 
@@ -444,6 +471,8 @@ class WorkflowEmailNotifier {
                 error_log("[WORKFLOW_EMAIL] File not found: ID=$fileId");
                 return false;
             }
+
+            $tenantName = self::getTenantName((int)$file['tenant_id']);
 
             // Get all validators and approvers for notification
             $stakeholders = $db->fetchAll(
@@ -456,7 +485,7 @@ class WorkflowEmailNotifier {
                  AND u.deleted_at IS NULL
                  UNION
                  SELECT id, name, email FROM users WHERE id = ?",
-                [$tenantId, $file['created_by']]
+                [$tenantId, $file['creator_id']]
             );
 
             // Load template
@@ -476,7 +505,7 @@ class WorkflowEmailNotifier {
                 '{{APPROVER_NAME}}' => htmlspecialchars($file['approver_name']),
                 '{{APPROVAL_DATE}}' => date('d/m/Y H:i'),
                 '{{DOCUMENT_URL}}' => $documentUrl,
-                '{{TENANT_NAME}}' => htmlspecialchars($file['tenant_name']),
+                '{{TENANT_NAME}}' => htmlspecialchars($tenantName),
                 '{{BASE_URL}}' => $baseUrl,
                 '{{YEAR}}' => date('Y')
             ];
@@ -542,15 +571,20 @@ class WorkflowEmailNotifier {
 
             // Get file and rejector details
             $file = $db->fetchOne(
-                "SELECT f.*,
-                        creator.name as creator_name, creator.email as creator_email,
-                        rejector.name as rejector_name, rejector.email as rejector_email,
-                        t.name as tenant_name
+                "SELECT f.id,
+                        f.name,
+                        f.tenant_id,
+                        f.uploaded_by AS creator_id,
+                        creator.name as creator_name,
+                        creator.email as creator_email,
+                        rejector.name as rejector_name,
+                        rejector.email as rejector_email
                  FROM files f
-                 JOIN users creator ON creator.id = f.created_by
+                 JOIN users creator ON creator.id = f.uploaded_by AND (creator.deleted_at IS NULL OR creator.deleted_at = '')
                  JOIN users rejector ON rejector.id = ?
-                 JOIN tenants t ON t.id = f.tenant_id
-                 WHERE f.id = ? AND f.tenant_id = ? AND f.deleted_at IS NULL",
+                 WHERE f.id = ?
+                   AND f.tenant_id = ?
+                   AND (f.deleted_at IS NULL OR f.deleted_at = '')",
                 [$rejectorId, $fileId, $tenantId]
             );
 
@@ -558,6 +592,8 @@ class WorkflowEmailNotifier {
                 error_log("[WORKFLOW_EMAIL] File not found: ID=$fileId");
                 return false;
             }
+
+            $tenantName = self::getTenantName((int)$file['tenant_id']);
 
             // Determine template and recipients based on current state
             $recipients = [];
@@ -570,7 +606,7 @@ class WorkflowEmailNotifier {
                 $subject = "Documento rifiutato: " . $file['name'];
 
                 $recipients[] = [
-                    'id' => $file['created_by'],
+                    'id' => $file['creator_id'],
                     'name' => $file['creator_name'],
                     'email' => $file['creator_email']
                 ];
@@ -582,7 +618,7 @@ class WorkflowEmailNotifier {
 
                 // Add creator
                 $recipients[] = [
-                    'id' => $file['created_by'],
+                    'id' => $file['creator_id'],
                     'name' => $file['creator_name'],
                     'email' => $file['creator_email']
                 ];
@@ -622,7 +658,7 @@ class WorkflowEmailNotifier {
                 '{{REJECTION_DATE}}' => date('d/m/Y H:i'),
                 '{{REJECTION_REASON}}' => htmlspecialchars($comment),
                 '{{DOCUMENT_URL}}' => $documentUrl,
-                '{{TENANT_NAME}}' => htmlspecialchars($file['tenant_name']),
+                '{{TENANT_NAME}}' => htmlspecialchars($tenantName),
                 '{{BASE_URL}}' => $baseUrl,
                 '{{YEAR}}' => date('Y'),
                 '{{REJECTOR_ROLE}}' => $currentState === 'in_validazione' ? 'validatore' : 'approvatore'
@@ -917,5 +953,82 @@ class WorkflowEmailNotifier {
             error_log("[WORKFLOW_EMAIL] Error in notifyAssignmentExpiring: " . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Resolve tenant display name with graceful fallback.
+     *
+     * @param int $tenantId
+     * @return string
+     */
+    private static function getTenantName(int $tenantId): string {
+        if (isset(self::$tenantNameCache[$tenantId])) {
+            return self::$tenantNameCache[$tenantId];
+        }
+
+        $db = Database::getInstance();
+
+        if (self::$tenantNameColumns === null) {
+            self::$tenantNameColumns = self::detectTenantNameColumns();
+        }
+
+        foreach (self::$tenantNameColumns as $column) {
+            try {
+                $tenant = $db->fetchOne(
+                    "SELECT `$column` as tenant_name FROM tenants WHERE id = ? LIMIT 1",
+                    [$tenantId]
+                );
+            } catch (Exception $e) {
+                error_log("[WORKFLOW_EMAIL] Failed to read tenant column `$column`: " . $e->getMessage());
+                $tenant = false;
+            }
+
+            if ($tenant && !empty($tenant['tenant_name'])) {
+                self::$tenantNameCache[$tenantId] = $tenant['tenant_name'];
+                return self::$tenantNameCache[$tenantId];
+            }
+        }
+
+        $fallback = sprintf('Tenant #%d', $tenantId);
+        self::$tenantNameCache[$tenantId] = $fallback;
+        return $fallback;
+    }
+
+    /**
+     * Detect available columns that can be used as tenant name.
+     *
+     * @return array<int,string>
+     */
+    private static function detectTenantNameColumns(): array {
+        $columns = [];
+        try {
+            $db = Database::getInstance();
+            $result = $db->fetchAll(
+                "SELECT COLUMN_NAME 
+                 FROM information_schema.columns 
+                 WHERE table_schema = DATABASE() 
+                   AND table_name = 'tenants'"
+            );
+
+            $available = array_map(
+                static fn($row) => strtolower($row['COLUMN_NAME'] ?? ''),
+                $result
+            );
+
+            if (in_array('ragione_sociale', $available, true)) {
+                $columns[] = 'ragione_sociale';
+            }
+            if (in_array('name', $available, true)) {
+                $columns[] = 'name';
+            }
+        } catch (Exception $e) {
+            error_log('[WORKFLOW_EMAIL] Unable to inspect tenant columns: ' . $e->getMessage());
+        }
+
+        if (empty($columns)) {
+            $columns[] = 'name';
+        }
+
+        return $columns;
     }
 }

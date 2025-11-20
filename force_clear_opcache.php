@@ -42,7 +42,8 @@ if (function_exists('opcache_get_status')) {
         $files_to_invalidate = [
             '/api/workflow/roles/list.php',
             '/api/workflow/roles/create.php',
-            '/api/documents/workflow/status.php'
+            '/api/documents/workflow/status.php',
+            '/api/documents/workflow/submit.php'
         ];
 
         foreach ($files_to_invalidate as $file) {

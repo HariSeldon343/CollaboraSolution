@@ -139,6 +139,7 @@ try {
     // GET CURRENT WORKFLOW STATE
     // ============================================
 
+    // BUG-094 FIX: Check for both NULL and empty string in deleted_at (soft delete pattern)
     $currentWorkflow = $db->fetchOne(
         "SELECT dw.*,
                 uc.name as creator_name,
@@ -148,7 +149,7 @@ try {
          LEFT JOIN users uh ON dw.current_handler_user_id = uh.id
          WHERE dw.file_id = ?
            AND dw.tenant_id = ?
-           AND dw.deleted_at IS NULL",
+           AND (dw.deleted_at IS NULL OR dw.deleted_at = '')",
         [$fileId, $tenantId]
     );
 
@@ -225,10 +226,11 @@ try {
 
         $formattedHistory[] = $formattedEntry;
 
+        // BUG-094 FIX: Use function directly, not $this-> (not in class context)
         // Build timeline entry
         $timeline[] = [
             'timestamp' => $entry['created_at'],
-            'event' => $this->buildTimelineEvent($entry),
+            'event' => buildTimelineEvent($entry),
             'type' => $entry['transition_type']
         ];
     }

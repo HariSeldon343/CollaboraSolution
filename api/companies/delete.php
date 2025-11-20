@@ -231,7 +231,7 @@ try {
         }
 
         // Delete other dependent data
-        $tablesToClean = ['tasks', 'calendar_events', 'chat_messages', 'chat_channels',
+        $tablesToClean = ['tasks', 'events', 'chat_messages', 'chat_channels',
                          'projects', 'notifications', 'audit_logs', 'user_tenant_access'];
 
         foreach ($tablesToClean as $table) {

@@ -484,10 +484,11 @@ function getCalendarEvents(int $tenant_id, int $user_id): array {
     global $pdo;
     $stmt = $pdo->prepare("
         SELECT e.*, u.name as organizer_name
-        FROM calendar_events e
+        FROM events e
         LEFT JOIN users u ON e.organizer_id = u.id
         WHERE e.tenant_id = ?
-        AND e.start_datetime >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+          AND e.deleted_at IS NULL
+          AND e.start_datetime >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
         ORDER BY e.start_datetime ASC
     ");
     $stmt->execute([$tenant_id]);

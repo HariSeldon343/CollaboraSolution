@@ -40,6 +40,9 @@ $csrfToken = $auth->generateCSRFToken();
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Dashboard - CollaboraNexio</title>
 
+    <!-- CSRF Token Meta Tag (BUG-011 pattern) -->
+    <meta name="csrf-token" content="<?php echo htmlspecialchars($csrfToken); ?>">
+
     <?php require_once __DIR__ . '/includes/favicon.php'; ?>
 
     <!-- Main CSS -->
@@ -391,121 +394,100 @@ $csrfToken = $auth->generateCSRFToken();
             </div>
 
             <div class="page-content">
-                <!-- Stats Grid -->
+                <!-- Stats Grid - 4 Cards -->
                 <div class="dashboard-grid">
                     <div class="stat-card">
                         <div class="stat-label">Progetti Attivi</div>
-                        <div class="stat-value">12</div>
-                        <div class="stat-change positive">+2.5% dal mese scorso</div>
+                        <div class="stat-value">0</div>
+                        <div class="stat-change">Caricamento...</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Task Completati</div>
-                        <div class="stat-value">48</div>
-                        <div class="stat-change positive">+12% questa settimana</div>
+                        <div class="stat-value">0</div>
+                        <div class="stat-change">Caricamento...</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">In Scadenza</div>
-                        <div class="stat-value">7</div>
-                        <div class="stat-change negative">3 urgenti</div>
+                        <div class="stat-value">0</div>
+                        <div class="stat-change">Caricamento...</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">Membri del Team</div>
-                        <div class="stat-value">24</div>
-                        <div class="stat-change">6 online ora</div>
+                        <div class="stat-value">0</div>
+                        <div class="stat-change">Caricamento...</div>
                     </div>
                 </div>
 
-                <!-- Content Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Recent Activity -->
+                <!-- Two Column Section: Activities + Projects -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- Recent Activity (Left Column) -->
                     <div class="card">
                         <div class="card-header">
                             <h2 class="card-title">Attività Recente</h2>
                         </div>
                         <div class="card-body">
-                            <ul class="simple-list">
+                            <ul class="simple-list" id="activity-list">
                                 <li class="list-item">
-                                    <div class="list-icon"></div>
-                                    <div class="list-content">
-                                        <div class="list-title">Nuovo progetto creato</div>
-                                        <div class="list-description">Marketing Q1 2024</div>
-                                    </div>
-                                    <div class="list-time text-xs text-muted">2h fa</div>
-                                </li>
-                                <li class="list-item">
-                                    <div class="list-icon bg-success"></div>
-                                    <div class="list-content">
-                                        <div class="list-title">Task completato</div>
-                                        <div class="list-description">Revisione contratto</div>
-                                    </div>
-                                    <div class="list-time text-xs text-muted">5h fa</div>
-                                </li>
-                                <li class="list-item">
-                                    <div class="list-icon bg-warning"></div>
-                                    <div class="list-content">
-                                        <div class="list-title">Scadenza imminente</div>
-                                        <div class="list-description">Report mensile - domani</div>
-                                    </div>
-                                    <div class="list-time text-xs text-muted">Ieri</div>
-                                </li>
-                                <li class="list-item">
-                                    <div class="list-icon"></div>
-                                    <div class="list-content">
-                                        <div class="list-title">Nuovo membro aggiunto</div>
-                                        <div class="list-description">Andrea Bianchi si è unito</div>
-                                    </div>
-                                    <div class="list-time text-xs text-muted">2 giorni fa</div>
+                                    <div class="text-muted">Caricamento...</div>
                                 </li>
                             </ul>
                         </div>
                     </div>
 
-                    <!-- Projects Progress -->
+                    <!-- Active Projects (Right Column) -->
                     <div class="card">
                         <div class="card-header">
                             <h2 class="card-title">Progetti Attivi</h2>
                         </div>
                         <div class="card-body">
-                            <div class="progress-item">
-                                <div class="progress-header">
-                                    <span class="progress-title">Redesign Sito Web</span>
-                                    <span class="badge badge-blue">In Corso</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: 65%;"></div>
-                                </div>
-                                <div class="text-xs text-muted mt-2">65% Completo</div>
+                            <div class="projects-list">
+                                <div class="text-muted">Caricamento...</div>
                             </div>
-                            <div class="progress-item">
-                                <div class="progress-header">
-                                    <span class="progress-title">App Mobile</span>
-                                    <span class="badge badge-yellow">Pianificazione</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: 20%;"></div>
-                                </div>
-                                <div class="text-xs text-muted mt-2">20% Completo</div>
-                            </div>
-                            <div class="progress-item">
-                                <div class="progress-header">
-                                    <span class="progress-title">Integrazione API</span>
-                                    <span class="badge badge-green">Completato</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill bg-success" style="width: 100%;"></div>
-                                </div>
-                                <div class="text-xs text-muted mt-2">100% Completo</div>
-                            </div>
-                            <div class="progress-item">
-                                <div class="progress-header">
-                                    <span class="progress-title">Migrazione Database</span>
-                                    <span class="badge badge-blue">In Corso</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: 45%;"></div>
-                                </div>
-                                <div class="text-xs text-muted mt-2">45% Completo</div>
-                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Three Column Section: Documents + Events + Tickets -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Recent Documents -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Documenti Recenti</h2>
+                        </div>
+                        <div class="card-body">
+                            <ul class="simple-list" id="documents-list">
+                                <li class="list-item">
+                                    <div class="text-muted">Caricamento...</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Upcoming Events -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Prossimi Eventi</h2>
+                        </div>
+                        <div class="card-body">
+                            <ul class="simple-list" id="events-list">
+                                <li class="list-item">
+                                    <div class="text-muted">Caricamento...</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Recent Tickets -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Ticket Recenti</h2>
+                        </div>
+                        <div class="card-body">
+                            <ul class="simple-list" id="tickets-list">
+                                <li class="list-item">
+                                    <div class="text-muted">Caricamento...</div>
+                                </li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -516,46 +498,24 @@ $csrfToken = $auth->generateCSRFToken();
     <!-- Hidden CSRF token -->
     <input type="hidden" id="csrfToken" value="<?php echo htmlspecialchars($csrfToken); ?>">
 
+    <!-- Dashboard Manager Script -->
+    <script src="assets/js/dashboard_manager.js?v=5"></script>
+
     <script>
-        class Dashboard {
-            constructor() {
-                this.config = {
-                    apiBase: '/api/',
-                    pollInterval: 30000
-                };
-                this.state = {};
-                this.init();
-            }
-
-            init() {
-                this.bindEvents();
-                this.loadInitialData();
-            }
-
-            bindEvents() {
-                // Mobile sidebar toggle
-                const sidebarToggle = document.getElementById('sidebarToggle');
-                if (sidebarToggle) {
-                    sidebarToggle.addEventListener('click', () => {
-                        document.querySelector('.sidebar').classList.toggle('open');
-                    });
-                }
-            }
-
-            async loadInitialData() {
-                // Load dashboard data here
-                console.log('Dashboard initialized');
-            }
-
-            showToast(message, type = 'info') {
-                // Toast notification implementation
-                console.log(`${type}: ${message}`);
-            }
-        }
-
-        // Initialize when DOM is ready
+        // Initialize Dashboard Manager when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
-            window.dashboard = new Dashboard();
+            // Initialize dashboard manager
+            window.dashboardManager = new DashboardManager();
+
+            // Mobile sidebar toggle handler (kept from original)
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', () => {
+                    document.querySelector('.sidebar').classList.toggle('open');
+                });
+            }
+
+            console.log('[Dashboard] Initialized with dynamic data loading');
         });
     </script>
 
@@ -657,6 +617,36 @@ $csrfToken = $auth->generateCSRFToken();
         .badge-yellow {
             background: #FFFBEB;
             color: var(--color-warning);
+        }
+
+        .badge-red {
+            background: #FEF2F2;
+            color: var(--color-error);
+        }
+
+        .activity-dup {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 1px 6px;
+            border-radius: 999px;
+            font-size: 10px;
+            color: var(--color-gray-500);
+            background: #F3F4F6;
+        }
+
+        .empty-link {
+            font-size: var(--text-xs);
+            color: var(--color-primary);
+            text-decoration: underline;
+            margin-top: var(--space-2);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .empty-link svg {
+            width: 12px;
+            height: 12px;
         }
     </style>
 </body>

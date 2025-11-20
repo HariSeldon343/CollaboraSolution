@@ -330,7 +330,7 @@ class DatabaseManager {
                 'files' => 'Files',
                 'chat_channels' => 'Chat Channels',
                 'chat_messages' => 'Messages',
-                'calendar_events' => 'Events',
+                'events' => 'Events',
                 'notifications' => 'Notifications',
                 'audit_logs' => 'Audit Logs'
             ];

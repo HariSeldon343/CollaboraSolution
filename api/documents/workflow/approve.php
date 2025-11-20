@@ -117,27 +117,45 @@ try {
     // GET WORKFLOW AND VALIDATE PERMISSIONS
     // ============================================
 
-    $workflow = $db->fetchOne(
-        "SELECT dw.*,
-                f.file_name,
-                f.file_path,
-                f.file_size,
-                uv.name as validator_name,
-                uv.email as validator_email,
-                ua.name as approver_name,
-                ua.email as approver_email,
-                uc.name as creator_name,
-                uc.email as creator_email
-         FROM document_workflow dw
-         INNER JOIN files f ON dw.file_id = f.id
-         LEFT JOIN users uv ON dw.current_validator_id = uv.id
-         LEFT JOIN users ua ON dw.current_approver_id = ua.id
-         LEFT JOIN users uc ON dw.created_by_user_id = uc.id
-         WHERE dw.file_id = ?
-           AND dw.tenant_id = ?
-           AND dw.deleted_at IS NULL",
-        [$fileId, $tenantId]
-    );
+    // BUG-089 FIX: Super admin can access workflows across tenants
+    // BUG-091 FIX: Column name is 'name' not 'file_name', remove non-existent validator/approver columns
+    if ($userRole === 'super_admin') {
+        $workflow = $db->fetchOne(
+            "SELECT dw.*,
+                    f.name AS file_name,
+                    f.file_path,
+                    f.file_size,
+                    uc.name as creator_name,
+                    uc.email as creator_email
+             FROM document_workflow dw
+             INNER JOIN files f ON dw.file_id = f.id
+             LEFT JOIN users uc ON dw.created_by_user_id = uc.id
+             WHERE dw.file_id = ?
+               AND (dw.deleted_at IS NULL OR dw.deleted_at = '')",
+            [$fileId]
+        );
+
+        if ($workflow !== false) {
+            // Use workflow's actual tenant, not session tenant
+            $tenantId = $workflow['tenant_id'];
+        }
+    } else {
+        $workflow = $db->fetchOne(
+            "SELECT dw.*,
+                    f.name AS file_name,
+                    f.file_path,
+                    f.file_size,
+                    uc.name as creator_name,
+                    uc.email as creator_email
+             FROM document_workflow dw
+             INNER JOIN files f ON dw.file_id = f.id
+             LEFT JOIN users uc ON dw.created_by_user_id = uc.id
+             WHERE dw.file_id = ?
+               AND dw.tenant_id = ?
+               AND (dw.deleted_at IS NULL OR dw.deleted_at = '')",
+            [$fileId, $tenantId]
+        );
+    }
 
     if ($workflow === false) {
         throw new Exception('Workflow non trovato per questo documento.');
@@ -153,9 +171,22 @@ try {
         );
     }
 
-    // Check if user is the assigned approver (or admin)
-    if ($workflow['current_approver_id'] !== $userId && !in_array($userRole, ['admin', 'super_admin'])) {
-        throw new Exception('Solo l\'approvatore assegnato può approvare questo documento.');
+    // BUG-091 FIX: Check if user has approver role (workflow_roles table)
+    if (!in_array($userRole, ['admin', 'super_admin'])) {
+        $hasApproverRole = $db->fetchOne(
+            "SELECT COUNT(*) as cnt
+             FROM workflow_roles
+             WHERE user_id = ?
+               AND tenant_id = ?
+               AND workflow_role = 'approver'
+               AND is_active = 1
+               AND (deleted_at IS NULL OR deleted_at = '')",
+            [$userId, $tenantId]
+        );
+
+        if (!$hasApproverRole || $hasApproverRole['cnt'] == 0) {
+            throw new Exception('Solo gli utenti con ruolo di approvatore possono approvare questo documento.');
+        }
     }
 
     // ============================================
@@ -177,20 +208,28 @@ try {
     // UPDATE WORKFLOW STATE
     // ============================================
 
+    // BUG-092 FIX: approved_by_user_id column doesn't exist (tracked in history table)
     $updateData = [
         'current_state' => WORKFLOW_STATE_APPROVED,
         'approved_at' => date('Y-m-d H:i:s'),
-        'approved_by_user_id' => $userId,
+        'current_handler_user_id' => $userId,  // Update handler to approver
         'updated_at' => date('Y-m-d H:i:s')
     ];
 
+    // BUG-095 FIX: Include tenant_id in WHERE to ensure multi-tenant isolation
     $updated = $db->update(
         'document_workflow',
         $updateData,
-        ['id' => $workflow['id']]
+        [
+            'id' => $workflow['id'],
+            'tenant_id' => $tenantId,
+            'file_id' => $fileId  // Additional safety check
+        ]
     );
 
     if (!$updated) {
+        // Log detailed error for debugging
+        error_log("[WORKFLOW_APPROVE] Update failed - workflow_id: {$workflow['id']}, tenant: $tenantId, file: $fileId");
         throw new Exception('Impossibile aggiornare stato workflow.');
     }
 
@@ -222,23 +261,6 @@ try {
     }
 
     // ============================================
-    // OPTIONAL: Mark file as approved (add metadata)
-    // ============================================
-
-    // You might want to update the files table with approval metadata
-    $fileUpdateData = [
-        'metadata' => json_encode([
-            'workflow_approved' => true,
-            'approved_at' => date('Y-m-d H:i:s'),
-            'approved_by' => $userId,
-            'workflow_id' => $workflow['id']
-        ]),
-        'updated_at' => date('Y-m-d H:i:s')
-    ];
-
-    $db->update('files', $fileUpdateData, ['id' => $fileId]);
-
-    // ============================================
     // COMMIT TRANSACTION (BUG-038/039/045)
     // ============================================
 
@@ -256,6 +278,9 @@ try {
     try {
         require_once __DIR__ . '/../../../includes/mailer.php';
 
+        // BUG-094 FIX: validator_name is NOT in SELECT query (commented out line 302)
+        // Email notifications are already sent by WorkflowEmailNotifier below (line 371)
+        /*
         // Notify creator that document is approved
         if ($workflow['creator_email']) {
             $emailData = [
@@ -267,7 +292,7 @@ try {
                     'creator_name' => $workflow['creator_name'],
                     'document_name' => $workflow['file_name'],
                     'approver_name' => $userInfo['user_name'],
-                    'validator_name' => $workflow['validator_name'],
+                    'validator_name' => $workflow['validator_name'],  // ❌ NOT in SELECT
                     'comment' => $comment,
                     'workflow_duration_days' => $workflowDuration['days'] ?? 0,
                     'workflow_duration_hours' => $workflowDuration['hours'] ?? 0,
@@ -280,7 +305,12 @@ try {
 
             sendWorkflowEmail($emailData);
         }
+        */
 
+        // BUG-094 FIX: validator_email and validator_name are NOT in SELECT query
+        // These fields don't exist in workflow table - validators come from workflow_roles
+        // Email notifications are already sent by WorkflowEmailNotifier below (line 371)
+        /*
         // Optionally notify validator as well
         if ($workflow['validator_email'] && $workflow['validator_email'] !== $workflow['creator_email']) {
             $emailData['to'] = $workflow['validator_email'];
@@ -290,6 +320,7 @@ try {
 
             sendWorkflowEmail($emailData);
         }
+        */
     } catch (Exception $e) {
         error_log("[EMAIL] Failed to send approval notification: " . $e->getMessage());
         // Non-blocking - continue
@@ -346,6 +377,7 @@ try {
     // PREPARE RESPONSE
     // ============================================
 
+    // BUG-091 FIX: Remove references to non-existent validator columns
     $response = [
         'workflow' => [
             'id' => $workflow['id'],
@@ -363,11 +395,7 @@ try {
                 'approved_at' => $updateData['approved_at'],
                 'comment' => $comment
             ],
-            'validator' => [
-                'id' => $workflow['current_validator_id'],
-                'name' => $workflow['validator_name'],
-                'validated_at' => $workflow['validated_at']
-            ],
+            'validated_at' => $workflow['validated_at'],
             'creator' => [
                 'id' => $workflow['created_by_user_id'],
                 'name' => $workflow['creator_name']
@@ -416,10 +444,10 @@ function sendWorkflowEmail(array $data): bool {
         }
 
         require_once __DIR__ . '/../../../includes/mailer.php';
-        $emailSender = new EmailSender();
-        return $emailSender->send(
+
+        // BUG-082 FIX: Use global sendEmail() function (EmailSender::send() doesn't exist)
+        return sendEmail(
             $data['to'],
-            $data['to_name'],
             $data['subject'],
             $emailContent
         );

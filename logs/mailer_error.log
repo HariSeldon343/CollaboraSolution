@@ -1,0 +1,12 @@
+{"timestamp":"2025-11-16 08:56:40","status":"success","to":"a.oedoma@gmail.com","subject":"Documento approvato: Test validazione.docx","tenant_id":11,"user_id":32,"action":"workflow_document_approved"}
+{"timestamp":"2025-11-16 08:56:41","status":"success","to":"asamodeo@fortibyte.it","subject":"Documento approvato: Test validazione.docx","tenant_id":11,"user_id":19,"action":"workflow_document_approved"}
+{"timestamp":"2025-11-16 08:57:12","status":"success","to":"a.oedoma@gmail.com","subject":"Nuovo documento da validare: effe.docx","tenant_id":11,"user_id":32,"action":"workflow_document_submitted"}
+{"timestamp":"2025-11-17 06:34:55","status":"success","to":"asamodeo@fortibyte.it","subject":"Ticket # - Stato aggiornato a: Chiuso","tenant_id":1,"user_id":19,"action":"ticket_status_changed_notification"}
+{"timestamp":"2025-11-17 06:35:09","status":"success","to":"asamodeo@fortibyte.it","subject":"Ticket # - Stato aggiornato a: Chiuso","tenant_id":1,"user_id":19,"action":"ticket_status_changed_notification"}
+{"timestamp":"2025-11-17 06:35:27","status":"success","to":"asamodeo@fortibyte.it","subject":"Ticket # - Stato aggiornato a: Chiuso","tenant_id":1,"user_id":19,"action":"ticket_status_changed_notification"}
+{"timestamp":"2025-11-17 06:35:34","status":"success","to":"asamodeo@fortibyte.it","subject":"Ticket # - Stato aggiornato a: Chiuso","tenant_id":1,"user_id":19,"action":"ticket_status_changed_notification"}
+{"timestamp":"2025-11-17 06:58:28","status":"success","to":"asamodeo@fortibyte.it","subject":"Ticket # - Stato aggiornato a: Chiuso","tenant_id":1,"user_id":19,"action":"ticket_status_changed_notification"}
+{"timestamp":"2025-11-17 06:58:39","status":"success","to":"asamodeo@fortibyte.it","subject":"Ticket # - Stato aggiornato a: Chiuso","tenant_id":1,"user_id":19,"action":"ticket_status_changed_notification"}
+{"timestamp":"2025-11-17 06:58:51","status":"success","to":"asamodeo@fortibyte.it","subject":"Ticket # - Stato aggiornato a: Chiuso","tenant_id":1,"user_id":19,"action":"ticket_status_changed_notification"}
+{"timestamp":"2025-11-17 06:59:02","status":"success","to":"asamodeo@fortibyte.it","subject":"Ticket # - Stato aggiornato a: Chiuso","tenant_id":1,"user_id":19,"action":"ticket_status_changed_notification"}
+{"timestamp":"2025-11-18 19:30:26","status":"success","to":"a.oedoma@gmail.com","subject":"Nuovo documento da validare: trtt.docx","tenant_id":11,"user_id":32,"action":"workflow_document_submitted"}

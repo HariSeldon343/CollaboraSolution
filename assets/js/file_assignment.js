@@ -713,16 +713,24 @@ class FileAssignmentManager {
      * Show toast notification
      */
     showToast(message, type = 'info') {
-        // Create toast element
+        const allowedTypes = ['success', 'error', 'info', 'warning'];
+        const toastType = allowedTypes.includes(type) ? type : 'info';
+        const colors = {
+            success: '#10b981',
+            error: '#ef4444',
+            warning: '#f59e0b',
+            info: '#3b82f6'
+        };
+
         const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
+        toast.className = `workflow-toast workflow-toast-${toastType}`;
         toast.textContent = message;
         toast.style.cssText = `
             position: fixed;
             top: 20px;
             right: 20px;
             padding: 12px 20px;
-            background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6'};
+            background: ${colors[toastType]};
             color: white;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);

@@ -1,27 +1,44 @@
 <?php
-// Initialize session with proper configuration
-require_once __DIR__ . '/includes/session_init.php';
-// Authentication check - redirect to login if not authenticated
-require_once __DIR__ . '/includes/auth_simple.php';
-$auth = new Auth();
+/**
+ * CollaboraNexio - Calendar Page
+ *
+ * MINIMAL DESIGN - Consistent with dashboard.php and files.php
+ * NO gradients, NO glassmorphism - Clean enterprise design
+ *
+ * Created: 2025-11-18
+ * Pattern: CLAUDE.md 8-step authentication + Minimal UI (matches dashboard/files)
+ */
 
+// Step 1: Session & Authentication
+require_once __DIR__ . '/includes/session_init.php';
+require_once __DIR__ . '/includes/auth_simple.php';
+require_once __DIR__ . '/includes/company_filter.php';
+
+$auth = new Auth();
 if (!$auth->checkAuth()) {
     header('Location: index.php');
     exit;
 }
 
-// Get current user data
+// Step 2: Get current user
 $currentUser = $auth->getCurrentUser();
 if (!$currentUser) {
     header('Location: index.php');
     exit;
 }
 
-// Require active tenant access (super_admins bypass this check)
+// Step 3: Tenant access check
 require_once __DIR__ . '/includes/tenant_access_check.php';
 requireTenantAccess($currentUser['id'], $currentUser['role']);
 
-// Generate CSRF token for any forms
+// Step 4: Audit logging
+require_once __DIR__ . '/includes/audit_page_access.php';
+trackPageAccess('calendar');
+
+// Step 5: Company filter
+$companyFilter = new CompanyFilter($currentUser);
+
+// Step 6: Generate CSRF token
 $csrfToken = $auth->generateCSRFToken();
 ?>
 <!DOCTYPE html>
@@ -32,137 +49,66 @@ $csrfToken = $auth->generateCSRFToken();
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Calendario - CollaboraNexio</title>
 
+    <!-- CSRF Token Meta Tag (MANDATORY) -->
+    <meta name="csrf-token" content="<?php echo htmlspecialchars($csrfToken); ?>">
+
     <?php require_once __DIR__ . '/includes/favicon.php'; ?>
 
-    <!-- Main CSS -->
+    <!-- CSS (same order as dashboard.php) -->
     <link rel="stylesheet" href="assets/css/styles.css">
-    <!-- Sidebar Responsive Optimization CSS -->
     <link rel="stylesheet" href="assets/css/sidebar-responsive.css">
-    <!-- Page specific CSS -->
     <link rel="stylesheet" href="assets/css/calendar.css">
 
+    <!-- BUG-118 FIX: Sidebar CSS consistency with dashboard.php -->
     <style>
-        /* Logo image style */
-        .logo-img {
-            width: 32px;
-            height: 32px;
-            background: white;
-            padding: 4px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        /* Calendar specific styles */
-        .calendar-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: var(--space-6);
-        }
-
-        .calendar-nav {
-            display: flex;
-            gap: var(--space-2);
-            align-items: center;
-        }
-
-        .calendar-month {
-            font-size: var(--text-xl);
-            font-weight: var(--font-semibold);
-            color: var(--color-gray-900);
-            margin: 0 var(--space-4);
-        }
-
-        .calendar-grid {
+        /* Additional dashboard specific styles */
+        .dashboard-grid {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 1px;
-            background: var(--color-gray-200);
-            border: 1px solid var(--color-gray-200);
-            border-radius: var(--radius-lg);
-            overflow: hidden;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: var(--space-6);
+            margin-bottom: var(--space-8);
         }
 
-        .calendar-day-header {
-            background: var(--color-gray-50);
-            padding: var(--space-3);
-            text-align: center;
-            font-weight: var(--font-semibold);
-            font-size: var(--text-sm);
-            color: var(--color-gray-600);
-            text-transform: uppercase;
-        }
-
-        .calendar-day {
+        .stat-card {
             background: var(--color-white);
-            padding: var(--space-3);
-            min-height: 120px;
-            position: relative;
-            cursor: pointer;
-            transition: background-color var(--transition-fast);
+            padding: var(--space-6);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            transition: box-shadow var(--transition-fast);
         }
 
-        .calendar-day:hover {
-            background: var(--color-gray-50);
+        .stat-card:hover {
+            box-shadow: var(--shadow-md);
         }
 
-        .calendar-day-number {
-            font-size: var(--text-sm);
-            font-weight: var(--font-medium);
-            color: var(--color-gray-700);
+        .stat-label {
+            font-size: var(--text-xs);
+            font-weight: var(--font-semibold);
+            color: var(--color-gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
             margin-bottom: var(--space-2);
         }
 
-        .calendar-day.other-month .calendar-day-number {
-            color: var(--color-gray-400);
-        }
-
-        .calendar-day.today {
-            background: #EFF6FF;
-        }
-
-        .calendar-day.today .calendar-day-number {
-            color: var(--color-primary);
+        .stat-value {
+            font-size: var(--text-3xl);
             font-weight: var(--font-bold);
-            display: inline-block;
-            background: var(--color-white);
-            width: 28px;
-            height: 28px;
-            line-height: 28px;
-            text-align: center;
-            border-radius: var(--radius-full);
-            box-shadow: var(--shadow-sm);
+            color: var(--color-gray-900);
+            line-height: 1.2;
         }
 
-        .calendar-event {
-            background: var(--color-primary);
-            color: var(--color-white);
-            padding: 2px var(--space-2);
-            border-radius: var(--radius-sm);
-            font-size: var(--text-xs);
-            margin: 2px 0;
-            cursor: pointer;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            transition: all var(--transition-fast);
+        .stat-change {
+            font-size: var(--text-sm);
+            color: var(--color-gray-600);
+            margin-top: var(--space-2);
         }
 
-        .calendar-event:hover {
-            background: var(--color-primary-dark);
-            transform: translateX(2px);
+        .stat-change.positive {
+            color: var(--color-success);
         }
 
-        .calendar-event.type-meeting {
-            background: var(--color-info);
-        }
-
-        .calendar-event.type-deadline {
-            background: var(--color-error);
-        }
-
-        .calendar-event.type-review {
-            background: var(--color-warning);
+        .stat-change.negative {
+            color: var(--color-error);
         }
 
         /* Additional sidebar styles */
@@ -218,6 +164,16 @@ $csrfToken = $auth->generateCSRFToken();
             font-style: normal;
             color: var(--color-sidebar-text);
             position: relative;
+        }
+
+        /* Logo image style */
+        .logo-img {
+            width: 32px;
+            height: 32px;
+            background: white;
+            padding: 4px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         /* White icon styles using CSS */
@@ -328,46 +284,54 @@ $csrfToken = $auth->generateCSRFToken();
         .user-info {
             display: flex;
             align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3);
+            gap: 10px; /* Optimized: reduced gap */
+            padding: 8px; /* Optimized: reduced padding */
             background-color: rgba(255, 255, 255, 0.05);
             border-radius: var(--radius-lg);
+            margin-bottom: 0; /* Optimized: no margin needed */
         }
 
         .user-avatar {
-            width: 40px;
-            height: 40px;
+            width: 32px; /* Optimized: reduced from 40px */
+            height: 32px; /* Optimized: reduced from 40px */
             background: var(--color-sidebar-active);
             color: var(--color-white);
             border-radius: var(--radius-full);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: var(--text-sm);
+            font-size: 12px; /* Optimized: reduced for smaller avatar */
             font-weight: var(--font-semibold);
+            flex-shrink: 0;
         }
 
         .user-details {
             flex: 1;
+            min-width: 0; /* Allow text truncation */
         }
 
         .user-name {
-            font-size: var(--text-sm);
+            font-size: 13px; /* Optimized: reduced from 14px */
             font-weight: var(--font-medium);
             color: var(--color-sidebar-text);
+            line-height: 1.3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .user-badge {
-            font-size: 10px;
+            font-size: 9px; /* Optimized: reduced from 10px */
             color: var(--color-white);
             background: var(--color-primary);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-top: 4px;
-            padding: 2px 6px;
+            letter-spacing: 0.04em; /* Optimized: tighter spacing */
+            margin-top: 2px; /* Optimized: reduced from 4px */
+            padding: 1px 4px; /* Optimized: minimal padding */
             border-radius: var(--radius-sm);
             display: inline-block;
             font-weight: var(--font-semibold);
+            line-height: 1.3;
         }
     </style>
 </head>
@@ -425,285 +389,42 @@ $csrfToken = $auth->generateCSRFToken();
             </div>
         </div>
 
-        <!-- Main Content -->
+        <!-- Main Content (MINIMAL like dashboard.php) -->
         <div class="main-content">
+            <!-- Header (SIMPLE - matches dashboard.php pattern) -->
             <div class="header">
                 <h1 class="page-title">Calendario</h1>
-                <button class="btn btn-primary">+ Nuovo Evento</button>
+                <div class="flex items-center gap-4">
+                    <?php if ($companyFilter->canUseCompanyFilter()): ?>
+                        <?php echo $companyFilter->renderDropdown(); ?>
+                    <?php endif; ?>
+                    <span class="text-sm text-muted">Benvenuto, <?php echo htmlspecialchars($currentUser['name']); ?></span>
+                </div>
             </div>
 
+            <!-- Page Content -->
             <div class="page-content">
-                <div class="card">
-                    <div class="card-body">
-                        <!-- Calendar Controls -->
-                        <div class="calendar-controls">
-                            <div class="calendar-nav">
-                                <button class="btn btn-secondary btn-sm" id="prevMonth">
-                                    ← Precedente
-                                </button>
-                                <span class="calendar-month" id="currentMonth">Gennaio 2025</span>
-                                <button class="btn btn-secondary btn-sm" id="nextMonth">
-                                    Successivo →
-                                </button>
-                            </div>
-                            <div class="flex gap-2">
-                                <button class="btn btn-ghost btn-sm" id="todayBtn">Oggi</button>
-                                <button class="btn btn-ghost btn-sm" id="viewToggle">Vista Mese</button>
-                            </div>
-                        </div>
-
-                        <!-- Calendar Grid -->
-                        <div class="calendar-grid">
-                            <!-- Headers -->
-                            <div class="calendar-day-header">Lun</div>
-                            <div class="calendar-day-header">Mar</div>
-                            <div class="calendar-day-header">Mer</div>
-                            <div class="calendar-day-header">Gio</div>
-                            <div class="calendar-day-header">Ven</div>
-                            <div class="calendar-day-header">Sab</div>
-                            <div class="calendar-day-header">Dom</div>
-
-                            <!-- Calendar Days (sample for January 2025) -->
-                            <div class="calendar-day other-month">
-                                <div class="calendar-day-number">30</div>
-                            </div>
-                            <div class="calendar-day other-month">
-                                <div class="calendar-day-number">31</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">1</div>
-                                <div class="calendar-event type-meeting">Meeting Team</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">2</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">3</div>
-                                <div class="calendar-event type-review">Review Progetto</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">4</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">5</div>
-                            </div>
-
-                            <!-- Week 2 -->
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">6</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">7</div>
-                                <div class="calendar-event">Presentazione</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">8</div>
-                            </div>
-                            <div class="calendar-day today">
-                                <div class="calendar-day-number">9</div>
-                                <div class="calendar-event type-deadline">Deadline Report</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">10</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">11</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">12</div>
-                            </div>
-
-                            <!-- Week 3 -->
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">13</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">14</div>
-                                <div class="calendar-event type-meeting">Call Cliente</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">15</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">16</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">17</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">18</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">19</div>
-                            </div>
-
-                            <!-- Week 4 -->
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">20</div>
-                                <div class="calendar-event">Sprint Review</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">21</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">22</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">23</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">24</div>
-                                <div class="calendar-event type-deadline">Consegna Progetto</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">25</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">26</div>
-                            </div>
-
-                            <!-- Week 5 -->
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">27</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">28</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">29</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">30</div>
-                            </div>
-                            <div class="calendar-day">
-                                <div class="calendar-day-number">31</div>
-                            </div>
-                            <div class="calendar-day other-month">
-                                <div class="calendar-day-number">1</div>
-                            </div>
-                            <div class="calendar-day other-month">
-                                <div class="calendar-day-number">2</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <!-- Calendar Container (CalendarApp will inject everything here) -->
+                <div id="calendar-container"></div>
             </div>
         </div>
     </div>
 
-    <!-- Hidden CSRF token -->
+    <!-- Hidden Inputs (MANDATORY for CalendarApp) -->
     <input type="hidden" id="csrfToken" value="<?php echo htmlspecialchars($csrfToken); ?>">
+    <input type="hidden" id="currentUserId" value="<?php echo htmlspecialchars($currentUser['id']); ?>">
+    <input type="hidden" id="currentUserRole" value="<?php echo htmlspecialchars($currentUser['role']); ?>">
+    <input type="hidden" id="currentTenantId" value="<?php echo htmlspecialchars($currentUser['tenant_id']); ?>">
+
+    <!-- Calendar JavaScript -->
+    <script src="assets/js/calendar.js?v=<?php echo time(); ?>"></script>
 
     <script>
-        class Calendar {
-            constructor() {
-                this.config = {
-                    apiBase: '/api/',
-                    currentMonth: new Date().getMonth(),
-                    currentYear: new Date().getFullYear()
-                };
-                this.state = {
-                    events: [],
-                    selectedDate: null
-                };
-                this.init();
-            }
-
-            init() {
-                this.bindEvents();
-                this.loadCalendarData();
-            }
-
-            bindEvents() {
-                // Month navigation
-                document.getElementById('prevMonth').addEventListener('click', () => {
-                    this.navigateMonth(-1);
-                });
-
-                document.getElementById('nextMonth').addEventListener('click', () => {
-                    this.navigateMonth(1);
-                });
-
-                document.getElementById('todayBtn').addEventListener('click', () => {
-                    this.goToToday();
-                });
-
-                // Event handlers
-                document.querySelectorAll('.calendar-event').forEach(event => {
-                    event.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.handleEventClick(e.target);
-                    });
-                });
-
-                // Day click handlers
-                document.querySelectorAll('.calendar-day').forEach(day => {
-                    day.addEventListener('click', (e) => {
-                        this.handleDayClick(e.currentTarget);
-                    });
-                });
-
-                // New event button
-                document.querySelector('.btn-primary').addEventListener('click', () => {
-                    this.createNewEvent();
-                });
-            }
-
-            navigateMonth(direction) {
-                this.config.currentMonth += direction;
-                if (this.config.currentMonth > 11) {
-                    this.config.currentMonth = 0;
-                    this.config.currentYear++;
-                } else if (this.config.currentMonth < 0) {
-                    this.config.currentMonth = 11;
-                    this.config.currentYear--;
-                }
-                this.updateCalendarView();
-            }
-
-            goToToday() {
-                const today = new Date();
-                this.config.currentMonth = today.getMonth();
-                this.config.currentYear = today.getFullYear();
-                this.updateCalendarView();
-            }
-
-            updateCalendarView() {
-                const months = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
-                               'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
-                document.getElementById('currentMonth').textContent =
-                    `${months[this.config.currentMonth]} ${this.config.currentYear}`;
-                // Here you would typically regenerate the calendar grid
-                console.log('Updating calendar view for', this.config.currentMonth, this.config.currentYear);
-            }
-
-            handleEventClick(eventElement) {
-                this.showToast(`Evento: ${eventElement.textContent}`, 'info');
-            }
-
-            handleDayClick(dayElement) {
-                const dayNumber = dayElement.querySelector('.calendar-day-number').textContent;
-                this.showToast(`Giorno selezionato: ${dayNumber}`, 'info');
-            }
-
-            createNewEvent() {
-                this.showToast('Apertura form nuovo evento', 'info');
-            }
-
-            async loadCalendarData() {
-                // Load calendar events from server
-                console.log('Loading calendar data');
-            }
-
-            showToast(message, type = 'info') {
-                // Toast notification implementation
-                console.log(`${type}: ${message}`);
-            }
-        }
-
-        // Initialize when DOM is ready
+        // Initialize CalendarApp when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
-            window.calendar = new Calendar();
+            console.log('[Calendar Page] Initializing CalendarApp...');
+            window.calendar = new CalendarApp('calendar-container');
+            console.log('[Calendar Page] CalendarApp initialized');
         });
     </script>
 </body>

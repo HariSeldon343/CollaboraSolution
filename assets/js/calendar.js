@@ -9,8 +9,10 @@ class CalendarApp {
         this.container = typeof container === 'string' ?
             document.getElementById(container) : container;
 
+        const defaultApiBase = window.CN_API_BASE || '/CollaboraNexio/api/';
+
         this.config = {
-            apiBase: '/api/',
+            apiBase: defaultApiBase,
             locale: 'it-IT',
             firstDayOfWeek: 1, // Monday
             weekNumbers: true,
@@ -23,6 +25,16 @@ class CalendarApp {
             resizeEnabled: true,
             ...options
         };
+
+        if (this.config.apiBase.slice(-1) !== '/') {
+            this.config.apiBase += '/';
+        }
+
+        // BUG-104 FIX: Initialize CSRF token from hidden input (CLAUDE.md compliance)
+        this.csrfToken = document.getElementById('csrfToken')?.value || '';
+
+        // BUG-123 VERO: Initialize user role for calendar dropdown tenant name display
+        this.userRole = document.getElementById('currentUserRole')?.value || 'user';
 
         this.state = {
             currentView: this.config.defaultView,
@@ -43,8 +55,8 @@ class CalendarApp {
     }
 
     init() {
-        this.setupComponents();
         this.renderLayout();
+        this.setupComponents();
         this.bindEvents();
         this.loadInitialData();
         this.setupKeyboardShortcuts();
@@ -55,34 +67,47 @@ class CalendarApp {
         }
     }
 
+    renderLayout() {
+        // BUG-114 FIX: Removed calendar-sidebar (redundant with main navigation)
+        // Calendar now occupies full page-content width
+        // BUG-119 FIX: Modal should NOT be in calendar-wrapper, must be appended to document.body
+        this.container.innerHTML = `
+            <div class="calendar-wrapper">
+                <div class="calendar-header" id="calendar-toolbar"></div>
+                <div class="calendar-body">
+                    <div class="calendar-main" style="display: block !important; flex: 1; min-height: 600px; width: 100%;">
+                        <div class="calendar-view-container" id="calendar-view"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="context-menu" class="context-menu"></div>
+            <div id="calendar-toast" class="toast-container"></div>
+        `;
+
+        // BUG-119 FIX: Create event-modal as separate element appended to document.body
+        // This ensures position: fixed works correctly with high z-index overlay
+        if (!document.getElementById('event-modal')) {
+            const modalDiv = document.createElement('div');
+            modalDiv.id = 'event-modal';
+            modalDiv.className = 'event-modal';  // Use event-modal class, not generic 'modal'
+            document.body.appendChild(modalDiv);
+            console.log('[CalendarApp] EventModal appended to document.body for proper overlay positioning');
+        }
+    }
+
     setupComponents() {
         this.components.view = new CalendarView(this);
         this.components.eventManager = new EventManager(this);
         this.components.eventModal = new EventModal(this);
         this.components.dragDropHandler = new DragDropHandler(this);
-        this.components.sidebar = new CalendarSidebar(this);
+        // BUG-114 FIX: Removed sidebar component initialization (redundant with main navigation)
+        // this.components.sidebar = new CalendarSidebar(this);
         this.components.toolbar = new CalendarToolbar(this);
         this.components.contextMenu = new ContextMenu(this);
-    }
-
-    renderLayout() {
-        this.container.innerHTML = `
-            <div class="calendar-wrapper">
-                <div class="calendar-header" id="calendar-toolbar"></div>
-                <div class="calendar-body">
-                    <div class="calendar-sidebar" id="calendar-sidebar"></div>
-                    <div class="calendar-main">
-                        <div class="calendar-view-container" id="calendar-view"></div>
-                    </div>
-                </div>
-            </div>
-            <div id="event-modal" class="modal"></div>
-            <div id="context-menu" class="context-menu"></div>
-            <div id="calendar-toast" class="toast-container"></div>
-        `;
 
         this.components.toolbar.render();
-        this.components.sidebar.render();
+        // BUG-114 FIX: Removed sidebar render call
+        // this.components.sidebar.render();
         this.components.view.render();
     }
 
@@ -216,15 +241,17 @@ class CalendarApp {
 
     async loadCalendars() {
         try {
-            const response = await this.apiCall('calendars');
-            this.state.calendars = response.data || [];
+            const response = await this.apiCall('calendars.php');
+            const calendars = response?.data?.calendars ?? response?.data ?? [];
+            this.state.calendars = calendars;
 
             // Select all calendars by default
             this.state.calendars.forEach(cal => {
                 this.state.selectedCalendars.add(cal.id);
             });
 
-            this.components.sidebar.updateCalendarList();
+            // REMOVED: updateCalendarList() method was removed during sidebar mini calendar optimization
+            // this.components.sidebar.updateCalendarList();
         } catch (error) {
             console.error('Error loading calendars:', error);
         }
@@ -252,7 +279,8 @@ class CalendarApp {
             });
 
             const response = await this.apiCall(`events.php?${params}`);
-            this.state.events = this.processEvents(response.data || []);
+            const eventsPayload = response?.data?.events ?? response?.data ?? [];
+            this.state.events = this.processEvents(eventsPayload);
 
             // Update view with new events
             this.components.view.renderEvents();
@@ -263,13 +291,22 @@ class CalendarApp {
     }
 
     processEvents(events) {
-        return events.map(event => ({
-            ...event,
-            start: new Date(event.start_date),
-            end: new Date(event.end_date),
-            allDay: event.all_day === 1,
-            color: event.color || this.getCalendarColor(event.calendar_id)
-        }));
+        const list = Array.isArray(events) ? events : [];
+
+        return list.map(event => {
+            const startDateStr = event.start_date || event.start || event.start_datetime;
+            const endDateStr = event.end_date || event.end || event.end_datetime;
+
+            return {
+                ...event,
+                start_date: startDateStr,
+                end_date: endDateStr,
+                start: startDateStr ? new Date(startDateStr) : null,
+                end: endDateStr ? new Date(endDateStr) : null,
+                allDay: event.all_day === 1 || event.all_day === true,
+                color: event.color || this.getCalendarColor(event.calendar_id)
+            };
+        });
     }
 
     getCalendarColor(calendarId) {
@@ -309,9 +346,15 @@ class CalendarApp {
     }
 
     changeView(viewType) {
+        // BUG-115 FIX: Only 'month' view supported
+        if (viewType !== 'month') {
+            console.warn('[CalendarApp] Only month view is supported');
+            viewType = 'month';
+        }
+
         if (this.state.currentView === viewType) return;
 
-        this.state.currentView = viewType;
+        this.state.currentView = 'month';
         this.loadEvents();
         this.components.view.render();
         this.components.toolbar.updateViewButtons();
@@ -553,11 +596,23 @@ class CalendarApp {
         });
     }
 
+    // BUG-104 FIX: Add getCsrfToken() method (CLAUDE.md pattern)
+    getCsrfToken() {
+        return this.csrfToken;
+    }
+
     async apiCall(endpoint, options = {}) {
         try {
+            // BUG-104 FIX: Include CSRF token in ALL requests (CLAUDE.md compliance)
+            const headers = {
+                'X-CSRF-Token': this.getCsrfToken(),
+                ...(options.headers || {})
+            };
+
             const response = await fetch(this.config.apiBase + endpoint, {
                 credentials: 'same-origin',
-                ...options
+                ...options,
+                headers
             });
 
             if (!response.ok) {
@@ -598,66 +653,41 @@ class CalendarView {
     }
 
     render() {
-        switch (this.app.state.currentView) {
-            case 'month':
-                this.renderMonth();
-                break;
-            case 'week':
-                this.renderWeek();
-                break;
-            case 'day':
-                this.renderDay();
-                break;
-        }
+        // BUG-115 FIX: Only month view supported
+        this.renderMonth();
     }
 
     renderMonth() {
         const { currentDate, events } = this.app.state;
         const bounds = this.app.getViewBounds();
 
-        let html = '<div class="calendar-month">';
+        // PREMIUM CALENDAR REDESIGN: Simplified month view without week numbers in grid
+        let html = '<div class="calendar-grid-container">';
 
-        // Header with day names
-        html += '<div class="calendar-month-header">';
-
-        if (this.app.config.weekNumbers) {
-            html += '<div class="calendar-week-number-header">W</div>';
-        }
-
-        const dayNames = this.getDayNames('short');
+        // Weekday headers (7 columns)
+        html += '<div class="calendar-weekdays">';
+        const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
         for (let i = 0; i < 7; i++) {
-            const dayIndex = (this.app.config.firstDayOfWeek + i) % 7;
-            html += `<div class="calendar-day-name">${dayNames[dayIndex]}</div>`;
+            html += `<div class="calendar-weekday">${dayNames[i]}</div>`;
         }
         html += '</div>';
 
-        // Calendar grid
-        html += '<div class="calendar-month-grid">';
+        // Calendar grid (strict 7 columns)
+        html += '<div class="calendar-grid">';
 
         const currentDay = new Date(bounds.start);
-        let weekNumber = this.getWeekNumber(currentDay);
 
         while (currentDay <= bounds.end) {
-            // Week number
-            if (currentDay.getDay() === this.app.config.firstDayOfWeek && this.app.config.weekNumbers) {
-                html += `<div class="calendar-week-number">${weekNumber}</div>`;
-                weekNumber++;
-            }
-
-            // Day cell
             const isToday = this.isToday(currentDay);
             const isCurrentMonth = currentDay.getMonth() === currentDate.getMonth();
             const dateStr = currentDay.toISOString().split('T')[0];
 
             html += `
-                <div class="calendar-day ${isToday ? 'today' : ''}
-                            ${!isCurrentMonth ? 'other-month' : ''}"
+                <div class="calendar-day ${isToday ? 'today' : ''} ${!isCurrentMonth ? 'other-month' : ''}"
                      data-date="${dateStr}"
                      draggable="false">
-                    <div class="calendar-day-number">${currentDay.getDate()}</div>
-                    <div class="calendar-day-events" data-date="${dateStr}">
-                        ${this.renderDayEvents(currentDay, events)}
-                    </div>
+                    <div class="day-number">${currentDay.getDate()}</div>
+                    <div class="calendar-events" data-date="${dateStr}"></div>
                 </div>
             `;
 
@@ -667,110 +697,143 @@ class CalendarView {
         html += '</div></div>';
 
         this.container.innerHTML = html;
+
+        // BUG-115 FIX: Add double-click handlers for event creation
+        document.querySelectorAll('.calendar-day').forEach(dayCell => {
+            dayCell.addEventListener('dblclick', (e) => {
+                const date = e.currentTarget.dataset.date;
+                this.openEventModal(date);
+            });
+        });
+
         this.renderEvents();
     }
 
+    /**
+     * Open event creation modal for specific date
+     * BUG-115: Double-click creates event
+     * @param {string} dateStr - Date in ISO format (YYYY-MM-DD)
+     */
+    openEventModal(dateStr) {
+        const eventModal = this.app.components.eventModal;
+
+        if (!eventModal || typeof eventModal.show !== 'function') {
+            console.error('[CalendarView] EventModal component not found');
+            alert('Impossibile aprire il modal. Ricaricare la pagina.');
+            return;
+        }
+
+        // Create Date objects for start and end times (9:00 AM - 10:00 AM)
+        const startDate = new Date(dateStr + 'T09:00:00');
+        const endDate = new Date(dateStr + 'T10:00:00');
+
+        // Create event data with pre-filled date
+        const eventData = {
+            title: '',
+            description: '',
+            start_date: startDate,
+            end_date: endDate,
+            all_day: false,
+            location: '',
+            calendar_id: this.app.state.calendars && this.app.state.calendars.length > 0
+                ? this.app.state.calendars[0].id
+                : null,
+            participants: [],
+            recurrence_rule: '',
+            reminders: [],
+            category: '',
+            tags: [],
+            color: '#3788d8'
+        };
+
+        // Show modal (null = new event mode)
+        eventModal.show(eventData);
+        console.log('[CalendarView] Opened event modal for date:', dateStr);
+    }
+
+    /**
+     * BUG-115 FIX: Week view removed per user request (only Month view needed)
+     * COMMENTED OUT - Retained for future reference
+     */
+    /*
     renderWeek() {
-        const { currentDate, events } = this.app.state;
-        const bounds = this.app.getViewBounds();
+        const weekStart = this.getWeekStart(this.app.state.currentDate);
+        const days = [];
 
-        let html = '<div class="calendar-week">';
-
-        // Time sidebar
-        html += '<div class="calendar-time-sidebar">';
-        html += '<div class="calendar-time-header"></div>';
-
-        for (let hour = 0; hour < 24; hour++) {
-            html += `
-                <div class="calendar-time-label">
-                    ${hour.toString().padStart(2, '0')}:00
-                </div>
-            `;
-        }
-        html += '</div>';
-
-        // Days container
-        html += '<div class="calendar-week-days">';
-
-        // All-day events row
-        html += '<div class="calendar-allday-row">';
-        html += '<div class="calendar-allday-label">Tutto il giorno</div>';
-
-        const currentDay = new Date(bounds.start);
+        // Build 7 days array (Sunday to Saturday)
         for (let i = 0; i < 7; i++) {
-            const dateStr = currentDay.toISOString().split('T')[0];
-            html += `
-                <div class="calendar-allday-cell" data-date="${dateStr}">
-                    ${this.renderAllDayEvents(currentDay, events)}
-                </div>
-            `;
-            currentDay.setDate(currentDay.getDate() + 1);
+            const day = new Date(weekStart);
+            day.setDate(weekStart.getDate() + i);
+            days.push(day);
         }
-        html += '</div>';
 
-        // Day columns with time grid
-        html += '<div class="calendar-week-grid">';
+        const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+        const businessHours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]; // BUG-113: Business hours only
 
-        // Day headers
+        let html = '<div class="calendar-week-view">';
+        html += '<div class="calendar-week-container">';
+
+        // Header row: time column + 7 day headers
         html += '<div class="calendar-week-headers">';
-        currentDay.setDate(currentDay.getDate() - 7); // Reset to start
+        html += '<div class="calendar-time-header"></div>'; // Empty corner
 
-        for (let i = 0; i < 7; i++) {
-            const isToday = this.isToday(currentDay);
-            const dateStr = currentDay.toISOString().split('T')[0];
+        days.forEach((day, idx) => {
+            const dayOfWeek = day.getDay();
+            const date = day.getDate();
+            const isToday = day.toDateString() === new Date().toDateString();
 
-            html += `
-                <div class="calendar-week-header ${isToday ? 'today' : ''}">
-                    <div class="calendar-week-day-name">
-                        ${this.getDayName(currentDay.getDay(), 'short')}
-                    </div>
-                    <div class="calendar-week-day-number">
-                        ${currentDay.getDate()}
-                    </div>
-                </div>
-            `;
-            currentDay.setDate(currentDay.getDate() + 1);
-        }
-        html += '</div>';
+            html += `<div class="calendar-week-header ${isToday ? 'today' : ''}">
+                        <div class="week-header-day">${dayNames[dayOfWeek]}</div>
+                        <div class="week-header-date">${date}</div>
+                    </div>`;
+        });
+        html += '</div>'; // End calendar-week-headers
 
-        // Time grid
-        html += '<div class="calendar-time-grid-container">';
+        // Business hours grid (08:00-18:00 = 11 hours)
+        businessHours.forEach(hour => {
+            // Time label (first column)
+            html += `<div class="calendar-time-label">${hour.toString().padStart(2, '0')}:00</div>`;
 
-        // Current time indicator
-        if (this.isCurrentWeek()) {
-            html += this.renderCurrentTimeIndicator();
-        }
-
-        // Time slots for each day
-        currentDay.setDate(currentDay.getDate() - 7); // Reset
-
-        for (let day = 0; day < 7; day++) {
-            const dateStr = currentDay.toISOString().split('T')[0];
-            html += `<div class="calendar-day-column" data-date="${dateStr}">`;
-
-            for (let hour = 0; hour < 24; hour++) {
-                for (let minute = 0; minute < 60; minute += this.app.config.slotDuration) {
-                    const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-                    html += `
-                        <div class="calendar-time-slot"
+            // 7 day columns for this hour
+            days.forEach(day => {
+                const dateStr = day.toISOString().split('T')[0];
+                html += `<div class="calendar-hour-slot"
                              data-date="${dateStr}"
-                             data-time="${time}">
-                        </div>
-                    `;
-                }
-            }
+                             data-hour="${hour}"></div>`;
+            });
+        });
 
-            html += '</div>';
-            currentDay.setDate(currentDay.getDate() + 1);
-        }
-
-        html += '</div></div></div></div></div>';
+        html += '</div>'; // End calendar-week-container
+        html += '</div>'; // End calendar-week-view
 
         this.container.innerHTML = html;
-        this.renderEvents();
-        this.startTimeIndicatorUpdate();
+
+        // Render events in week grid
+        // BUG-112 FIX: Pass events from state with defensive check
+        const events = this.app.state.events || [];
+        this.renderWeekEvents(events);
+    }
+    */
+
+    /**
+     * Get start of week (Sunday) for given date
+     * @param {Date} date - Reference date
+     * @returns {Date} Sunday of the week containing the given date
+     */
+    getWeekStart(date) {
+        const d = new Date(date);
+        const day = d.getDay(); // 0 = Sunday, 6 = Saturday
+        const diff = day; // Days to go back to Sunday
+        d.setDate(d.getDate() - diff);
+        d.setHours(0, 0, 0, 0); // Start of day
+        return d;
     }
 
+    /**
+     * BUG-115 FIX: Day view removed per user request (only Month view needed)
+     * COMMENTED OUT - Retained for future reference
+     */
+    /*
     renderDay() {
         const { currentDate, events } = this.app.state;
         const dateStr = currentDate.toISOString().split('T')[0];
@@ -852,6 +915,7 @@ class CalendarView {
             this.startTimeIndicatorUpdate();
         }
     }
+    */
 
     renderEvents() {
         const { events, currentView } = this.app.state;
@@ -866,9 +930,14 @@ class CalendarView {
     }
 
     renderMonthEvents(events) {
+        // PREMIUM CALENDAR REDESIGN: Clear existing events before rendering to avoid duplicates
+        document.querySelectorAll('.calendar-events').forEach(container => {
+            container.innerHTML = '';
+        });
+
         events.forEach(event => {
             const startDate = event.start.toISOString().split('T')[0];
-            const container = document.querySelector(`.calendar-day-events[data-date="${startDate}"]`);
+            const container = document.querySelector(`.calendar-events[data-date="${startDate}"]`);
 
             if (container) {
                 const eventEl = this.createEventElement(event, 'month');
@@ -878,6 +947,17 @@ class CalendarView {
     }
 
     renderWeekEvents(events) {
+        // BUG-112 FIX: Defensive check for undefined/null events
+        if (!Array.isArray(events)) {
+            console.warn('[CalendarView] renderWeekEvents called with non-array:', events);
+            events = [];
+        }
+
+        if (events.length === 0) {
+            console.log('[CalendarView] No events to render in week view');
+            return;
+        }
+
         const allDayEvents = events.filter(e => e.allDay);
         const timedEvents = events.filter(e => !e.allDay);
 
@@ -931,29 +1011,38 @@ class CalendarView {
         const div = document.createElement('div');
         div.className = `calendar-event calendar-event-${viewType}`;
         div.dataset.eventId = event.id;
-        div.style.backgroundColor = event.color;
+
+        // PREMIUM CALENDAR REDESIGN: Use custom color or default gradient
+        if (event.color && event.color !== '#3788d8') {
+            div.style.background = event.color;
+        }
+        // Default gradient is applied via CSS class
 
         // Add priority indicator
         if (event.priority === 'high') {
             div.classList.add('high-priority');
         }
 
-        // Add recurring indicator
-        if (event.recurrence_rule) {
-            div.innerHTML += '<span class="event-recurring-icon">🔁</span>';
-        }
-
-        // Add participant count
-        if (event.participant_count > 1) {
-            div.innerHTML += `<span class="event-participants">${event.participant_count}</span>`;
-        }
-
-        // Event content
+        // Event content with premium layout
         const time = event.allDay ? '' : this.app.formatTime(event.start);
-        div.innerHTML += `
-            <div class="event-time">${time}</div>
-            <div class="event-title">${event.title}</div>
-        `;
+        let content = '';
+
+        if (time) {
+            content += `<span class="event-time">${time}</span>`;
+        }
+
+        content += `<span class="event-title">${event.title}</span>`;
+
+        // Add icons for special event types
+        if (event.recurrence_rule) {
+            content += '<span class="event-icon" title="Ricorrente">🔁</span>';
+        }
+
+        if (event.participant_count > 1) {
+            content += `<span class="event-icon" title="${event.participant_count} partecipanti">👥</span>`;
+        }
+
+        div.innerHTML = content;
 
         // Make draggable if enabled
         if (this.app.config.dragEnabled) {
@@ -1047,21 +1136,11 @@ class CalendarView {
         return event1.start < event2.end && event1.end > event2.start;
     }
 
-    renderDayEvents(date, events) {
-        const dayEvents = events.filter(event => {
-            const eventDate = event.start.toISOString().split('T')[0];
-            const checkDate = date.toISOString().split('T')[0];
-            return eventDate === checkDate;
-        });
-
-        return dayEvents.slice(0, 3).map(event => `
-            <div class="calendar-event-preview"
-                 style="background-color: ${event.color}"
-                 data-event-id="${event.id}">
-                ${event.allDay ? '' : this.app.formatTime(event.start) + ' '}
-                ${event.title}
-            </div>
-        `).join('');
+    renderDayEvents() {
+        // Month events are rendered dynamically after the layout is mounted.
+        // We intentionally return an empty string here to let renderMonthEvents()
+        // append the interactive elements and avoid duplicated markup.
+        return '';
     }
 
     renderAllDayEvents(date, events) {
@@ -1255,6 +1334,13 @@ class EventModal {
     }
 
     init() {
+        // BUG-116 FIX: Defensive null check (pattern BUG-103)
+        // BUG-119 FIX: Modal is now appended to document.body by renderLayout()
+        if (!this.modal) {
+            console.error('[EventModal] Modal element not found in init()');
+            return;
+        }
+
         this.modal.addEventListener('click', (e) => {
             if (e.target === this.modal) {
                 this.hide();
@@ -1263,6 +1349,12 @@ class EventModal {
     }
 
     show(event = null) {
+        // BUG-116 FIX: Defensive check before render (pattern BUG-103)
+        if (!this.modal) {
+            console.error('[EventModal] Modal element not found in show()');
+            return;
+        }
+
         this.event = event || {
             title: '',
             description: '',
@@ -1281,7 +1373,8 @@ class EventModal {
 
         this.isNew = !event || !event.id;
         this.render();
-        this.modal.classList.add('show');
+        // BUG-117 FIX: Use 'active' class to match CSS
+        this.modal.classList.add('active');
 
         // Focus on title field
         setTimeout(() => {
@@ -1291,21 +1384,35 @@ class EventModal {
     }
 
     hide() {
-        this.modal.classList.remove('show');
+        // BUG-116 FIX: Defensive null check (pattern BUG-103)
+        if (!this.modal) {
+            console.warn('[EventModal] Modal element not found in hide()');
+            return;
+        }
+
+        // BUG-117 FIX: Use 'active' class to match CSS
+        this.modal.classList.remove('active');
         this.event = null;
     }
 
     render() {
+        // BUG-116 FIX: Defensive check before rendering (pattern BUG-103)
+        if (!this.modal) {
+            console.error('[EventModal] Cannot render - modal element not found');
+            return;
+        }
+
         const { calendars } = this.app.state;
 
+        // BUG-117 FIX: Use event-modal-* classes to match CSS definitions
         this.modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
+            <div class="event-modal-content">
+                <div class="event-modal-header">
                     <h2>${this.isNew ? 'Nuovo Evento' : 'Modifica Evento'}</h2>
                     <button class="modal-close" onclick="window.calendar.components.eventModal.hide()">×</button>
                 </div>
 
-                <div class="modal-body">
+                <div class="event-modal-body">
                     <form id="event-form" class="event-form">
                         <!-- Title -->
                         <div class="form-group">
@@ -1366,12 +1473,25 @@ class EventModal {
                         <div class="form-group">
                             <label>Calendario</label>
                             <select id="event-calendar" class="form-control">
-                                ${calendars.map(cal => `
+                                ${calendars.map(cal => {
+                                    let displayName;
+
+                                    // BUG-126 FIX: Display logic based on calendar type
+                                    if (cal.visibility === 'private') {
+                                        // Personal calendar: show calendar name (includes owner name)
+                                        displayName = cal.name;
+                                    } else {
+                                        // Public/Shared calendar: show TENANT NAME directly
+                                        displayName = cal.tenant_name || cal.name;
+                                    }
+
+                                    return `
                                     <option value="${cal.id}"
                                             ${cal.id === this.event.calendar_id ? 'selected' : ''}>
-                                        ${cal.name}
+                                        ${displayName}
                                     </option>
-                                `).join('')}
+                                    `;
+                                }).join('')}
                             </select>
                         </div>
 
@@ -1384,16 +1504,15 @@ class EventModal {
                                       placeholder="Aggiungi descrizione">${this.event.description || ''}</textarea>
                         </div>
 
-                        <!-- Participants -->
-                        <div class="form-group">
+                        <!-- Participants Section - Complete UI -->
+                        <div class="form-group" id="event-participants-container">
                             <label>Partecipanti</label>
-                            <div class="participants-selector">
-                                <input type="text"
-                                       id="participant-search"
-                                       class="form-control"
-                                       placeholder="Cerca e aggiungi partecipanti">
-                                <div id="participants-list" class="participants-list">
-                                    ${this.renderParticipants()}
+                            <div id="participants-selector">
+                                <button type="button" class="btn btn-outline btn-sm" onclick="window.calendar.components.eventModal.showParticipantModal()">
+                                    + Aggiungi Partecipanti
+                                </button>
+                                <div id="selected-participants" class="selected-participants-list">
+                                    <!-- Selected participants will appear here -->
                                 </div>
                             </div>
                         </div>
@@ -1471,7 +1590,7 @@ class EventModal {
                     </form>
                 </div>
 
-                <div class="modal-footer">
+                <div class="event-modal-footer">
                     <button type="button" class="btn btn-text" onclick="window.calendar.components.eventModal.hide()">
                         Annulla
                     </button>
@@ -1491,15 +1610,54 @@ class EventModal {
         `;
 
         this.bindFormEvents();
+
+        // Initialize empty participants array for new events
+        if (!this.selectedParticipants) {
+            this.selectedParticipants = [];
+        }
+
+        // Load and render participants for existing events
+        if (!this.isNew && this.event.id) {
+            this.loadExistingParticipants(this.event.id);
+        }
+    }
+
+    async loadEventParticipants(event) {
+        const container = document.getElementById('event-participants-container');
+        if (!container) return;
+
+        try {
+            const participantsHtml = await this.renderEventParticipants(event);
+            container.innerHTML = participantsHtml;
+        } catch (error) {
+            console.error('[Calendar] Error loading participants:', error);
+            container.innerHTML = '<label>Partecipanti</label><p class="text-muted">Errore nel caricamento dei partecipanti</p>';
+        }
     }
 
     bindFormEvents() {
+        // BUG-116 FIX: Defensive null checks BEFORE addEventListener (pattern BUG-103)
+
         // All day toggle
         const allDayCheckbox = document.getElementById('event-allday');
-        allDayCheckbox.addEventListener('change', (e) => {
-            const startInput = document.getElementById('event-start');
-            const endInput = document.getElementById('event-end');
+        if (!allDayCheckbox) {
+            console.warn('[EventModal] All-day checkbox not found in bindFormEvents');
+            return;
+        }
 
+        const startInput = document.getElementById('event-start');
+        if (!startInput) {
+            console.warn('[EventModal] Start input not found in bindFormEvents');
+            return;
+        }
+
+        const endInput = document.getElementById('event-end');
+        if (!endInput) {
+            console.warn('[EventModal] End input not found in bindFormEvents');
+            return;
+        }
+
+        allDayCheckbox.addEventListener('change', (e) => {
             if (e.target.checked) {
                 startInput.type = 'date';
                 endInput.type = 'date';
@@ -1511,17 +1669,29 @@ class EventModal {
 
         // Recurrence selector
         const recurrenceSelect = document.getElementById('event-recurrence');
+        if (!recurrenceSelect) {
+            console.warn('[EventModal] Recurrence select not found in bindFormEvents');
+            return;
+        }
+
         recurrenceSelect.addEventListener('change', (e) => {
             const details = document.getElementById('recurrence-details');
-            if (e.target.value === 'CUSTOM') {
-                details.style.display = 'block';
-            } else {
-                details.style.display = 'none';
+            if (details) {
+                if (e.target.value === 'CUSTOM') {
+                    details.style.display = 'block';
+                } else {
+                    details.style.display = 'none';
+                }
             }
         });
 
         // Participant search
         const participantSearch = document.getElementById('participant-search');
+        if (!participantSearch) {
+            console.warn('[EventModal] Participant search not found in bindFormEvents');
+            return;
+        }
+
         participantSearch.addEventListener('input', debounce((e) => {
             this.searchParticipants(e.target.value);
         }, 300));
@@ -1590,9 +1760,28 @@ class EventModal {
     }
 
     validateForm() {
-        const title = document.getElementById('event-title').value.trim();
-        const start = document.getElementById('event-start').value;
-        const end = document.getElementById('event-end').value;
+        // BUG-116 FIX: Defensive null checks before accessing form elements (pattern BUG-103)
+        const titleElement = document.getElementById('event-title');
+        if (!titleElement) {
+            console.error('[EventModal] Title element not found in validateForm');
+            return false;
+        }
+
+        const startElement = document.getElementById('event-start');
+        if (!startElement) {
+            console.error('[EventModal] Start element not found in validateForm');
+            return false;
+        }
+
+        const endElement = document.getElementById('event-end');
+        if (!endElement) {
+            console.error('[EventModal] End element not found in validateForm');
+            return false;
+        }
+
+        const title = titleElement.value.trim();
+        const start = startElement.value;
+        const end = endElement.value;
 
         if (!title) {
             this.app.showToast('Il titolo è obbligatorio', 'error');
@@ -1613,16 +1802,27 @@ class EventModal {
     }
 
     getFormData() {
+        // BUG-116 FIX: Defensive null checks with fallback values (pattern BUG-103)
+        const titleElement = document.getElementById('event-title');
+        const descriptionElement = document.getElementById('event-description');
+        const startElement = document.getElementById('event-start');
+        const endElement = document.getElementById('event-end');
+        const allDayElement = document.getElementById('event-allday');
+        const locationElement = document.getElementById('event-location');
+        const calendarElement = document.getElementById('event-calendar');
+        const categoryElement = document.getElementById('event-category');
+        const tagsElement = document.getElementById('event-tags');
+
         return {
-            title: document.getElementById('event-title').value.trim(),
-            description: document.getElementById('event-description').value.trim(),
-            start_date: document.getElementById('event-start').value,
-            end_date: document.getElementById('event-end').value,
-            all_day: document.getElementById('event-allday').checked,
-            location: document.getElementById('event-location').value.trim(),
-            calendar_id: parseInt(document.getElementById('event-calendar').value),
-            category: document.getElementById('event-category').value,
-            tags: document.getElementById('event-tags').value.split(',').map(t => t.trim()).filter(t => t),
+            title: titleElement ? titleElement.value.trim() : '',
+            description: descriptionElement ? descriptionElement.value.trim() : '',
+            start_date: startElement ? startElement.value : '',
+            end_date: endElement ? endElement.value : '',
+            all_day: allDayElement ? allDayElement.checked : false,
+            location: locationElement ? locationElement.value.trim() : '',
+            calendar_id: calendarElement ? parseInt(calendarElement.value) : null,
+            category: categoryElement ? categoryElement.value : '',
+            tags: tagsElement ? tagsElement.value.split(',').map(t => t.trim()).filter(t => t) : [],
             color: this.event.color,
             recurrence_rule: this.recurrenceBuilder.getRule(),
             reminders: this.getReminders(),
@@ -1711,8 +1911,8 @@ class EventModal {
     }
 
     getParticipants() {
-        // Implement participant collection
-        return this.event.participants || [];
+        // Return selected participants (array of user IDs for API)
+        return this.selectedParticipants ? this.selectedParticipants.map(p => p.id) : [];
     }
 
     async searchParticipants(query) {
@@ -1735,6 +1935,267 @@ class EventModal {
         const location = document.getElementById('event-location').value;
         if (location) {
             window.open(`https://maps.google.com/?q=${encodeURIComponent(location)}`, '_blank');
+        }
+    }
+
+
+    async renderEventParticipants(event) {
+        try {
+            // Load participants from API
+            const token = this.app.getCsrfToken();
+            const response = await fetch(`${this.app.config.apiBase}events.php?action=participants&event_id=${event.id}`, {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRF-Token': token
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            const participants = data?.data?.participants || [];
+
+            let html = '<div class="event-participants">';
+            html += '<h4>Partecipanti</h4>';
+
+            if (participants.length > 0) {
+                html += '<ul class="participant-list">';
+                participants.forEach(p => {
+                    const statusClass = p.status || 'pending'; // pending|accepted|declined
+                    const statusLabel = {
+                        'pending': 'In attesa',
+                        'accepted': 'Accettato',
+                        'declined': 'Rifiutato'
+                    }[statusClass] || statusClass;
+
+                    html += `
+                        <li class="participant-item">
+                            <span class="participant-name">${p.name}</span>
+                            <span class="participant-status status-${statusClass}">${statusLabel}</span>
+                        </li>
+                    `;
+                });
+                html += '</ul>';
+            } else {
+                html += '<p class="text-muted">Nessun partecipante</p>';
+            }
+
+            // Add "Add Participants" button (only for organizer)
+            const currentUserId = this.getCurrentUserId();
+            if (event.organizer_id === currentUserId || event.created_by === currentUserId) {
+                html += `<button class="btn btn-sm btn-primary" onclick="window.calendar.components.eventModal.showParticipantModal()">+ Aggiungi Partecipanti</button>`;
+            }
+
+            html += '</div>';
+
+            return html;
+
+        } catch (error) {
+            console.error('[Calendar] Error loading participants:', error);
+            return '<div class="event-participants"><p class="text-muted">Errore nel caricamento dei partecipanti</p></div>';
+        }
+    }
+
+    getCurrentUserId() {
+        // Extract current user ID from session or hidden input
+        const userIdInput = document.getElementById('currentUserId');
+        if (userIdInput) {
+            return parseInt(userIdInput.value);
+        }
+        // Fallback: try to get from global state
+        return window.currentUserId || null;
+    }
+
+    /**
+     * Load existing participants for an event
+     */
+    async loadExistingParticipants(eventId) {
+        try {
+            const response = await this.app.apiCall(`events.php?action=participants&event_id=${eventId}`, {
+                method: 'GET'
+            });
+
+            if (response.success && response.data?.participants) {
+                this.selectedParticipants = response.data.participants.map(p => ({
+                    id: parseInt(p.user_id || p.id),
+                    name: p.name,
+                    email: p.email,
+                    status: p.status || 'pending'
+                }));
+                this.renderSelectedParticipants();
+            }
+        } catch (error) {
+            console.error('[EventModal] Error loading existing participants:', error);
+        }
+    }
+
+    /**
+     * Show participant selection modal with RBAC-filtered users
+     */
+    async showParticipantModal() {
+        try {
+            // Get current event data
+            const eventId = document.getElementById('event-id')?.value || null;
+            const tenantId = document.getElementById('event-tenant')?.value || null;
+
+            // Build query params
+            const params = new URLSearchParams();
+            if (eventId) params.append('event_id', eventId);
+            if (tenantId) params.append('tenant_id', tenantId);
+
+            // Call API for available users (RBAC-filtered)
+            const response = await this.app.apiCall(`events.php?action=available_users&${params.toString()}`, {
+                method: 'GET'
+            });
+
+            if (!response.success) {
+                this.app.showToast('Errore caricamento utenti', 'error');
+                return;
+            }
+
+            const users = response.data?.users || [];
+
+            // Pre-select already selected participants
+            const selectedIds = new Set(this.selectedParticipants.map(p => parseInt(p.id)));
+
+            // Create modal HTML
+            const modalHTML = `
+                <div id="participant-modal-overlay" class="event-modal active">
+                    <div class="event-modal-content" style="max-width: 600px;">
+                        <div class="event-modal-header">
+                            <h2>Seleziona Partecipanti</h2>
+                            <button class="modal-close" onclick="window.calendar.components.eventModal.closeParticipantModal()">&times;</button>
+                        </div>
+                        <div class="event-modal-body">
+                            <div class="form-group">
+                                <input type="text" id="participant-search" class="form-control" placeholder="Cerca utenti..." />
+                            </div>
+                            <div class="participant-list" style="max-height: 400px; overflow-y: auto;">
+                                ${users.map(user => `
+                                    <label class="participant-item">
+                                        <input type="checkbox" value="${user.id}" data-name="${user.name}" data-email="${user.email}" ${selectedIds.has(parseInt(user.id)) ? 'checked' : ''}>
+                                        <div class="participant-info">
+                                            <div class="participant-name">${user.name}</div>
+                                            <div class="participant-meta">
+                                                <span class="role-badge">${user.role}</span>
+                                                <span class="text-muted">${user.email}</span>
+                                            </div>
+                                        </div>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="event-modal-footer">
+                            <button class="btn btn-secondary" onclick="window.calendar.components.eventModal.closeParticipantModal()">Annulla</button>
+                            <button class="btn btn-primary" onclick="window.calendar.components.eventModal.saveParticipants()">Aggiungi <span id="selected-count">(${selectedIds.size})</span></button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Append to body
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+            // Add search handler
+            const searchInput = document.getElementById('participant-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', this.filterParticipants.bind(this));
+            }
+
+            // Update count on checkbox change
+            document.querySelectorAll('.participant-item input[type="checkbox"]').forEach(cb => {
+                cb.addEventListener('change', this.updateParticipantCount.bind(this));
+            });
+
+        } catch (error) {
+            console.error('[EventModal] Error loading participants:', error);
+            this.app.showToast('Errore caricamento partecipanti', 'error');
+        }
+    }
+
+    /**
+     * Close participant modal
+     */
+    closeParticipantModal() {
+        const modal = document.getElementById('participant-modal-overlay');
+        if (modal) {
+            modal.remove();
+        }
+    }
+
+    /**
+     * Save selected participants
+     */
+    saveParticipants() {
+        const selected = Array.from(document.querySelectorAll('.participant-item input[type="checkbox"]:checked'));
+
+        this.selectedParticipants = selected.map(cb => ({
+            id: parseInt(cb.value),
+            name: cb.dataset.name,
+            email: cb.dataset.email,
+            status: 'pending'
+        }));
+
+        this.renderSelectedParticipants();
+        this.closeParticipantModal();
+        this.app.showToast(`${this.selectedParticipants.length} partecipante/i selezionato/i`, 'success');
+    }
+
+    /**
+     * Render selected participants as chips
+     */
+    renderSelectedParticipants() {
+        const container = document.getElementById('selected-participants');
+        if (!container) return;
+
+        if (this.selectedParticipants.length === 0) {
+            container.innerHTML = '<p class="text-muted" style="margin-top: 8px; font-size: 13px;">Nessun partecipante selezionato</p>';
+            return;
+        }
+
+        container.innerHTML = this.selectedParticipants.map(p => `
+            <div class="participant-chip">
+                <span>${p.name}</span>
+                <span class="participant-chip-remove" onclick="window.calendar.components.eventModal.removeParticipant(${p.id})">&times;</span>
+            </div>
+        `).join('');
+    }
+
+    /**
+     * Remove a participant
+     */
+    removeParticipant(participantId) {
+        this.selectedParticipants = this.selectedParticipants.filter(p => p.id !== participantId);
+        this.renderSelectedParticipants();
+        this.app.showToast('Partecipante rimosso', 'info');
+    }
+
+    /**
+     * Filter participants by search term
+     */
+    filterParticipants(event) {
+        const searchTerm = event.target.value.toLowerCase();
+        const items = document.querySelectorAll('.participant-item');
+
+        items.forEach(item => {
+            const name = item.querySelector('.participant-name').textContent.toLowerCase();
+            const email = item.querySelector('.text-muted').textContent.toLowerCase();
+            const matches = name.includes(searchTerm) || email.includes(searchTerm);
+            item.style.display = matches ? 'flex' : 'none';
+        });
+    }
+
+    /**
+     * Update participant count in modal footer
+     */
+    updateParticipantCount() {
+        const checkedCount = document.querySelectorAll('.participant-item input[type="checkbox"]:checked').length;
+        const countElement = document.getElementById('selected-count');
+        if (countElement) {
+            countElement.textContent = `(${checkedCount})`;
         }
     }
 }
@@ -1861,7 +2322,9 @@ class DragDropHandler {
             if (!e.target.classList.contains('calendar-event')) return;
 
             const eventId = parseInt(e.target.dataset.eventId);
-            this.draggedEvent = this.app.state.events.find(ev => ev.id === eventId);
+            // BUG-112 FIX: Defensive check for undefined events
+            const events = this.app.state.events || [];
+            this.draggedEvent = events.find(ev => ev.id === eventId);
 
             if (!this.draggedEvent) return;
 
@@ -1948,7 +2411,9 @@ class DragDropHandler {
             e.preventDefault();
             const eventEl = e.target.closest('.calendar-event');
             const eventId = parseInt(eventEl.dataset.eventId);
-            const event = this.app.state.events.find(ev => ev.id === eventId);
+            // BUG-112 FIX: Defensive check for undefined events
+            const events = this.app.state.events || [];
+            const event = events.find(ev => ev.id === eventId);
 
             if (!event) return;
 
@@ -2070,9 +2535,6 @@ class CalendarToolbar {
     render() {
         this.container.innerHTML = `
             <div class="toolbar-section">
-                <button class="btn btn-icon" onclick="window.calendar.components.sidebar.toggle()">
-                    ☰
-                </button>
                 <button class="btn btn-primary" onclick="window.calendar.components.eventModal.show()">
                     + Nuovo
                 </button>
@@ -2080,12 +2542,9 @@ class CalendarToolbar {
 
             <div class="toolbar-section">
                 <div class="view-switcher">
-                    <button class="btn ${this.app.state.currentView === 'month' ? 'active' : ''}"
+                    <!-- BUG-115 FIX: Only month view supported -->
+                    <button class="btn active"
                             onclick="window.calendar.changeView('month')">Mese</button>
-                    <button class="btn ${this.app.state.currentView === 'week' ? 'active' : ''}"
-                            onclick="window.calendar.changeView('week')">Settimana</button>
-                    <button class="btn ${this.app.state.currentView === 'day' ? 'active' : ''}"
-                            onclick="window.calendar.changeView('day')">Giorno</button>
                 </div>
             </div>
 
@@ -2207,17 +2666,9 @@ class CalendarSidebar {
     }
 
     render() {
+        // CALENDAR OPTIMIZATION: Removed Mini Calendar and Calendar List sections
+        // Only keeping Upcoming Events and Quick Filters for cleaner UI
         this.container.innerHTML = `
-            <div class="sidebar-section">
-                <h3>Mini Calendario</h3>
-                <div class="mini-calendar" id="mini-calendar"></div>
-            </div>
-
-            <div class="sidebar-section">
-                <h3>Calendari</h3>
-                <div class="calendar-list" id="calendar-list"></div>
-            </div>
-
             <div class="sidebar-section">
                 <h3>Prossimi Eventi</h3>
                 <div class="upcoming-events" id="upcoming-events"></div>
@@ -2238,13 +2689,14 @@ class CalendarSidebar {
             </div>
         `;
 
-        this.renderMiniCalendar();
-        this.updateCalendarList();
+        // REMOVED: renderMiniCalendar() and updateCalendarList() calls
         this.renderUpcomingEvents();
         this.bindFilterEvents();
     }
 
-    renderMiniCalendar() {
+    // CALENDAR OPTIMIZATION: Commented out Mini Calendar rendering
+    // Mini Calendar not needed - main calendar always visible
+    /* renderMiniCalendar() {
         const container = document.getElementById('mini-calendar');
         const currentDate = new Date();
         const year = currentDate.getFullYear();
@@ -2284,9 +2736,11 @@ class CalendarSidebar {
 
         html += '</div>';
         container.innerHTML = html;
-    }
+    } */
 
-    updateCalendarList() {
+    // CALENDAR OPTIMIZATION: Commented out Calendar List rendering
+    // Calendar filtering handled by main API, list not needed
+    /* updateCalendarList() {
         const container = document.getElementById('calendar-list');
         const { calendars, selectedCalendars } = this.app.state;
 
@@ -2300,12 +2754,14 @@ class CalendarSidebar {
                 <span class="calendar-name">${cal.name}</span>
             </label>
         `).join('');
-    }
+    } */
 
     renderUpcomingEvents() {
         const container = document.getElementById('upcoming-events');
         const now = new Date();
-        const upcoming = this.app.state.events
+        // BUG-112 FIX: Defensive check for undefined events
+        const events = this.app.state.events || [];
+        const upcoming = events
             .filter(e => e.start > now)
             .sort((a, b) => a.start - b.start)
             .slice(0, 5);
@@ -2394,7 +2850,9 @@ class ContextMenu {
         if (!eventEl) return;
 
         const eventId = parseInt(eventEl.dataset.eventId);
-        this.targetEvent = this.app.state.events.find(ev => ev.id === eventId);
+        // BUG-112 FIX: Defensive check for undefined events
+        const events = this.app.state.events || [];
+        this.targetEvent = events.find(ev => ev.id === eventId);
 
         if (!this.targetEvent) return;
 
