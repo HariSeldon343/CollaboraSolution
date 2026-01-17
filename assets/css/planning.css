@@ -1,0 +1,786 @@
+/* Planning (Tenant 28) - minimal styles aligned with dashboard */
+:root {
+  --planning-border: var(--color-gray-200);
+}
+
+.planning-grid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: var(--space-6);
+}
+
+@media (max-width: 1100px) {
+  .planning-grid { grid-template-columns: 1fr; }
+}
+
+.planning-left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.planning-right {
+  min-width: 0;
+}
+
+.planning-card {
+  background: var(--color-white);
+  border: 1px solid var(--planning-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.planning-card-header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--planning-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.planning-card-title {
+  font-weight: var(--font-semibold);
+  color: var(--color-gray-900);
+}
+
+.planning-card-body {
+  padding: var(--space-5);
+}
+
+.planning-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.planning-plan {
+  border: 1px solid var(--planning-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  cursor: pointer;
+  background: var(--color-gray-50);
+}
+
+.planning-plan.active {
+  background: var(--color-white);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.planning-plan-title {
+  font-weight: 700;
+  color: var(--color-gray-900);
+  font-size: var(--text-sm);
+}
+
+.planning-plan-sub {
+  color: var(--color-gray-600);
+  font-size: var(--text-xs);
+  margin-top: 4px;
+}
+
+.planning-progress {
+  border: 1px solid var(--planning-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: var(--color-gray-50);
+}
+
+.planning-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+.planning-progress-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 10px 12px;
+  border: 1px solid var(--planning-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+}
+
+.planning-progress-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.planning-progress-pill.done {
+  background: var(--color-success-100);
+  color: var(--color-success);
+  border-color: var(--color-success-100);
+}
+.planning-progress-pill.pending {
+  background: var(--color-warning-100);
+  color: var(--color-warning);
+  border-color: var(--color-warning-100);
+}
+.planning-progress-pill.na {
+  background: var(--color-gray-100);
+  color: var(--color-gray-600);
+  border-color: var(--color-gray-200);
+}
+.planning-progress-pill.error {
+  background: var(--color-error-100);
+  color: var(--color-error);
+  border-color: var(--color-error-100);
+}
+
+.planning-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.planning-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+@media (max-width: 700px) {
+  .planning-form-row { grid-template-columns: 1fr; }
+}
+
+.planning-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.planning-table th,
+.planning-table td {
+  border-bottom: 1px solid var(--planning-border);
+  padding: 10px 8px;
+  font-size: var(--text-sm);
+  vertical-align: top;
+}
+
+.planning-table th {
+  color: var(--color-gray-600);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.planning-table input,
+.planning-table select,
+.planning-table textarea {
+  width: 100%;
+  border: 1px solid var(--planning-border);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  font-size: var(--text-sm);
+  background: var(--color-white);
+}
+
+.planning-table textarea { min-height: 90px; resize: vertical; }
+
+/* Allocation matrix (Services x Consultants) */
+.planning-allocation-table .planning-alloc-input {
+  text-align: right;
+}
+
+.planning-allocation-table tfoot th {
+  font-weight: 800;
+}
+
+.planning-total {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  font-weight: 700;
+}
+
+.planning-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--color-gray-100);
+  color: var(--color-gray-700);
+  white-space: nowrap;
+}
+
+.planning-pill.draft { background: #EEF2FF; color: #3730A3; }
+.planning-pill.proposed { background: #FFFBEB; color: #92400E; }
+.planning-pill.approved { background: #ECFDF5; color: #065F46; }
+.planning-pill.scheduled { background: #EFF6FF; color: #1E40AF; }
+.planning-pill.done { background: #DCFCE7; color: #166534; }
+.planning-pill.cancelled { background: #FEE2E2; color: #991B1B; }
+
+.planning-muted { color: var(--color-gray-600); }
+
+.planning-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ========================================
+   TABS (Attività / Calendario / Compliance)
+   ======================================== */
+.planning-tabs {
+  display: inline-flex;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--planning-border);
+  border-radius: 999px;
+  background: var(--color-gray-50);
+}
+
+.planning-tab-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-gray-700);
+  font-weight: 800;
+  font-size: 12px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.planning-tab-btn:hover {
+  background: var(--color-gray-100);
+}
+
+.planning-tab-btn.active {
+  background: var(--color-white);
+  border-color: var(--planning-border);
+  color: var(--color-gray-900);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ========================================
+   PROGRESS OVERLAY (long operations)
+   ======================================== */
+.planning-progress-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 100001;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.planning-progress-box {
+  background: var(--color-white);
+  border-radius: 12px;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  padding: 18px 18px 16px;
+  border: 1px solid var(--planning-border);
+}
+
+.planning-progress-title {
+  font-weight: 800;
+  margin-bottom: 10px;
+  color: var(--color-gray-900);
+}
+
+.planning-progress-track {
+  height: 10px;
+  background: var(--color-gray-200);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.planning-progress-bar {
+  height: 10px;
+  width: 0%;
+  background: var(--color-primary);
+  transition: width 180ms linear;
+}
+
+.planning-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  color: var(--color-gray-600);
+  font-size: 12px;
+}
+
+.planning-action-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.planning-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 10px;
+  border-left: 1px solid var(--planning-border);
+}
+
+.planning-action-group:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+
+.planning-action-group-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-gray-500);
+  margin-right: 2px;
+}
+
+/* ========================================
+   NEXT STEPS
+   ======================================== */
+.planning-next-steps {
+  border: 1px solid var(--planning-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.planning-next-steps-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.planning-next-steps-title {
+  font-weight: 800;
+  color: var(--color-gray-900);
+}
+
+.planning-next-steps-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-3);
+}
+
+@media (max-width: 1100px) {
+  .planning-next-steps-grid { grid-template-columns: 1fr; }
+}
+
+.planning-next-steps-item {
+  border: 1px solid var(--planning-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background: var(--color-gray-50);
+}
+
+.planning-next-steps-item-title {
+  font-weight: 800;
+  color: var(--color-gray-900);
+}
+
+/* ========================================
+   ONBOARDING (planning dashboard-first)
+   ======================================== */
+.planning-onboarding {
+  border: 1px dashed var(--planning-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-gray-50);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.planning-onboarding-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.planning-onboarding-title {
+  font-weight: 800;
+  color: var(--color-gray-900);
+}
+
+.planning-onboarding-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-3);
+}
+
+@media (max-width: 1100px) {
+  .planning-onboarding-grid { grid-template-columns: 1fr; }
+}
+
+.planning-onboarding-card {
+  background: var(--color-white);
+  border: 1px solid var(--planning-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.planning-onboarding-card-title {
+  font-weight: 800;
+  color: var(--color-gray-900);
+}
+
+/* ========================================
+   TOUR OVERLAY
+   ======================================== */
+.planning-tour-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: calc(var(--z-modal) + 2);
+}
+
+.planning-tour-highlight {
+  position: fixed;
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+  outline: 2px solid rgba(255,255,255,0.9);
+  pointer-events: none;
+}
+
+.planning-tour-box {
+  position: fixed;
+  width: min(420px, calc(100vw - 32px));
+  background: var(--color-white);
+  border: 1px solid var(--planning-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  padding: 14px;
+}
+
+.planning-tour-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.planning-tour-title {
+  font-weight: 800;
+  color: var(--color-gray-900);
+}
+
+.planning-tour-close {
+  border: 1px solid var(--planning-border);
+  background: var(--color-gray-50);
+  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  line-height: 30px;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--color-gray-700);
+}
+
+.planning-tour-body {
+  color: var(--color-gray-700);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.planning-tour-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.planning-tour-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ========================================
+   TOAST (simple, page-local)
+   ======================================== */
+.toast {
+  position: fixed;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  background: var(--color-gray-900);
+  color: var(--color-white);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: calc(var(--z-modal) + 1);
+  display: none;
+  max-width: min(420px, calc(100vw - 48px));
+  font-size: var(--text-sm);
+}
+
+.toast.show { display: block; }
+.toast.success { background: var(--color-success); }
+.toast.error { background: var(--color-error); }
+.toast.info { background: var(--color-primary); }
+
+/* ========================================
+   MODALS (copied minimal pattern from shifts.css for consistency)
+   ======================================== */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+}
+
+.modal-content {
+  position: relative;
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2xl);
+  max-width: 720px;
+  width: 92%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Guided wizard modal: wider + more readable table */
+.planning-wizard-modal {
+  max-width: 1100px;
+}
+
+@media (max-width: 900px) {
+  .planning-wizard-modal {
+    max-width: 96vw;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--color-gray-900);
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--color-gray-500);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.modal-close:hover {
+  background: var(--color-gray-100);
+  color: var(--color-gray-700);
+}
+
+.modal-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.modal-body {
+  padding: var(--space-6);
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--color-gray-200);
+  background: var(--color-gray-50);
+}
+
+/* ========================================
+   IMS Template Catalog (responsive modal)
+   ======================================== */
+.planning-ims-catalog-modal {
+  max-width: min(1200px, 96vw);
+  width: 96vw;
+  max-height: 92vh;
+  overflow: hidden; /* body will manage scroll internally */
+  display: flex;
+  flex-direction: column;
+}
+
+.planning-ims-catalog-modal .modal-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.planning-ims-catalog-table-wrap {
+  flex: 1;
+  overflow: auto; /* internal scroll */
+  border: 1px solid var(--planning-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+}
+
+#planningImsTemplateCatalogTable thead th {
+  position: sticky;
+  top: 0;
+  background: var(--color-white);
+  z-index: 2;
+}
+
+/* ========================================
+   Activity Catalog (services) modal — wider + responsive (60% viewport on desktop)
+   ======================================== */
+.planning-activity-catalog-modal {
+  /* Override base .modal-content max-width:720px */
+  max-width: none;
+
+  /* Target: ~60% viewport on desktop; never narrower than legacy 720px */
+  width: clamp(720px, 60vw, 2400px);
+
+  /* Better UX: keep header/footer visible; scroll only inside table area */
+  max-height: 92vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Tablet / small laptop: use more horizontal space */
+@media (max-width: 1200px) {
+  .planning-activity-catalog-modal {
+    width: 94vw;
+  }
+}
+
+/* Mobile: nearly full width */
+@media (max-width: 760px) {
+  .planning-activity-catalog-modal {
+    width: 98vw;
+  }
+}
+
+.planning-activity-catalog-modal .modal-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.planning-activity-catalog-modal .planning-activity-catalog-table-wrap {
+  flex: 1;
+  overflow: auto; /* both x and y */
+  border: 1px solid var(--planning-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+}
+
+/* Sticky header inside the scrollable table wrap */
+#planningActivityCatalogTable thead th {
+  position: sticky;
+  top: 0;
+  background: var(--color-white);
+  z-index: 2;
+}
+
+#planningImsTemplateCatalogTable {
+  table-layout: fixed; /* prevent horizontal overflow; use ellipsis */
+}
+
+#planningImsTemplateCatalogTable th,
+#planningImsTemplateCatalogTable td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#planningImsTemplateCatalogTable td:nth-child(2) {
+  white-space: normal; /* allow title to wrap a bit */
+}
+
+/* Wizard minor helpers */
+.planning-wizard-step .form-text {
+  margin-top: 6px;
+  color: var(--color-gray-600);
+  font-size: 12px;
+}
+
+.planning-wizard-table-wrap {
+  overflow: auto; /* both x and y */
+  max-height: 52vh;
+  border: 1px solid var(--planning-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+}
+
+/* Make header stay visible while scrolling inside the wizard */
+.planning-wizard-table-wrap thead th {
+  position: sticky;
+  top: 0;
+  background: var(--color-white);
+  z-index: 2;
+}
+
+/* Ensure the proposal table has enough width so fields remain readable */
+#planningWizardProposalTable {
+  min-width: 980px;
+}
+
+/* Column sizing for readability (prevents heavy truncation) */
+#planningWizardProposalTable th:nth-child(1),
+#planningWizardProposalTable td:nth-child(1) { width: 260px; }
+#planningWizardProposalTable th:nth-child(2),
+#planningWizardProposalTable td:nth-child(2) { width: 140px; }
+#planningWizardProposalTable th:nth-child(3),
+#planningWizardProposalTable td:nth-child(3) { width: 140px; }
+#planningWizardProposalTable th:nth-child(4),
+#planningWizardProposalTable td:nth-child(4) { width: 140px; }
+#planningWizardProposalTable th:nth-child(5),
+#planningWizardProposalTable td:nth-child(5) { width: 220px; }
+#planningWizardProposalTable th:nth-child(6),
+#planningWizardProposalTable td:nth-child(6) { width: 120px; }
+#planningWizardProposalTable th:nth-child(7),
+#planningWizardProposalTable td:nth-child(7) { width: 360px; }
+#planningWizardProposalTable th:nth-child(8),
+#planningWizardProposalTable td:nth-child(8) { width: 90px; }
+
+/* Make selects/inputs not feel cramped */
+#planningWizardProposalTable td:nth-child(1) input { min-width: 240px; }
+#planningWizardProposalTable td:nth-child(5) select { min-width: 200px; }
+#planningWizardProposalTable td:nth-child(7) input { min-width: 320px; }
+
+
