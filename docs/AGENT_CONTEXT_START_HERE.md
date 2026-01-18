@@ -139,6 +139,7 @@ Obiettivo:
   - `merge_key`: best-effort merge cross-servizio (es. kickoff/audit) per ridurre duplicazioni
   - `client_blocking`: blocco overlap “client-side” best-effort (sovrapposizione vietata se uno dei due slot è blocking)
   - finestra bozza **default 30 giorni** se `period_end` è vuoto (evita sparpagliamento annuale)
+  - avvisi non bloccanti (es. ottimizzazione trasferte disattivata) vengono restituiti in `meta_warnings` (se presenti)
   - fallback FORZATO: se non trova slot liberi nel calendario “reale”, prova un posizionamento deterministico rispettando i vincoli di bozza (indicatore **FORZATO**)
 - **Modifica slot (UI)**:
   - `planning.php` tab “Calendario (bozza)”: aggiunte colonne **Fase** e **Reason**
@@ -459,7 +460,7 @@ Obiettivo: evitare che la “Città di partenza” debba essere reinserita ogni 
 Punti chiave:
 - **DB (per-piano)**: migrazione **52** `database/migrations/52_consulting_plan_consultants_home_city.sql`
   - Aggiunge `consulting_plan_consultants.home_city` (+ `home_lat/home_lng` opzionali)
-  - Necessaria per **salvare** la “Città di partenza” per piano e per generare la bozza calendario con attività **on-site**
+  - Necessaria per **salvare** la “Città di partenza” per piano e per abilitare l’**ottimizzazione trasferte** (best-effort). La bozza calendario viene generata anche senza (senza ottimizzazione).
   - Tool: `tools/apply_migration_52_consulting_plan_consultants_home_city.php`
 - **DB (profilo utente)**: migrazione **54** `database/migrations/54_users_home_city.sql`
   - Aggiunge `users.home_city VARCHAR(120) NULL` (non obbligatoria)
@@ -477,10 +478,10 @@ Punti chiave:
     1) `consulting_plan_consultants.home_city` (override per piano)
     2) `users.home_city` (default da utenti)
 
-Nota: la “Città di partenza” resta **obbligatoria solo se il piano ha attività on-site** (comportamento voluto), ma ora viene precompilata se disponibile.
+Nota: la “Città di partenza” è **consigliata** se il piano ha attività on-site (per ottimizzare trasferte/KM). Se mancante/non valida, la bozza calendario viene comunque generata (best-effort) ma senza ottimizzazione.
 
 Test rapido:
-- Applica migrazione 52 + 54.
+- (Opzionale) Applica migrazione 52 + 54.
 - In `utenti.php` imposta “Città di residenza” su un consulente.
 - In `planning.php` → Consulenti piano: seleziona quel consulente → la città appare precompilata.
 - Modifica la città nel modal e salva → la modifica vale **solo per quel piano**.
