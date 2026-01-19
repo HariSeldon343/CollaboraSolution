@@ -1470,6 +1470,14 @@ try {
                 $reasonTags = [];
                 $reasonTags[] = 'fase ' . $phaseOrder;
                 if ($gapApplied > 0 && $si === 0) $reasonTags[] = 'buffer ' . $gapApplied . 'gg';
+                $strategy = '';
+                $rangeLbl = '';
+                if (isset($pick['explain']) && is_array($pick['explain'])) {
+                    $strategy = trim((string)($pick['explain']['strategy'] ?? ''));
+                    $rangeLbl = trim((string)($pick['explain']['range'] ?? ''));
+                }
+                if ($strategy !== '') $reasonTags[] = 'strategy ' . $strategy;
+                if ($rangeLbl !== '') $reasonTags[] = 'range ' . $rangeLbl;
                 $reasonTags[] = 'no overlap consulente';
                 if ($clientBlocking) {
                     $reasonTags[] = 'no overlap piano';
@@ -1697,11 +1705,23 @@ try {
                         'label' => 'Call/Feedback',
                     ],
                     'reason' => [
-                        'tags' => ['fase 999', 'no overlap consulente', 'no overlap piano', 'no overlap cliente'],
+                        'tags' => [
+                            'fase 999',
+                            'strategy ' . trim((string)($pick['explain']['strategy'] ?? '')),
+                            'range ' . trim((string)($pick['explain']['range'] ?? '')),
+                            'no overlap consulente',
+                            'no overlap piano',
+                            'no overlap cliente',
+                            'slot ' . $slotStart->format('H:i') . '-' . $slotEnd->format('H:i'),
+                        ],
                     ],
                     'service_id' => $cd['service_id'] ?? null,
                     'slot' => $pick['explain'] ?? null,
                 ];
+                // Remove empty tags (best-effort)
+                if (isset($explain['reason']['tags']) && is_array($explain['reason']['tags'])) {
+                    $explain['reason']['tags'] = array_values(array_filter(array_map(static fn($s) => trim((string)$s), $explain['reason']['tags']), static fn($s) => $s !== '' && $s !== 'strategy' && $s !== 'range'));
+                }
                 $ins['explain_json'] = json_encode($explain, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             }
 
