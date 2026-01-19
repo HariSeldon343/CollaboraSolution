@@ -198,6 +198,7 @@ function cnx_sched_intervention_key(array $estimate): string {
         'scope_extension' => 'SCOPE_EXT',
         'scope_ext' => 'SCOPE_EXT',
         'transition' => 'TRANSITION',
+        'transition_update' => 'TRANSITION',
     ];
     return $map[$v] ?? '';
 }
