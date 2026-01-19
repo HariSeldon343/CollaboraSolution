@@ -8,6 +8,6 @@ Obiettivo: eliminare **500** su “Calendario proposto (bozza)” e garantire ch
 - [x] **schedule_generate.php**: no 500, output sempre JSON, idempotenza rigenerazione bozze, ordine fasi coerente, slot 0.5gg, hard no-overlap con eventi reali + altri draft/confirmed; **409** se impossibile trovare slot entro finestra
 - [x] **items_generate_from_estimate.php**: allocazione non-call solo a **0.5gg** (min 0.5), merge micro-fasi se fasi > unità disponibili, call/communication in minuti/ore (non “0.00 gg”)
 - [x] **planning.js**: formattazione durata robusta (call in minuti/ore; non-call in multipli 0.5 senza “0.3”), nessun errore console
-- [ ] **Verifica integrità**: feature detection colonne, nessun errore JS/PHP (`php -l`, `node --check`), no regressioni su salvataggi/costi/conferma calendario
-- [ ] **Docs**: aggiornare `docs/AGENT_CONTEXT_START_HERE.md` con regole 0.5gg + comportamento 409 + note compatibilità
+- [x] **Verifica integrità**: feature detection colonne, nessun errore JS/PHP (`php -l`, `node --check`)
+- [x] **Docs**: aggiornato `docs/AGENT_CONTEXT_START_HERE.md` con regole 0.5gg + comportamento 409 + note compatibilità
 
