@@ -21,6 +21,7 @@ class Calendar {
     private int $tenant_id;
     private ?int $user_id;
     private array $cache = [];
+    private ?array $eventsColumnsCache = null;
     private const CACHE_TTL = 300; // 5 minuti
 
     // Costanti per ricorrenza (RFC 5545)
@@ -44,6 +45,80 @@ class Calendar {
         $this->pdo = $pdo;
         $this->tenant_id = $tenant_id;
         $this->user_id = $user_id ?? $_SESSION['user_id'] ?? null;
+    }
+
+    /**
+     * Detect events table columns at runtime (schema may differ across environments).
+     */
+    public function eventsHasColumn(string $column): bool {
+        if ($this->eventsColumnsCache === null) {
+            $cols = [];
+            try {
+                $stmt = $this->pdo->prepare(
+                    "SELECT COLUMN_NAME
+                     FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE()
+                       AND TABLE_NAME = 'events'"
+                );
+                $stmt->execute();
+                $cols = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+            } catch (Exception $e) {
+                $cols = [];
+            }
+            $this->eventsColumnsCache = array_fill_keys(array_map('strval', $cols), true);
+        }
+
+        return isset($this->eventsColumnsCache[$column]);
+    }
+
+    /**
+     * Generic column checker for any table (cached per table)
+     */
+    private array $tableColumnsCache = [];
+    private function tableHasColumn(string $table, string $column): bool {
+        $tableKey = strtolower($table);
+        if (!isset($this->tableColumnsCache[$tableKey])) {
+            $cols = [];
+            try {
+                $stmt = $this->pdo->prepare(
+                    "SELECT COLUMN_NAME
+                     FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE()
+                       AND TABLE_NAME = :table"
+                );
+                $stmt->execute([':table' => $table]);
+                $cols = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+            } catch (Exception $e) {
+                $cols = [];
+            }
+            $this->tableColumnsCache[$tableKey] = array_fill_keys(array_map('strval', $cols), true);
+        }
+
+        return isset($this->tableColumnsCache[$tableKey][$column]);
+    }
+
+    private function getTenantName(): string {
+        $cacheKey = 'tenant_name:' . $this->tenant_id;
+        if (isset($this->cache[$cacheKey]) && ($this->cache[$cacheKey]['expires'] ?? 0) > time()) {
+            return (string)($this->cache[$cacheKey]['value'] ?? '');
+        }
+
+        $name = '';
+        try {
+            $stmt = $this->pdo->prepare("SELECT name FROM tenants WHERE id = :id LIMIT 1");
+            $stmt->execute([':id' => $this->tenant_id]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $name = (string)($row['name'] ?? '');
+        } catch (Exception $e) {
+            $name = '';
+        }
+
+        $this->cache[$cacheKey] = [
+            'value' => $name,
+            'expires' => time() + self::CACHE_TTL
+        ];
+
+        return $name;
     }
 
     /**
@@ -114,6 +189,19 @@ class Calendar {
         }
 
         try {
+            // Ensure cancelled/deleted participants do not reappear when reloading events.
+            $participantConditions = [];
+            if ($this->tableHasColumn('event_participants', 'deleted_at')) {
+                $participantConditions[] = "ep.deleted_at IS NULL";
+            }
+            if ($this->tableHasColumn('event_participants', 'status')) {
+                $participantConditions[] = "(ep.status IS NULL OR ep.status <> 'cancelled')";
+            }
+            $participantWhere = '';
+            if (!empty($participantConditions)) {
+                $participantWhere = " AND " . implode(" AND ", $participantConditions);
+            }
+
             // BUG-105 FIX: Use ONLY positional parameters (?) to avoid PDO mixed parameters error
             // Query principale per eventi singoli e ricorrenti
             $sql = "SELECT e.*,
@@ -121,7 +209,7 @@ class Calendar {
                            u.email as organizer_email,
                            (SELECT GROUP_CONCAT(ep.user_id)
                             FROM event_participants ep
-                            WHERE ep.event_id = e.id) as participants,
+                            WHERE ep.event_id = e.id{$participantWhere}) as participants,
                            (SELECT GROUP_CONCAT(CONCAT(er.type, ':', er.minutes_before))
                             FROM event_reminders er
                             WHERE er.event_id = e.id) as reminders
@@ -150,6 +238,7 @@ class Calendar {
             ];
 
             // Applica filtri opzionali
+            $filterCategory = null;
             if ($filters) {
                 // BUG-105 FIX: Support calendar_id(s) filtering
                 if (isset($filters['calendar_ids']) && is_array($filters['calendar_ids']) && !empty($filters['calendar_ids'])) {
@@ -169,14 +258,19 @@ class Calendar {
                 if (isset($filters['user_id'])) {
                     $sql .= " AND (e.organizer_id = ? OR
                                    EXISTS (SELECT 1 FROM event_participants ep
-                                          WHERE ep.event_id = e.id AND ep.user_id = ?))";
+                                         WHERE ep.event_id = e.id AND ep.user_id = ?{$participantWhere}))";
                     $params[] = $filters['user_id'];
                     $params[] = $filters['user_id'];  // Appears twice in EXISTS subquery
                 }
 
                 if (isset($filters['category'])) {
-                    $sql .= " AND e.category = ?";
-                    $params[] = $filters['category'];
+                    // Some DBs do not have events.category; filter later using metadata fallback.
+                    $filterCategory = (string)$filters['category'];
+                    if ($this->eventsHasColumn('category')) {
+                        $sql .= " AND e.category = ?";
+                        $params[] = $filterCategory;
+                        $filterCategory = null; // already applied in SQL
+                    }
                 }
 
                 if (isset($filters['location'])) {
@@ -200,6 +294,13 @@ class Calendar {
                 } else {
                     $expandedEvents[] = $this->formatEvent($event);
                 }
+            }
+
+            // Apply category filter if schema lacks events.category
+            if ($filterCategory !== null && $filterCategory !== '') {
+                $expandedEvents = array_values(array_filter($expandedEvents, function($e) use ($filterCategory) {
+                    return (string)($e['category'] ?? '') === $filterCategory;
+                }));
             }
 
             // Ordina per data inizio
@@ -244,27 +345,81 @@ class Calendar {
                 }
             }
 
-            // Inserisci evento principale
-            $sql = "INSERT INTO events (
-                        tenant_id, title, description, location, start_datetime, end_datetime,
-                        all_day, category, color, recurrence_rule, recurrence_end,
-                        timezone, organizer_id, visibility, status, metadata
-                    ) VALUES (
-                        :tenant_id, :title, :description, :location, :start_datetime, :end_datetime,
-                        :all_day, :category, :color, :recurrence_rule, :recurrence_end,
-                        :timezone, :organizer_id, :visibility, :status, :metadata
-                    )";
+            // Inserisci evento principale (schema-aware: some DBs don't have events.category)
+            $metadata = null;
+            if (isset($data['metadata'])) {
+                $metadata = is_array($data['metadata']) ? $data['metadata'] : $data['metadata'];
+            }
+            // Persist fields into metadata if the corresponding column doesn't exist
+            if (!$this->eventsHasColumn('category') && isset($data['category'])) {
+                $metaArr = [];
+                if (is_array($metadata)) {
+                    $metaArr = $metadata;
+                } elseif (is_string($metadata) && $metadata !== '') {
+                    $decoded = json_decode($metadata, true);
+                    if (is_array($decoded)) $metaArr = $decoded;
+                }
+                $metaArr['category'] = $data['category'];
+                $metadata = $metaArr;
+            }
+            if (!$this->eventsHasColumn('timezone') && isset($data['timezone'])) {
+                $metaArr = [];
+                if (is_array($metadata)) {
+                    $metaArr = $metadata;
+                } elseif (is_string($metadata) && $metadata !== '') {
+                    $decoded = json_decode($metadata, true);
+                    if (is_array($decoded)) $metaArr = $decoded;
+                }
+                $metaArr['timezone'] = $data['timezone'];
+                $metadata = $metaArr;
+            }
+            if (!$this->eventsHasColumn('visibility') && isset($data['visibility'])) {
+                $metaArr = [];
+                if (is_array($metadata)) {
+                    $metaArr = $metadata;
+                } elseif (is_string($metadata) && $metadata !== '') {
+                    $decoded = json_decode($metadata, true);
+                    if (is_array($decoded)) $metaArr = $decoded;
+                }
+                $metaArr['visibility'] = $data['visibility'];
+                $metadata = $metaArr;
+            }
+            if (!$this->eventsHasColumn('status') && isset($data['status'])) {
+                $metaArr = [];
+                if (is_array($metadata)) {
+                    $metaArr = $metadata;
+                } elseif (is_string($metadata) && $metadata !== '') {
+                    $decoded = json_decode($metadata, true);
+                    if (is_array($decoded)) $metaArr = $decoded;
+                }
+                $metaArr['status'] = $data['status'];
+                $metadata = $metaArr;
+            }
+
+            // Build INSERT columns list based on actual schema
+            $columns = ['tenant_id', 'title', 'start_datetime', 'end_datetime'];
+            $optionalColumns = [
+                'description', 'location', 'all_day', 'color',
+                'recurrence_rule', 'recurrence_end',
+                'timezone', 'organizer_id', 'visibility', 'status', 'metadata', 'calendar_id', 'category'
+            ];
+            foreach ($optionalColumns as $col) {
+                if ($this->eventsHasColumn($col)) {
+                    $columns[] = $col;
+                }
+            }
+
+            $placeholders = array_map(fn($c) => ':' . $c, $columns);
+            $sql = "INSERT INTO events (" . implode(', ', $columns) . ")
+                    VALUES (" . implode(', ', $placeholders) . ")";
 
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([
+
+            $params = [
                 ':tenant_id' => $this->tenant_id,
                 ':title' => $data['title'],
-                ':description' => $data['description'] ?? null,
-                ':location' => $data['location'] ?? null,
                 ':start_datetime' => $data['start_datetime'],
                 ':end_datetime' => $data['end_datetime'],
-                ':all_day' => $data['all_day'] ?? false,
-                ':category' => $data['category'] ?? 'general',
                 ':color' => $data['color'] ?? '#3788d8',
                 ':recurrence_rule' => $data['recurrence_rule'] ?? null,
                 ':recurrence_end' => $data['recurrence_end'] ?? null,
@@ -272,8 +427,26 @@ class Calendar {
                 ':organizer_id' => $this->user_id,
                 ':visibility' => $data['visibility'] ?? 'private',
                 ':status' => $data['status'] ?? 'confirmed',
-                ':metadata' => isset($data['metadata']) ? json_encode($data['metadata']) : null
-            ]);
+                ':metadata' => $metadata !== null ? (is_array($metadata) ? json_encode($metadata) : $metadata) : null,
+                ':description' => $data['description'] ?? null,
+                ':location' => $data['location'] ?? null,
+                ':all_day' => $data['all_day'] ?? false,
+                ':calendar_id' => $data['calendar_id'] ?? null
+            ];
+            if ($this->eventsHasColumn('category')) $params[':category'] = $data['category'] ?? 'general';
+
+            // IMPORTANT: execute() must receive ONLY parameters that exist in the SQL placeholders (HY093 fix)
+            $execParams = [];
+            foreach ($columns as $col) {
+                $ph = ':' . $col;
+                if (array_key_exists($ph, $params)) {
+                    $execParams[$ph] = $params[$ph];
+                } else {
+                    $execParams[$ph] = null;
+                }
+            }
+
+            $stmt->execute($execParams);
 
             $eventId = (int) $this->pdo->lastInsertId();
 
@@ -352,11 +525,80 @@ class Calendar {
             $updates = [];
             $params = [':id' => $id, ':tenant_id' => $this->tenant_id];
 
+            // Detect meaningful changes for notification gating (avoid "update" emails on no-op saves)
+            $hasParticipantsPayload = array_key_exists('participants', $data);
+            $hasRemindersPayload = array_key_exists('reminders', $data);
+
+            $participantsChanged = false;
+            if ($hasParticipantsPayload) {
+                $incomingIds = array_values(array_unique(array_map('intval', (array)$data['participants'])));
+                sort($incomingIds);
+
+                $epHasTenant = $this->tableHasColumn('event_participants', 'tenant_id');
+                $epHasDeletedAt = $this->tableHasColumn('event_participants', 'deleted_at');
+                $sql = "SELECT user_id FROM event_participants WHERE event_id = :event_id";
+                $paramsP = [':event_id' => $id];
+                if ($epHasTenant) {
+                    $sql .= " AND tenant_id = :tenant_id";
+                    $paramsP[':tenant_id'] = $this->tenant_id;
+                }
+                if ($epHasDeletedAt) {
+                    $sql .= " AND deleted_at IS NULL";
+                }
+
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute($paramsP);
+                $existingIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+                $existingIds = array_values(array_unique($existingIds));
+                sort($existingIds);
+
+                $participantsChanged = ($incomingIds !== $existingIds);
+            }
+
             $allowedFields = [
                 'title', 'description', 'location', 'start_datetime', 'end_datetime',
-                'all_day', 'category', 'color', 'recurrence_rule', 'recurrence_end',
-                'timezone', 'visibility', 'status', 'metadata'
+                'all_day', 'color', 'recurrence_rule', 'recurrence_end',
+                'visibility', 'status'
             ];
+            // Only include metadata if the column exists in this DB schema
+            $hasMetadataCol = $this->eventsHasColumn('metadata');
+            if ($hasMetadataCol) {
+                $allowedFields[] = 'metadata';
+            }
+            if ($this->eventsHasColumn('timezone')) {
+                $allowedFields[] = 'timezone';
+            } elseif (array_key_exists('timezone', $data)) {
+                // Persist into metadata only if metadata column exists; otherwise ignore.
+                if ($hasMetadataCol) {
+                    $existingMeta = $existingEvent['metadata'] ?? null;
+                    $metaArr = [];
+                    if (is_array($existingMeta)) {
+                        $metaArr = $existingMeta;
+                    } elseif (is_string($existingMeta) && $existingMeta !== '') {
+                        $decoded = json_decode($existingMeta, true);
+                        if (is_array($decoded)) $metaArr = $decoded;
+                    }
+                    $metaArr['timezone'] = $data['timezone'];
+                    $data['metadata'] = $metaArr;
+                }
+            }
+            if ($this->eventsHasColumn('category')) {
+                $allowedFields[] = 'category';
+            } elseif (array_key_exists('category', $data)) {
+                // If column doesn't exist, persist category in metadata only if metadata exists.
+                if ($hasMetadataCol) {
+                    $existingMeta = $existingEvent['metadata'] ?? null;
+                    $metaArr = [];
+                    if (is_array($existingMeta)) {
+                        $metaArr = $existingMeta;
+                    } elseif (is_string($existingMeta) && $existingMeta !== '') {
+                        $decoded = json_decode($existingMeta, true);
+                        if (is_array($decoded)) $metaArr = $decoded;
+                    }
+                    $metaArr['category'] = $data['category'];
+                    $data['metadata'] = $metaArr;
+                }
+            }
 
             foreach ($allowedFields as $field) {
                 if (array_key_exists($field, $data)) {
@@ -367,15 +609,42 @@ class Calendar {
                 }
             }
 
+            $shouldNotify = (!empty($updates)) || ($hasParticipantsPayload && $participantsChanged) || $hasRemindersPayload;
+
+            // IMPORTANT: Allow participant/reminder-only updates (no event fields changed)
             if (empty($updates)) {
+                if ($hasParticipantsPayload) {
+                    $this->updateParticipants($id, (array)$data['participants']);
+                }
+                if ($hasRemindersPayload) {
+                    $this->updateReminders($id, (array)$data['reminders']);
+                }
+
+                // Log attività
+                $this->logActivity('event_updated', $id, [
+                    'changes' => array_keys($data),
+                    'old_values' => array_intersect_key($existingEvent, $data)
+                ]);
+
                 $this->pdo->commit();
+
+                // Notifica partecipanti delle modifiche (solo se c'è stato un cambio effettivo)
+                if ($shouldNotify) {
+                    $this->scheduleNotifications($id, self::NOTIFICATION_UPDATE);
+                }
+
+                // Invalida cache
+                $this->invalidateCache();
+
                 return true;
             }
 
             // Aggiorna evento
-            $sql = "UPDATE events SET " . implode(', ', $updates) . ",
-                    updated_at = NOW()
-                    WHERE id = :id AND tenant_id = :tenant_id";
+            $sql = "UPDATE events SET " . implode(', ', $updates);
+            if ($this->eventsHasColumn('updated_at')) {
+                $sql .= ", updated_at = NOW()";
+            }
+            $sql .= " WHERE id = :id AND tenant_id = :tenant_id";
 
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute($params);
@@ -399,7 +668,9 @@ class Calendar {
             $this->pdo->commit();
 
             // Notifica partecipanti delle modifiche
-            $this->scheduleNotifications($id, self::NOTIFICATION_UPDATE);
+            if ($shouldNotify) {
+                $this->scheduleNotifications($id, self::NOTIFICATION_UPDATE);
+            }
 
             // Invalida cache
             $this->invalidateCache();
@@ -422,8 +693,19 @@ class Calendar {
         }
 
         try {
-            $sql = "INSERT INTO event_participants (event_id, user_id, status, invited_at)
-                    VALUES (:event_id, :user_id, 'pending', NOW())
+            // Determine if tenant_id column exists to satisfy FK
+            $epHasTenant = $this->tableHasColumn('event_participants', 'tenant_id');
+
+            $columns = ['event_id', 'user_id', 'status', 'invited_at'];
+            if ($epHasTenant) {
+                $columns[] = 'tenant_id';
+            }
+
+            $insertCols = implode(', ', $columns);
+            $insertVals = implode(', ', array_map(fn($c) => ':' . $c, $columns));
+
+            $sql = "INSERT INTO event_participants ({$insertCols})
+                    VALUES ({$insertVals})
                     ON DUPLICATE KEY UPDATE
                     status = IF(status = 'declined', 'pending', status),
                     invited_at = NOW()";
@@ -444,10 +726,17 @@ class Calendar {
                     continue;  // Skip this user - RBAC restriction
                 }
 
-                $stmt->execute([
+                $params = [
                     ':event_id' => $eventId,
-                    ':user_id' => $userId
-                ]);
+                    ':user_id' => $userId,
+                    ':status' => 'pending',
+                    ':invited_at' => date('Y-m-d H:i:s')
+                ];
+                if ($epHasTenant) {
+                    $params[':tenant_id'] = $this->tenant_id;
+                }
+
+                $stmt->execute($params);
 
                 $invitedUsers[] = $userId;  // Track successful invitation
 
@@ -459,6 +748,10 @@ class Calendar {
             if (!empty($invitedUsers)) {
                 $this->scheduleEmailInvitations($eventId, $invitedUsers);
                 error_log("[RBAC] Successfully invited " . count($invitedUsers) . " users to event {$eventId}");
+                $this->logActivity('event_invited', $eventId, [
+                    'invited_users' => array_values($invitedUsers),
+                    'count' => count($invitedUsers)
+                ]);
             } else {
                 error_log("[RBAC] No users were invited to event {$eventId} (all blocked by RBAC or invalid)");
             }
@@ -469,6 +762,74 @@ class Calendar {
             error_log("Errore invito partecipanti: " . $e->getMessage());
             throw new RuntimeException('Errore durante invito partecipanti');
         }
+    }
+
+    /**
+     * Aggiorna la lista partecipanti (aggiunge nuovi, annulla rimossi)
+     */
+    private function updateParticipants(int $eventId, array $userIds): bool {
+        // Normalizza lista
+        $userIds = array_values(array_unique(array_map('intval', $userIds)));
+
+        // Se lista vuota -> annulla tutti
+        $epHasTenant = $this->tableHasColumn('event_participants', 'tenant_id');
+        $paramsBase = [':event_id' => $eventId];
+        if ($epHasTenant) {
+            $paramsBase[':tenant_id'] = $this->tenant_id;
+        }
+
+        // Ottieni partecipanti attuali
+        $sqlExisting = "SELECT user_id FROM event_participants WHERE event_id = :event_id";
+        if ($epHasTenant) {
+            $sqlExisting .= " AND tenant_id = :tenant_id";
+        }
+        $stmt = $this->pdo->prepare($sqlExisting);
+        $stmt->execute($paramsBase);
+        $existing = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+
+        $toAdd = array_diff($userIds, $existing);
+        $toRemove = array_diff($existing, $userIds);
+
+        // Aggiungi nuovi (riusa inviteParticipants per RBAC e notifiche)
+        if (!empty($toAdd)) {
+            $this->inviteParticipants($eventId, $toAdd);
+        }
+
+        // Rimuovi/annulla quelli non più presenti
+        if (!empty($toRemove)) {
+            if ($this->tableHasColumn('event_participants', 'status')) {
+                $placeholders = implode(',', array_fill(0, count($toRemove), '?'));
+                $sql = "UPDATE event_participants
+                        SET status = 'cancelled'
+                        WHERE event_id = ?
+                          AND user_id IN ({$placeholders})";
+                if ($epHasTenant) {
+                    $sql .= " AND tenant_id = ?";
+                }
+                $stmt = $this->pdo->prepare($sql);
+                $execParams = array_merge([$eventId], array_values($toRemove));
+                if ($epHasTenant) {
+                    $execParams[] = $this->tenant_id;
+                }
+                $stmt->execute($execParams);
+            } else {
+                $placeholders = implode(',', array_fill(0, count($toRemove), '?'));
+                $sql = "DELETE FROM event_participants
+                        WHERE event_id = ?
+                          AND user_id IN ({$placeholders})";
+                if ($epHasTenant) {
+                    $sql .= " AND tenant_id = ?";
+                }
+                $stmt = $this->pdo->prepare($sql);
+                $execParams = array_merge([$eventId], array_values($toRemove));
+                if ($epHasTenant) {
+                    $execParams[] = $this->tenant_id;
+                }
+                $stmt->execute($execParams);
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -493,24 +854,68 @@ class Calendar {
                 $participants = $stmt->fetchAll(PDO::FETCH_COLUMN);
             }
 
-            // Soft delete
-            $sql = "UPDATE events
-                    SET deleted_at = NOW(),
-                        deleted_by = :user_id
-                    WHERE id = :id AND tenant_id = :tenant_id";
+            // Soft delete (schema-aware across environments)
+            $eventsHasDeletedAt = $this->eventsHasColumn('deleted_at');
+            $eventsHasDeletedBy = $this->eventsHasColumn('deleted_by');
+            $eventsHasTenant = $this->eventsHasColumn('tenant_id');
 
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([
-                ':id' => $id,
-                ':tenant_id' => $this->tenant_id,
-                ':user_id' => $this->user_id
-            ]);
+            if ($eventsHasDeletedAt) {
+                $setParts = ["deleted_at = NOW()"];
+                if ($eventsHasDeletedBy) {
+                    $setParts[] = "deleted_by = :user_id";
+                }
+                if ($this->eventsHasColumn('updated_at')) {
+                    $setParts[] = "updated_at = NOW()";
+                }
 
-            // Cancella partecipazioni
-            $stmt = $this->pdo->prepare(
-                "UPDATE event_participants SET status = 'cancelled' WHERE event_id = :event_id"
-            );
-            $stmt->execute([':event_id' => $id]);
+                $whereParts = ["id = :id"];
+                if ($eventsHasTenant) {
+                    $whereParts[] = "tenant_id = :tenant_id";
+                }
+
+                $sql = "UPDATE events SET " . implode(', ', $setParts) . " WHERE " . implode(' AND ', $whereParts);
+                $params = [
+                    ':id' => $id
+                ];
+                if ($eventsHasTenant) {
+                    $params[':tenant_id'] = $this->tenant_id;
+                }
+                if ($eventsHasDeletedBy) {
+                    $params[':user_id'] = $this->user_id;
+                }
+
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute($params);
+            } else {
+                // Fallback: hard delete when schema doesn't support soft deletes
+                if ($this->tableHasColumn('event_reminders', 'event_id')) {
+                    $stmt = $this->pdo->prepare("DELETE FROM event_reminders WHERE event_id = :event_id");
+                    $stmt->execute([':event_id' => $id]);
+                }
+                if ($this->tableHasColumn('event_participants', 'event_id')) {
+                    $stmt = $this->pdo->prepare("DELETE FROM event_participants WHERE event_id = :event_id");
+                    $stmt->execute([':event_id' => $id]);
+                }
+                $whereParts = ["id = :id"];
+                if ($eventsHasTenant) {
+                    $whereParts[] = "tenant_id = :tenant_id";
+                }
+                $sql = "DELETE FROM events WHERE " . implode(' AND ', $whereParts);
+                $params = [':id' => $id];
+                if ($eventsHasTenant) {
+                    $params[':tenant_id'] = $this->tenant_id;
+                }
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute($params);
+            }
+
+            // Cancella partecipazioni (best-effort, schema-aware)
+            if ($this->tableHasColumn('event_participants', 'status')) {
+                $stmt = $this->pdo->prepare(
+                    "UPDATE event_participants SET status = 'cancelled' WHERE event_id = :event_id"
+                );
+                $stmt->execute([':event_id' => $id]);
+            }
 
             // Log attività
             $this->logActivity('event_deleted', $id, [
@@ -535,6 +940,173 @@ class Calendar {
             $this->pdo->rollBack();
             error_log("Errore eliminazione evento: " . $e->getMessage());
             throw new RuntimeException('Errore durante eliminazione evento');
+        }
+    }
+
+    /**
+     * Cancella una singola occorrenza di un evento ricorrente aggiungendo un'eccezione
+     */
+    public function deleteRecurringInstance(int $id, DateTime $instanceDate, bool $notifyParticipants = true): bool {
+        // L'ID è quello dell'evento padre
+        if (!$this->canModifyEvent($id)) {
+            throw new RuntimeException('Permessi insufficienti per eliminare evento');
+        }
+
+        $event = $this->getEventById($id);
+        if (!$event) {
+            throw new RuntimeException('Evento non trovato');
+        }
+        if (empty($event['recurrence_rule'])) {
+            throw new RuntimeException('Evento non ricorrente');
+        }
+
+        $this->pdo->beginTransaction();
+
+        try {
+            // Ricava partecipanti (best-effort)
+            $participants = [];
+            if ($notifyParticipants) {
+                $stmt = $this->pdo->prepare(
+                    "SELECT user_id FROM event_participants WHERE event_id = :event_id"
+                );
+                $stmt->execute([':event_id' => $id]);
+                $participants = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            }
+
+            $dateStr = $instanceDate->format('Y-m-d');
+
+            // Decide where to store exceptions (schema differs across environments)
+            $storageColumn = null;
+            if ($this->eventsHasColumn('metadata')) {
+                $storageColumn = 'metadata';
+            } elseif ($this->eventsHasColumn('recurrence_exceptions')) {
+                $storageColumn = 'recurrence_exceptions';
+            } elseif ($this->eventsHasColumn('exceptions')) {
+                $storageColumn = 'exceptions';
+            }
+
+            if (!$storageColumn) {
+                error_log("[Calendar] deleteRecurringInstance: no exceptions storage column available for events table (id=$id tenant={$this->tenant_id})");
+                throw new RuntimeException('Schema eventi non supporta eccezioni ricorrenza');
+            }
+
+            // Fetch current stored value (avoid relying on getEventById selecting columns that may not exist)
+            $stmt = $this->pdo->prepare(
+                "SELECT {$storageColumn} AS v
+                 FROM events
+                 WHERE id = :id AND tenant_id = :tenant_id
+                 LIMIT 1"
+            );
+            $stmt->execute([':id' => $id, ':tenant_id' => $this->tenant_id]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            $currentVal = $row['v'] ?? null;
+
+            // Build new value
+            $updateValue = null;
+            if ($storageColumn === 'metadata') {
+                $metadata = $currentVal ?? [];
+                if (is_string($metadata) && $metadata !== '') {
+                    $decoded = json_decode($metadata, true);
+                    $metadata = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : [];
+                }
+                if (!is_array($metadata)) {
+                    $metadata = [];
+                }
+                if (!isset($metadata['exceptions']) || !is_array($metadata['exceptions'])) {
+                    $metadata['exceptions'] = [];
+                }
+                if (!in_array($dateStr, $metadata['exceptions'], true)) {
+                    $metadata['exceptions'][] = $dateStr;
+                }
+                $updateValue = json_encode($metadata);
+            } else {
+                // recurrence_exceptions / exceptions: store JSON array for consistent parsing
+                $exceptions = [];
+                if (is_string($currentVal) && $currentVal !== '') {
+                    $decoded = json_decode($currentVal, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                        $exceptions = $decoded;
+                    } else {
+                        $exceptions = array_map('trim', explode(',', $currentVal));
+                    }
+                } elseif (is_array($currentVal)) {
+                    $exceptions = $currentVal;
+                }
+                $exceptions = array_values(array_filter(array_map(fn($v) => is_array($v) ? ($v['date'] ?? null) : (string)$v, $exceptions)));
+                if (!in_array($dateStr, $exceptions, true)) {
+                    $exceptions[] = $dateStr;
+                }
+                $updateValue = json_encode($exceptions);
+            }
+
+            // Update event with new exception list (schema-aware)
+            $setParts = ["{$storageColumn} = :val"];
+            if ($this->eventsHasColumn('updated_at')) {
+                $setParts[] = "updated_at = NOW()";
+            }
+            $sql = "UPDATE events SET " . implode(', ', $setParts) . " WHERE id = :id AND tenant_id = :tenant_id";
+            error_log("[Calendar] deleteRecurringInstance using {$storageColumn} (id=$id tenant={$this->tenant_id} date={$dateStr})");
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                ':val' => $updateValue,
+                ':id' => $id,
+                ':tenant_id' => $this->tenant_id
+            ]);
+
+            // Log attività
+            $this->logActivity('event_instance_deleted', $id, [
+                'deleted_by' => $this->user_id,
+                'instance_date' => $dateStr,
+                'participants_notified' => $notifyParticipants ? count($participants) : 0
+            ]);
+
+            $this->pdo->commit();
+
+            // Notifica partecipanti solo per questa occorrenza (best effort)
+            if ($notifyParticipants && !empty($participants)) {
+                // Costruisci una copia evento con start/end specifici dell'occorrenza
+                $instanceStart = clone $instanceDate;
+                $startSource = $event['start_datetime'] ?? $event['start_date'] ?? $event['start'] ?? $event['start_datetime_local'] ?? null;
+                $endSource = $event['end_datetime'] ?? $event['end_date'] ?? $event['end'] ?? $event['end_datetime_local'] ?? null;
+
+                try {
+                    $originalStart = $startSource ? new DateTime($startSource) : null;
+                } catch (Exception $e) {
+                    $originalStart = null;
+                }
+                try {
+                    $originalEnd = $endSource ? new DateTime($endSource) : null;
+                } catch (Exception $e) {
+                    $originalEnd = null;
+                }
+
+                $duration = ($originalStart && $originalEnd) ? $originalStart->diff($originalEnd) : new DateInterval('PT1H');
+
+                if ($originalStart) {
+                    $instanceStart->setTime(
+                        (int)$originalStart->format('H'),
+                        (int)$originalStart->format('i'),
+                        (int)$originalStart->format('s')
+                    );
+                }
+                $instanceEnd = (clone $instanceStart)->add($duration);
+
+                $instanceEvent = $event;
+                $instanceEvent['start_datetime'] = $instanceStart->format('Y-m-d H:i:s');
+                $instanceEvent['end_datetime'] = $instanceEnd->format('Y-m-d H:i:s');
+
+                $this->sendCancellation($instanceEvent, $participants);
+            }
+
+            // Invalida cache
+            $this->invalidateCache();
+
+            return true;
+
+        } catch (Exception $e) {
+            $this->pdo->rollBack();
+            error_log("Errore eliminazione occorrenza ricorrente: " . $e->getMessage());
+            throw new RuntimeException('Errore durante eliminazione occorrenza');
         }
     }
 
@@ -569,7 +1141,7 @@ class Calendar {
             $events = $this->getEventsBetween($dayStart, $dayEnd, ['user_id' => $userId]);
 
             // Ottieni orari di lavoro dell'utente
-            $workHours = $this->getUserWorkHours($userId, $date->format('N'));
+            $workHours = $this->getUserWorkHours($userId, (int)$date->format('N'), $date);
 
             // Calcola slot liberi
             $busySlots = [];
@@ -615,10 +1187,76 @@ class Calendar {
                 'total_free_minutes' => $this->calculateTotalMinutes($freeSlots)
             ];
 
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log("Errore getUserAvailability: " . $e->getMessage());
-            throw new RuntimeException('Errore verifica disponibilità');
+            // Best-effort fallback: full default working hours, no busy slots
+            $fallback = $this->getUserWorkHours($userId, (int)$date->format('N'), $date);
+            $freeSlots = [[
+                'start' => clone $fallback['start'],
+                'end' => clone $fallback['end'],
+            ]];
+            return [
+                'date' => $date->format('Y-m-d'),
+                'work_hours' => $fallback,
+                'busy_slots' => [],
+                'free_slots' => $freeSlots,
+                'total_free_minutes' => $this->calculateTotalMinutes($freeSlots),
+                'warning' => 'Fallback availability used',
+            ];
         }
+    }
+
+    /**
+     * Default working hours resolver (schema-drift safe).
+     *
+     * Currently uses fixed defaults to keep scheduling functional:
+     * - Mon–Fri: 09:00–18:00
+     * - Sat/Sun: 09:00–13:00
+     *
+     * @return array{start:DateTime,end:DateTime}
+     */
+    private function getUserWorkHours(int $userId, int $dayOfWeek, ?DateTime $date = null): array {
+        // NOTE: For now we do not store per-user working hours. This keeps suggestFreeSlots operational.
+        $base = $date ? clone $date : new DateTime('today');
+        $base->setTime(0, 0, 0);
+
+        $isWeekend = in_array((int)$dayOfWeek, [6, 7], true);
+        $start = clone $base;
+        $end = clone $base;
+
+        if ($isWeekend) {
+            $start->setTime(9, 0, 0);
+            $end->setTime(13, 0, 0);
+        } else {
+            $start->setTime(9, 0, 0);
+            $end->setTime(18, 0, 0);
+        }
+
+        // Ensure end > start (defensive)
+        if ($end <= $start) {
+            $end = (clone $start)->add(new DateInterval('PT60M'));
+        }
+
+        return ['start' => $start, 'end' => $end];
+    }
+
+    /**
+     * Calculate total minutes across a list of slots.
+     *
+     * @param array<int,array{start:DateTime,end:DateTime}> $slots
+     */
+    private function calculateTotalMinutes(array $slots): int {
+        $sum = 0;
+        foreach ($slots as $s) {
+            if (!is_array($s)) continue;
+            $st = $s['start'] ?? null;
+            $en = $s['end'] ?? null;
+            if (!($st instanceof DateTime) || !($en instanceof DateTime)) continue;
+            $delta = $en->getTimestamp() - $st->getTimestamp();
+            if ($delta <= 0) continue;
+            $sum += (int)round($delta / 60);
+        }
+        return $sum;
     }
 
     /**
@@ -707,6 +1345,229 @@ class Calendar {
             error_log("Errore detectConflicts: " . $e->getMessage());
             throw new RuntimeException('Errore rilevamento conflitti');
         }
+    }
+
+    /**
+     * Compute common free slots across participants for a given day.
+     *
+     * NOTE: This method is intentionally deterministic and does NOT use external AI.
+     * It is used by suggestFreeSlots() and must stay schema-drift safe.
+     *
+     * @param array<int,array<string,mixed>> $availabilities userId => availability payload from getUserAvailability()
+     * @return array<int,array{start:DateTime,end:DateTime}>
+     */
+    private function findCommonFreeSlots(array $availabilities, int $durationMinutes): array {
+        $durationMinutes = max(15, (int)$durationMinutes);
+        if (empty($availabilities)) return [];
+
+        // Normalize free slot lists per user
+        $freeByUser = [];
+        foreach ($availabilities as $userId => $a) {
+            $slots = [];
+            if (is_array($a) && isset($a['free_slots']) && is_array($a['free_slots'])) {
+                foreach ($a['free_slots'] as $s) {
+                    if (!is_array($s)) continue;
+                    $st = $s['start'] ?? null;
+                    $en = $s['end'] ?? null;
+                    if ($st instanceof DateTime && $en instanceof DateTime && $en > $st) {
+                        $slots[] = ['start' => clone $st, 'end' => clone $en];
+                        continue;
+                    }
+                    // Defensive: allow string datetimes too (shouldn't happen, but keep safe)
+                    if (is_string($st) && is_string($en)) {
+                        try {
+                            $dst = new DateTime($st);
+                            $den = new DateTime($en);
+                            if ($den > $dst) $slots[] = ['start' => $dst, 'end' => $den];
+                        } catch (Throwable $e) {
+                            // ignore
+                        }
+                    }
+                }
+            }
+
+            // Fallback: if no free slots, consider full working hours interval if present
+            if (empty($slots) && is_array($a) && isset($a['work_hours']) && is_array($a['work_hours'])) {
+                $ws = $a['work_hours']['start'] ?? null;
+                $we = $a['work_hours']['end'] ?? null;
+                if ($ws instanceof DateTime && $we instanceof DateTime && $we > $ws) {
+                    $slots[] = ['start' => clone $ws, 'end' => clone $we];
+                }
+            }
+
+            if (!empty($slots)) {
+                usort($slots, fn($x, $y) => ($x['start'] <=> $y['start']));
+                $freeByUser[(int)$userId] = $slots;
+            }
+        }
+
+        if (empty($freeByUser)) return [];
+
+        // Compute common availability intervals by intersecting free intervals across users
+        $commonIntervals = null;
+        foreach ($freeByUser as $slots) {
+            if ($commonIntervals === null) {
+                $commonIntervals = $slots;
+                continue;
+            }
+            $commonIntervals = $this->intersectIntervals($commonIntervals, $slots);
+            if (empty($commonIntervals)) break;
+        }
+        if (empty($commonIntervals)) return [];
+
+        // From common intervals, generate candidate slots of exact duration.
+        // Step is 15 minutes to keep suggestions flexible; scoring will prioritize preferred times.
+        $out = [];
+        foreach ($commonIntervals as $iv) {
+            $cursor = $this->roundUpToMinutes(clone $iv['start'], 15);
+            $end = $iv['end'];
+            $guard = 0;
+            while ($cursor < $end && $guard < 64) {
+                $slotEnd = (clone $cursor)->add(new DateInterval('PT' . $durationMinutes . 'M'));
+                if ($slotEnd > $end) break;
+                $out[] = ['start' => clone $cursor, 'end' => $slotEnd];
+                $cursor->add(new DateInterval('PT15M'));
+                $guard++;
+            }
+            if (count($out) >= 120) break;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Intersect two lists of time intervals (sorted by start).
+     *
+     * @param array<int,array{start:DateTime,end:DateTime}> $a
+     * @param array<int,array{start:DateTime,end:DateTime}> $b
+     * @return array<int,array{start:DateTime,end:DateTime}>
+     */
+    private function intersectIntervals(array $a, array $b): array {
+        if (empty($a) || empty($b)) return [];
+        usort($a, fn($x, $y) => ($x['start'] <=> $y['start']));
+        usort($b, fn($x, $y) => ($x['start'] <=> $y['start']));
+
+        $i = 0; $j = 0;
+        $out = [];
+        while ($i < count($a) && $j < count($b)) {
+            $as = $a[$i]['start']; $ae = $a[$i]['end'];
+            $bs = $b[$j]['start']; $be = $b[$j]['end'];
+            if (!($as instanceof DateTime) || !($ae instanceof DateTime) || !($bs instanceof DateTime) || !($be instanceof DateTime)) {
+                $i++; $j++;
+                continue;
+            }
+
+            $start = ($as > $bs) ? $as : $bs;
+            $end = ($ae < $be) ? $ae : $be;
+            if ($end > $start) {
+                $out[] = ['start' => clone $start, 'end' => clone $end];
+            }
+
+            // Move the pointer that ends first
+            if ($ae <= $be) $i++; else $j++;
+            if (count($out) > 300) break;
+        }
+        return $out;
+    }
+
+    /**
+     * Round DateTime up to the next N-minute boundary.
+     */
+    private function roundUpToMinutes(DateTime $dt, int $minutes): DateTime {
+        $minutes = max(1, (int)$minutes);
+        $inc = $minutes * 60;
+
+        $base = clone $dt;
+        $base->setTime(0, 0, 0);
+        $baseTs = $base->getTimestamp();
+
+        $delta = $dt->getTimestamp() - $baseTs;
+        if ($delta < 0) $delta = 0;
+
+        $roundedDelta = (int)ceil($delta / $inc) * $inc;
+        $dt->setTimestamp($baseTs + $roundedDelta);
+        $dt->setTime((int)$dt->format('H'), (int)$dt->format('i'), 0);
+        return $dt;
+    }
+
+    /**
+     * Score a candidate slot. Higher is better.
+     *
+     * @param array{start:DateTime,end:DateTime} $slot
+     */
+    private function calculateSlotScore(array $slot, array $preferences): int {
+        $start = $slot['start'] ?? null;
+        $end = $slot['end'] ?? null;
+        if (!($start instanceof DateTime) || !($end instanceof DateTime) || $end <= $start) return 0;
+
+        $score = 50;
+
+        // Prefer times close to preferred_times
+        $preferredTimes = $preferences['preferred_times'] ?? [];
+        if (is_array($preferredTimes) && !empty($preferredTimes)) {
+            $bestDiff = null;
+            foreach ($preferredTimes as $pt) {
+                if (!is_string($pt)) continue;
+                if (!preg_match('/^\d{1,2}:\d{2}$/', trim($pt))) continue;
+                [$hh, $mm] = array_map('intval', explode(':', $pt));
+                $pref = clone $start;
+                $pref->setTime($hh, $mm, 0);
+                $diff = abs($start->getTimestamp() - $pref->getTimestamp()) / 60.0;
+                if ($bestDiff === null || $diff < $bestDiff) $bestDiff = $diff;
+            }
+            if ($bestDiff !== null) {
+                if ($bestDiff <= 15) $score += 30;
+                elseif ($bestDiff <= 60) $score += 15;
+                elseif ($bestDiff <= 180) $score += 5;
+                else $score -= 10;
+            }
+        }
+
+        // Penalize lunch overlap if requested
+        $avoidLunch = (bool)($preferences['avoid_lunch'] ?? true);
+        if ($avoidLunch) {
+            $sm = ((int)$start->format('H')) * 60 + (int)$start->format('i');
+            $em = ((int)$end->format('H')) * 60 + (int)$end->format('i');
+            $lStart = 12 * 60 + 30;
+            $lEnd = 14 * 60;
+            if ($sm < $lEnd && $em > $lStart) {
+                $score -= 20;
+            }
+        }
+
+        // Mild preference: earlier slots in the day
+        $hour = (int)$start->format('H');
+        if ($hour >= 16) $score -= 8;
+        elseif ($hour <= 10) $score += 6;
+
+        if ($score < 0) $score = 0;
+        return (int)$score;
+    }
+
+    /**
+     * @param array{start:DateTime,end:DateTime} $slot
+     * @return array<int,string>
+     */
+    private function getSlotReasons(array $slot, array $preferences): array {
+        $reasons = [];
+        $start = $slot['start'] ?? null;
+        $end = $slot['end'] ?? null;
+        if (!($start instanceof DateTime) || !($end instanceof DateTime) || $end <= $start) return $reasons;
+
+        $preferredTimes = $preferences['preferred_times'] ?? [];
+        if (is_array($preferredTimes) && !empty($preferredTimes)) {
+            $reasons[] = 'Vicino a orari preferiti';
+        }
+        if ((bool)($preferences['avoid_lunch'] ?? true)) {
+            $sm = ((int)$start->format('H')) * 60 + (int)$start->format('i');
+            $em = ((int)$end->format('H')) * 60 + (int)$end->format('i');
+            $lStart = 12 * 60 + 30;
+            $lEnd = 14 * 60;
+            if (!($sm < $lEnd && $em > $lStart)) {
+                $reasons[] = 'Evita fascia pranzo';
+            }
+        }
+        return $reasons;
     }
 
     /**
@@ -861,33 +1722,92 @@ class Calendar {
         $count = 0;
 
         try {
+            $hasSendAfter = $this->tableHasColumn('event_reminders', 'send_after');
+            $hasIsSent = $this->tableHasColumn('event_reminders', 'is_sent');
+            $hasSendAttempts = $this->tableHasColumn('event_reminders', 'send_attempts');
+            $hasLastError = $this->tableHasColumn('event_reminders', 'last_error');
+            $hasParticipantStatus = $this->tableHasColumn('event_participants', 'status');
+
             // Trova promemoria da inviare
+            // BUG-148c FIX: Use unique named parameters (PDO doesn't support reusing named params)
             $sql = "SELECT er.*, e.*, u.email, u.name
                     FROM event_reminders er
                     JOIN events e ON er.event_id = e.id
                     JOIN event_participants ep ON ep.event_id = e.id
                     JOIN users u ON ep.user_id = u.id
-                    WHERE e.tenant_id = :tenant_id
+                    WHERE e.tenant_id = :tenant_id_events
+                      AND er.tenant_id = :tenant_id_reminders
                       AND e.deleted_at IS NULL
                       AND e.status = 'confirmed'
-                      AND ep.status IN ('accepted', 'tentative')
+                      AND ep.tenant_id = :tenant_id_participants
+                      AND ep.deleted_at IS NULL
+                      " . ($hasParticipantStatus ? "AND ep.status IN ('accepted', 'tentative')" : "") . "
                       AND er.type = 'email'
-                      AND er.sent_at IS NULL
-                      AND DATE_SUB(e.start_datetime, INTERVAL er.minutes_before MINUTE) <= NOW()";
+                      AND er.deleted_at IS NULL
+                      " . ($hasIsSent ? "AND er.is_sent = 0" : "AND er.sent_at IS NULL") . "
+                      AND (
+                        " . ($hasSendAfter ? "er.send_after <= NOW()" : "DATE_SUB(e.start_datetime, INTERVAL er.minutes_before MINUTE) <= NOW()") . "
+                      )";
 
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([':tenant_id' => $this->tenant_id]);
+            $stmt->execute([
+                ':tenant_id_events' => $this->tenant_id,
+                ':tenant_id_reminders' => $this->tenant_id,
+                ':tenant_id_participants' => $this->tenant_id
+            ]);
 
             $reminders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             foreach ($reminders as $reminder) {
+                $reminderId = (int)($reminder['id'] ?? 0);
+                if ($reminderId <= 0) continue;
+
+                // Increment attempt counter (best effort)
+                if ($hasSendAttempts) {
+                    try {
+                        $this->pdo->prepare("UPDATE event_reminders SET send_attempts = send_attempts + 1 WHERE id = :id")
+                            ->execute([':id' => $reminderId]);
+                    } catch (Exception $e) {
+                        // ignore
+                    }
+                }
+
                 if ($this->sendReminderEmail($reminder)) {
-                    // Marca come inviato
-                    $updateStmt = $this->pdo->prepare(
-                        "UPDATE event_reminders SET sent_at = NOW() WHERE id = :id"
-                    );
-                    $updateStmt->execute([':id' => $reminder['id']]);
+                    // Marca come inviato (support both schema variants)
+                    $updateSql = "UPDATE event_reminders SET sent_at = NOW()";
+                    if ($hasIsSent) $updateSql .= ", is_sent = 1";
+                    if ($hasLastError) $updateSql .= ", last_error = NULL";
+                    $updateSql .= " WHERE id = :id";
+
+                    $this->pdo->prepare($updateSql)->execute([':id' => $reminderId]);
                     $count++;
+
+                    // In-app notification (best effort; table may not exist in some envs)
+                    try {
+                        if (isset($reminder['user_id'])) {
+                            $this->createInAppNotification((int)$reminder['user_id'], [
+                                'id' => $reminder['event_id'] ?? null,
+                                'title' => $reminder['title'] ?? '',
+                                'start_datetime' => $reminder['start_datetime'] ?? null,
+                                'end_datetime' => $reminder['end_datetime'] ?? null,
+                                'location' => $reminder['location'] ?? null
+                            ], self::NOTIFICATION_REMINDER);
+                        }
+                    } catch (Exception $e) {
+                        // ignore
+                    }
+                } else {
+                    if ($hasLastError) {
+                        try {
+                            $this->pdo->prepare("UPDATE event_reminders SET last_error = :err WHERE id = :id")
+                                ->execute([
+                                    ':id' => $reminderId,
+                                    ':err' => 'Email send failed'
+                                ]);
+                        } catch (Exception $e) {
+                            // ignore
+                        }
+                    }
                 }
             }
 
@@ -897,6 +1817,108 @@ class Calendar {
             error_log("Errore sendEmailReminders: " . $e->getMessage());
             throw new RuntimeException('Errore invio promemoria');
         }
+    }
+
+    /**
+     * Aggiungi promemoria evento (event_reminders).
+     * @param int $eventId
+     * @param array $reminders Array di reminder: [{type, minutes_before}, ...]
+     */
+    private function addReminders(int $eventId, array $reminders): void {
+        if (empty($reminders)) return;
+
+        // Fetch event start_datetime for send_after computation
+        $stmt = $this->pdo->prepare("SELECT start_datetime FROM events WHERE id = :id AND tenant_id = :tenant_id AND deleted_at IS NULL");
+        $stmt->execute([':id' => $eventId, ':tenant_id' => $this->tenant_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $start = isset($row['start_datetime']) ? new DateTime((string)$row['start_datetime']) : null;
+
+        $hasSendAfter = $this->tableHasColumn('event_reminders', 'send_after');
+        $hasIsSent = $this->tableHasColumn('event_reminders', 'is_sent');
+        $hasSendAttempts = $this->tableHasColumn('event_reminders', 'send_attempts');
+        $hasDeletedAt = $this->tableHasColumn('event_reminders', 'deleted_at');
+
+        foreach ($reminders as $r) {
+            if (!is_array($r)) continue;
+            $type = isset($r['type']) ? (string)$r['type'] : 'email';
+            $minutes = isset($r['minutes_before']) ? (int)$r['minutes_before'] : 15;
+            if ($minutes < 0) $minutes = 0;
+
+            $sendAfter = null;
+            if ($hasSendAfter && $start instanceof DateTime) {
+                $sendAfterDt = clone $start;
+                if ($minutes > 0) $sendAfterDt->modify("-{$minutes} minutes");
+                $sendAfter = $sendAfterDt->format('Y-m-d H:i:s');
+            }
+
+            $cols = ['tenant_id', 'event_id', 'type', 'minutes_before', 'sent_at'];
+            $vals = [':tenant_id', ':event_id', ':type', ':minutes_before', ':sent_at'];
+            $params = [
+                ':tenant_id' => $this->tenant_id,
+                ':event_id' => $eventId,
+                ':type' => $type,
+                ':minutes_before' => $minutes,
+                ':sent_at' => null
+            ];
+
+            if ($hasIsSent) {
+                $cols[] = 'is_sent';
+                $vals[] = ':is_sent';
+                $params[':is_sent'] = 0;
+            }
+            if ($hasSendAfter) {
+                $cols[] = 'send_after';
+                $vals[] = ':send_after';
+                $params[':send_after'] = $sendAfter;
+            }
+            if ($hasSendAttempts) {
+                $cols[] = 'send_attempts';
+                $vals[] = ':send_attempts';
+                $params[':send_attempts'] = 0;
+            }
+            if ($hasDeletedAt) {
+                $cols[] = 'deleted_at';
+                $vals[] = ':deleted_at';
+                $params[':deleted_at'] = null;
+            }
+
+            $sql = "INSERT INTO event_reminders (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $vals) . ")";
+            $this->pdo->prepare($sql)->execute($params);
+        }
+    }
+
+    /**
+     * Aggiorna promemoria di un evento: soft-delete degli esistenti + re-insert.
+     */
+    private function updateReminders(int $eventId, array $reminders): void {
+        // Soft delete existing reminders for this event
+        if ($this->tableHasColumn('event_reminders', 'deleted_at')) {
+            $this->pdo->prepare("UPDATE event_reminders SET deleted_at = NOW() WHERE tenant_id = :tenant_id AND event_id = :event_id AND deleted_at IS NULL")
+                ->execute([':tenant_id' => $this->tenant_id, ':event_id' => $eventId]);
+        } else {
+            $this->pdo->prepare("DELETE FROM event_reminders WHERE tenant_id = :tenant_id AND event_id = :event_id")
+                ->execute([':tenant_id' => $this->tenant_id, ':event_id' => $eventId]);
+        }
+
+        $this->addReminders($eventId, $reminders);
+    }
+
+    /**
+     * Parse reminders string from SQL GROUP_CONCAT(CONCAT(type, ':', minutes_before)).
+     */
+    private function parseReminders(string $reminders): array {
+        $out = [];
+        $parts = array_filter(array_map('trim', explode(',', $reminders)));
+        foreach ($parts as $p) {
+            $pair = explode(':', $p, 2);
+            $type = isset($pair[0]) ? trim($pair[0]) : 'email';
+            $minutes = isset($pair[1]) ? (int)$pair[1] : 15;
+            $out[] = [
+                'type' => $type !== '' ? $type : 'email',
+                'minutes_before' => $minutes
+            ];
+        }
+        return $out;
     }
 
     /**
@@ -911,24 +1933,83 @@ class Calendar {
                 self::NOTIFICATION_CANCEL => 'L\'evento è stato cancellato: ' . ($event['title'] ?? '')
             ];
 
-            $sql = "INSERT INTO notifications (
-                        tenant_id, user_id, type, title, message,
-                        data, priority, created_at
-                    ) VALUES (
-                        :tenant_id, :user_id, :type, :title, :message,
-                        :data, :priority, NOW()
-                    )";
+            // Schema-aware insert (notifications.data vs notifications.payload/metadata/details)
+            $cols = [];
+            $vals = [];
+            $params = [];
 
+            if ($this->tableHasColumn('notifications', 'tenant_id')) {
+                $cols[] = 'tenant_id';
+                $vals[] = ':tenant_id';
+                $params[':tenant_id'] = $this->tenant_id;
+            }
+            if ($this->tableHasColumn('notifications', 'user_id')) {
+                $cols[] = 'user_id';
+                $vals[] = ':user_id';
+                $params[':user_id'] = $userId;
+            }
+
+            // Type/action field
+            $notifType = 'calendar_' . $type;
+            if ($this->tableHasColumn('notifications', 'type')) {
+                $cols[] = 'type';
+                $vals[] = ':type';
+                $params[':type'] = $notifType;
+            } elseif ($this->tableHasColumn('notifications', 'action')) {
+                $cols[] = 'action';
+                $vals[] = ':action';
+                $params[':action'] = $notifType;
+            }
+
+            if ($this->tableHasColumn('notifications', 'title')) {
+                $cols[] = 'title';
+                $vals[] = ':title';
+                $params[':title'] = 'Notifica Calendario';
+            }
+            if ($this->tableHasColumn('notifications', 'message')) {
+                $cols[] = 'message';
+                $vals[] = ':message';
+                $params[':message'] = $messages[$type] ?? 'Notifica evento';
+            }
+
+            $payloadJson = json_encode($event);
+            if ($this->tableHasColumn('notifications', 'data')) {
+                $cols[] = 'data';
+                $vals[] = ':data';
+                $params[':data'] = $payloadJson;
+            } elseif ($this->tableHasColumn('notifications', 'payload')) {
+                $cols[] = 'payload';
+                $vals[] = ':payload';
+                $params[':payload'] = $payloadJson;
+            } elseif ($this->tableHasColumn('notifications', 'metadata')) {
+                $cols[] = 'metadata';
+                $vals[] = ':metadata';
+                $params[':metadata'] = $payloadJson;
+            } elseif ($this->tableHasColumn('notifications', 'details')) {
+                $cols[] = 'details';
+                $vals[] = ':details';
+                $params[':details'] = $payloadJson;
+            }
+
+            if ($this->tableHasColumn('notifications', 'priority')) {
+                $cols[] = 'priority';
+                $vals[] = ':priority';
+                $params[':priority'] = $type === self::NOTIFICATION_CANCEL ? 'high' : 'normal';
+            }
+
+            if ($this->tableHasColumn('notifications', 'created_at')) {
+                $cols[] = 'created_at';
+                $vals[] = 'NOW()';
+            }
+
+            if (empty($cols)) {
+                // Can't insert anything safely
+                return false;
+            }
+
+            $sql = "INSERT INTO notifications (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $vals) . ")";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([
-                ':tenant_id' => $this->tenant_id,
-                ':user_id' => $userId,
-                ':type' => 'calendar_' . $type,
-                ':title' => 'Notifica Calendario',
-                ':message' => $messages[$type] ?? 'Notifica evento',
-                ':data' => json_encode($event),
-                ':priority' => $type === self::NOTIFICATION_CANCEL ? 'high' : 'normal'
-            ]);
+            $stmt->execute($params);
 
             return true;
 
@@ -984,12 +2065,35 @@ class Calendar {
             $to = $participant['email'];
             $subject = 'Invito: ' . $event['title'];
 
-            $htmlMessage = "<h2>Sei stato invitato all'evento</h2>";
-            $htmlMessage .= "<p><strong>Titolo:</strong> {$event['title']}</p>";
-            $htmlMessage .= "<p><strong>Data:</strong> " . date('d/m/Y H:i', strtotime($event['start_datetime'])) . "</p>";
-            $htmlMessage .= "<p><strong>Luogo:</strong> " . ($event['location'] ?? 'Da definire') . "</p>";
-            $htmlMessage .= "<p><strong>Descrizione:</strong><br>" . nl2br(htmlspecialchars($event['description'])) . "</p>";
-            $htmlMessage .= "<p>Accetta o rifiuta l'invito dal file iCal allegato.</p>";
+            $tenantName = htmlspecialchars($this->getTenantName());
+            $eventTitle = htmlspecialchars((string)($event['title'] ?? 'Evento'));
+            $eventLocation = htmlspecialchars((string)($event['location'] ?? 'Da definire'));
+            $eventDescription = nl2br(htmlspecialchars((string)($event['description'] ?? '')));
+            $eventDate = htmlspecialchars(date('d/m/Y H:i', strtotime((string)$event['start_datetime'])));
+
+            $htmlMessage = '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">';
+            $htmlMessage .= '<title>Invito Evento</title><style>
+                body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.6;color:#333;background:#f4f7fa;margin:0;padding:0}
+                .container{max-width:600px;margin:20px auto;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);overflow:hidden}
+                .header{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#fff;padding:30px 20px;text-align:center}
+                .brand{font-size:14px;font-weight:700;opacity:.95;margin-bottom:6px}
+                .content{padding:30px}
+                .card{background:#f8f9fa;border-left:4px solid #f59e0b;border-radius:4px;padding:20px;margin:20px 0}
+                .footer{background:#f8f9fa;padding:20px;text-align:center;color:#666;font-size:12px;border-top:1px solid #e0e0e0}
+            </style></head><body>';
+            $htmlMessage .= '<div class="container"><div class="header"><div class="brand">Nexio — ' . $tenantName . '</div><h1 style="margin:0;font-size:24px;font-weight:600;">Invito Evento</h1></div>';
+            $htmlMessage .= '<div class="content"><p>Ciao <strong>' . htmlspecialchars((string)($participant['name'] ?? '')) . '</strong>,</p>';
+            $htmlMessage .= '<p>Sei stato invitato all\'evento:</p>';
+            $htmlMessage .= '<div class="card">';
+            $htmlMessage .= '<div style="font-size:20px;font-weight:600;color:#2c3e50;margin:0 0 10px 0;">' . $eventTitle . '</div>';
+            $htmlMessage .= '<div style="font-size:14px;color:#555;"><strong>📅 Data:</strong> ' . $eventDate . '</div>';
+            $htmlMessage .= '<div style="font-size:14px;color:#555;"><strong>📍 Luogo:</strong> ' . $eventLocation . '</div>';
+            if ($eventDescription !== '') {
+                $htmlMessage .= '<div style="font-size:14px;color:#555;margin-top:10px;"><strong>Descrizione:</strong><br>' . $eventDescription . '</div>';
+            }
+            $htmlMessage .= '</div>';
+            $htmlMessage .= '<p style="font-size:13px;color:#666;">Accetta o rifiuta l\'invito dal file iCal (ICS) allegato.</p>';
+            $htmlMessage .= '</div><div class="footer"><p>&copy; ' . date('Y') . ' Nexio. Tutti i diritti riservati.</p></div></div></body></html>';
 
             $textMessage = "Sei stato invitato all'evento:\n\n";
             $textMessage .= "Titolo: {$event['title']}\n";
@@ -1060,6 +2164,9 @@ class Calendar {
      * Esporta eventi in formato iCalendar
      */
     public function exportToICS(array $events): string {
+        $this->logActivity('calendar_export', null, [
+            'events_count' => count($events)
+        ]);
         return $this->generateICalendar($events, 'PUBLISH');
     }
 
@@ -1108,6 +2215,12 @@ class Calendar {
             error_log("Errore importFromICS: " . $e->getMessage());
             throw new RuntimeException('Errore importazione calendario');
         }
+
+        $this->logActivity('calendar_import', null, [
+            'imported' => count($imported),
+            'errors' => count($errors),
+            'total' => count($imported) + count($errors)
+        ]);
 
         return [
             'imported' => $imported,
@@ -1305,7 +2418,7 @@ class Calendar {
             // Verifica se l'istanza è nel range richiesto
             if ($instanceEnd >= $rangeStart && $current <= $rangeEnd) {
                 // Verifica eccezioni
-                if (!$this->isExceptionDate($event['id'], $current)) {
+                if (!$this->isExceptionDate($current, $event)) {
                     $instance = $event;
                     $instance['id'] = $event['id'] . '_' . $current->format('Ymd');
                     $instance['start_datetime'] = $current->format('Y-m-d H:i:s');
@@ -1329,6 +2442,88 @@ class Calendar {
         }
 
         return $instances;
+    }
+
+    /**
+     * Verifica se una data di occorrenza è in elenco eccezioni
+     */
+    private function isExceptionDate(DateTime $date, array $event): bool {
+        $exceptions = [];
+
+        $collect = function($value) use (&$exceptions) {
+            if ($value === null || $value === '') {
+                return;
+            }
+
+            // Se stringa JSON o comma-separated
+            if (is_string($value)) {
+                $decoded = json_decode($value, true);
+                if (is_array($decoded)) {
+                    $exceptions = array_merge($exceptions, $decoded);
+                    return;
+                }
+                $parts = array_map('trim', explode(',', $value));
+                $exceptions = array_merge($exceptions, $parts);
+                return;
+            }
+
+            if (is_array($value)) {
+                $exceptions = array_merge($exceptions, $value);
+            }
+        };
+
+        // Colonna dedicata (se presente nello schema o nel resultset)
+        if (isset($event['recurrence_exceptions'])) {
+            $collect($event['recurrence_exceptions']);
+        }
+
+        // Campo generico exceptions
+        if (isset($event['exceptions'])) {
+            $collect($event['exceptions']);
+        }
+
+        // Metadata JSON (può contenere exceptions o recurrence_exceptions)
+        if (isset($event['metadata'])) {
+            $meta = $event['metadata'];
+            if (is_string($meta) && $meta !== '') {
+                $decoded = json_decode($meta, true);
+                if (is_array($decoded)) {
+                    $meta = $decoded;
+                }
+            }
+
+            if (is_array($meta)) {
+                if (isset($meta['exceptions'])) {
+                    $collect($meta['exceptions']);
+                }
+                if (isset($meta['recurrence_exceptions'])) {
+                    $collect($meta['recurrence_exceptions']);
+                }
+            }
+        }
+
+        if (empty($exceptions)) {
+            return false;
+        }
+
+        $target = $date->format('Y-m-d');
+
+        foreach ($exceptions as $ex) {
+            if (!$ex) {
+                continue;
+            }
+            try {
+                $exDate = new DateTime(is_array($ex) ? ($ex['date'] ?? '') : (string)$ex);
+                if ($exDate->format('Y-m-d') === $target) {
+                    return true;
+                }
+            } catch (Exception $e) {
+                // Ignora valori non parseable
+                continue;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1379,6 +2574,14 @@ class Calendar {
         ];
 
         $metadataRaw = $event['metadata'] ?? null;
+        $metadataArr = ($metadataRaw !== null && $metadataRaw !== '')
+            ? json_decode((string)$metadataRaw, true)
+            : null;
+
+        $category = $event['category'] ?? null;
+        if ($category === null && is_array($metadataArr) && isset($metadataArr['category'])) {
+            $category = $metadataArr['category'];
+        }
 
         return [
             'id' => $event['id'] ?? null,
@@ -1388,10 +2591,13 @@ class Calendar {
             'start_datetime' => $event['start_datetime'] ?? null,
             'end_datetime' => $event['end_datetime'] ?? null,
             'all_day' => (bool) ($event['all_day'] ?? false),
-            'category' => $event['category'] ?? 'general',
+            'category' => $category ?? 'general',
             'color' => $event['color'] ?? '#3788d8',
             'status' => $event['status'] ?? 'confirmed',
             'visibility' => $event['visibility'] ?? 'private',
+            // Recurring instance metadata (needed by frontend to avoid parseInt/id mismatch)
+            'is_recurring_instance' => (bool)($event['is_recurring_instance'] ?? false),
+            'parent_event_id' => isset($event['parent_event_id']) ? (int)$event['parent_event_id'] : null,
             'organizer_id' => $event['organizer_id'] ?? null,
             'organizer' => $organizerInfo,
             // Backward compatibility: retain creator field pointing to organizer data
@@ -1404,9 +2610,7 @@ class Calendar {
                 : [],
             'is_recurring' => !empty($event['recurrence_rule']),
             'recurrence_rule' => $event['recurrence_rule'] ?? null,
-            'metadata' => $metadataRaw !== null && $metadataRaw !== ''
-                ? json_decode($metadataRaw, true)
-                : null
+            'metadata' => is_array($metadataArr) ? $metadataArr : null
         ];
     }
 
@@ -1416,7 +2620,7 @@ class Calendar {
     private function generateICalendar(array $events, string $method = 'PUBLISH'): string {
         $ical = "BEGIN:VCALENDAR\r\n";
         $ical .= "VERSION:2.0\r\n";
-        $ical .= "PRODID:-//CollaboraNexio//Calendar//IT\r\n";
+        $ical .= "PRODID:-//Nexio//Calendar//IT\r\n";
         $ical .= "CALSCALE:GREGORIAN\r\n";
         $ical .= "METHOD:{$method}\r\n";
 
@@ -1609,15 +2813,46 @@ class Calendar {
         }
 
         try {
-            // Get target user info
+            // BUG-144 FIX: Removed active_tenant_id reference (column does not exist)
             $stmt = $this->pdo->prepare(
-                "SELECT id, role, tenant_id FROM users WHERE id = ? AND deleted_at IS NULL"
+                "SELECT id, role, tenant_id
+                 FROM users
+                 WHERE id = ? AND deleted_at IS NULL AND is_active = 1"
             );
             $stmt->execute([$targetUserId]);
             $targetUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$targetUser) {
                 error_log("[RBAC] Target user {$targetUserId} not found");
+                return false;
+            }
+
+            // BUG-144 FIX: Ensure target user belongs to current tenant (via tenant_id OR user_tenant_access)
+            // BUG-148c FIX: Use unique named parameters (PDO doesn't support reusing named params)
+            $stmt = $this->pdo->prepare(
+                "SELECT 1
+                 FROM users u
+                 LEFT JOIN user_tenant_access uta
+                   ON uta.user_id = u.id
+                  AND uta.tenant_id = :tenant_id_join
+                  AND uta.deleted_at IS NULL
+                 WHERE u.id = :uid
+                   AND u.deleted_at IS NULL
+                   AND u.is_active = 1
+                   AND (
+                        u.tenant_id = :tenant_id_where
+                     OR uta.tenant_id IS NOT NULL
+                   )
+                 LIMIT 1"
+            );
+            $stmt->execute([
+                ':tenant_id_join' => $this->tenant_id,
+                ':tenant_id_where' => $this->tenant_id,
+                ':uid' => $targetUserId
+            ]);
+            $targetInTenant = (bool)$stmt->fetchColumn();
+            if (!$targetInTenant) {
+                error_log("[RBAC] Target user {$targetUserId} not in tenant {$this->tenant_id} (tenant/active_tenant/membership check failed)");
                 return false;
             }
 
@@ -1632,46 +2867,28 @@ class Calendar {
 
             // Admin: Can invite users from assigned companies + super_admin
             if ($currentUserRole === 'admin') {
-                if ($targetUser['role'] === 'super_admin') {
-                    error_log("[RBAC] User {$this->user_id} (admin) CAN invite user {$targetUserId} (super_admin)");
-                    return true;
-                }
-
-                // Check if admin has access to target user's tenant
-                $stmt = $this->pdo->prepare(
-                    "SELECT COUNT(*) as cnt FROM user_tenant_access
-                     WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL"
-                );
-                $stmt->execute([$this->user_id, $targetUser['tenant_id']]);
-                $accessCheck = $stmt->fetch(PDO::FETCH_ASSOC);
-
-                $hasAccess = $accessCheck && $accessCheck['cnt'] > 0;
-                error_log("[RBAC] User {$this->user_id} (admin) " . ($hasAccess ? "CAN" : "CANNOT") . " invite user {$targetUserId} (tenant access check)");
-                return $hasAccess;
+                // Admin already scoped to tenant via Calendar; allow inviting anyone in tenant plus super_admin
+                error_log("[RBAC] User {$this->user_id} (admin) CAN invite user {$targetUserId} in tenant {$this->tenant_id}");
+                return true;
             }
 
             // Manager: Can invite all from company + admin + super_admin
             if ($currentUserRole === 'manager') {
                 if (in_array($targetUser['role'], ['admin', 'super_admin'])) {
-                    error_log("[RBAC] User {$this->user_id} (manager) CAN invite user {$targetUserId} ({$targetUser['role']})");
-                    return true;
+                    error_log("[RBAC] User {$this->user_id} (manager) CAN invite user {$targetUserId} ({$targetUser['role']}) in tenant {$this->tenant_id}");
+                    return true; // already checked tenant membership above
                 }
-                // Same tenant check
-                $canInvite = $targetUser['tenant_id'] === $this->tenant_id;
-                error_log("[RBAC] User {$this->user_id} (manager) " . ($canInvite ? "CAN" : "CANNOT") . " invite user {$targetUserId} (same tenant: " . ($canInvite ? "yes" : "no") . ")");
+                // Same tenant (checked) -> allow
+                $canInvite = true;
+                error_log("[RBAC] User {$this->user_id} (manager) CAN invite user {$targetUserId} (tenant match)");
                 return $canInvite;
             }
 
             // User (base): Can invite from same company + managers from same company
             if ($currentUserRole === 'user') {
-                // Same tenant required
-                if ($targetUser['tenant_id'] !== $this->tenant_id) {
-                    error_log("[RBAC] User {$this->user_id} (user) CANNOT invite user {$targetUserId} (different tenant)");
-                    return false;
-                }
                 // Can invite other users OR managers from same company
                 $canInvite = in_array($targetUser['role'], ['user', 'manager']);
-                error_log("[RBAC] User {$this->user_id} (user) " . ($canInvite ? "CAN" : "CANNOT") . " invite user {$targetUserId} (role: {$targetUser['role']})");
+                error_log("[RBAC] User {$this->user_id} (user) " . ($canInvite ? "CAN" : "CANNOT") . " invite user {$targetUserId} (role: {$targetUser['role']}, tenant match)");
                 return $canInvite;
             }
 
@@ -1701,38 +2918,52 @@ class Calendar {
             $currentUserRole = $this->getCurrentUserRole();
             $users = [];
 
-            // Build query based on role
+            // BUG-146 FIX: Use unique parameter names to avoid PDO "Invalid parameter number" error
+            // PDO native prepared statements don't support reusing named parameters
+            // BUG-144 FIX: Build query based on role (removed active_tenant_id)
             $sql = "SELECT u.id, u.name, u.email, u.role, u.tenant_id, t.name as company_name
                     FROM users u
                     LEFT JOIN tenants t ON u.tenant_id = t.id
-                    WHERE u.deleted_at IS NULL AND u.is_active = 1";
+                    LEFT JOIN user_tenant_access uta
+                      ON uta.user_id = u.id
+                     AND uta.tenant_id = :tenant_id_join
+                     AND uta.deleted_at IS NULL
+                    WHERE u.deleted_at IS NULL AND u.is_active = 1
+                      AND (
+                           u.tenant_id = :tenant_id_where
+                        OR uta.tenant_id IS NOT NULL
+                      )";
 
             $params = [];
+            // BUG-146: Bind same value with unique names
+            $params[':tenant_id_join'] = $this->tenant_id;
+            $params[':tenant_id_where'] = $this->tenant_id;
 
             // Role-specific filtering
             if ($currentUserRole === 'super_admin') {
-                // Super admin: ALL users
-                // No additional WHERE clause
-                error_log("[RBAC] Loading users for super_admin (all users)");
+                // Super admin: all users of current tenant (no cross-tenant leakage)
+                error_log("[RBAC] Loading users for super_admin (tenant-scoped)");
             } elseif ($currentUserRole === 'admin') {
                 // Admin: Users from assigned companies OR super_admin
                 $sql .= " AND (u.role = 'super_admin' OR EXISTS (
-                            SELECT 1 FROM user_tenant_access uta
-                            WHERE uta.user_id = :current_user_id
-                              AND uta.tenant_id = u.tenant_id
-                              AND uta.deleted_at IS NULL
+                            SELECT 1 FROM user_tenant_access uta2
+                            WHERE uta2.user_id = :current_user_id
+                              AND uta2.tenant_id = u.tenant_id
+                              AND uta2.deleted_at IS NULL
                           ))";
                 $params[':current_user_id'] = $this->user_id;
                 error_log("[RBAC] Loading users for admin (assigned companies + super_admin)");
             } elseif ($currentUserRole === 'manager') {
                 // Manager: Same company + admin + super_admin
-                $sql .= " AND (u.role IN ('admin', 'super_admin') OR u.tenant_id = :tenant_id)";
-                $params[':tenant_id'] = $this->tenant_id;
+                // BUG-146: Use unique parameter name for role-specific condition
+                $sql .= " AND (u.role IN ('admin', 'super_admin') OR u.tenant_id = :tenant_id_role)";
+                $params[':tenant_id_role'] = $this->tenant_id;
                 error_log("[RBAC] Loading users for manager (same company + admin/super_admin)");
             } else {  // user
                 // User: Same company users + managers only
-                $sql .= " AND u.tenant_id = :tenant_id AND u.role IN ('user', 'manager')";
-                $params[':tenant_id'] = $this->tenant_id;
+                // BUG-146: Use unique parameter name for role-specific condition
+                $sql .= " AND u.tenant_id = :tenant_id_role AND u.role IN ('user', 'manager')";
+                $params[':tenant_id_role'] = $this->tenant_id;
                 error_log("[RBAC] Loading users for user (same company users/managers)");
             }
 
@@ -1770,24 +3001,76 @@ class Calendar {
      */
     private function logActivity(string $type, ?int $entityId, array $data): void {
         try {
-            $sql = "INSERT INTO activity_logs (
-                        tenant_id, user_id, type, entity_type, entity_id,
-                        data, ip_address, user_agent, created_at
-                    ) VALUES (
-                        :tenant_id, :user_id, :type, 'event', :entity_id,
-                        :data, :ip, :ua, NOW()
-                    )";
+            // Schema-aware activity log (activity_logs.type/data vs action/details)
+            $cols = [];
+            $vals = [];
+            $params = [];
 
+            if ($this->tableHasColumn('activity_logs', 'tenant_id')) {
+                $cols[] = 'tenant_id';
+                $vals[] = ':tenant_id';
+                $params[':tenant_id'] = $this->tenant_id;
+            }
+            if ($this->tableHasColumn('activity_logs', 'user_id')) {
+                $cols[] = 'user_id';
+                $vals[] = ':user_id';
+                $params[':user_id'] = $this->user_id;
+            }
+
+            if ($this->tableHasColumn('activity_logs', 'type')) {
+                $cols[] = 'type';
+                $vals[] = ':type';
+                $params[':type'] = $type;
+            } elseif ($this->tableHasColumn('activity_logs', 'action')) {
+                $cols[] = 'action';
+                $vals[] = ':action';
+                $params[':action'] = $type;
+            }
+
+            if ($this->tableHasColumn('activity_logs', 'entity_type')) {
+                $cols[] = 'entity_type';
+                $vals[] = ':entity_type';
+                $params[':entity_type'] = 'event';
+            }
+            if ($this->tableHasColumn('activity_logs', 'entity_id')) {
+                $cols[] = 'entity_id';
+                $vals[] = ':entity_id';
+                $params[':entity_id'] = $entityId;
+            }
+
+            $payloadJson = json_encode($data);
+            if ($this->tableHasColumn('activity_logs', 'data')) {
+                $cols[] = 'data';
+                $vals[] = ':data';
+                $params[':data'] = $payloadJson;
+            } elseif ($this->tableHasColumn('activity_logs', 'details')) {
+                $cols[] = 'details';
+                $vals[] = ':details';
+                $params[':details'] = $payloadJson;
+            }
+
+            if ($this->tableHasColumn('activity_logs', 'ip_address')) {
+                $cols[] = 'ip_address';
+                $vals[] = ':ip';
+                $params[':ip'] = $_SERVER['REMOTE_ADDR'] ?? null;
+            }
+            if ($this->tableHasColumn('activity_logs', 'user_agent')) {
+                $cols[] = 'user_agent';
+                $vals[] = ':ua';
+                $params[':ua'] = $_SERVER['HTTP_USER_AGENT'] ?? null;
+            }
+            if ($this->tableHasColumn('activity_logs', 'created_at')) {
+                $cols[] = 'created_at';
+                $vals[] = 'NOW()';
+            }
+
+            if (empty($cols)) {
+                return;
+            }
+
+            $sql = "INSERT INTO activity_logs (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $vals) . ")";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([
-                ':tenant_id' => $this->tenant_id,
-                ':user_id' => $this->user_id,
-                ':type' => $type,
-                ':entity_id' => $entityId,
-                ':data' => json_encode($data),
-                ':ip' => $_SERVER['REMOTE_ADDR'] ?? null,
-                ':ua' => $_SERVER['HTTP_USER_AGENT'] ?? null
-            ]);
+            $stmt->execute($params);
         } catch (Exception $e) {
             error_log("Errore log attività: " . $e->getMessage());
         }
@@ -1822,16 +3105,31 @@ class Calendar {
 
     /**
      * Helper per verificare esistenza utente
+     * BUG-148c FIX: Use unique named parameters (PDO doesn't support reusing named params)
      */
     private function userExists(int $userId): bool {
         $stmt = $this->pdo->prepare(
-            "SELECT 1 FROM users WHERE id = :id AND tenant_id = :tenant_id"
+            "SELECT 1
+             FROM users u
+             LEFT JOIN user_tenant_access uta
+               ON uta.user_id = u.id
+              AND uta.tenant_id = :tenant_id_join
+              AND uta.deleted_at IS NULL
+             WHERE u.id = :id
+               AND u.deleted_at IS NULL
+               AND u.is_active = 1
+               AND (
+                    u.tenant_id = :tenant_id_where
+                 OR uta.tenant_id IS NOT NULL
+               )
+             LIMIT 1"
         );
         $stmt->execute([
             ':id' => $userId,
-            ':tenant_id' => $this->tenant_id
+            ':tenant_id_join' => $this->tenant_id,
+            ':tenant_id_where' => $this->tenant_id
         ]);
-
+        // BUG-144 FIX: Removed active_tenant_id from WHERE clause
         return (bool) $stmt->fetchColumn();
     }
 
@@ -1855,16 +3153,28 @@ class Calendar {
      * @return array|null ['id', 'name', 'email'] o null se non trovato
      */
     private function getUserById(int $userId): ?array {
-        $sql = "SELECT id, name, email
-                FROM users
-                WHERE id = :id
-                AND tenant_id = :tenant_id
-                AND deleted_at IS NULL";
+        // BUG-144 FIX: Removed active_tenant_id from WHERE clause
+        // BUG-148c FIX: Use unique named parameters (PDO doesn't support reusing named params)
+        $sql = "SELECT u.id, u.name, u.email
+                FROM users u
+                LEFT JOIN user_tenant_access uta
+                  ON uta.user_id = u.id
+                 AND uta.tenant_id = :tenant_id_join
+                 AND uta.deleted_at IS NULL
+                WHERE u.id = :id
+                  AND u.deleted_at IS NULL
+                  AND u.is_active = 1
+                  AND (
+                       u.tenant_id = :tenant_id_where
+                    OR uta.tenant_id IS NOT NULL
+                  )
+                LIMIT 1";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([
             ':id' => $userId,
-            ':tenant_id' => $this->tenant_id
+            ':tenant_id_join' => $this->tenant_id,
+            ':tenant_id_where' => $this->tenant_id
         ]);
 
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1944,12 +3254,32 @@ class Calendar {
                 '{{EVENT_DESCRIPTION}}' => htmlspecialchars($event['description'] ?? 'Nessuna descrizione'),
                 '{{ORGANIZER_NAME}}' => htmlspecialchars($organizerName),
                 '{{PARTICIPANT_NAME}}' => htmlspecialchars($user['name']),
-                '{{BASE_URL}}' => $baseUrl
+                '{{BASE_URL}}' => $baseUrl,
+                '{{TENANT_NAME}}' => htmlspecialchars($this->getTenantName()),
+                '{{YEAR}}' => date('Y')
             ];
 
             $htmlBody = str_replace(array_keys($replacements), array_values($replacements), $template);
+            if ($htmlBody !== '' && !cnx_email_is_full_document($htmlBody)) {
+                $htmlBody = renderEmailLayout(
+                    'Evento cancellato',
+                    $htmlBody,
+                    [
+                        'BASE_URL' => $baseUrl,
+                        'TENANT_NAME' => (string)$this->getTenantName(),
+                        'YEAR' => date('Y')
+                    ],
+                    ['brandColor' => '#1a2332']
+                );
+            }
 
-            return sendEmail($user['email'], 'Evento Cancellato: ' . $event['title'], $htmlBody);
+            return sendEmail($user['email'], 'Evento Cancellato: ' . $event['title'], $htmlBody, '', [
+                'context' => [
+                    'action' => 'calendar_event_deleted',
+                    'tenant_id' => $this->tenant_id,
+                    'user_id' => $user['id'] ?? null
+                ]
+            ]);
 
         } catch (Exception $e) {
             error_log("[CALENDAR_EMAIL] Error in sendCancellationEmail: " . $e->getMessage());
@@ -2003,12 +3333,32 @@ class Calendar {
                     '{{ORGANIZER_NAME}}' => htmlspecialchars($organizerName),
                     '{{PARTICIPANT_NAME}}' => htmlspecialchars($user['name']),
                     '{{RESPOND_URL}}' => $baseUrl . '/calendar.php?event=' . $eventId,
-                    '{{BASE_URL}}' => $baseUrl
+                    '{{BASE_URL}}' => $baseUrl,
+                    '{{TENANT_NAME}}' => htmlspecialchars($this->getTenantName()),
+                    '{{YEAR}}' => date('Y')
                 ];
 
                 $htmlBody = str_replace(array_keys($replacements), array_values($replacements), $template);
+                if ($htmlBody !== '' && !cnx_email_is_full_document($htmlBody)) {
+                    $htmlBody = renderEmailLayout(
+                        'Invito evento',
+                        $htmlBody,
+                        [
+                            'BASE_URL' => $baseUrl,
+                            'TENANT_NAME' => (string)$this->getTenantName(),
+                            'YEAR' => date('Y')
+                        ],
+                        ['brandColor' => '#1a2332']
+                    );
+                }
 
-                if (sendEmail($user['email'], 'Invito Evento: ' . $event['title'], $htmlBody)) {
+                if (sendEmail($user['email'], 'Invito Evento: ' . $event['title'], $htmlBody, '', [
+                    'context' => [
+                        'action' => 'calendar_event_invitation',
+                        'tenant_id' => $this->tenant_id,
+                        'user_id' => $user['id'] ?? null
+                    ]
+                ])) {
                     $sentCount++;
                 } else {
                     $failedCount++;
@@ -2137,13 +3487,33 @@ class Calendar {
                     '{{PARTICIPANT_NAME}}' => htmlspecialchars($user['name']),
                     '{{RESPOND_URL}}' => $baseUrl . '/calendar.php?event=' . $eventId,
                     '{{BASE_URL}}' => $baseUrl,
+                    '{{TENANT_NAME}}' => htmlspecialchars($this->getTenantName()),
+                    '{{YEAR}}' => date('Y'),
                     '{{CHANGE_SUMMARY}}' => 'L\'evento è stato aggiornato. Verifica i nuovi dettagli.',
                     '{{REMINDER_TIME}}' => $reminderTime
                 ];
 
                 $htmlBody = str_replace(array_keys($replacements), array_values($replacements), $template);
+                if ($htmlBody !== '' && !cnx_email_is_full_document($htmlBody)) {
+                    $htmlBody = renderEmailLayout(
+                        $subject,
+                        $htmlBody,
+                        [
+                            'BASE_URL' => $baseUrl,
+                            'TENANT_NAME' => (string)$this->getTenantName(),
+                            'YEAR' => date('Y')
+                        ],
+                        ['brandColor' => '#1a2332']
+                    );
+                }
 
-                if (sendEmail($user['email'], $subject, $htmlBody)) {
+                if (sendEmail($user['email'], $subject, $htmlBody, '', [
+                    'context' => [
+                        'action' => 'calendar_event_' . $type,
+                        'tenant_id' => $this->tenant_id,
+                        'user_id' => $user['id'] ?? null
+                    ]
+                ])) {
                     $sentCount++;
                 } else {
                     $failedCount++;

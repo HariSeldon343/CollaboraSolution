@@ -555,17 +555,86 @@ try {
             $targetOnSiteUnits = (int)round($onSiteTargetDays * 2);
             $phaseTypeOverride = cnx_choose_phase_types_for_onsite_target($normPhases, $halfUnits, $targetOnSiteUnits);
 
+            // If non-call phases exceed available half-day units, merge "0-unit" phases into adjacent ones
+            // (so we never create 0.25/0.0 operational rows and we don't lose phase intent).
+            $mergedLabelsByIdx = []; // idx => string[]
+            $finalActByIdx = [];
+            foreach ($normPhases as $i => $p) {
+                $act = (string)($p['default_activity_type'] ?? 'remote');
+                if (isset($phaseTypeOverride[$i])) $act = (string)$phaseTypeOverride[$i];
+                $finalActByIdx[(int)$i] = cnx_normalize_item_activity_type($act);
+            }
+            foreach ($normPhases as $i => $p) {
+                $i = (int)$i;
+                $u = (int)($halfUnits[$i] ?? 0);
+                $act = (string)($finalActByIdx[$i] ?? 'remote');
+                if ($act === 'call' || $act === 'communication') continue;
+                if ($u > 0) continue;
+                $label = trim((string)($p['label'] ?? ''));
+                if ($label === '') continue;
+
+                // Find best merge target (prefer adjacent with same final activity_type).
+                $target = null;
+                for ($j = $i - 1; $j >= 0; $j--) {
+                    $ju = (int)($halfUnits[$j] ?? 0);
+                    if ($ju <= 0) continue;
+                    $ja = (string)($finalActByIdx[$j] ?? 'remote');
+                    if ($ja === 'call' || $ja === 'communication') continue;
+                    if ($ja === $act) { $target = $j; break; }
+                }
+                if ($target === null) {
+                    for ($j = $i + 1; $j < count($normPhases); $j++) {
+                        $ju = (int)($halfUnits[$j] ?? 0);
+                        if ($ju <= 0) continue;
+                        $ja = (string)($finalActByIdx[$j] ?? 'remote');
+                        if ($ja === 'call' || $ja === 'communication') continue;
+                        if ($ja === $act) { $target = $j; break; }
+                    }
+                }
+                if ($target === null) {
+                    for ($j = $i - 1; $j >= 0; $j--) {
+                        $ju = (int)($halfUnits[$j] ?? 0);
+                        if ($ju <= 0) continue;
+                        $ja = (string)($finalActByIdx[$j] ?? 'remote');
+                        if ($ja === 'call' || $ja === 'communication') continue;
+                        $target = $j;
+                        break;
+                    }
+                }
+                if ($target === null) {
+                    for ($j = $i + 1; $j < count($normPhases); $j++) {
+                        $ju = (int)($halfUnits[$j] ?? 0);
+                        if ($ju <= 0) continue;
+                        $ja = (string)($finalActByIdx[$j] ?? 'remote');
+                        if ($ja === 'call' || $ja === 'communication') continue;
+                        $target = $j;
+                        break;
+                    }
+                }
+                if ($target === null) continue;
+                if (!isset($mergedLabelsByIdx[$target])) $mergedLabelsByIdx[$target] = [];
+                $mergedLabelsByIdx[$target][] = $label;
+            }
+
             foreach ($normPhases as $idx => $p) {
                 $u = (int)($halfUnits[$idx] ?? 0);
                 $d = $u / 2.0;
-
-                $desc = '[Servizio: ' . ($serviceCode !== '' ? $serviceCode : $serviceName) . '] Fase: ' . (string)($p['label'] ?? '');
 
                 $act = (string)($p['default_activity_type'] ?? 'remote');
                 if (isset($phaseTypeOverride[$idx])) {
                     $act = (string)$phaseTypeOverride[$idx];
                 }
                 $act = cnx_normalize_item_activity_type($act);
+
+                // Build description while keeping "Fase: <primary>" at the end (for phase heuristics fallback).
+                $prefix = '[Servizio: ' . ($serviceCode !== '' ? $serviceCode : $serviceName) . ']';
+                if (isset($mergedLabelsByIdx[$idx]) && is_array($mergedLabelsByIdx[$idx]) && !empty($mergedLabelsByIdx[$idx])) {
+                    $subs = array_values(array_unique(array_filter(array_map('strval', $mergedLabelsByIdx[$idx]))));
+                    if (!empty($subs)) {
+                        $prefix .= ' Sotto-attività: ' . implode(' | ', $subs) . '.';
+                    }
+                }
+                $desc = $prefix . ' Fase: ' . (string)($p['label'] ?? '');
 
                 $phaseKey = trim((string)($p['phase_key'] ?? ''));
                 if ($phaseKey === '') $phaseKey = 'ongoing';

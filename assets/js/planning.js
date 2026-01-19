@@ -8203,7 +8203,7 @@ class PlanningApp {
               const hVal = this.num(it.hours);
               const durText = (type === 'call' || type === 'communication')
                 ? (hVal > 0 ? `${Math.round(hVal * 60)}m` : '—')
-                : (dVal > 0 ? `${dVal.toFixed(1)}g` : '—');
+                : (dVal > 0 ? `${this.formatHalfDayDays(dVal)}g` : '—');
               const date = String(it.activity_date || '');
               const svcId = parseInt(it.domain_activity_type_id || '0', 10) || 0;
               const svcLabel = svcId > 0 ? this.getServiceLabelById(svcId) : '—';
@@ -8446,6 +8446,15 @@ class PlanningApp {
     const s = String(v ?? '0').trim().replace(',', '.');
     const n = parseFloat(s);
     return Number.isFinite(n) ? n : 0;
+  }
+
+  // Planning 2026: day-based durations must be multiples of 0.5 (no 0.25/0.3 artifacts)
+  formatHalfDayDays(days) {
+    const d = this.num(days);
+    if (!Number.isFinite(d) || d <= 0) return '';
+    const snapped = Math.round(d * 2) / 2;
+    const isInt = Math.abs(snapped - Math.round(snapped)) < 1e-9;
+    return isInt ? String(Math.round(snapped)) : snapped.toFixed(1);
   }
 
   money(v) {

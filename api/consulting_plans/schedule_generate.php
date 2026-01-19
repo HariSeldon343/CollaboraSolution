@@ -546,9 +546,19 @@ function cnx_sched_minutes_for_item(string $kind, float $days, float $hours, ?in
     }
 
     $min = 0;
-    if ($hours > 0) $min = (int)round($hours * 60);
-    elseif ($days > 0) $min = (int)round($days * 8 * 60);
-    if ($min < 15) $min = 15;
+    if ($hours > 0) {
+        // For non-call kinds, hours are treated as "effort" but still scheduled in 0.5-day slots.
+        $min = (int)round($hours * 60);
+    } elseif ($days > 0) {
+        // Enforce half-day granularity (0.5d) to avoid 0.25/0.3 artifacts.
+        $d = (float)(round($days * 2.0) / 2.0);
+        if ($d < 0.5) $d = 0.5;
+        $min = (int)round($d * 8 * 60);
+    }
+
+    // Planning 2026: non-call work is always scheduled in 0.5-day (240m) blocks.
+    if ($min < 240) $min = 240;
+    $min = (int)(ceil($min / 240) * 240);
     return $min;
 }
 
@@ -567,23 +577,10 @@ function cnx_sched_split_sessions(string $kind, int $minutes): array {
     }
     if ($minutes <= 0) return [];
 
-    // Day-based chunks are multiples of 240m (0.5d). Keep them strictly as half-day blocks.
-    if (($minutes % 240) === 0) {
-        $out = [];
-        while ($minutes >= 240) { $out[] = 240; $minutes -= 240; }
-        return $out;
-    }
-
-    // Otherwise (hours-based / custom), allow smaller blocks (best-effort).
-    $out = [];
-    while ($minutes >= 240) { $out[] = 240; $minutes -= 240; }
-    while ($minutes >= 120) { $out[] = 120; $minutes -= 120; }
-    if ($minutes > 0) {
-        // round up to 30m blocks for odd cases
-        $m = (int)(ceil($minutes / 30) * 30);
-        $out[] = max(30, min(240, $m));
-    }
-    return $out;
+    // Planning 2026: all non-call sessions are 0.5-day blocks (240m).
+    $blocks = (int)ceil($minutes / 240);
+    if ($blocks < 1) $blocks = 1;
+    return array_fill(0, $blocks, 240);
 }
 
 /**
@@ -1052,6 +1049,7 @@ try {
     $warnings = [];
     $rr = 0;
     $onsiteLoadMinutesByUser = [];
+    $fatalNoSlot = false;
 
     // =============================================================
     // NEW (2026-01): Phase-ordered, sequential scheduling (best-effort)
@@ -1379,45 +1377,22 @@ try {
             );
 
             if (!$pick) {
-                // Forced fallback (best-effort): ignore real calendar events, but keep draft/plan/client overlap constraints.
-                // This prevents "0 slot created" regressions when calendars are fully booked.
-                $prefsForced = $preferences;
-                $prefsForced['preferred_times'] = $allowedTimes;
-                $unionBusy = array_merge(
-                    $busyByUser[$assignee] ?? [],
-                    ($clientBlocking ? $busyPlan : []),
-                    ($clientBlocking ? $busyClient : [])
-                );
-                $forced = cnx_force_slot(
-                    $sessMin,
-                    $assignee,
-                    $cursor,
-                    $searchEnd,
-                    $prefsForced,
-                    $unionBusy,
-                    $windowStart,
-                    $windowEnd,
-                    false
-                );
-                if ($forced) {
-                    $pick = $forced;
-                    $warnings[] = [
-                        'kind' => $kind,
-                        'assignee_user_id' => $assignee,
-                        'phase_order' => $phaseOrder,
-                        'phase_key' => $phaseKey,
-                        'reason' => 'forced_slot_used',
-                    ];
-                } else {
-                    $errors[] = [
-                        'kind' => $kind,
-                        'assignee_user_id' => $assignee,
-                        'phase_order' => $phaseOrder,
-                        'phase_key' => $phaseKey,
-                        'reason' => 'no_free_slot_in_window',
-                    ];
-                    break;
-                }
+                // Hard constraint: never overlap real calendar events or other drafts.
+                // If no slot is available in the window, abort and return 409 (caller can widen the window).
+                $errors[] = [
+                    'kind' => $kind,
+                    'assignee_user_id' => $assignee,
+                    'phase_order' => $phaseOrder,
+                    'phase_key' => $phaseKey,
+                    'reason' => 'no_free_slot_in_window',
+                    'minutes' => $sessMin,
+                    'cursor' => $cursor->format('Y-m-d H:i:s'),
+                    'search_end' => $searchEnd->format('Y-m-d H:i:s'),
+                    'allowed_times' => $allowedTimes,
+                    'client_blocking' => $clientBlocking,
+                ];
+                $fatalNoSlot = true;
+                break 2;
             }
 
             $slotStart = $pick['start'];
@@ -1487,6 +1462,10 @@ try {
                 $ins['explain_json'] = json_encode($explain, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             }
 
+            if (!empty($draftCols)) {
+                // Schema-drift safety: only insert known columns.
+                $ins = array_intersect_key($ins, $draftCols);
+            }
             $id = $db->insert('consulting_plan_schedule_drafts', $ins);
             if ($id) {
                 $created[] = (int)$id;
@@ -1500,6 +1479,44 @@ try {
 
             $cursor = clone $slotEnd;
         }
+    }
+
+    // If we couldn't schedule at least one mandatory session, cleanup and return 409.
+    if ($fatalNoSlot) {
+        try {
+            if (!empty($created)) {
+                $ph = implode(',', array_fill(0, count($created), '?'));
+                $now = date('Y-m-d H:i:s');
+                if (!empty($draftCols['deleted_at'])) {
+                    $setParts = ["deleted_at = ?"];
+                    $params = [$now];
+                    if (!empty($draftCols['updated_at'])) {
+                        $setParts[] = "updated_at = ?";
+                        $params[] = $now;
+                    }
+                    $sql = "UPDATE consulting_plan_schedule_drafts SET " . implode(', ', $setParts) . " WHERE id IN ($ph)";
+                    $db->query($sql, array_merge($params, $created));
+                } else {
+                    $db->query("DELETE FROM consulting_plan_schedule_drafts WHERE id IN ($ph)", $created);
+                }
+            }
+        } catch (Throwable $e) {
+            // non-blocking: cleanup best-effort
+        }
+
+        api_error(
+            'Impossibile trovare slot liberi nella finestra selezionata. Suggerimento: amplia la finestra (Scadenza/fine periodo), cambia consulente o rimuovi conflitti calendario.',
+            409,
+            [
+                'plan_id' => $planId,
+                'errors' => $errors,
+                'meta_warnings' => $metaWarnings,
+                'window' => [
+                    'start' => $windowStart->format('Y-m-d'),
+                    'end' => $windowEnd->format('Y-m-d'),
+                ],
+            ]
+        );
     }
 
     // Calls/feedback (best-effort): schedule AFTER phase-based work, spaced by catalog call_every_days.
@@ -1639,6 +1656,9 @@ try {
                 $ins['explain_json'] = json_encode($explain, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             }
 
+            if (!empty($draftCols)) {
+                $ins = array_intersect_key($ins, $draftCols);
+            }
             $id = $db->insert('consulting_plan_schedule_drafts', $ins);
             if ($id) {
                 $created[] = (int)$id;
