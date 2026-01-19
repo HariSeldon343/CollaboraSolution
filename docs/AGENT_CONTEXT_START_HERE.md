@@ -25,9 +25,11 @@ Questo documento è pensato per **dare contesto rapido e completo** a chi entra 
   - Step 3: aggiunti blocchi condizionali avanzati (Food / ISO17025 / CE / GDPR / ODV231 / Accreditamenti)
   - Step 4: aggiunta **anteprima attività** che verranno generate (per fasi) già in schermata stima
   - Step 4: modificabili manualmente **giornate on-site / remoto** (una modifica aggiorna subito l’altra) + preview riallineata
+  - Step 4: per coerenza preview ↔ backend, la UI usa le fasi `preview_phases` restituite da `estimate_days.php` (workplan server, fallback su default phases)
 - **Engine stima** (`api/consulting_plans/estimate_days.php`):
   - algoritmo **deterministico** con fattori (intervento, maturità, dipendenti, siti, sedi on-site, regolamentato, driver avanzati)
   - output: `suggested_days`, `range`, `breakdown on-site vs remoto`, `confidence` + `rationale`
+  - include anche `preview_phases` per ogni servizio (per costruire in UI una preview identica alla generazione attività)
   - sinergia multi-servizio controllata (max 20% discount base, applicata solo a quota comune per `scheme_type`)
   - AI enrichment opzionale/best-effort (±20%) senza bloccare la stima
 
