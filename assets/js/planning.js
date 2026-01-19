@@ -4362,6 +4362,14 @@ class PlanningApp {
         let on = roundToStep(inp.value, 0.5);
         if (on < 0) on = 0;
         if (on > total) on = total;
+        // Planning 2026: for RECERT keep at least 0.5g on-site (audit interno + supporto audit esterno).
+        try {
+          const itType = String(this.estimateWizardCollectCompanyProfile()?.intervention_type || '').trim().toLowerCase();
+          if (itType === 'recertification' && total > 0) {
+            const minOn = Math.min(total, 0.5);
+            if (on < minOn) on = minOn;
+          }
+        } catch (_) {}
         const rem = roundToStep(total - on, 0.5);
         e.suggested_on_site_days = on;
         e.suggested_remote_days = rem;
@@ -4388,7 +4396,19 @@ class PlanningApp {
         let rem = roundToStep(inp.value, 0.5);
         if (rem < 0) rem = 0;
         if (rem > total) rem = total;
-        const on = roundToStep(total - rem, 0.5);
+        let on = roundToStep(total - rem, 0.5);
+        // Planning 2026: for RECERT keep at least 0.5g on-site (audit interno + supporto audit esterno).
+        try {
+          const itType = String(this.estimateWizardCollectCompanyProfile()?.intervention_type || '').trim().toLowerCase();
+          if (itType === 'recertification' && total > 0) {
+            const minOn = Math.min(total, 0.5);
+            if (on < minOn) {
+              on = minOn;
+              rem = roundToStep(total - on, 0.5);
+              inp.value = String(rem);
+            }
+          }
+        } catch (_) {}
         e.suggested_remote_days = rem;
         e.suggested_on_site_days = on;
         e.on_site_ratio = total > 0 ? Math.max(0, Math.min(1, on / total)) : 0.0;
