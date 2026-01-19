@@ -2925,6 +2925,19 @@ class PlanningApp {
       const ids = this.estimateWizardGetSelectedServiceIds();
       if (!ids.length) return this.toast('Seleziona almeno 1 servizio/norma', 'error');
     }
+    if (this.estimateWizardStep === 3) {
+      // Planning 2026: intervention type is REQUIRED (it drives which phases/tasks are created)
+      const it = (document.getElementById('planningEstimateWizardInterventionType')?.value || '').trim();
+      if (!it) {
+        try {
+          const adv = document.getElementById('planningEstimateWizardAdvancedDetails');
+          if (adv) adv.open = true;
+        } catch (_) {}
+        this.toast('Seleziona “Tipo intervento” (obbligatorio)', 'error');
+        try { document.getElementById('planningEstimateWizardInterventionType')?.focus(); } catch (_) {}
+        return;
+      }
+    }
     if (this.estimateWizardStep === 4) {
       if (!this.estimateWizardEstimateJson || !Array.isArray(this.estimateWizardEstimateJson.estimates) || !this.estimateWizardEstimateJson.estimates.length) {
         return this.toast('Calcola prima la stima (Step 4)', 'error');
@@ -4454,6 +4467,13 @@ class PlanningApp {
     const nameById = serviceNameById instanceof Map ? serviceNameById : new Map();
     const catalogById = new Map((this.estimateWizardCatalog || []).map(b => [parseInt(b?.id, 10) || 0, b]));
 
+    let interventionType = '';
+    try {
+      interventionType = String(this.estimateWizardCollectCompanyProfile()?.intervention_type || '').trim().toLowerCase();
+    } catch (_) {}
+    const isRecert = interventionType === 'recertification';
+    const forcedOnsitePhaseKeys = isRecert ? new Set(['internal_audit', 'cert_support', 'external_audit_support']) : null;
+
     const groups = [];
     for (const e of est) {
       const sid = parseInt(e?.service_type_id || '0', 10) || 0;
@@ -4487,6 +4507,45 @@ class PlanningApp {
       const totalU = Math.max(1, Math.round(days * 2));
       const us = this.estimateWizardAllocateHalfUnits(totalU, norm);
 
+      // Planning 2026: RECERT must include internal audit + external audit support (>=0.5d each), best-effort.
+      if (isRecert) {
+        const keyByIdx = norm.map(p => String(p?.phase_key || '').trim().toLowerCase());
+        const isDayBased = (idx) => {
+          const act = String(norm[idx]?.default_activity_type || 'remote').toLowerCase();
+          return !(act === 'call' || act === 'communication');
+        };
+        const mustSupport = keyByIdx.findIndex(k => k === 'external_audit_support' || k === 'cert_support');
+        const mustInternal = keyByIdx.findIndex(k => k === 'internal_audit');
+        const mandatory = [];
+        if (mustSupport >= 0 && isDayBased(mustSupport)) mandatory.push(mustSupport);
+        if (mustInternal >= 0 && isDayBased(mustInternal) && totalU >= 2) mandatory.push(mustInternal);
+
+        const donors = () => {
+          const out = [];
+          for (let i = 0; i < us.length; i++) {
+            if (!isDayBased(i)) continue;
+            const u = parseInt(us[i] || '0', 10) || 0;
+            if (u <= 0) continue;
+            const k = keyByIdx[i];
+            if (k === 'internal_audit' || k === 'external_audit_support' || k === 'cert_support') continue;
+            const share = parseFloat(String(norm[i]?.share_of_total ?? 0)) || 0;
+            out.push({ i, u, share });
+          }
+          out.sort((a, b) => (a.share - b.share) || (b.u - a.u));
+          return out;
+        };
+
+        for (const mi of mandatory) {
+          const cur = parseInt(us[mi] || '0', 10) || 0;
+          if (cur >= 1) continue;
+          const ds = donors();
+          if (!ds.length) break;
+          const d = ds[0];
+          us[d.i] = (parseInt(us[d.i] || '0', 10) || 0) - 1;
+          us[mi] = (parseInt(us[mi] || '0', 10) || 0) + 1;
+        }
+      }
+
       // Respect on-site vs remote override by re-typing phases (onsite/remote) to best match target.
       let targetOnSiteDays = this.num(e?.suggested_on_site_days ?? 0);
       if (!Number.isFinite(targetOnSiteDays) || targetOnSiteDays < 0) targetOnSiteDays = 0;
@@ -4499,12 +4558,17 @@ class PlanningApp {
         const t = String(norm[i]?.default_activity_type || 'remote');
         if (t === 'onsite' || t === 'remote') {
           const u = parseInt(us[i] || '0', 10) || 0;
-          conv.push({ i, u, def: t });
+          conv.push({ i, u, def: t, k: String(norm[i]?.phase_key || '').trim().toLowerCase() });
           convTotalU += u;
         }
       }
       if (targetOnSiteU < 0) targetOnSiteU = 0;
       if (targetOnSiteU > convTotalU) targetOnSiteU = convTotalU;
+      if (isRecert && forcedOnsitePhaseKeys) {
+        // Ensure target includes forced on-site phases (audit interno + supporto audit esterno)
+        const forcedU = conv.reduce((acc, x) => acc + (forcedOnsitePhaseKeys.has(x.k) ? (x.u || 0) : 0), 0);
+        if (forcedU > targetOnSiteU) targetOnSiteU = forcedU;
+      }
 
       const onsiteSet = new Set();
       if (conv.length) {
@@ -4556,15 +4620,105 @@ class PlanningApp {
           }
         }
       }
+      if (isRecert && forcedOnsitePhaseKeys && conv.length) {
+        // Force on-site for key phases, without blowing up the target (remove other phases if needed).
+        const forced = conv.filter(x => forcedOnsitePhaseKeys.has(x.k)).map(x => x.i);
+        forced.forEach(i => onsiteSet.add(i));
+        const sumOnU = () => conv.reduce((acc, x) => acc + (onsiteSet.has(x.i) ? (x.u || 0) : 0), 0);
+        let curOnU = sumOnU();
+        if (curOnU > targetOnSiteU) {
+          const removable = conv
+            .filter(x => onsiteSet.has(x.i) && !forcedOnsitePhaseKeys.has(x.k))
+            .slice()
+            .sort((a, b) => (a.u || 0) - (b.u || 0));
+          for (const x of removable) {
+            if (curOnU <= targetOnSiteU) break;
+            onsiteSet.delete(x.i);
+            curOnU -= (x.u || 0);
+          }
+        } else if (curOnU < targetOnSiteU) {
+          const addable = conv
+            .filter(x => !onsiteSet.has(x.i) && !forcedOnsitePhaseKeys.has(x.k))
+            .slice()
+            .sort((a, b) => (a.u || 0) - (b.u || 0));
+          for (const x of addable) {
+            if (curOnU >= targetOnSiteU) break;
+            onsiteSet.add(x.i);
+            curOnU += (x.u || 0);
+          }
+        }
+      }
+
+      // Merge 0-unit day-based phases into adjacent ones (so preview stays faithful to server generation).
+      const finalActByIdx = {};
+      for (let i = 0; i < norm.length; i++) {
+        let act = String(norm[i]?.default_activity_type || 'remote').toLowerCase();
+        if (act === 'onsite' || act === 'remote') {
+          act = onsiteSet.has(i) ? 'onsite' : 'remote';
+        }
+        const pk = String(norm[i]?.phase_key || '').trim().toLowerCase();
+        if (isRecert && forcedOnsitePhaseKeys && forcedOnsitePhaseKeys.has(pk) && (act === 'onsite' || act === 'remote')) {
+          act = 'onsite';
+        }
+        finalActByIdx[i] = act;
+      }
+      const mergedLabelsByIdx = {};
+      for (let i = 0; i < norm.length; i++) {
+        const u = parseInt(us[i] || '0', 10) || 0;
+        const act = String(finalActByIdx[i] || 'remote');
+        if (act === 'call' || act === 'communication') continue;
+        if (u > 0) continue;
+        const label = String(norm[i]?.label || '').trim();
+        if (!label) continue;
+
+        // Find merge target (prefer adjacent with same act).
+        let target = null;
+        for (let j = i - 1; j >= 0; j--) {
+          const ju = parseInt(us[j] || '0', 10) || 0;
+          if (ju <= 0) continue;
+          const ja = String(finalActByIdx[j] || 'remote');
+          if (ja === 'call' || ja === 'communication') continue;
+          if (ja === act) { target = j; break; }
+        }
+        if (target === null) {
+          for (let j = i + 1; j < norm.length; j++) {
+            const ju = parseInt(us[j] || '0', 10) || 0;
+            if (ju <= 0) continue;
+            const ja = String(finalActByIdx[j] || 'remote');
+            if (ja === 'call' || ja === 'communication') continue;
+            if (ja === act) { target = j; break; }
+          }
+        }
+        if (target === null) {
+          for (let j = i - 1; j >= 0; j--) {
+            const ju = parseInt(us[j] || '0', 10) || 0;
+            if (ju <= 0) continue;
+            const ja = String(finalActByIdx[j] || 'remote');
+            if (ja === 'call' || ja === 'communication') continue;
+            target = j;
+            break;
+          }
+        }
+        if (target === null) {
+          for (let j = i + 1; j < norm.length; j++) {
+            const ju = parseInt(us[j] || '0', 10) || 0;
+            if (ju <= 0) continue;
+            const ja = String(finalActByIdx[j] || 'remote');
+            if (ja === 'call' || ja === 'communication') continue;
+            target = j;
+            break;
+          }
+        }
+        if (target === null) continue;
+        if (!mergedLabelsByIdx[target]) mergedLabelsByIdx[target] = [];
+        mergedLabelsByIdx[target].push(label);
+      }
 
       const items = [];
       for (let i = 0; i < norm.length; i++) {
         const actRaw = norm[i].default_activity_type;
         const share = parseFloat(String(norm[i]?.share_of_total ?? 0)) || 0;
-        let act = actRaw;
-        if (act === 'onsite' || act === 'remote') {
-          act = onsiteSet.has(i) ? 'onsite' : 'remote';
-        }
+        let act = String(finalActByIdx[i] || actRaw || 'remote');
 
         if (act === 'call' || act === 'communication') {
           // Call phases: hours/minutes do NOT reduce day-based days (best-effort preview).
@@ -4596,13 +4750,18 @@ class PlanningApp {
         const u = parseInt(us[i] || '0', 10) || 0;
         const d = u / 2;
         if (d <= 0) continue;
-        const desc = `[Servizio: ${code || svcLabel}] Fase: ${norm[i].label}`;
+        let label = String(norm[i]?.label || '').trim();
+        if (mergedLabelsByIdx[i] && Array.isArray(mergedLabelsByIdx[i]) && mergedLabelsByIdx[i].length) {
+          const extras = mergedLabelsByIdx[i].map(x => String(x || '').trim()).filter(Boolean);
+          if (extras.length) label = `${label} + ${extras.join(' + ')}`;
+        }
+        const desc = `[Servizio: ${code || svcLabel}] Fase: ${label}`;
         items.push({
           phase_key: norm[i].phase_key,
-          label: norm[i].label,
+          label,
           activity_type: act,
           days: Math.round(d * 100) / 100,
-          duration_text: `${(Math.round(d * 2) / 2).toFixed(1)}g`,
+          duration_text: `${this.formatHalfDayDays(d)}g`,
           description: desc,
         });
       }
@@ -4672,6 +4831,13 @@ class PlanningApp {
       if (!serviceIds.length) return this.toast('Seleziona almeno 1 servizio/norma', 'error');
 
       const companyProfile = this.estimateWizardCollectCompanyProfile();
+      if (!companyProfile?.intervention_type) {
+        try {
+          const adv = document.getElementById('planningEstimateWizardAdvancedDetails');
+          if (adv) adv.open = true;
+        } catch (_) {}
+        return this.toast('Seleziona “Tipo intervento” (obbligatorio) prima di calcolare la stima', 'error');
+      }
       try { await this.estimateWizardSaveDraftNow({ clientId: client, serviceIds, companyProfile, includeEstimate: false, reason: 'before_estimate' }); } catch (_) {}
       this.startProgress('Stima giornate…');
 
@@ -4743,14 +4909,24 @@ class PlanningApp {
       if (!client) throw new Error('Azienda cliente mancante');
       if (!this.estimateWizardEstimateJson) throw new Error('Stima mancante');
 
+      // Planning 2026: intervention type is required (must be persisted in estimate_json)
+      try {
+        const companyProfile = this.estimateWizardCollectCompanyProfile();
+        if (!companyProfile?.intervention_type) {
+          const adv = document.getElementById('planningEstimateWizardAdvancedDetails');
+          if (adv) adv.open = true;
+          throw new Error('Tipo intervento obbligatorio');
+        }
+      } catch (e) {
+        if (String(e?.message || '').includes('Tipo intervento')) throw e;
+      }
+
       const titleRaw = (document.getElementById('planningEstimateWizardTitle')?.value || '').trim();
       const periodStart = this.todayLocalDate();
       const periodEndEl = document.getElementById('planningEstimateWizardPeriodEnd');
       const periodEndInput = (periodEndEl?.value || '').trim();
-      const periodEnd = periodEndInput || this.endOfCurrentYearLocalDate(periodStart);
-      if (periodEndEl && !periodEndInput && periodEnd) {
-        periodEndEl.value = periodEnd;
-      }
+      // Planning 2026: if empty, keep NULL (backend will use a compact default window for schedule proposal).
+      const periodEnd = periodEndInput || null;
 
       // Fallback title from services
       const estimates = Array.isArray(this.estimateWizardEstimateJson.estimates) ? this.estimateWizardEstimateJson.estimates : [];
@@ -8851,7 +9027,10 @@ class PlanningApp {
       await this.loadScheduleDrafts();
     } catch (e) {
       console.error(e);
-      this.toast(e.message || 'Errore generazione proposta', 'error');
+      const errId = e?.data?.data?.error_id || e?.data?.error_id || null;
+      let msg = e?.message || 'Errore generazione proposta';
+      if (errId) msg += ` (ref: ${errId})`;
+      this.toast(msg, 'error');
     } finally {
       this.finishProgress();
     }

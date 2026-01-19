@@ -59,7 +59,7 @@ Questo documento è pensato per **dare contesto rapido e completo** a chi entra 
   - seleziona un servizio legacy combo → compare warning + bottone “Converti”
   - seleziona **EMAS** senza ISO14001 → compare suggerimento “Aggiungi ISO 14001”
   - Step 3: seleziona servizi Food / ISOIEC17025 / CE / PRIVACY / ODV231 / ACCRED → deve comparire il relativo blocco avanzato
-  - Step 4: “Calcola stima” → deve mostrare breakdown on-site/remoto, confidenza e motivazione; se mancano `intervention_type`/`qms_maturity` → confidenza cap 65%
+  - Step 4: “Calcola stima” → deve mostrare breakdown on-site/remoto, confidenza e motivazione; `intervention_type` è **obbligatorio** (se mancante → errore 400), `qms_maturity` resta consigliato (se mancante → confidenza cap 65%)
   - Step 4: deve comparire **“Attività proposte (anteprima)”** con fasi (Kickoff/GAP/Documentazione/…)
   - Multi-servizio: seleziona 2+ servizi `scheme_type` (es. ISO9001 + ISO14001) → in `integration_notes` deve comparire la sinergia applicata (se significativa)
 
@@ -80,6 +80,7 @@ Questo documento è pensato per **dare contesto rapido e completo** a chi entra 
   - per attività `travel`: se **KM=0** (e sono selezionati **Consulente** + **Sede**), al salvataggio viene calcolata automaticamente la distanza A/R (best-effort, no API esterne)
 - **Bozza calendario**:
   - `api/consulting_plans/schedule_generate.php` ora usa vincoli **hard** (no overlap con eventi reali + bozze/confirmed). Se non trova slot nella finestra, ritorna **409** con dettaglio e suggerisce di ampliare la finestra/cambiare consulente.
+  - su `intervention_type=recertification` prova a posizionare “Audit interno / Riesame / Supporto audit esterno” verso la **fine periodo** (best‑effort) se non ci sono date fisse.
 
 ### Migrazioni / tool
 - **SQL**: `database/migrations/61_consulting_plan_items_locations.sql`
@@ -311,7 +312,7 @@ Obiettivo: rendere la stima giornate **più affidabile** (deterministica, con AI
 
 ### 1) UI Step 3: Avanzato (collassabile) + blocco ISO 14001 dinamico
 - `planning.php`
-  - Step 3 ora include una sezione `<details>` **“Avanzato (consigliato)”** con campi: `intervention_type`, `qms_maturity`, driver di complessità (processi/reparti/linee/fornitori), vincoli/preferenze (deadline, blackout, lingue), e toggle **AI enrichment**.
+  - Step 3 ora include una sezione `<details>` **“Avanzato (consigliato)”** con campi: `intervention_type` (**obbligatorio**), `qms_maturity`, driver di complessità (processi/reparti/linee/fornitori), vincoli/preferenze (deadline, blackout, lingue), e toggle **AI enrichment**.
   - Il blocco **“ISO 14001 — Avanzato”** appare **solo** se tra i servizi selezionati c’è ISO 14001.
 
 ### 2) Algoritmo stima migliorato: deterministico robusto + AI opzionale (best-effort)
@@ -338,7 +339,7 @@ Obiettivo: rendere la stima giornate **più affidabile** (deterministica, con AI
   - Step 5 collega la sessione al piano (best-effort) e pulisce la bozza localStorage.
 
 Test rapido (click-by-click):
-- Case base: `planning.php` → “+ Nuovo piano (wizard)” → compila solo i campi base → Step 4 “Calcola stima”.
+- Case base: `planning.php` → “+ Nuovo piano (wizard)” → compila i campi base + **Tipo intervento** → Step 4 “Calcola stima”.
 - Case avanzato: apri “Avanzato” → compila `intervention_type` + `qms_maturity` + alcuni driver → ricalcola → confidenza deve salire (target ~90% quando core completi).
 - ISO 14001: seleziona ISO 14001 → in Avanzato deve comparire il blocco ISO 14001 → compila → calcola.
 - Persistenza: chiudi wizard e riaprilo → deve ripristinare la bozza (server se migrazione 57 applicata; altrimenti browser).

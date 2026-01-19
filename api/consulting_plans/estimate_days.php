@@ -297,6 +297,10 @@ try {
     if ($interventionType === 'transition') $interventionType = 'transition_update';
     $allowedIntervention = ['new_implementation','maintenance','recertification','scope_extension','transition_update'];
     if (!in_array($interventionType, $allowedIntervention, true)) $interventionType = '';
+    // Planning 2026: intervention type is mandatory (it drives phases/tasks, not only estimation)
+    if ($interventionType === '') {
+        api_error('Tipo intervento obbligatorio', 400, ['field' => 'intervention_type']);
+    }
 
     $qmsMaturity = strtolower(trim((string)($companyProfile['qms_maturity'] ?? '')));
     // Back-compat: old UI value
@@ -752,9 +756,26 @@ try {
         } else {
             $ratio = 0.20;
         }
+        // Planning 2026: recertification is typically on-site heavy (audit interno + supporto audit esterno).
+        // Even if the user didn't explicitly select on-site locations, keep a sensible on-site baseline.
+        if ($interventionTypeOut === 'recertification') {
+            if ($hasOnSite) {
+                $ratio = max(0.50, (float)$ratio);
+            } else {
+                $ratio = 0.60;
+            }
+            // Extra bump when multiple on-site locations are selected
+            if (($onSiteLocationsCountOut ?? 0) > 1) {
+                $ratio = min(1.0, (float)$ratio + min(0.15, 0.05 * (float)max(0, (int)$onSiteLocationsCountOut - 1)));
+            }
+            $ratio = max(0.35, min(1.0, (float)$ratio));
+        }
         $onSiteDays = (int)round($suggested * $ratio);
         if ($onSiteDays < 0) $onSiteDays = 0;
         if ($onSiteDays > $suggested) $onSiteDays = $suggested;
+        if ($interventionTypeOut === 'recertification' && $suggested > 0 && $onSiteDays < 1) {
+            $onSiteDays = 1;
+        }
         $remoteDays = max(0, $suggested - $onSiteDays);
 
         $driverParts = [];

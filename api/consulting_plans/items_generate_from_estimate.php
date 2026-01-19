@@ -187,7 +187,7 @@ function cnx_sched_intervention_key(array $estimate): string {
             ? (string)$estimate['company_profile_inferred']['intervention_type']
             : (string)($estimate['input_company_profile']['intervention_type'] ?? '');
     $v = strtolower(trim((string)$raw));
-    if ($v === '') return 'NEW';
+    if ($v === '') return '';
     $map = [
         'new_implementation' => 'NEW',
         'new' => 'NEW',
@@ -199,7 +199,7 @@ function cnx_sched_intervention_key(array $estimate): string {
         'scope_ext' => 'SCOPE_EXT',
         'transition' => 'TRANSITION',
     ];
-    return $map[$v] ?? 'NEW';
+    return $map[$v] ?? '';
 }
 
 function cnx_normalize_item_activity_type(string $t): string {
@@ -409,6 +409,9 @@ try {
     $phaseLib = cnx_sched_phase_library();
     $workplans = cnx_sched_service_workplans();
     $interventionKey = cnx_sched_intervention_key($estimate);
+    if ($interventionKey === '') {
+        api_error('Tipo intervento obbligatorio', 400, ['field' => 'intervention_type']);
+    }
 
     $select = "SELECT id, name";
     if (!empty($typeCols['service_code'])) $select .= ", service_code";
@@ -447,6 +450,9 @@ try {
             $service = $byId[$sid];
             $totalDays = (float)$serviceDays[$sid];
             if ($totalDays <= 0) continue;
+            // Planning 2026: enforce half-day granularity (0.5d) for day-based work.
+            $totalDays = (float)(round($totalDays * 2.0) / 2.0);
+            if ($totalDays < 0.5) $totalDays = 0.5;
 
             $serviceName = (string)($service['name'] ?? ('#' . $sid));
             $serviceCode = isset($service['service_code']) ? (string)($service['service_code'] ?? '') : '';
@@ -540,6 +546,54 @@ try {
             $halfUnits = cnx_allocate_halfdays($totalDays, $normPhases);
             $fixedApplied = false;
 
+            // Planning 2026: RECERT must include (best-effort) internal audit + external audit support as day-based items.
+            if ($interventionKey === 'RECERT') {
+                $idxSupport = null;
+                $idxInternal = null;
+                foreach ($normPhases as $i => $p) {
+                    if (!is_array($p)) continue;
+                    $pk = strtolower(trim((string)($p['phase_key'] ?? '')));
+                    $act = strtolower(trim((string)($p['default_activity_type'] ?? 'remote')));
+                    if ($act === 'call' || $act === 'communication') continue;
+                    if ($idxSupport === null && in_array($pk, ['external_audit_support', 'cert_support'], true)) $idxSupport = (int)$i;
+                    if ($idxInternal === null && $pk === 'internal_audit') $idxInternal = (int)$i;
+                }
+
+                $totalHalf = max(1, (int)round($totalDays * 2.0));
+                $mandatory = [];
+                if ($idxSupport !== null) $mandatory[] = (int)$idxSupport; // always
+                if ($idxInternal !== null && $totalHalf >= 2) $mandatory[] = (int)$idxInternal; // if feasible
+                $mandatorySet = [];
+                foreach ($mandatory as $mi) $mandatorySet[(int)$mi] = true;
+
+                foreach ($mandatory as $mi) {
+                    $cur = (int)($halfUnits[$mi] ?? 0);
+                    if ($cur >= 1) continue;
+
+                    // Find donor: non-mandatory day-based phase with units > 0 and lowest share.
+                    $donor = null;
+                    $donorShare = null;
+                    $donorUnits = null;
+                    foreach ($normPhases as $i => $p) {
+                        $i = (int)$i;
+                        if (!empty($mandatorySet[$i])) continue;
+                        $act = strtolower(trim((string)($p['default_activity_type'] ?? 'remote')));
+                        if ($act === 'call' || $act === 'communication') continue;
+                        $u = (int)($halfUnits[$i] ?? 0);
+                        if ($u <= 0) continue;
+                        $share = (float)($p['share_of_total'] ?? 0.0);
+                        if ($donor === null || $share < (float)$donorShare || ($share === (float)$donorShare && $u > (int)$donorUnits)) {
+                            $donor = $i;
+                            $donorShare = $share;
+                            $donorUnits = $u;
+                        }
+                    }
+                    if ($donor === null) break;
+                    $halfUnits[$donor] = max(0, (int)($halfUnits[$donor] ?? 0) - 1);
+                    $halfUnits[$mi] = (int)($halfUnits[$mi] ?? 0) + 1;
+                }
+            }
+
             // Apply on-site/remote distribution override by re-typing phases (onsite/remote) to best match target.
             $onSiteTargetDays = null;
             if (array_key_exists($sid, $serviceOnSiteDays)) {
@@ -553,7 +607,32 @@ try {
             if ($onSiteTargetDays < 0) $onSiteTargetDays = 0.0;
             if ($onSiteTargetDays > $totalDays) $onSiteTargetDays = (float)$totalDays;
             $targetOnSiteUnits = (int)round($onSiteTargetDays * 2);
+
+            // Planning 2026: for RECERT keep key phases on-site even if user set a low on-site target.
+            if ($interventionKey === 'RECERT') {
+                $minOnSiteUnits = 0;
+                foreach ($normPhases as $i => $p) {
+                    if (!is_array($p)) continue;
+                    $pk = strtolower(trim((string)($p['phase_key'] ?? '')));
+                    $act = strtolower(trim((string)($p['default_activity_type'] ?? 'remote')));
+                    if ($act !== 'onsite' && $act !== 'remote') continue;
+                    if (!in_array($pk, ['internal_audit', 'external_audit_support', 'cert_support'], true)) continue;
+                    $minOnSiteUnits += (int)($halfUnits[(int)$i] ?? 0);
+                }
+                if ($minOnSiteUnits > $targetOnSiteUnits) $targetOnSiteUnits = $minOnSiteUnits;
+            }
             $phaseTypeOverride = cnx_choose_phase_types_for_onsite_target($normPhases, $halfUnits, $targetOnSiteUnits);
+            if ($interventionKey === 'RECERT') {
+                // Force on-site for key recert phases (best-effort, keeps preview + schedule coherent)
+                foreach ($normPhases as $i => $p) {
+                    if (!is_array($p)) continue;
+                    $pk = strtolower(trim((string)($p['phase_key'] ?? '')));
+                    if (!in_array($pk, ['internal_audit', 'external_audit_support', 'cert_support'], true)) continue;
+                    $act = strtolower(trim((string)($p['default_activity_type'] ?? 'remote')));
+                    if ($act !== 'onsite' && $act !== 'remote') continue;
+                    $phaseTypeOverride[(int)$i] = 'onsite';
+                }
+            }
 
             // If non-call phases exceed available half-day units, merge "0-unit" phases into adjacent ones
             // (so we never create 0.25/0.0 operational rows and we don't lose phase intent).

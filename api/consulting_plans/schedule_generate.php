@@ -887,6 +887,40 @@ try {
         $windowEnd->setTime(23, 59, 59);
     }
 
+    // Intervention type (from estimate_json) - used to place "supporto audit esterno" near end of period for RECERT.
+    $planInterventionType = null;
+    try {
+        $rawEst = isset($plan['estimate_json']) ? (string)$plan['estimate_json'] : '';
+        if (trim($rawEst) !== '') {
+            $est = json_decode($rawEst, true);
+            $it =
+                $est['company_profile_inferred']['intervention_type'] ??
+                $est['input_company_profile']['intervention_type'] ??
+                null;
+            if (is_string($it)) {
+                $it = strtolower(trim($it));
+                if ($it !== '') $planInterventionType = $it;
+            }
+        }
+    } catch (Throwable $e) {
+        $planInterventionType = null;
+    }
+    $isRecert = ($planInterventionType === 'recertification');
+    $recertTailStart = null;      // e.g. internal audit + management review window
+    $recertExternalStart = null;  // e.g. external audit support window
+    if ($isRecert) {
+        try {
+            $recertTailStart = (clone $windowEnd)->sub(new DateInterval('P45D'));
+            if ($recertTailStart < $windowStart) $recertTailStart = clone $windowStart;
+            $recertTailStart->setTime(9, 0, 0);
+        } catch (Throwable $e) { $recertTailStart = null; }
+        try {
+            $recertExternalStart = (clone $windowEnd)->sub(new DateInterval('P30D'));
+            if ($recertExternalStart < $windowStart) $recertExternalStart = clone $windowStart;
+            $recertExternalStart->setTime(9, 0, 0);
+        } catch (Throwable $e) { $recertExternalStart = null; }
+    }
+
     // Collect non-blocking warnings for the response (not "forced slot" warnings).
     $metaWarnings = [];
 
@@ -1316,6 +1350,21 @@ try {
             $cursor = cnx_sched_apply_phase_gap($cursor, $gapApplied);
         }
         $prevPhaseOrder = $phaseOrder;
+
+        // RECERT: keep the final phases closer to the end of period (best-effort),
+        // unless the item has a fixed activity_date.
+        if ($isRecert && $activityDate === '') {
+            if (in_array($phaseKey, ['internal_audit', 'management_review'], true)) {
+                if (($recertTailStart instanceof DateTime) && $cursor < $recertTailStart) {
+                    $cursor = clone $recertTailStart;
+                }
+            }
+            if (in_array($phaseKey, ['external_audit_support', 'cert_support'], true)) {
+                if (($recertExternalStart instanceof DateTime) && $cursor < $recertExternalStart) {
+                    $cursor = clone $recertExternalStart;
+                }
+            }
+        }
 
         // Determine assignee
         $assignee = (int)($wi['preferred_assignee'] ?? 0);
@@ -2234,8 +2283,15 @@ try {
         ],
     ], 'Proposta generata');
 } catch (Throwable $e) {
-    error_log('[CONSULTING_SCHEDULE_GENERATE] ' . $e->getMessage());
-    api_error('Errore generazione proposta', 500);
+    $errId = 'csg_' . substr(str_replace('.', '', uniqid('', true)), -10);
+    try { $errId = 'csg_' . bin2hex(random_bytes(5)); } catch (Throwable $ignored) {}
+    error_log('[CONSULTING_SCHEDULE_GENERATE][' . $errId . '] ' . $e->getMessage());
+    $role = (string)($userInfo['role'] ?? 'user');
+    $extra = ['error_id' => $errId];
+    if ($role === 'super_admin') {
+        $extra['debug_message'] = $e->getMessage();
+    }
+    api_error('Errore generazione proposta', 500, $extra);
 }
 
 

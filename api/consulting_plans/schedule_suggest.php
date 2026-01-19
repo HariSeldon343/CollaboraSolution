@@ -60,6 +60,7 @@ try {
     $start = new DateTime((string)$draft['start_datetime']);
     $end = new DateTime((string)$draft['end_datetime']);
     $durationMin = max(15, (int)round(($end->getTimestamp() - $start->getTimestamp()) / 60));
+    $kind = strtolower(trim((string)($draft['kind'] ?? 'other')));
 
     // client_blocking (best-effort): if false, allow overlap with other NON-blocking plan drafts
     $draftBlocking = true;
@@ -201,12 +202,20 @@ try {
         }
     }
 
+    // Prefer start times consistent with Planning 2026 rules:
+    // - non-call blocks: 09:00 / 14:00 (0.5 day)
+    // - calls: more granular times to avoid collisions with 0.5-day blocks
+    $preferredTimes = ['09:00', '14:00'];
+    if (in_array($kind, ['call', 'communication'], true)) {
+        $preferredTimes = ['09:00','09:30','10:00','10:30','11:00','14:00','14:30','15:00','15:30','16:00'];
+    }
+
     $suggestions = $calendar->suggestFreeSlots(
         $durationMin,
         [$assignee],
         ['start' => $from->format('Y-m-d'), 'end' => $to->format('Y-m-d')],
         [
-            'preferred_times' => ['09:00', '14:00'],
+            'preferred_times' => $preferredTimes,
             'avoid_lunch' => true,
             'skip_weekends' => true,
             'max_suggestions' => 20,
