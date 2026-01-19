@@ -1199,6 +1199,25 @@ class PlanningApp {
     h.textContent = `Provisiona Compliance (IMS)${suffix}`;
   }
 
+  updateProvisionCreateTasksUi() {
+    const chkDocs = document.getElementById('planningProvisionCreateDocuments');
+    const chkTasks = document.getElementById('planningProvisionCreateTasks');
+    const help = document.getElementById('planningProvisionCreateTasksHelp');
+    if (!chkDocs || !chkTasks) return;
+
+    const baseHelp = 'Non crea le attività consulenza del piano (già presenti). Crea solo task/checklist in Compliance.';
+    const docsOn = !!chkDocs.checked;
+    const hasBlueprint = !!this.blueprintResult;
+    // Tasks make sense when documents are being provisioned now OR a blueprint/doc-structure already exists.
+    const enabled = docsOn || hasBlueprint;
+
+    chkTasks.disabled = !enabled;
+    if (!enabled) chkTasks.checked = false;
+    if (help) {
+      help.textContent = enabled ? baseHelp : (baseHelp + ' (Abilita “Crea documenti” oppure genera prima i documenti, poi crea i task.)');
+    }
+  }
+
   openComplianceProvisionModal() {
     if (!this.activePlanId) return this.toast('Seleziona un piano prima di provisionare', 'error');
     const box = document.getElementById('planningProvisionResult');
@@ -1206,6 +1225,14 @@ class PlanningApp {
     this.refreshProvisionCompanyProfileUi();
     this.updateProvisionModalTitle();
     this.openModal('planningComplianceProvisionModal');
+
+    // Keep "create tasks" checkbox meaningful (avoid confusing it with plan activities)
+    this.updateProvisionCreateTasksUi();
+    const chkDocs = document.getElementById('planningProvisionCreateDocuments');
+    if (chkDocs && chkDocs.dataset.cnxBound !== '1') {
+      chkDocs.addEventListener('change', () => this.updateProvisionCreateTasksUi());
+      chkDocs.dataset.cnxBound = '1';
+    }
 
     // Modules multi-select: allow toggle without Ctrl, and auto-preselect compat modules (best-effort)
     const sel = document.getElementById('planningProvisionModulesSelect');
@@ -4505,7 +4532,9 @@ class PlanningApp {
       const code = String(b?.service_code || '').trim();
       const svcLabel = nameById.get(sid) || (code ? code : `#${sid}`);
 
-      let phases = Array.isArray(b?.default_phases) ? b.default_phases : null;
+      // Prefer server-provided preview phases (coherent with items_generate_from_estimate.php workplans)
+      let phases = Array.isArray(e?.preview_phases) ? e.preview_phases : null;
+      if (!phases || !phases.length) phases = Array.isArray(b?.default_phases) ? b.default_phases : null;
       if (!phases || !phases.length) phases = this.estimateWizardDefaultPhasesTemplate();
 
       const norm = [];
@@ -4513,16 +4542,20 @@ class PlanningApp {
         const label = String(p?.label || '').trim();
         if (!label) continue;
         const phase_key = String(p?.phase_key || 'phase').trim() || 'phase';
+        const poRaw = (p && typeof p === 'object' && p.phase_order !== undefined) ? parseInt(String(p.phase_order), 10) : NaN;
+        const phase_order = Number.isFinite(poRaw) ? poRaw : null;
         const activity_type = String(p?.default_activity_type || 'remote').trim().toLowerCase();
         const valid = ['onsite', 'remote', 'call', 'communication', 'travel'];
         const act = valid.includes(activity_type) ? activity_type : 'remote';
         const share = parseFloat(String(p?.share_of_total ?? 0)) || 0;
-        norm.push({ phase_key, label, default_activity_type: act, share_of_total: (share > 0 ? share : 0) });
+        norm.push({ phase_key, phase_order, label, default_activity_type: act, share_of_total: (share > 0 ? share : 0) });
       }
       if (!norm.length) {
         const d = this.estimateWizardDefaultPhasesTemplate();
         for (const p of d) norm.push({ ...p });
       }
+      // Ensure deterministic phase order for preview (matches server workplans as much as possible)
+      norm.sort((a, b) => ((a.phase_order ?? 99) - (b.phase_order ?? 99)));
 
       const totalU = Math.max(1, Math.round(days * 2));
       const us = this.estimateWizardAllocateHalfUnits(totalU, norm);
@@ -8847,12 +8880,33 @@ class PlanningApp {
 
           const tags = exp.reason && typeof exp.reason === 'object' && Array.isArray(exp.reason.tags) ? exp.reason.tags : [];
           const clean = (tags || []).map(x => String(x || '').trim()).filter(Boolean).filter(x => !x.toLowerCase().startsWith('fase '));
-          if (clean.length) reasonText = clean.slice(0, 5).join(' • ');
+          if (clean.length) {
+            reasonText = clean.slice(0, 5).join(' • ');
+          } else {
+            // Backward/partial schema: show something even when tags are missing
+            const slot = (exp.slot && typeof exp.slot === 'object') ? exp.slot : null;
+            const strat = slot && slot.strategy ? String(slot.strategy || '').trim() : '';
+            const atts = slot && Array.isArray(slot.attempts) ? slot.attempts : [];
+            const last = atts.length ? atts[atts.length - 1] : null;
+            const lastReason = (last && typeof last === 'object' && last.reason) ? String(last.reason || '').trim() : '';
+            const parts = [];
+            if (strat) parts.push(strat);
+            if (lastReason && lastReason !== strat) parts.push(lastReason);
+            if (parts.length) reasonText = parts.join(' • ');
+          }
         }
       } catch (_) {}
       // Fallback (schema drift): if explain_json is missing, derive phase from title "Fase: ..."
       if (!phaseText && t && t.main && String(t.main).trim() && String(t.main).trim() !== '—') {
         phaseText = String(t.main).trim();
+      }
+      // Guarantee a non-empty reason (users reported many "—" rows)
+      if (!reasonText) {
+        const st = String(startLocal || '');
+        const en = String(endLocal || '');
+        const stT = st.includes('T') ? st.split('T')[1].slice(0, 5) : '';
+        const enT = en.includes('T') ? en.split('T')[1].slice(0, 5) : '';
+        if (stT && enT) reasonText = `slot ${stT}-${enT}`;
       }
       return `
         <tr data-draft-id="${d.id}">

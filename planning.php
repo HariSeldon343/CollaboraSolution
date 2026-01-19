@@ -292,11 +292,12 @@ $planningCssVersion = ((@filemtime(__DIR__ . '/assets/css/planning.css') ?: time
                     </label>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" id="planningProvisionCreateTasksGroup">
                     <label class="form-checkbox-label">
                         <input type="checkbox" id="planningProvisionCreateTasks" class="form-checkbox" checked>
-                        <span>Crea piano attività dopo la creazione documenti</span>
+                        <span>Crea task di compilazione (deliverable IMS) dopo il provisioning</span>
                     </label>
+                    <div class="form-text" id="planningProvisionCreateTasksHelp">Non crea le attività consulenza del piano (già presenti). Crea solo task/checklist in Compliance.</div>
                 </div>
 
                 <div class="form-group">

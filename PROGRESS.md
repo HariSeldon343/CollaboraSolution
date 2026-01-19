@@ -4,7 +4,9 @@ Obiettivo: eliminare **500** su “Calendario proposto (bozza)”, rendere la pr
 
 ## Stato implementazioni (code)
 - [x] **Wizard stima**: “Tipo intervento” obbligatorio (blocco UI su Step 3, stima e creazione piano)
-- [x] **estimate_days.php**: `intervention_type` obbligatorio (400) + recertification ⇒ baseline **on-site** più alta
+- [x] **estimate_days.php**:
+  - `intervention_type` obbligatorio (400) + recertification ⇒ baseline **on-site** più alta
+  - ritorna `preview_phases` per ogni servizio (workplan server) ⇒ preview wizard coerente con backend
 - [x] **items_generate_from_estimate.php**:
   - step **0.5g** + quantizzazione totale
   - merge fasi 0-unità (no righe day-based a 0/0.25)
@@ -14,14 +16,21 @@ Obiettivo: eliminare **500** su “Calendario proposto (bozza)”, rendere la pr
   - blocchi non-call sempre **240m (0.5g)** + chiamate 30–60m
   - RECERT: “supporto audit esterno” spinto verso fine periodo (best‑effort)
   - error handling con `error_id` su 500
+  - reason tags arricchite (strategy/range/slot) in `explain_json` (best-effort)
 - [x] **schedule_suggest.php**: preferred times più granulari per call/communication
-- [x] **planning.js preview attività**: merge fasi 0-unità + RECERT (fasi chiave on-site) + durata pulita (0.5g/1g, call in minuti)
+- [x] **planning.js preview attività**:
+  - merge fasi 0-unità + RECERT (fasi chiave on-site) + durata pulita (0.5g/1g, call in minuti)
+  - usa `preview_phases` dall’API quando disponibili (coerenza preview ↔ attività create)
+- [x] **planning.js calendario bozza**: reason sempre valorizzato (fallback su slot/strategy se manca `explain_json.tags`)
 - [x] **allocation_suggest.php**: fix schema OpenAI strict (no map `additionalProperties`; usa `assignments[]` + `reasons[]` + `notes[]`)
+- [x] **Provisioning IMS**: label/help checkbox “create tasks” chiarita (deliverable compliance, non attività piano) + abilitazione best-effort solo quando sensato
 
 ## Test manuali (da eseguire in UI)
 - [ ] Wizard: non posso procedere senza “Tipo intervento”
 - [ ] ISO9001 RECERT: anteprima include “Supporto audit esterno / certificazione” **ONSITE**
 - [ ] Dopo generazione attività: nessuna riga non-call con GG < 0.5 o GG=0
 - [ ] Genera calendario bozza: HTTP 200, nessun 500, nessun overlap, blocchi 0.5g=4h, ordine fasi ok, supporto audit esterno verso fine periodo (se periodo lungo)
+- [ ] Calendario bozza: colonna “Reason” valorizzata (non “—”)
+- [ ] Provisioning IMS: checkbox “Crea task…” chiara; rilancio provisioning non duplica task/documenti
 - [ ] Nessun errore JS in console
 
