@@ -30,6 +30,161 @@ function cnx_consulting_activity_types_cols(Database $db): array {
     }
 }
 
+/**
+ * Load scheduling phase library (best-effort).
+ * Used to keep wizard preview coherent with server workplans.
+ *
+ * @return array<string,array<string,mixed>>
+ */
+function cnx_sched_phase_library(): array {
+    $path = __DIR__ . '/../../configs/scheduling/phase_library.php';
+    if (is_file($path)) {
+        $v = require $path;
+        if (is_array($v)) return $v;
+    }
+    return [];
+}
+
+/**
+ * Load service workplans (best-effort).
+ *
+ * @return array<string,mixed>
+ */
+function cnx_sched_service_workplans(): array {
+    $path = __DIR__ . '/../../configs/scheduling/service_workplans.php';
+    if (is_file($path)) {
+        $v = require $path;
+        if (is_array($v)) return $v;
+    }
+    return [];
+}
+
+function cnx_sched_intervention_key(?string $interventionType): string {
+    $t = strtolower(trim((string)$interventionType));
+    if ($t === 'maintenance') return 'MAINT';
+    if ($t === 'recertification') return 'RECERT';
+    if ($t === 'scope_extension') return 'SCOPE_EXT';
+    if ($t === 'transition_update' || $t === 'transition') return 'TRANSITION';
+    return 'NEW';
+}
+
+function cnx_sched_mode_to_activity_type(string $mode): string {
+    $m = strtolower(trim($mode));
+    if (in_array($m, ['call', 'communication'], true)) return $m;
+    if ($m === 'onsite') return 'onsite';
+    if ($m === 'travel') return 'travel';
+    // "other" is treated as remote in preview (day-based)
+    return 'remote';
+}
+
+/**
+ * Build a phases list coherent with items generation (workplans when available).
+ *
+ * @param array<string,mixed> $svcRow consulting_activity_types row
+ * @param array<string,mixed> $phaseLib
+ * @param array<string,mixed> $workplans
+ * @return array<int,array<string,mixed>>
+ */
+function cnx_sched_build_preview_phases_for_service(array $svcRow, string $serviceCode, string $interventionKey, array $phaseLib, array $workplans): array {
+    $code = strtoupper(trim($serviceCode));
+    $out = [];
+
+    // Prefer workplans config (same used by items_generate_from_estimate.php)
+    $tryKeys = [];
+    if ($code !== '') {
+        $tryKeys[] = $code;
+        $tryKeys[] = strtolower($code);
+    }
+    foreach ($tryKeys as $k) {
+        if (!isset($workplans[$k]) || !is_array($workplans[$k])) continue;
+        foreach ($workplans[$k] as $t) {
+            if (!is_array($t)) continue;
+            $label = trim((string)($t['title'] ?? ''));
+            if ($label === '') continue;
+
+            $phaseKey = trim((string)($t['phase_key'] ?? 'ongoing'));
+            if ($phaseKey === '') $phaseKey = 'ongoing';
+            $phaseKeyLow = strtolower($phaseKey);
+
+            $phaseOrder = (int)($t['phase_order'] ?? 0);
+            if ($phaseOrder <= 0) {
+                $m = $phaseLib[$phaseKey] ?? $phaseLib[$phaseKeyLow] ?? null;
+                if (is_array($m) && isset($m['order'])) $phaseOrder = (int)$m['order'];
+            }
+            if ($phaseOrder <= 0) $phaseOrder = 99;
+
+            $act = cnx_sched_mode_to_activity_type((string)($t['default_mode'] ?? 'remote'));
+
+            $shares = $t['share_per_intervention_type'] ?? null;
+            $share = 0.0;
+            if (is_array($shares)) {
+                $share = (float)($shares[$interventionKey] ?? $shares['NEW'] ?? 0.0);
+                if (!is_finite($share) || $share < 0) $share = 0.0;
+            }
+
+            $out[] = [
+                'phase_key' => $phaseKeyLow,
+                'phase_order' => $phaseOrder,
+                'label' => $label,
+                'default_activity_type' => $act,
+                'share_of_total' => $share,
+            ];
+        }
+        if (!empty($out)) break;
+    }
+    if (!empty($out)) {
+        usort($out, static fn($a, $b) => ((int)($a['phase_order'] ?? 99)) <=> ((int)($b['phase_order'] ?? 99)));
+        return $out;
+    }
+
+    // Fallback: default phases stored on activity type (if available)
+    $raw = $svcRow['default_phases_json'] ?? null;
+    if (is_string($raw) && trim($raw) !== '') {
+        $arr = json_decode($raw, true);
+        if (is_array($arr)) {
+            foreach ($arr as $p) {
+                if (!is_array($p)) continue;
+                $label = trim((string)($p['label'] ?? ''));
+                if ($label === '') continue;
+                $phaseKey = trim((string)($p['phase_key'] ?? 'phase'));
+                if ($phaseKey === '') $phaseKey = 'phase';
+                $phaseKeyLow = strtolower($phaseKey);
+                $act = strtolower(trim((string)($p['default_activity_type'] ?? 'remote')));
+                if (!in_array($act, ['onsite','remote','call','communication','travel'], true)) $act = 'remote';
+                $share = (float)($p['share_of_total'] ?? 0.0);
+                if (!is_finite($share) || $share < 0) $share = 0.0;
+                $phaseOrder = (int)($p['phase_order'] ?? 0);
+                if ($phaseOrder <= 0) {
+                    $m = $phaseLib[$phaseKey] ?? $phaseLib[$phaseKeyLow] ?? null;
+                    if (is_array($m) && isset($m['order'])) $phaseOrder = (int)$m['order'];
+                }
+                if ($phaseOrder <= 0) $phaseOrder = 99;
+                $out[] = [
+                    'phase_key' => $phaseKeyLow,
+                    'phase_order' => $phaseOrder,
+                    'label' => $label,
+                    'default_activity_type' => $act,
+                    'share_of_total' => $share,
+                ];
+            }
+        }
+    }
+    if (!empty($out)) {
+        usort($out, static fn($a, $b) => ((int)($a['phase_order'] ?? 99)) <=> ((int)($b['phase_order'] ?? 99)));
+        return $out;
+    }
+
+    // Last resort: generic template (no ISO/UNI text)
+    return [
+        ['phase_key' => 'kickoff', 'phase_order' => 10, 'label' => 'Kickoff / Pianificazione', 'default_activity_type' => 'call', 'share_of_total' => 0.08],
+        ['phase_key' => 'context_scope', 'phase_order' => 20, 'label' => 'Analisi contesto / Scopo', 'default_activity_type' => 'remote', 'share_of_total' => 0.20],
+        ['phase_key' => 'documentation', 'phase_order' => 50, 'label' => 'Documentazione (best-effort)', 'default_activity_type' => 'remote', 'share_of_total' => 0.25],
+        ['phase_key' => 'implementation', 'phase_order' => 60, 'label' => 'Implementazione / Affiancamento', 'default_activity_type' => 'onsite', 'share_of_total' => 0.20],
+        ['phase_key' => 'internal_audit', 'phase_order' => 80, 'label' => 'Audit interno', 'default_activity_type' => 'onsite', 'share_of_total' => 0.15],
+        ['phase_key' => 'external_audit_support', 'phase_order' => 90, 'label' => 'Supporto audit esterno / certificazione', 'default_activity_type' => 'onsite', 'share_of_total' => 0.12],
+    ];
+}
+
 function cnx_consulting_is_private_ip(string $ip): bool {
     if ($ip === '' || $ip === '0.0.0.0') return true;
     if (strpos($ip, ':') !== false) {
@@ -451,6 +606,8 @@ try {
     if (!empty($cols['base_days_max'])) $select .= ", base_days_max";
     if (!empty($cols['complexity_score'])) $select .= ", complexity_score";
     if (!empty($cols['complexity_weight'])) $select .= ", complexity_weight";
+    // Wizard preview coherence: allow using default phases if workplan config is missing.
+    if (!empty($cols['default_phases_json'])) $select .= ", default_phases_json";
     $select .= " FROM consulting_activity_types
                 WHERE tenant_id = ?
                   AND deleted_at IS NULL
@@ -657,6 +814,11 @@ try {
     if ($itMaturity === 'low') $globalAdd += 0.06;
     if ($itMaturity === 'high') $globalAdd -= 0.03;
 
+    // Preview phases (server-derived) to keep wizard preview coherent with items generation.
+    $phaseLib = cnx_sched_phase_library();
+    $workplans = cnx_sched_service_workplans();
+    $interventionKey = cnx_sched_intervention_key($interventionTypeOut);
+
     $estimates = [];
     foreach ($serviceTypeIds as $sid) {
         $r = $byId[$sid] ?? null;
@@ -664,6 +826,19 @@ try {
 
         $code = strtoupper(trim((string)($r['service_code'] ?? '')));
         $name = (string)($r['name'] ?? ('#' . $sid));
+        // Best-effort: infer service code from name if missing (keeps preview/workplan coherent)
+        if ($code === '' && $name !== '') {
+            $nameUp = strtoupper(trim($name));
+            if (str_contains($nameUp, '14001')) $code = 'ISO14001';
+            if (str_contains($nameUp, '9001')) $code = 'ISO9001';
+            if (str_contains($nameUp, '17025')) $code = 'ISOIEC17025';
+            if (str_contains($nameUp, 'HACCP')) $code = 'HACCP';
+            if (str_contains($nameUp, '22000')) $code = 'ISO22000';
+            if (str_contains($nameUp, 'PRIVACY') || str_contains($nameUp, 'GDPR') || str_contains($nameUp, 'DPO')) $code = 'PRIVACY';
+            if (str_contains($nameUp, 'ODV') || str_contains($nameUp, '231')) $code = 'ODV231';
+            if (str_contains($nameUp, 'ACCRED')) $code = 'ACCRED';
+            if (str_contains($nameUp, 'CE')) $code = 'CE';
+        }
         $schemeDb = strtoupper(trim((string)($r['scheme_type'] ?? '')));
         $schemeEff = $schemeDb !== '' ? $schemeDb : $inferScheme($code, strtoupper(trim((string)($r['category'] ?? ''))));
 
@@ -795,6 +970,8 @@ try {
         if ($clamped) $rationaleParts[] = "Warning: clamp 120g.";
         $rationale = trim(implode(' ', $rationaleParts));
 
+        $previewPhases = cnx_sched_build_preview_phases_for_service($r, ($code !== '' ? $code : $name), $interventionKey, $phaseLib, $workplans);
+
         $estimates[] = [
             'service_type_id' => (int)$sid,
             'service_code' => ($code !== '' ? $code : null),
@@ -807,6 +984,8 @@ try {
             'max_days' => $maxDays,
             'rationale' => $rationale,
             'confidence' => (float)$confidenceBase,
+            // Used by planning.js to build a preview identical to server items generation.
+            'preview_phases' => $previewPhases,
         ];
     }
 
