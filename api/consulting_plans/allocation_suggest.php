@@ -523,17 +523,36 @@ try {
                     'type' => 'object',
                     'additionalProperties' => false,
                     'properties' => [
-                        'per_item_assignments' => [
-                            'type' => 'object',
-                            'description' => 'Mappa item_id -> user_id',
-                            'additionalProperties' => ['type' => 'integer'],
+                        // IMPORTANT (OpenAI strict json_schema):
+                        // - Avoid "map objects" via additionalProperties because strict schema validation may reject them.
+                        // - Use arrays of objects with explicit required properties.
+                        'assignments' => [
+                            'type' => 'array',
+                            'description' => 'Elenco assegnazioni item_id -> user_id',
+                            'items' => [
+                                'type' => 'object',
+                                'additionalProperties' => false,
+                                'properties' => [
+                                    'item_id' => ['type' => 'integer'],
+                                    'user_id' => ['type' => 'integer'],
+                                ],
+                                'required' => ['item_id', 'user_id'],
+                            ],
                         ],
                         'reasons' => [
-                            'type' => 'object',
-                            'description' => 'Mappa item_id -> lista motivazioni',
-                            'additionalProperties' => [
-                                'type' => 'array',
-                                'items' => ['type' => 'string'],
+                            'type' => 'array',
+                            'description' => 'Elenco motivazioni per item_id',
+                            'items' => [
+                                'type' => 'object',
+                                'additionalProperties' => false,
+                                'properties' => [
+                                    'item_id' => ['type' => 'integer'],
+                                    'reasons' => [
+                                        'type' => 'array',
+                                        'items' => ['type' => 'string'],
+                                    ],
+                                ],
+                                'required' => ['item_id', 'reasons'],
                             ],
                         ],
                         'notes' => [
@@ -542,7 +561,7 @@ try {
                         ],
                     ],
                     // OpenAI json_schema strict mode requires listing all properties in "required".
-                    'required' => ['per_item_assignments', 'reasons', 'notes'],
+                    'required' => ['assignments', 'reasons', 'notes'],
                 ],
             ];
 
@@ -590,16 +609,32 @@ try {
 
             if (!empty($ai['ok']) && isset($ai['data']) && is_array($ai['data'])) {
                 $aiUsed = true;
-                $cand = $ai['data']['per_item_assignments'] ?? null;
+                $candList = $ai['data']['assignments'] ?? null;
+                // Back-compat: previous schema used a map object per_item_assignments
+                $candMapLegacy = $ai['data']['per_item_assignments'] ?? null;
                 $candReasons = $ai['data']['reasons'] ?? null;
                 $candNotes = $ai['data']['notes'] ?? null;
 
-                if (is_array($cand)) {
+                // Build candidate map item_id => user_id (accept new list format and legacy map format)
+                $candMap = null;
+                if (is_array($candList)) {
+                    $candMap = [];
+                    foreach ($candList as $row) {
+                        if (!is_array($row)) continue;
+                        $iid = (int)($row['item_id'] ?? 0);
+                        $uid = (int)($row['user_id'] ?? 0);
+                        if ($iid > 0 && $uid > 0) $candMap[$iid] = $uid;
+                    }
+                } elseif (is_array($candMapLegacy)) {
+                    $candMap = $candMapLegacy;
+                }
+
+                if (is_array($candMap)) {
                     // Validate and merge with deterministic fallback
                     $allowedUsersSet = array_flip($allowedUids);
                     $allowedItemsSet = array_flip($allowedItems);
                     $merged = $finalAssignments;
-                    foreach ($cand as $itemIdStr => $uidRaw) {
+                    foreach ($candMap as $itemIdStr => $uidRaw) {
                         $iid = (int)$itemIdStr;
                         $uid = (int)$uidRaw;
                         if ($iid <= 0 || $uid <= 0) continue;
@@ -617,16 +652,33 @@ try {
                 }
 
                 if (is_array($candReasons)) {
-                    foreach ($candReasons as $itemIdStr => $arr) {
-                        $iid = (int)$itemIdStr;
-                        if ($iid <= 0) continue;
-                        if (!is_array($arr)) continue;
-                        $tmp = [];
-                        foreach ($arr as $s) {
-                            $s = trim((string)$s);
-                            if ($s !== '') $tmp[] = $s;
+                    // New schema: array of {item_id, reasons:[...]} ; legacy: map item_id => [...]
+                    $isList = array_keys($candReasons) === range(0, count($candReasons) - 1);
+                    if ($isList) {
+                        foreach ($candReasons as $row) {
+                            if (!is_array($row)) continue;
+                            $iid = (int)($row['item_id'] ?? 0);
+                            $arr = $row['reasons'] ?? null;
+                            if ($iid <= 0 || !is_array($arr)) continue;
+                            $tmp = [];
+                            foreach ($arr as $s) {
+                                $s = trim((string)$s);
+                                if ($s !== '') $tmp[] = $s;
+                            }
+                            if (!empty($tmp)) $finalReasons[$iid] = $tmp;
                         }
-                        if (!empty($tmp)) $finalReasons[$iid] = $tmp;
+                    } else {
+                        foreach ($candReasons as $itemIdStr => $arr) {
+                            $iid = (int)$itemIdStr;
+                            if ($iid <= 0) continue;
+                            if (!is_array($arr)) continue;
+                            $tmp = [];
+                            foreach ($arr as $s) {
+                                $s = trim((string)$s);
+                                if ($s !== '') $tmp[] = $s;
+                            }
+                            if (!empty($tmp)) $finalReasons[$iid] = $tmp;
+                        }
                     }
                 }
                 if (is_array($candNotes)) {

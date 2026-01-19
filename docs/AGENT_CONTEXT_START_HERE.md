@@ -150,7 +150,9 @@ Obiettivo:
   - `planning.php` tab “Attività & Costi”: colonna **Durata** (day-based in gg; call/communication in minuti) per evitare righe “0.00 gg”
   - `api/consulting_plans/items_upsert.php`: normalizza `days` a step 0.5 e clamp call a 30–60 min (best-effort, ritorna `warnings`)
 - **Fix AI (allocazione consulenti)**:
-  - `api/consulting_plans/allocation_suggest.php`: schema `response_format` ora include `notes` e `reasons` in `required` (evita errore “Missing notes”)
+  - `api/consulting_plans/allocation_suggest.php`: schema `response_format` compatibile con **OpenAI strict JSON schema** (evita errori tipo “Invalid schema … Extra required key …”)
+    - output AI usa una lista `assignments[] = {item_id,user_id}` (non map con `additionalProperties`)
+    - include anche `reasons[]` e `notes[]` (sempre presenti)
 
 ### Migrazioni / tool
 - **SQL (opzionale)**: `database/migrations/62_consulting_plan_items_phases.sql`

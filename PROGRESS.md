@@ -16,6 +16,7 @@ Obiettivo: eliminare **500** su “Calendario proposto (bozza)”, rendere la pr
   - error handling con `error_id` su 500
 - [x] **schedule_suggest.php**: preferred times più granulari per call/communication
 - [x] **planning.js preview attività**: merge fasi 0-unità + RECERT (fasi chiave on-site) + durata pulita (0.5g/1g, call in minuti)
+- [x] **allocation_suggest.php**: fix schema OpenAI strict (no map `additionalProperties`; usa `assignments[]` + `reasons[]` + `notes[]`)
 
 ## Test manuali (da eseguire in UI)
 - [ ] Wizard: non posso procedere senza “Tipo intervento”
