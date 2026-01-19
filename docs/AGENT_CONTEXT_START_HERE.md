@@ -79,7 +79,7 @@ Questo documento è pensato per **dare contesto rapido e completo** a chi entra 
   - UI `planning.php` (tab Attività): per attività **on-site** e **trasferta** compare selettore **“Sede attività”**
   - per attività `travel`: se **KM=0** (e sono selezionati **Consulente** + **Sede**), al salvataggio viene calcolata automaticamente la distanza A/R (best-effort, no API esterne)
 - **Bozza calendario**:
-  - potenziato `api/consulting_plans/schedule_generate.php` con fallback deterministico: se non trova slot “conflict-free”, genera slot **FORZATI** (best-effort) per evitare “Nessuno slot creato”. Gli slot forzati sono marcati in UI e nei metadati `explain_json` (se colonna disponibile).
+  - `api/consulting_plans/schedule_generate.php` ora usa vincoli **hard** (no overlap con eventi reali + bozze/confirmed). Se non trova slot nella finestra, ritorna **409** con dettaglio e suggerisce di ampliare la finestra/cambiare consulente.
 
 ### Migrazioni / tool
 - **SQL**: `database/migrations/61_consulting_plan_items_locations.sql`
@@ -140,7 +140,7 @@ Obiettivo:
   - `client_blocking`: blocco overlap “client-side” best-effort (sovrapposizione vietata se uno dei due slot è blocking)
   - finestra bozza **default 30 giorni** se `period_end` è vuoto (evita sparpagliamento annuale)
   - avvisi non bloccanti (es. ottimizzazione trasferte disattivata) vengono restituiti in `meta_warnings` (se presenti)
-  - fallback FORZATO: se non trova slot liberi nel calendario “reale”, prova un posizionamento deterministico rispettando i vincoli di bozza (indicatore **FORZATO**)
+  - vincolo hard: se non trova slot liberi nella finestra, ritorna **409** (nessun “FORZATO”)
 - **Modifica slot (UI)**:
   - `planning.php` tab “Calendario (bozza)”: aggiunte colonne **Fase** e **Reason**
   - `assets/js/planning.js`: mostra fase/reason da `explain_json` (migrazione 53) con fallback su parsing “Fase:” dal titolo + blocca salvataggio lato client se overlap non permesso (best-effort)
@@ -165,6 +165,10 @@ Obiettivo:
   - gli slot devono rispettare durate coerenti (onsite/remote a blocchi; call 30–60 min)
   - in tabella devono comparire **Fase** e **Reason**
 - Prova a spostare manualmente due slot **blocking** nello stesso orario → deve essere bloccato (UI e/o API con errore 409)
+
+### Hotfix 500 (calendario proposto)
+- Se la bozza calendario andava in **500** con errori tipo `Call to undefined method Calendar::calculateTotalMinutes()` / `getUserWorkHours()`:
+  - fix in `includes/calendar.php` (helper mancante) per rendere stabile `getUserAvailability()` e qualsiasi uso di `suggestFreeSlots()`.
 
 ## 2026-01-16 — SNAPSHOT STATO ATTUALE (per riprendere): “Catalogo servizi/norme 2026” + Engine Stima (Planning tenant 28)
 
