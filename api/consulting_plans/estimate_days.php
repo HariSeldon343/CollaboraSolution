@@ -433,6 +433,8 @@ try {
     if (count($serviceTypeIds) > 20) api_error('Troppi servizi selezionati', 400);
 
     $companyProfile = isset($payload['company_profile']) && is_array($payload['company_profile']) ? $payload['company_profile'] : [];
+    $docProfileId = (int)($payload['doc_profile_id'] ?? 0);
+    if ($docProfileId < 0) $docProfileId = 0;
     $sector = trim((string)($companyProfile['sector'] ?? ''));
     $employeesRange = trim((string)($companyProfile['employees_range'] ?? ''));
     $sitesCountRaw = $companyProfile['sites_count'] ?? null;
@@ -641,6 +643,67 @@ try {
     $qmsMaturityOut = $qmsMaturity !== '' ? $qmsMaturity : null;
     $onSiteLocationsCountOut = $onSiteLocationsCount;
 
+    // Optional: document intelligence profile (client tenant) to avoid "ex-novo" overestimation.
+    // Input comes from planning wizard (tenant 28) as doc_profile_id (cached in ai_tenant_doc_profiles).
+    $docProfile = null;
+    $docProfileExpired = false;
+    $docDocumentationFactor = 1.0;
+    $docDocsExist = false;
+    $docMaturitySuggested = '';
+    if ($docProfileId > 0) {
+        try {
+            $hasProfiles = (bool)$db->fetchOne("SHOW TABLES LIKE 'ai_tenant_doc_profiles'");
+            if ($hasProfiles) {
+                $r = $db->fetchOne(
+                    "SELECT id, expires_at, payload_json
+                     FROM ai_tenant_doc_profiles
+                     WHERE id = ?
+                       AND tenant_id = ?
+                       AND scope = 'IMS_PLANNING'
+                     LIMIT 1",
+                    [$docProfileId, $clientTenantId]
+                );
+                if ($r && trim((string)($r['payload_json'] ?? '')) !== '') {
+                    $exp = (string)($r['expires_at'] ?? '');
+                    if ($exp !== '' && strtotime($exp) !== false && strtotime($exp) <= time()) {
+                        $docProfileExpired = true;
+                    }
+                    $decoded = json_decode((string)$r['payload_json'], true);
+                    if (is_array($decoded)) {
+                        $docProfile = $decoded;
+                        $docMaturitySuggested = strtolower(trim((string)($docProfile['maturity_suggested'] ?? '')));
+                        $docDocumentationFactor = (float)($docProfile['planning_adjustments']['documentation_factor'] ?? 1.0);
+                        if ($docDocumentationFactor < 0.0) $docDocumentationFactor = 0.0;
+                        if ($docDocumentationFactor > 1.0) $docDocumentationFactor = 1.0;
+                        $det = is_array($docProfile['detected'] ?? null) ? $docProfile['detected'] : [];
+                        $manual = (bool)($det['manual'] ?? false);
+                        $proc = (int)($det['procedures_count_est'] ?? 0);
+                        $docDocsExist = $manual || ($proc > 0) || in_array($docMaturitySuggested, ['structured_non_certified','already_certified','integrated_existing'], true);
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            $docProfile = null;
+        }
+    }
+
+    // If user didn't specify maturity, prefill from doc evidence (best-effort, override allowed in UI).
+    if ($qmsMaturityOut === null && $docProfile && $docMaturitySuggested !== '') {
+        $map = [
+            'none' => 'none',
+            'partial' => 'partial_informal',
+            'structured_non_certified' => 'structured_not_certified',
+            'already_certified' => 'already_certified',
+            'integrated_existing' => 'integrated_system_existing',
+        ];
+        $mapped = $map[$docMaturitySuggested] ?? '';
+        if ($mapped !== '') {
+            $qmsMaturityOut = $mapped;
+            $assumptions[] = 'Evidenze documentali: maturità SGQ/IMS suggerita = ' . $mapped . ' (best-effort, modificabile).';
+            $integrationNotes[] = 'Stima adattata usando evidenze documentali (doc_profile_id=' . (int)$docProfileId . ').';
+        }
+    }
+
     $inferScheme = static function (string $code, string $category = ''): string {
         $k = strtoupper(trim($code));
         if ($k === '') return '';
@@ -733,6 +796,19 @@ try {
     $cap65 = ($interventionTypeOut === null || $qmsMaturityOut === null);
     if ($cap65 && $conf > 65) $conf = 65;
     $confidenceBase = max(0.20, min(0.95, (float)$conf / 100.0));
+
+    // Boost confidence best-effort when doc profile exists and is not expired
+    if ($docProfile && !$docProfileExpired) {
+        $dc = (int)($docProfile['confidence'] ?? 0);
+        if ($dc > 0) {
+            $docConf = max(0.20, min(0.95, (float)$dc / 100.0));
+            $confidenceBase = max($confidenceBase, $docConf);
+        }
+    } elseif ($docProfile && $docProfileExpired) {
+        // Keep it conservative when profile is expired (UI can re-run analysis)
+        $confidenceBase = min($confidenceBase, 0.60);
+        $assumptions[] = 'Evidenze documentali: analisi scaduta (riesegui “Analizza documenti” per aggiornare).';
+    }
 
     if ($cap65) {
         $assumptions[] = 'Compila Tipo intervento e Maturità SGQ/IMS per una stima più affidabile (confidenza max 65% finché mancanti).';
@@ -968,9 +1044,69 @@ try {
         if (!empty($missingCore)) $rationaleParts[] = "Dati mancanti: " . implode(', ', $missingCore) . ".";
         if ($usedFallback) $rationaleParts[] = "Range base non completo: fallback conservativo.";
         if ($clamped) $rationaleParts[] = "Warning: clamp 120g.";
-        $rationale = trim(implode(' ', $rationaleParts));
-
         $previewPhases = cnx_sched_build_preview_phases_for_service($r, ($code !== '' ? $code : $name), $interventionKey, $phaseLib, $workplans);
+
+        // Document evidence adjustments (best-effort):
+        // - Rename "documentation" into review/update
+        // - Reduce ONLY the documentation share via documentation_factor (0..1)
+        if ($docProfile && $docDocsExist) {
+            $docShare = 0.0;
+            if (is_array($previewPhases)) {
+                foreach ($previewPhases as $i => $ph) {
+                    $pk = strtolower(trim((string)($ph['phase_key'] ?? '')));
+                    if ($pk === 'documentation') {
+                        $share = (float)($ph['share_of_total'] ?? 0.0);
+                        if ($share > $docShare) $docShare = $share;
+                        $previewPhases[$i]['label'] = 'Review/Aggiornamento documentazione esistente';
+                    }
+                }
+            }
+            if ($docShare <= 0.0) $docShare = 0.25; // fallback share
+
+            $df = (float)$docDocumentationFactor;
+            if ($df < 0.0) $df = 0.0;
+            if ($df > 1.0) $df = 1.0;
+
+            if ($df < 1.0) {
+                $ratioReduction = (1.0 - $df) * min(0.35, max(0.10, $docShare));
+                $ratioReduction = max(0.0, min(0.30, $ratioReduction));
+                $newSuggested = (int)round($suggested * (1.0 - $ratioReduction));
+                $newSuggested = max($minDays, min($maxDays, $newSuggested));
+                if ($newSuggested !== $suggested) {
+                    $suggested = $newSuggested;
+                    // Recompute breakdown after adjusting suggested days
+                    $onSiteDays = (int)round($suggested * $ratio);
+                    if ($onSiteDays < 0) $onSiteDays = 0;
+                    if ($onSiteDays > $suggested) $onSiteDays = $suggested;
+                    if ($interventionTypeOut === 'recertification' && $suggested > 0 && $onSiteDays < 1) {
+                        $onSiteDays = 1;
+                    }
+                    $remoteDays = max(0, $suggested - $onSiteDays);
+                }
+                $rationaleParts[] = "Evidenze documentali: documentazione esistente → riduzione quota documentazione (factor " . round($df, 2) . ").";
+            } else {
+                $rationaleParts[] = "Evidenze documentali: documentazione esistente → fase documentazione trattata come review.";
+            }
+
+            $gaps = is_array($docProfile['gaps'] ?? null) ? $docProfile['gaps'] : [];
+            if (!empty($gaps)) {
+                $top = array_slice($gaps, 0, 3);
+                $labels = [];
+                foreach ($top as $g) {
+                    if (!is_array($g)) continue;
+                    $area = trim((string)($g['area'] ?? ''));
+                    $sev = trim((string)($g['severity'] ?? ''));
+                    if ($area === '') continue;
+                    $labels[] = $area . ($sev !== '' ? "({$sev})" : "");
+                }
+                $labels = array_values(array_unique(array_filter($labels)));
+                if (!empty($labels)) {
+                    $rationaleParts[] = "Gap rilevati (best-effort): " . implode(', ', $labels) . ".";
+                }
+            }
+        }
+
+        $rationale = trim(implode(' ', $rationaleParts));
 
         $estimates[] = [
             'service_type_id' => (int)$sid,

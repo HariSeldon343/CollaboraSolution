@@ -858,6 +858,25 @@ $planningCssVersion = ((@filemtime(__DIR__ . '/assets/css/planning.css') ?: time
                         <textarea id="planningEstimateWizardNotes" class="form-control" rows="4" placeholder="Dettagli utili (prodotti/servizi, sedi incluse, particolarità, vincoli)..."></textarea>
                     </div>
 
+                    <div id="planningEstimateWizardDocsBox" style="margin-top: 12px; padding: 10px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); background: var(--color-gray-50);">
+                        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; flex-wrap:wrap;">
+                            <div style="flex:1; min-width: 240px;">
+                                <div style="font-weight:700; margin-bottom:6px;">Documenti del cliente (IMS/Knowledge)</div>
+                                <div class="planning-muted" id="planningEstimateWizardDocsStatus">Caricamento…</div>
+                            </div>
+                            <div class="planning-actions" style="flex-wrap:wrap;">
+                                <button type="button" class="btn btn-secondary btn-sm" id="planningEstimateWizardDocsReindexBtn">Reindicizza ora</button>
+                                <button type="button" class="btn btn-primary btn-sm" id="planningEstimateWizardDocsAnalyzeBtn">Analizza documenti</button>
+                            </div>
+                        </div>
+                        <div id="planningEstimateWizardDocsAnalysisWrap" style="display:none; margin-top:10px;"></div>
+                        <label class="form-checkbox-label" style="margin-top: 10px;">
+                            <input type="checkbox" id="planningEstimateWizardUseDocEvidence" class="form-checkbox" checked>
+                            <span>Usa risultati per migliorare stima (best-effort)</span>
+                        </label>
+                        <div class="form-text">Se l’indice non è aggiornato, la stima non considera (o considera parzialmente) le evidenze documentali.</div>
+                    </div>
+
                     <details id="planningEstimateWizardAdvancedDetails" style="margin-top: 12px;">
                         <summary style="cursor:pointer; font-weight:700;">Avanzato (consigliato) — migliora la confidenza della stima</summary>
                         <div style="margin-top: 10px;">

@@ -414,6 +414,65 @@ try {
         api_error('Tipo intervento obbligatorio', 400, ['field' => 'intervention_type']);
     }
 
+    // Optional: document intelligence profile (cached) to adapt "documentation" into review/update + TODO gaps.
+    $docProfileId = 0;
+    try { $docProfileId = (int)($estimate['meta']['doc_profile_id'] ?? 0); } catch (Throwable $e) { $docProfileId = 0; }
+    if ($docProfileId < 0) $docProfileId = 0;
+    $docProfile = null;
+    $docDocsExist = false;
+    $docDocumentationFactor = 1.0;
+    $docTodoGaps = '';
+    if ($docProfileId > 0) {
+        try {
+            $hasProfiles = !empty($db->fetchOne("SHOW TABLES LIKE 'ai_tenant_doc_profiles'"));
+            if ($hasProfiles) {
+                $r = $db->fetchOne(
+                    "SELECT expires_at, payload_json
+                     FROM ai_tenant_doc_profiles
+                     WHERE id = ?
+                       AND tenant_id = ?
+                       AND scope = 'IMS_PLANNING'
+                     LIMIT 1",
+                    [$docProfileId, $clientTenantId]
+                );
+                if ($r && trim((string)($r['payload_json'] ?? '')) !== '') {
+                    $decoded = json_decode((string)$r['payload_json'], true);
+                    if (is_array($decoded)) {
+                        $docProfile = $decoded;
+                        $det = is_array($docProfile['detected'] ?? null) ? $docProfile['detected'] : [];
+                        $manual = (bool)($det['manual'] ?? false);
+                        $proc = (int)($det['procedures_count_est'] ?? 0);
+                        $mat = strtolower(trim((string)($docProfile['maturity_suggested'] ?? '')));
+                        $docDocsExist = $manual || ($proc > 0) || in_array($mat, ['structured_non_certified','already_certified','integrated_existing'], true);
+                        $docDocumentationFactor = (float)($docProfile['planning_adjustments']['documentation_factor'] ?? 1.0);
+                        if ($docDocumentationFactor < 0.0) $docDocumentationFactor = 0.0;
+                        if ($docDocumentationFactor > 1.0) $docDocumentationFactor = 1.0;
+
+                        $gaps = is_array($docProfile['gaps'] ?? null) ? $docProfile['gaps'] : [];
+                        $top = array_slice($gaps, 0, 3);
+                        $lines = [];
+                        foreach ($top as $g) {
+                            if (!is_array($g)) continue;
+                            $area = trim((string)($g['area'] ?? ''));
+                            $sev = trim((string)($g['severity'] ?? ''));
+                            $detail = trim((string)($g['detail'] ?? ''));
+                            if ($area === '' && $detail === '') continue;
+                            $head = $area !== '' ? $area : 'gap';
+                            if ($sev !== '') $head .= "({$sev})";
+                            $lines[] = $head . ': ' . $detail;
+                        }
+                        $docTodoGaps = trim(implode(' | ', array_values(array_filter($lines))));
+                        if (mb_strlen($docTodoGaps, 'UTF-8') > 500) {
+                            $docTodoGaps = trim(mb_substr($docTodoGaps, 0, 500, 'UTF-8'));
+                        }
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            $docProfile = null;
+        }
+    }
+
     $select = "SELECT id, name";
     if (!empty($typeCols['service_code'])) $select .= ", service_code";
     if (!empty($typeCols['default_day_rate'])) $select .= ", default_day_rate";
@@ -540,6 +599,19 @@ try {
                         'client_blocking' => true,
                         'merge_key' => '',
                     ];
+                }
+            }
+
+            // Document evidence: turn "documentation" into review/update (and shift weight via documentation_factor).
+            if ($docProfile && $docDocsExist) {
+                foreach ($normPhases as $i => $p) {
+                    if (!is_array($p)) continue;
+                    $pk = strtolower(trim((string)($p['phase_key'] ?? '')));
+                    if ($pk !== 'documentation') continue;
+                    $normPhases[$i]['label'] = 'Review/Aggiornamento documentazione esistente';
+                    $share = (float)($p['share_of_total'] ?? 0.0);
+                    if ($share < 0.0) $share = 0.0;
+                    $normPhases[$i]['share_of_total'] = $share * (float)$docDocumentationFactor;
                 }
             }
 
@@ -714,10 +786,12 @@ try {
                         $prefix .= ' Sotto-attività: ' . implode(' | ', $subs) . '.';
                     }
                 }
-                $desc = $prefix . ' Fase: ' . (string)($p['label'] ?? '');
-
                 $phaseKey = trim((string)($p['phase_key'] ?? ''));
                 if ($phaseKey === '') $phaseKey = 'ongoing';
+                if ($docProfile && $docDocsExist && strtolower($phaseKey) === 'documentation' && $docTodoGaps !== '') {
+                    $prefix .= ' TODO: ' . $docTodoGaps . '.';
+                }
+                $desc = $prefix . ' Fase: ' . (string)($p['label'] ?? '');
                 $phaseOrder = (int)($p['phase_order'] ?? 0);
                 if ($phaseOrder <= 0 && isset($phaseLib[$phaseKey]['order'])) $phaseOrder = (int)$phaseLib[$phaseKey]['order'];
                 if ($phaseOrder <= 0) $phaseOrder = 99;

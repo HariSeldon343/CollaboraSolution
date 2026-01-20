@@ -72,6 +72,10 @@ class PlanningApp {
     this._estimateWizardAutoSaveFn = null;
     this._estimateWizardLastServerSaveTs = 0;
     this._estimateWizardLastServerEstimateTs = 0;
+    this.estimateWizardDocsLoadedForClient = 0;
+    this.estimateWizardDocsSnapshot = null;
+    this.estimateWizardDocProfileId = 0;
+    this.estimateWizardDocProfile = null;
 
     // Plan scopes (multi-service / multi-norma)
     this.planScopes = []; // [{activity_type_id, estimated_days, planned_days_override, notes, sort_order}]
@@ -322,6 +326,8 @@ class PlanningApp {
     document.getElementById('planningEstimateWizardBackBtn')?.addEventListener('click', () => this.estimateWizardPrev());
     document.getElementById('planningEstimateWizardNextBtn')?.addEventListener('click', () => this.estimateWizardNext());
     document.getElementById('planningEstimateWizardRunEstimateBtn')?.addEventListener('click', () => this.estimateWizardRunEstimate());
+    document.getElementById('planningEstimateWizardDocsReindexBtn')?.addEventListener('click', () => this.estimateWizardReindexClientDocs());
+    document.getElementById('planningEstimateWizardDocsAnalyzeBtn')?.addEventListener('click', () => this.estimateWizardAnalyzeClientDocs());
   }
 
   enableClickToggleMultiSelect(selectEl) {
@@ -2629,6 +2635,10 @@ class PlanningApp {
           this.estimateWizardDraftLastSource = '';
           this.estimateWizardDraftLastError = '';
           this.estimateWizardEstimateJson = null;
+          this.estimateWizardDocsLoadedForClient = 0;
+          this.estimateWizardDocsSnapshot = null;
+          this.estimateWizardDocProfileId = 0;
+          this.estimateWizardDocProfile = null;
           try { this.estimateWizardUpdateDraftBanner(); } catch (_) {}
           try {
             const box = document.getElementById('planningEstimateWizardEstimateBox');
@@ -2636,6 +2646,7 @@ class PlanningApp {
           } catch (_) {}
           this.estimateWizardPrefillCompanyProfileFromClient(id);
           try { await this.estimateWizardLoadClientLocations(id); } catch (_) {}
+          try { await this.estimateWizardLoadClientDocsSnapshot(id); } catch (_) {}
           try { await this.estimateWizardTryRestoreDraft(id); } catch (_) {}
           try { this.estimateWizardUpdateDynamicAdvancedBlocks(); } catch (_) {}
           try { this.estimateWizardUpdateDraftBanner(); } catch (_) {}
@@ -2683,6 +2694,18 @@ class PlanningApp {
     setVal('planningEstimateWizardNotes', '');
     const regulatedEl = document.getElementById('planningEstimateWizardRegulated');
     if (regulatedEl) regulatedEl.checked = false;
+
+    // Client docs intelligence (IMS/Knowledge) — reset per session
+    this.estimateWizardDocsLoadedForClient = 0;
+    this.estimateWizardDocsSnapshot = null;
+    this.estimateWizardDocProfileId = 0;
+    this.estimateWizardDocProfile = null;
+    const docsStatus = document.getElementById('planningEstimateWizardDocsStatus');
+    if (docsStatus) docsStatus.textContent = 'Seleziona un’azienda per vedere lo stato.';
+    const docsWrap = document.getElementById('planningEstimateWizardDocsAnalysisWrap');
+    if (docsWrap) { docsWrap.style.display = 'none'; docsWrap.innerHTML = ''; }
+    const useDoc = document.getElementById('planningEstimateWizardUseDocEvidence');
+    if (useDoc) useDoc.checked = true;
 
     // Advanced inputs (collapsed by default)
     setVal('planningEstimateWizardInterventionType', '');
@@ -2758,6 +2781,7 @@ class PlanningApp {
     if (selectedClientId) {
       this.estimateWizardPrefillCompanyProfileFromClient(selectedClientId);
       this.estimateWizardLoadClientLocations(selectedClientId);
+      this.estimateWizardLoadClientDocsSnapshot(selectedClientId);
     }
 
     // Estimate UI boxes
@@ -2801,6 +2825,194 @@ class PlanningApp {
       }
     } catch (_) {
       this.estimateWizardUpdateDraftBanner();
+    }
+  }
+
+  // ------------------------------
+  // Estimate wizard: client docs intelligence (IMS/Knowledge)
+  // ------------------------------
+
+  estimateWizardGetActiveClientId() {
+    return parseInt(document.getElementById('planningEstimateWizardClient')?.value || '0', 10) || 0;
+  }
+
+  estimateWizardGetSelectedStandardCodesForDocs() {
+    try {
+      const ids = this.estimateWizardGetSelectedServiceIds();
+      const byId = new Map((this.estimateWizardCatalog || []).map(b => [parseInt(b?.id, 10) || 0, b]));
+      const out = [];
+      for (const sid of ids) {
+        const b = byId.get(parseInt(sid, 10) || 0);
+        if (!b) continue;
+        const code = String(b?.service_code || '').trim().toUpperCase();
+        if (code) out.push(code);
+      }
+      const uniq = Array.from(new Set(out)).filter(Boolean).slice(0, 6);
+      return uniq.length ? uniq : ['ISO9001'];
+    } catch (_) {
+      return ['ISO9001'];
+    }
+  }
+
+  estimateWizardRenderClientDocsBox() {
+    const statusEl = document.getElementById('planningEstimateWizardDocsStatus');
+    const wrap = document.getElementById('planningEstimateWizardDocsAnalysisWrap');
+    if (!statusEl || !wrap) return;
+
+    const clientId = this.estimateWizardGetActiveClientId();
+    if (!clientId) {
+      statusEl.textContent = 'Seleziona un’azienda per vedere lo stato.';
+      wrap.style.display = 'none';
+      wrap.innerHTML = '';
+      return;
+    }
+
+    const snap = (this.estimateWizardDocsLoadedForClient === clientId) ? this.estimateWizardDocsSnapshot : null;
+    if (!snap) {
+      statusEl.textContent = 'Caricamento…';
+      wrap.style.display = (this.estimateWizardDocProfile ? 'block' : 'none');
+    } else {
+      const k = snap.knowledge || {};
+      const li = String(k.last_indexed_at || '').trim();
+      const files = parseInt(k.file_count_indexed || '0', 10) || 0;
+      const stale = !!snap.stale;
+      const ims = !!snap.ims_folder_present;
+      const kn = !!snap.knowledge_folder_present;
+      const parts = [];
+      parts.push(ims ? 'IMS: sì' : 'IMS: no');
+      parts.push(kn ? 'Knowledge: sì' : 'Knowledge: no');
+      parts.push(li ? `Ultimo indice: ${li}` : 'Indice: mai eseguito');
+      parts.push(`File indicizzati: ${files}`);
+      if (stale && li) parts.push('Stato: NON aggiornato (stale)');
+      else if (li) parts.push('Stato: aggiornato');
+      statusEl.textContent = parts.join(' • ');
+    }
+
+    // Analysis summary (structured only)
+    const prof = this.estimateWizardDocProfile;
+    if (!prof || typeof prof !== 'object') {
+      wrap.style.display = 'none';
+      wrap.innerHTML = '';
+      return;
+    }
+    const maturity = String(prof.maturity_suggested || '').trim();
+    const conf = parseInt(prof.confidence || '0', 10) || 0;
+    const notes = String(prof?.planning_adjustments?.notes || '').trim();
+    const gaps = Array.isArray(prof.gaps) ? prof.gaps : [];
+    const gapsTop = gaps.slice(0, 4).map(g => {
+      const area = String(g?.area || '').trim();
+      const sev = String(g?.severity || '').trim();
+      const det = String(g?.detail || '').trim();
+      const line = [area, sev].filter(Boolean).join(' / ');
+      return (line ? (line + ': ') : '') + det;
+    }).filter(Boolean);
+
+    wrap.style.display = 'block';
+    wrap.innerHTML = `
+      <div style="font-weight:700; margin-bottom:6px;">Analisi (best-effort)</div>
+      <div class="planning-muted">Maturità suggerita: <strong>${this.escapeHtml(maturity || '—')}</strong> • Confidenza: <strong>${this.escapeHtml(String(conf))}%</strong></div>
+      ${notes ? `<div class="planning-muted" style="margin-top:6px;">${this.escapeHtml(notes)}</div>` : ``}
+      ${gapsTop.length ? `<div style="margin-top:10px;"><div style="font-weight:700;">Gap (sintesi)</div><div class="planning-muted">${this.escapeHtml(gapsTop.join(' | '))}</div></div>` : ``}
+    `;
+  }
+
+  async estimateWizardLoadClientDocsSnapshot(clientTenantId) {
+    const clientId = parseInt(String(clientTenantId || '0'), 10) || 0;
+    if (!clientId) return;
+    this.estimateWizardDocsLoadedForClient = clientId;
+    this.estimateWizardDocsSnapshot = null;
+    this.estimateWizardRenderClientDocsBox();
+    try {
+      const res = await this.apiFetch(`consulting_plans/client_docs_snapshot.php?client_tenant_id=${encodeURIComponent(String(clientId))}&csrf_token=${encodeURIComponent(String(this.csrfToken || ''))}`, { method: 'GET', json: true });
+      this.estimateWizardDocsSnapshot = res?.data || null;
+      this.estimateWizardDocsLoadedForClient = clientId;
+    } catch (e) {
+      this.estimateWizardDocsSnapshot = null;
+      this.estimateWizardDocsLoadedForClient = clientId;
+    }
+    this.estimateWizardRenderClientDocsBox();
+  }
+
+  async estimateWizardReindexClientDocs() {
+    const clientId = this.estimateWizardGetActiveClientId();
+    if (!clientId) return this.toast('Seleziona un’azienda cliente', 'error');
+    try {
+      this.startProgress('Reindicizzazione documenti…');
+      await this.apiFetch('consulting_plans/client_docs_reindex.php', {
+        method: 'POST',
+        json: true,
+        body: JSON.stringify({ csrf_token: this.csrfToken, client_tenant_id: clientId }),
+      });
+      this.toast('Reindicizzazione avviata (best-effort)', 'success');
+    } catch (e) {
+      const errId = e?.data?.data?.error_id || e?.data?.error_id || null;
+      let msg = e?.message || 'Reindicizzazione non disponibile';
+      if (errId) msg += ` (ref: ${errId})`;
+      this.toast(msg, 'error');
+    } finally {
+      this.finishProgress();
+      try { await this.estimateWizardLoadClientDocsSnapshot(clientId); } catch (_) {}
+    }
+  }
+
+  async estimateWizardAnalyzeClientDocs() {
+    const clientId = this.estimateWizardGetActiveClientId();
+    if (!clientId) return this.toast('Seleziona un’azienda cliente', 'error');
+
+    // Require intervention type (used as context for analysis)
+    const it = (document.getElementById('planningEstimateWizardInterventionType')?.value || '').trim();
+    if (!it) {
+      try {
+        const adv = document.getElementById('planningEstimateWizardAdvancedDetails');
+        if (adv) adv.open = true;
+      } catch (_) {}
+      this.toast('Seleziona “Tipo intervento” (obbligatorio) prima di analizzare', 'error');
+      return;
+    }
+
+    const std = this.estimateWizardGetSelectedStandardCodesForDocs();
+    try {
+      this.startProgress('Analisi documenti…');
+      const res = await this.apiFetch('consulting_plans/client_docs_analyze.php', {
+        method: 'POST',
+        json: true,
+        body: JSON.stringify({
+          csrf_token: this.csrfToken,
+          client_tenant_id: clientId,
+          standard_codes: std,
+          intervention_type: it,
+        }),
+      });
+      const data = res?.data || {};
+      this.estimateWizardDocProfileId = parseInt(String(data.doc_profile_id || '0'), 10) || 0;
+      this.estimateWizardDocProfile = (data && typeof data.payload === 'object') ? data.payload : null;
+
+      // Prefill QMS maturity (best-effort, do not override if already chosen by user)
+      try {
+        const useDoc = !!document.getElementById('planningEstimateWizardUseDocEvidence')?.checked;
+        const q = document.getElementById('planningEstimateWizardQmsMaturity');
+        const cur = q ? String(q.value || '').trim() : '';
+        const sug = String(this.estimateWizardDocProfile?.maturity_suggested || '').trim();
+        const map = {
+          none: 'none',
+          partial: 'partial_informal',
+          structured_non_certified: 'structured_not_certified',
+          already_certified: 'already_certified',
+          integrated_existing: 'integrated_system_existing',
+        };
+        const v = map[sug] || '';
+        if (useDoc && q && !cur && v) q.value = v;
+      } catch (_) {}
+
+      this.estimateWizardRenderClientDocsBox();
+      this.toast('Analisi completata', 'success');
+    } catch (e) {
+      const errId = e?.data?.data?.error_id || e?.data?.error_id || null;
+      let msg = e?.message || 'Analisi non disponibile';
+      if (errId) msg += ` (ref: ${errId})`;
+      this.toast(msg, 'error');
+    } finally {
+      this.finishProgress();
     }
   }
 
@@ -4939,6 +5151,10 @@ class PlanningApp {
       try { await this.estimateWizardSaveDraftNow({ clientId: client, serviceIds, companyProfile, includeEstimate: false, reason: 'before_estimate' }); } catch (_) {}
       this.startProgress('Stima giornate…');
 
+      // Optional: use document intelligence (doc_profile_id) to improve estimate (best-effort)
+      const useDocEvidence = !!document.getElementById('planningEstimateWizardUseDocEvidence')?.checked;
+      const docProfileId = useDocEvidence ? (parseInt(String(this.estimateWizardDocProfileId || '0'), 10) || 0) : 0;
+
       const res = await this.apiFetch('consulting_plans/estimate_days.php', {
         method: 'POST',
         json: true,
@@ -4947,6 +5163,7 @@ class PlanningApp {
           client_tenant_id: client,
           service_type_ids: serviceIds,
           company_profile: companyProfile,
+          doc_profile_id: docProfileId > 0 ? docProfileId : null,
         }),
       });
 
@@ -4959,6 +5176,9 @@ class PlanningApp {
         client_tenant_id: client,
         service_type_ids: serviceIds,
         input_company_profile: companyProfile,
+        meta: {
+          doc_profile_id: docProfileId > 0 ? docProfileId : null,
+        },
         ...data,
       };
 
@@ -5078,6 +5298,12 @@ class PlanningApp {
             selected_count: selectedLocations.length,
             saved_at: new Date().toISOString(),
           };
+          // Persist doc_profile_id (best-effort) so backend can adapt phases/items later
+          try {
+            const useDocEvidence = !!document.getElementById('planningEstimateWizardUseDocEvidence')?.checked;
+            const docProfileId = useDocEvidence ? (parseInt(String(this.estimateWizardDocProfileId || '0'), 10) || 0) : 0;
+            this.estimateWizardEstimateJson.meta.doc_profile_id = (docProfileId > 0 ? docProfileId : null);
+          } catch (_) {}
         }
       } catch (_) {}
 
