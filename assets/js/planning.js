@@ -19,6 +19,8 @@ class PlanningApp {
     this.blueprintPlanId = null;
     this.lastProvisionProgramId = null;
     this.lastProvisioningSummary = null;
+    this.provisionPlanItemsCount = null; // integer when known
+    this.provisionPlanItemsCountPlanId = null;
     this.imsTemplates = [];
     this.imsTemplatesLoadedAt = 0;
     this.imsTemplateEditingKey = null;
@@ -1199,23 +1201,60 @@ class PlanningApp {
     h.textContent = `Provisiona Compliance (IMS)${suffix}`;
   }
 
+  async refreshProvisionPlanItemsCount() {
+    const pid = parseInt(String(this.activePlanId || '0'), 10) || 0;
+    if (!pid) return;
+    // If items are already loaded for this plan, use them (avoid extra call)
+    try {
+      const items = Array.isArray(this.items) ? this.items : [];
+      if (items.length) {
+        const firstPid = parseInt(String(items[0]?.plan_id || '0'), 10) || 0;
+        if (firstPid === pid) {
+          this.provisionPlanItemsCount = items.length;
+          this.provisionPlanItemsCountPlanId = String(pid);
+          this.updateProvisionCreateTasksUi();
+          return;
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const res = await this.apiFetch(`consulting_plans/items_count.php?plan_id=${encodeURIComponent(String(pid))}&csrf_token=${encodeURIComponent(String(this.csrfToken || ''))}`, { method: 'GET', json: true });
+      const c = parseInt(String(res?.data?.items_count ?? '0'), 10) || 0;
+      this.provisionPlanItemsCount = (c > 0 ? c : 0);
+      this.provisionPlanItemsCountPlanId = String(pid);
+    } catch (_) {
+      // best-effort: keep unknown
+      this.provisionPlanItemsCount = null;
+      this.provisionPlanItemsCountPlanId = String(pid);
+    }
+    this.updateProvisionCreateTasksUi();
+  }
+
   updateProvisionCreateTasksUi() {
     const chkDocs = document.getElementById('planningProvisionCreateDocuments');
     const chkTasks = document.getElementById('planningProvisionCreateTasks');
     const help = document.getElementById('planningProvisionCreateTasksHelp');
     if (!chkDocs || !chkTasks) return;
 
-    const baseHelp = 'Non crea le attività consulenza del piano (già presenti). Crea solo task/checklist in Compliance.';
-    const docsOn = !!chkDocs.checked;
-    const hasBlueprint = !!this.blueprintResult;
-    // Tasks make sense when documents are being provisioned now OR a blueprint/doc-structure already exists.
-    const enabled = docsOn || hasBlueprint;
+    const baseHelp = 'Crea task/checklist in Compliance (compilazione deliverable IMS).';
 
-    chkTasks.disabled = !enabled;
-    if (!enabled) chkTasks.checked = false;
-    if (help) {
-      help.textContent = enabled ? baseHelp : (baseHelp + ' (Abilita “Crea documenti” oppure genera prima i documenti, poi crea i task.)');
+    // Contextual behavior requested:
+    // - if the plan already has consulting_plan_items => disable and show a clear note (avoid any possible duplication/confusion)
+    const pid = String(this.activePlanId || '');
+    const countKnown = (String(this.provisionPlanItemsCountPlanId || '') === pid) && (this.provisionPlanItemsCount !== null);
+    const hasPlanItems = countKnown ? ((parseInt(String(this.provisionPlanItemsCount || '0'), 10) || 0) > 0) : false;
+
+    if (countKnown && hasPlanItems) {
+      chkTasks.checked = false;
+      chkTasks.disabled = true;
+      if (help) help.textContent = 'Attività già presenti (create dal wizard): questa opzione non verrà applicata.';
+      return;
     }
+
+    // Default (legacy/manual plans): allow tasks
+    chkTasks.disabled = false;
+    if (help) help.textContent = baseHelp;
   }
 
   openComplianceProvisionModal() {
@@ -1228,6 +1267,8 @@ class PlanningApp {
 
     // Keep "create tasks" checkbox meaningful (avoid confusing it with plan activities)
     this.updateProvisionCreateTasksUi();
+    // Load plan items count (best-effort) to disable the checkbox when the plan already has items.
+    this.refreshProvisionPlanItemsCount().catch(() => {});
     const chkDocs = document.getElementById('planningProvisionCreateDocuments');
     if (chkDocs && chkDocs.dataset.cnxBound !== '1') {
       chkDocs.addEventListener('change', () => this.updateProvisionCreateTasksUi());
@@ -2388,6 +2429,7 @@ class PlanningApp {
                   csrf_token: this.csrfToken,
                   consulting_plan_id: planIdNum,
                   options: {
+                    create_tasks: createTasks,
                     create_calendar_events: createMilestones
                   }
                 })
@@ -2401,6 +2443,7 @@ class PlanningApp {
               data: {
                 storage_available: !!p.storage_available,
                 data: {
+                  tasks_skipped_reason: (t.tasks_skipped_reason ?? null),
                   created: {
                     folders: (p.created?.folders ?? 0),
                     documents: (p.created?.documents ?? 0),
@@ -2438,6 +2481,7 @@ class PlanningApp {
       const created = payload?.created || {};
       const reused = payload?.reused || {};
       const warnings = Array.isArray(payload?.warnings) ? payload.warnings : [];
+      const tasksSkippedReason = String(payload?.tasks_skipped_reason || '').trim();
       const storageAvailable = !!prov?.data?.storage_available;
 
       showBox(`
@@ -2445,6 +2489,7 @@ class PlanningApp {
         <div class="planning-muted">Cartelle: +${this.escapeHtml(String(created.folders ?? 0))} (esistenti: ${this.escapeHtml(String(reused.folders ?? 0))})</div>
         <div class="planning-muted">Documenti: +${this.escapeHtml(String(created.documents ?? 0))} (esistenti: ${this.escapeHtml(String(reused.documents ?? 0))})</div>
         <div class="planning-muted" style="margin-top:6px;">Task: +${this.escapeHtml(String(created.tasks ?? 0))} (esistenti: ${this.escapeHtml(String(reused.tasks ?? 0))})</div>
+        ${tasksSkippedReason ? `<div class="planning-muted" style="margin-top:6px;"><strong>Task</strong>: non creati (${this.escapeHtml(tasksSkippedReason)})</div>` : ``}
         <div class="planning-muted">Milestone: +${this.escapeHtml(String(created.events ?? 0))} (esistenti: ${this.escapeHtml(String(reused.events ?? 0))})</div>
         ${storageAvailable ? '' : `<div style="margin-top:10px;" class="planning-muted"><strong>Nota</strong>: storage mapping non disponibile (migrazione 44 non applicata) — dedup best-effort.</div>`}
         ${warnings.length ? `<div style="margin-top:10px;"><div style="font-weight:700;">Warning</div><div class="planning-muted">${this.escapeHtml(warnings.slice(0, 6).join(' | '))}</div></div>` : ''}

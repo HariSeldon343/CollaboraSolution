@@ -327,6 +327,9 @@ try {
     $createDocuments = (bool)($options['create_documents'] ?? true);
     $createTasks = (bool)($options['create_tasks'] ?? true);
     $createMilestones = (bool)($options['create_milestones'] ?? false);
+    $tasksRequested = $createTasks;
+    $tasksSkippedReason = null;
+    $planItemsCount = null;
 
     // Optional: provision only selected modules (tenant 28 UI)
     $moduleKeys = [];
@@ -387,6 +390,27 @@ try {
     }
     if (!cnx_consulting_is_client_allowed($db, $userInfo, $clientTenantId)) {
         api_error('Accesso negato al tenant cliente', 403);
+    }
+
+    // Planning/Wizard coherence:
+    // If the plan already has consulting_plan_items, do NOT create additional tasks from provisioning options.
+    // (Keeps idempotence and avoids confusing “double planning” across modules.)
+    try {
+        $hasPlanItems = cnx_table_exists($db, 'consulting_plan_items');
+        if ($hasPlanItems) {
+            $itCols = cnx_cols($db, 'consulting_plan_items');
+            $where = "plan_id = ?";
+            $params = [$planId];
+            if (!empty($itCols['deleted_at'])) $where .= " AND deleted_at IS NULL";
+            $r = $db->fetchOne("SELECT COUNT(*) AS c FROM consulting_plan_items WHERE {$where}", $params);
+            $planItemsCount = (int)($r['c'] ?? 0);
+        }
+    } catch (Throwable $e) {
+        $planItemsCount = null;
+    }
+    if ($tasksRequested && $planItemsCount !== null && $planItemsCount > 0) {
+        $createTasks = false;
+        $tasksSkippedReason = 'already_present';
     }
 
     // Storage availability (optional)
@@ -1460,6 +1484,9 @@ try {
             'created' => $created,
             'reused' => $reused,
             'warnings' => $warnings,
+            'tasks_requested' => $tasksRequested,
+            'tasks_skipped_reason' => $tasksSkippedReason,
+            'plan_items_count' => $planItemsCount,
             'links' => [
                 'open_files' => 'files.php',
                 'open_compliance' => 'compliance.php',
