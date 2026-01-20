@@ -1067,6 +1067,18 @@ try {
             if ($df < 0.0) $df = 0.0;
             if ($df > 1.0) $df = 1.0;
 
+            // Keep wizard preview coherent with items_generate_from_estimate.php:
+            // apply documentation_factor to the documentation phase share (distribution), not only to total days.
+            if (is_array($previewPhases)) {
+                foreach ($previewPhases as $i => $ph) {
+                    $pk = strtolower(trim((string)($ph['phase_key'] ?? '')));
+                    if ($pk !== 'documentation') continue;
+                    $share = (float)($ph['share_of_total'] ?? 0.0);
+                    if ($share < 0.0) $share = 0.0;
+                    $previewPhases[$i]['share_of_total'] = $share * $df;
+                }
+            }
+
             if ($df < 1.0) {
                 $ratioReduction = (1.0 - $df) * min(0.35, max(0.10, $docShare));
                 $ratioReduction = max(0.0, min(0.30, $ratioReduction));
