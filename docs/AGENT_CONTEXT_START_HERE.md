@@ -4,6 +4,53 @@ Questo documento è pensato per **dare contesto rapido e completo** a chi entra 
 
 ---
 
+## 2026-01-12 — WIP: AI Copilot / Raccolta dati + RAG (multi-tenant)
+
+Obiettivo:
+- Aggiungere un **AI Copilot multi‑tenant** integrato con compliance (entry point anche da planning) per raccolta dati + gap analysis con RAG, senza impattare planning/tenant 28.
+
+### Implementazione (in corso)
+- **DB (nuove tabelle)**: migrazione `database/migrations/67_tenant_ai_onboarding.sql`
+  - `tenant_doc_index_runs`, `tenant_doc_chunks`, `tenant_doc_files_state`
+  - `tenant_ai_chat_sessions`, `tenant_ai_chat_messages`
+  - `tenant_checklists`, `tenant_checklist_items`, `tenant_checklist_item_values`
+  - `tenant_ai_settings` (paths indicizzabili + esclusioni)
+- **Tool apply**: `tools/apply_migration_67_tenant_ai_onboarding.php`
+- **Indicizzazione tenant**: `includes/ai/tenant_docs_indexer.php`
+  - estrazione testo (docx/xlsx/txt/pdf best‑effort)
+  - chunking + redazione PII (email/telefono/CF)
+- **Endpoint AI (onboarding attuale)**:
+  - `api/ai/tenant_docs_snapshot.php`
+  - `api/ai/tenant_docs_reindex.php`
+  - `api/ai/tenant_docs_analyze.php`
+  - `api/ai/tenant_checklists.php` (templates/get/update/export XLSX)
+- **Worker cron**: `cron/tenant_docs_reindex.php` (throttle 10 min)
+- **Chat onboarding**: esteso `api/ai/chat.php` con `mode=onboarding` (RAG + azioni whitelist)
+- **Richieste nuove in arrivo (da implementare)**:
+  - endpoint RAG dedicati (`api/ai_rag_query.php`, `api/ai_rag_reindex.php`)
+  - nuove tabelle `ai_doc_chunks` / `ai_doc_index_jobs` + conversazioni Copilot
+  - integrazione checklist con endpoint già presenti (`api/checklist_*`)
+  - entry point Copilot in `planning.php`
+- **UI compliance**:
+  - `compliance.php` nuovo modal “Assistente AI”
+  - `assets/js/compliance_onboarding.js` (chat + checklist tabellare)
+  - `assets/css/compliance.css` (layout)
+- **Template checklist**:
+  - `configs/checklists/generic_gap_assessment.json`
+  - `configs/checklists/iso9001_iso7101_health.json`
+- **Compliance AI guardrail**:
+  - `assets/js/compliance.js`: campo obbligatorio `document_objective`
+  - `api/compliance/artifact_ai.php`: blocco generazione se obiettivo mancante + include checklist + tenant_doc_chunks nel prompt
+
+### Test plan rapido (parziale)
+- Applica migrazione 67: `tools/apply_migration_67_tenant_ai_onboarding.php`
+- `compliance.php` → “Assistente AI”:
+  - stato indicizzazione visibile
+  - reindex + analyze senza blocchi
+  - crea checklist da template e compila
+  - chat aggiorna checklist (status/note)
+- Wizard compliance: “Obiettivo documento” obbligatorio prima di AI/applica
+
 ## 2026-01-17 — COMPLETATO: “Catalogo servizi/norme 2026” + Engine Stima (Planning tenant 28)
 
 ### Implementazione (cosa è stato fatto)
@@ -174,6 +221,48 @@ Obiettivo:
 ### Hotfix 500 (calendario proposto)
 - Se la bozza calendario andava in **500** con errori tipo `Call to undefined method Calendar::calculateTotalMinutes()` / `getUserWorkHours()`:
   - fix in `includes/calendar.php` (helper mancante) per rendere stabile `getUserAvailability()` e qualsiasi uso di `suggestFreeSlots()`.
+
+## 2026-01-21 — FIX: Calendario (`calendar.php`) salvataggio modifiche + eventi multi‑giorno
+
+Problemi segnalati:
+- In alcuni eventi la modifica **non veniva salvata** (casistiche: permessi e “tutto il giorno”).
+- Gli eventi che durano più giorni comparivano **solo nel primo giorno** (mese/settimana/giorno).
+
+### Implementazione (cosa è stato fatto)
+- **RBAC modifica evento**:
+  - `includes/calendar.php`: un evento è modificabile se **organizer** oppure ruolo in **{manager, admin, super_admin}** (tenant‑scoped; il filtro tenant resta enforced da `api/events.php`).
+- **All‑day (tutto il giorno) con end inclusiva**:
+  - `assets/js/calendar.js` (`EventModal`):
+    - se `all_day=true` gli input diventano `type=date` già al render (non solo dopo toggle)
+    - validazione: all‑day permette **start = end** (1 giorno)
+    - serializzazione verso API: end inclusiva in UI ma **end esclusiva** in storage
+      - `start_date = YYYY-MM-DDT00:00`
+      - `end_date = (end + 1 giorno)T00:00`
+- **Rendering multi‑giorno**:
+  - `assets/js/calendar.js` (`CalendarView`):
+    - **month view**: evento duplicato in tutte le date del range visibile
+    - **week view**: all‑day duplicati per giorno; timed events **splittati in segmenti giornalieri** (clamp 00:00–23:59) e posizionati nella colonna corretta
+    - **day view**: timed events multi‑giorno mostrati anche nei giorni successivi (segmento giornaliero)
+- **Drag & drop / resize senza shift UTC**:
+  - `assets/js/calendar.js` (`DragDropHandler`): rimosso uso di `toISOString()` nelle patch date; ora invia **datetime locali** (`YYYY-MM-DDTHH:MM`) per evitare slittamenti di 1h/1g.
+
+### File toccati (principali)
+- `assets/js/calendar.js`
+- `includes/calendar.php`
+
+### Migrazioni
+- Nessuna.
+
+### Test plan rapido (manuale)
+- **All‑day 1 giorno**: crea/modifica evento tutto il giorno con Start=End → salva OK; visibile in mese/settimana/giorno.
+- **All‑day multi‑giorno**: Start=10, End=12 → visibile 10‑11‑12 in month/week; in day view appare anche l’11 e il 12.
+- **Timed multi‑giorno**: Start 10 15:00, End 11 11:00 → in week/day view si vede nel 10 (15:00‑23:59) e nell’11 (00:00‑11:00).
+- **Drag & drop / resize**: sposta un evento e ridimensionalo → dopo reload resta nello stesso giorno/ora (no shift).
+- **RBAC**: come **manager**, modifica un evento creato da un altro utente del tenant → salva OK.
+
+### Extra bugfix (non-Planning)
+- **Turni**: `assets/js/shifts.js` — nel Wizard Turni preview/CSV le date ora sono in **locale** (niente `toISOString()` che causava giorno “-1”).
+- **Ticket**: `assets/js/tickets.js` — hardening UI per mantenere visibili/abilitati i bottoni “Nuovo Ticket” e “Crea Ticket”.
 
 ## 2026-01-16 — SNAPSHOT STATO ATTUALE (per riprendere): “Catalogo servizi/norme 2026” + Engine Stima (Planning tenant 28)
 
@@ -1072,6 +1161,77 @@ Per mantenere il contesto sempre aggiornato:
 >   - **Cosa**: ...
 >   - **File**: `path1`, `path2`
 >   - **Note**: (opzionale)
+
+- **2026-01-12** — AI Data Collection Assistant (planning) + sessioni
+  - **Cosa**:
+    - Aggiunto **assistant AI** per raccolta dati/gap analysis con checklist tabellare + chat.
+    - Endpoint dedicato `api/ai/assistant_checklist.php` con **sessioni**, **messaggi**, retrieval knowledge (RAG) e **actions** whitelist per aggiornare checklist.
+    - Modal in `planning.php` con tabella checklist + chat e bottoni: reindex/analyze/intervista/export.
+    - Sezione in `compliance.php` con link all’**AI Hub** (solo navigazione).
+  - **File**: `api/ai/assistant_checklist.php`, `database/migrations/66_ai_assistant_sessions.sql`, `tools/apply_migration_66_ai_assistant_sessions.php`, `planning.php`, `assets/js/planning.js`, `assets/css/planning.css`, `compliance.php`
+  - **Note**: migrazione 66 da applicare; nessuna modifica automatica ai documenti.
+
+- **2026-01-21** — Planning: Checklist “Raccolta Dati / Assessment” (Cefalù — ISO 9001 + ISO 7101) + Obiettivo obbligatorio + Evidenze normalizzate + Export XLSX
+  - **Cosa**:
+    - **Template nuovo (sanità)**:
+      - aggiunto `CEFALU_SGQ_ISO9001_ISO7101` (struttura per raccolta dati/assessment; **nessun testo norma**).
+      - selezione template in UI **best-effort**: se nel piano è presente **ISO7101** (o settore “Sanità”/nome cliente “Cefalù”), viene pre-selezionato il template Cefalù.
+    - **DB v2 (obiettivo + evidenze)**:
+      - migrazione `65_consulting_project_checklists_objective_evidence.sql`:
+        - `consulting_project_checklists.objective_text` (obiettivo checklist)
+        - `consulting_project_checklist_evidence` (evidenze normalizzate, compatibile con `evidence_json`)
+    - **API nuove/additive (tenant 28 + CSRF + auth)**:
+      - `checklist_update.php`: update header (objective/status) con validazioni.
+      - `checklist_evidence_add.php` / `checklist_evidence_clear.php`: add/remove evidenze **idempotente**, con validazione `file_id` nel tenant cliente; mantiene anche `evidence_json` per compatibilità UI.
+      - `checklist_export_xlsx.php`: export in `.xlsx` **senza librerie esterne** (ZipArchive).
+      - `templates_list.php`: listing template ora via scansione `configs/checklists/*.json` (non più mapping hardcoded).
+    - **UI Planning (tab Checklist)**:
+      - dropdown **Template**, filtri **Fase**/**Stato**, colonna **Azioni**.
+      - campo **Obiettivo** obbligatorio (creazione checklist bloccata se vuoto; autosave su DB quando migrazione 65 presente).
+      - gestione evidenze: **Aggiungi / Rimuovi / Svuota** (fallback su `evidence_json` se tabella evidenze non presente).
+      - bottone **Export Excel**.
+      - analisi documenti: usa `standard_codes` del piano (es. `ISO9001`, `ISO7101`) e fa `snapshot → reindex (best-effort) → analyze`.
+  - **File**: `planning.php`, `assets/js/planning.js`, `configs/checklists/cefalu_sgq_iso9001_iso7101.json`, `api/consulting_plans/checklists/_common.php`, `api/consulting_plans/checklists/checklist_update.php`, `api/consulting_plans/checklists/checklist_evidence_add.php`, `api/consulting_plans/checklists/checklist_evidence_clear.php`, `api/consulting_plans/checklists/checklist_export_xlsx.php`, `database/migrations/65_consulting_project_checklists_objective_evidence.sql`, `tools/apply_migration_65_consulting_project_checklists_objective_evidence.php`
+  - **Note**:
+    - La creazione checklist richiede la migrazione **65** (obiettivo obbligatorio lato server).
+    - Tutto additive/idempotente, nessuna dipendenza esterna.
+
+- **2026-01-21** — Planning: Document Intelligence (lock/throttle) + Checklist SGQ (tabellare + template recert + autofill non distruttivo)
+  - **Cosa**:
+    - **Reindex documenti cliente (10 min + lock)**:
+      - `includes/ai/knowledge_indexer.php`: `cnx_ai_index_folder_delta()` ora usa un **named lock** (`GET_LOCK`) per evitare indicizzazioni concorrenti sullo stesso tenant/source.
+      - `api/consulting_plans/client_docs_reindex.php`: aggiunto supporto `force` + **throttle 10 minuti** (`fresh_skip`) e gestione `locked` (non aggiorna `last_indexed_at` quando la lock è attiva).
+      - `cron/ai_knowledge_delta_index.php`: aggiunta opzione `--min-interval-seconds=600` per evitare scansioni ridondanti quando schedulato spesso.
+    - **Analisi documenti: `doc_evidence[]`**:
+      - `api/consulting_plans/client_docs_analyze.php`: aggiunto `payload.doc_evidence[]` (metadata-only: `file_id/name/path` + `tags/matched_keywords`) per supportare prefill checklist e suggerimenti UI, in modo **backward-compatible** (anche su cache).
+    - **Checklist SGQ: UX tabellare + recert**:
+      - `configs/checklists/iso9001_recertification_mini.json`: nuovo template snello per **ricertificazione** (raccolta evidenze chiave).
+      - `api/consulting_plans/checklists/_common.php` + `templates_list.php`: mapping + listing del nuovo template.
+      - `assets/js/planning.js`: tab checklist reso **TABLE** per sezione (più veloce da compilare) + salvataggio `answer_text` con **debounce**.
+      - `api/consulting_plans/checklists/checklist_autofill_from_docs.php`: autofill ora è **non distruttivo** (merge + dedup `evidence_json`; non sovrascrive evidenze inserite manualmente) e usa tags/keywords da doc_profile quando disponibili.
+      - `planning.php`: bottone “Precompila checklist (AI)” (best-effort).
+  - **File**: `includes/ai/knowledge_indexer.php`, `api/consulting_plans/client_docs_reindex.php`, `api/consulting_plans/client_docs_analyze.php`, `cron/ai_knowledge_delta_index.php`, `planning.php`, `assets/js/planning.js`, `api/consulting_plans/checklists/*`, `configs/checklists/iso9001_recertification_mini.json`
+  - **Note**: nessuna migrazione (usa migrazioni già introdotte 48/63/64).
+
+- **2026-01-21** — Turni: “turni liberi” (entrata/uscita flessibile) + legenda tipi turno in modal
+- **2026-01-21** — Aziende: ricerca/validazione comuni accent-insensitive (Cefalù ↔ Cefalu)
+  - **Cosa**:
+    - Fix autocomplete/validazione comuni con caratteri accentati: la ricerca ora è **accent-insensitive**.
+    - Esempio: digitando `Cefalu` viene suggerito/validato `Cefalù`.
+  - **File**: `api/locations/search_municipalities.php`, `api/locations/validate_municipality.php`
+  - **Note**: cambio solo lato query (`COLLATE utf8mb4_general_ci`), nessuna migrazione.
+
+  - **Cosa**:
+    - **Turno libero (per singolo turno)**: nel modal “Nuovo/Modifica Turno” è stata aggiunta l’opzione **Turno libero** per registrare:
+      - **Entrata posticipata** → `work_shifts.start_time_override`
+      - **Uscita anticipata** → `work_shifts.end_time_override`
+      (senza dover creare un nuovo **Tipo Turno** per ogni variante oraria).
+    - **BULK**: la creazione bulk (periodo) **non** supporta override orari (UI disabilitata) per evitare applicazioni involontarie su più giorni.
+    - **Legenda header**: rimossa la lista “in linea” dei tipi turno (poco usabile con molti tipi) e sostituita con il pulsante **“Tipi turno (N)”** che apre un modal con:
+      - elenco **tipi turno usati nel periodo visibile**
+      - **conteggio** per tipo
+  - **File**: `turni.php`, `assets/js/shifts.js`
+  - **Note**: nessuna migrazione (usa colonne già presenti da Migration 22).
 
 - **2026-01-13** — Turni: blocco sovrapposizioni + conteggio ore settimanali (alert >48h) + riepilogo per utente (per tipo turno)
   - **Cosa**:

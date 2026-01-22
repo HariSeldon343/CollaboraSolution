@@ -77,6 +77,32 @@ class PlanningApp {
     this.estimateWizardDocProfileId = 0;
     this.estimateWizardDocProfile = null;
 
+    // Checklist SGQ (add-on, opt-in)
+    this.checklistTemplateKey = ''; // empty = auto-pick by intervention_type
+    this.checklistTemplates = [];
+    this.checklistTemplatesLoadedAt = 0;
+    this.checklistStorageAvailable = null; // null=unknown
+    this.checklistObjectiveSupported = null;
+    this.checklistEvidenceTableSupported = null;
+    this.checklistFilterPhase = '';
+    this.checklistFilterStatus = '';
+    this.activeChecklist = null;
+    this.activeChecklistItems = [];
+    this.activeChecklistTemplate = null;
+    this.activeChecklistDocProfile = null;
+    this.activeChecklistLoadedForPlanId = null;
+    this._checklistDebounceTimers = new Map();
+    this._checklistObjectiveDebounceTimer = null;
+
+    // AI Data Collection Assistant
+    this.assistantSessionId = 0;
+    this.assistantMessages = [];
+    this.assistantNextQuestion = '';
+    this.assistantProviders = [];
+    this.assistantProvider = '';
+    this.assistantModel = '';
+    this.assistantLoading = false;
+
     // Plan scopes (multi-service / multi-norma)
     this.planScopes = []; // [{activity_type_id, estimated_days, planned_days_override, notes, sort_order}]
     this.planScopeServiceIds = []; // [activity_type_id]
@@ -195,6 +221,41 @@ class PlanningApp {
     });
     document.getElementById('planningOpenImsTemplateCatalogBtn')?.addEventListener('click', () => this.openImsTemplateCatalogModal());
     // NOTE: legacy blueprint modal handlers intentionally kept out of UI (feature deprecated in planning)
+
+    // Checklist SGQ (add-on)
+    document.getElementById('planningChecklistReloadBtn')?.addEventListener('click', () => this.loadChecklistForActivePlan({ force: true }));
+    document.getElementById('planningChecklistCreateBtn')?.addEventListener('click', () => this.createChecklistFromTemplateForActivePlan());
+    document.getElementById('planningChecklistAutofillBtn')?.addEventListener('click', () => this.autofillChecklistFromDocsForActivePlan());
+    document.getElementById('planningChecklistAssistantBtn')?.addEventListener('click', () => this.openAssistantModal());
+    document.getElementById('planningChecklistDocsReindexBtn')?.addEventListener('click', () => this.checklistReindexClientDocs());
+    document.getElementById('planningChecklistDocsAnalyzeBtn')?.addEventListener('click', () => this.checklistAnalyzeClientDocs());
+    document.getElementById('planningChecklistExportBtn')?.addEventListener('click', () => this.exportChecklistXlsxForActivePlan?.());
+
+    // Checklist UI controls (template/objective/filters)
+    document.getElementById('planningChecklistTemplateSelect')?.addEventListener('change', () => this.onChecklistTemplateSelectChanged?.());
+    document.getElementById('planningChecklistFilterPhase')?.addEventListener('change', () => {
+      this.checklistFilterPhase = String(document.getElementById('planningChecklistFilterPhase')?.value || '').trim();
+      this.renderChecklistTab();
+    });
+    document.getElementById('planningChecklistFilterStatus')?.addEventListener('change', () => {
+      this.checklistFilterStatus = String(document.getElementById('planningChecklistFilterStatus')?.value || '').trim();
+      this.renderChecklistTab();
+    });
+    const objEl = document.getElementById('planningChecklistObjectiveText');
+    if (objEl && objEl.dataset?.cnxBound !== '1') {
+      objEl.addEventListener('input', () => this.onChecklistObjectiveInput?.({ flush: false }));
+      objEl.addEventListener('blur', () => this.onChecklistObjectiveInput?.({ flush: true }));
+      objEl.dataset.cnxBound = '1';
+    }
+
+    // Assistant modal controls
+    document.getElementById('planningAssistantModalClose')?.addEventListener('click', () => this.closeAssistantModal());
+    document.getElementById('planningAssistantDocsReindexBtn')?.addEventListener('click', () => this.checklistReindexClientDocs());
+    document.getElementById('planningAssistantDocsAnalyzeBtn')?.addEventListener('click', () => this.loadAssistantDocContext({ force: true }));
+    document.getElementById('planningAssistantStartBtn')?.addEventListener('click', () => this.startAssistantSession());
+    document.getElementById('planningAssistantChatSendBtn')?.addEventListener('click', () => this.sendAssistantMessage());
+    document.getElementById('planningAssistantNextQuestionBtn')?.addEventListener('click', () => this.sendAssistantMessage({ useNextQuestion: true }));
+    document.getElementById('planningAssistantExportBtn')?.addEventListener('click', () => this.exportChecklistXlsxForActivePlan?.());
 
     // Compliance Provision
     document.getElementById('planningComplianceProvisionModalClose')?.addEventListener('click', () => this.closeModal('planningComplianceProvisionModal'));
@@ -793,13 +854,14 @@ class PlanningApp {
   setPlanningActiveTab(tab, { persist = true } = {}) {
     const tabs = document.getElementById('planningTabs');
     if (!tabs) return;
-    const t = (tab === 'schedule' || tab === 'compliance' || tab === 'consultants') ? tab : 'activities';
+    const t = (tab === 'schedule' || tab === 'compliance' || tab === 'consultants' || tab === 'checklist') ? tab : 'activities';
 
     const panels = {
       activities: document.getElementById('planningTabPanelActivities'),
       consultants: document.getElementById('planningTabPanelConsultants'),
       schedule: document.getElementById('planningTabPanelSchedule'),
       compliance: document.getElementById('planningTabPanelCompliance'),
+      checklist: document.getElementById('planningTabPanelChecklist'),
     };
     Object.entries(panels).forEach(([k, el]) => {
       if (!el) return;
@@ -822,6 +884,1491 @@ class PlanningApp {
 
     if (t === 'consultants') {
       try { this.renderAllocationPanel?.(); } catch (_) {}
+    }
+
+    if (t === 'checklist') {
+      try { this.loadChecklistForActivePlan?.({ force: false }); } catch (_) {}
+    }
+  }
+
+  // ------------------------------
+  // Checklist (Progetto SGQ) — add-on, opt-in
+  // ------------------------------
+
+  getChecklistTemplateKey() {
+    const explicit = String(this.checklistTemplateKey || '').trim();
+    if (explicit) return explicit;
+
+    // Best-effort: select Cefalù Sanità template when ISO7101 is involved (or sector suggests healthcare).
+    try {
+      const std = this.getProvisioningStandardsForUi().map(s => String(s || '').trim().toUpperCase()).filter(Boolean);
+      const has7101 = std.includes('ISO7101');
+      const sector = String(this.getActivePlanSectorBestEffort() || '').toLowerCase();
+      const isSanita = sector.includes('sanit');
+      const clientName = String(this.getActivePlan()?.client_name || '').toLowerCase();
+      const hintsCefalu = clientName.includes('cefalu') || clientName.includes('cefalù');
+      if (has7101 || isSanita || hintsCefalu) return 'CEFALU_SGQ_ISO9001_ISO7101';
+    } catch (_) {}
+
+    // Choose a slimmer template for recertification when no special template applies.
+    const it = String(this.getActivePlanInterventionTypeBestEffort() || '').trim().toLowerCase();
+    if (it === 'recertification') return 'ISO9001_RECERTIFICATION_MINI';
+
+    return 'SGQ_ISO9001_BANDO';
+  }
+
+  getActivePlanInterventionTypeBestEffort() {
+    const plan = this.getActivePlan();
+    if (!plan) return '';
+    const est = this.parseJsonBestEffort(plan.estimate_json);
+    const p = est?.input_company_profile || est?.company_profile || null;
+    const it = String(p?.intervention_type || '').trim();
+    return it;
+  }
+
+  getActivePlanSectorBestEffort() {
+    try {
+      const plan = this.getActivePlan();
+      if (!plan) return '';
+      const est = this.parseJsonBestEffort(plan.estimate_json);
+      const p = est?.input_company_profile || est?.company_profile || null;
+      const sector = String(p?.sector || '').trim();
+      return sector;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  parseJsonArrayBestEffort(v) {
+    const o = this.parseJsonBestEffort(v);
+    return Array.isArray(o) ? o : [];
+  }
+
+  getChecklistTemplateStorageKey(planId) {
+    return `cnx_checklist_tpl_plan_${String(planId || '')}`;
+  }
+
+  getChecklistObjectiveDraftStorageKey(planId) {
+    return `cnx_checklist_objective_plan_${String(planId || '')}`;
+  }
+
+  loadChecklistTemplateSelectionForPlan(planId) {
+    const pid = parseInt(String(planId || '0'), 10) || 0;
+    if (!pid) return '';
+    try {
+      const v = String(localStorage.getItem(this.getChecklistTemplateStorageKey(pid)) || '').trim();
+      return v;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  saveChecklistTemplateSelectionForPlan(planId, templateKey) {
+    const pid = parseInt(String(planId || '0'), 10) || 0;
+    if (!pid) return;
+    try {
+      const v = String(templateKey || '').trim();
+      if (v) localStorage.setItem(this.getChecklistTemplateStorageKey(pid), v);
+      else localStorage.removeItem(this.getChecklistTemplateStorageKey(pid));
+    } catch (_) {}
+  }
+
+  loadChecklistObjectiveDraftForPlan(planId) {
+    const pid = parseInt(String(planId || '0'), 10) || 0;
+    if (!pid) return '';
+    try {
+      return String(localStorage.getItem(this.getChecklistObjectiveDraftStorageKey(pid)) || '');
+    } catch (_) {
+      return '';
+    }
+  }
+
+  saveChecklistObjectiveDraftForPlan(planId, objectiveText) {
+    const pid = parseInt(String(planId || '0'), 10) || 0;
+    if (!pid) return;
+    try {
+      const v = String(objectiveText || '');
+      if (v.trim()) localStorage.setItem(this.getChecklistObjectiveDraftStorageKey(pid), v);
+      else localStorage.removeItem(this.getChecklistObjectiveDraftStorageKey(pid));
+    } catch (_) {}
+  }
+
+  async loadChecklistTemplates({ force } = {}) {
+    if (!force && this.checklistTemplatesLoadedAt && (Date.now() - this.checklistTemplatesLoadedAt) < 5 * 60 * 1000) {
+      return this.checklistTemplates;
+    }
+    try {
+      const res = await this.apiFetch(`consulting_plans/checklists/templates_list.php?csrf_token=${encodeURIComponent(String(this.csrfToken || ''))}`, { method: 'GET', json: true });
+      const data = res?.data || {};
+      this.checklistTemplates = Array.isArray(data.templates) ? data.templates : [];
+      this.checklistTemplatesLoadedAt = Date.now();
+      this.renderChecklistTemplateSelect();
+      return this.checklistTemplates;
+    } catch (_) {
+      // non-blocking
+      this.checklistTemplatesLoadedAt = Date.now();
+      this.renderChecklistTemplateSelect();
+      return this.checklistTemplates;
+    }
+  }
+
+  renderChecklistTemplateSelect() {
+    const sel = document.getElementById('planningChecklistTemplateSelect');
+    if (!sel) return;
+    const templates = Array.isArray(this.checklistTemplates) ? this.checklistTemplates : [];
+    const active = this.getChecklistTemplateKey();
+    const hadValue = String(sel.value || '').trim();
+
+    sel.innerHTML = '';
+    const addOpt = (val, label) => {
+      const o = document.createElement('option');
+      o.value = String(val || '');
+      o.textContent = String(label || val || '');
+      sel.appendChild(o);
+    };
+
+    if (!templates.length) {
+      addOpt(active, active || '—');
+      sel.value = active;
+      return;
+    }
+
+    templates.forEach(t => {
+      const k = String(t?.template_key || '').trim();
+      if (!k) return;
+      const title = String(t?.title || k).trim();
+      const std = Array.isArray(t?.standards) ? t.standards.map(x => String(x || '').trim()).filter(Boolean) : [];
+      const suffix = std.length ? ` — ${std.join(', ')}` : '';
+      addOpt(k, `${k} — ${title}${suffix}`);
+    });
+
+    // Keep current selection if it exists; otherwise select best-effort active.
+    const next = hadValue && [...sel.options].some(o => String(o.value) === String(hadValue)) ? hadValue : active;
+    if (next) sel.value = next;
+  }
+
+  onChecklistTemplateSelectChanged() {
+    const planId = parseInt(String(this.activePlanId || '0'), 10) || 0;
+    const sel = document.getElementById('planningChecklistTemplateSelect');
+    const tpl = sel ? String(sel.value || '').trim() : '';
+    if (!planId || !tpl) return;
+    this.checklistTemplateKey = tpl;
+    this.saveChecklistTemplateSelectionForPlan(planId, tpl);
+    // Force reload: different template_key means a different instance.
+    this.loadChecklistForActivePlan({ force: true });
+  }
+
+  showChecklistObjectiveMsg(text, tone = 'muted') {
+    const el = document.getElementById('planningChecklistObjectiveMsg');
+    if (!el) return;
+    const t = String(text || '').trim();
+    if (!t) {
+      el.style.display = 'none';
+      el.textContent = '';
+      return;
+    }
+    el.style.display = 'block';
+    el.textContent = t;
+    if (tone === 'error') el.style.color = 'rgb(185, 28, 28)';
+    else if (tone === 'success') el.style.color = 'rgb(21, 128, 61)';
+    else el.style.color = '';
+  }
+
+  async onChecklistObjectiveInput({ flush } = {}) {
+    const plan = this.getActivePlan();
+    const planId = plan ? (parseInt(plan.id, 10) || 0) : 0;
+    const objEl = document.getElementById('planningChecklistObjectiveText');
+    if (!planId || !objEl) return;
+    const objectiveText = String(objEl.value || '');
+    this.saveChecklistObjectiveDraftForPlan(planId, objectiveText);
+
+    // If checklist not created yet, draft is enough (sent on create).
+    if (!this.activeChecklist || !this.activeChecklist.id) {
+      this.showChecklistObjectiveMsg('Compila l’obiettivo e poi crea la checklist da template.', 'muted');
+      return;
+    }
+
+    // If DB does not support objective_text, show a clear hint.
+    if (this.checklistObjectiveSupported === false) {
+      this.showChecklistObjectiveMsg('DB non aggiornato: applica la migrazione 65 per salvare l’obiettivo su database.', 'error');
+      return;
+    }
+
+    // Debounced save to server
+    const doSave = async () => {
+      try {
+        const cid = parseInt(String(this.activeChecklist?.id || '0'), 10) || 0;
+        if (!cid) return;
+        const obj = String(objectiveText || '').trim();
+        if (!obj) {
+          this.showChecklistObjectiveMsg('Obiettivo obbligatorio.', 'error');
+          return;
+        }
+        await this.apiFetch('consulting_plans/checklists/checklist_update.php', {
+          method: 'POST',
+          json: true,
+          body: JSON.stringify({ csrf_token: this.csrfToken, checklist_id: cid, objective_text: obj }),
+        });
+        // Update local state (best-effort)
+        this.activeChecklist = { ...(this.activeChecklist || {}), objective_text: obj };
+        this.showChecklistObjectiveMsg('Obiettivo salvato.', 'success');
+      } catch (e) {
+        const errId = e?.data?.data?.error_id || e?.data?.error_id || null;
+        let msg = e?.message || 'Errore salvataggio obiettivo';
+        if (errId) msg += ` (ref: ${errId})`;
+        this.showChecklistObjectiveMsg(msg, 'error');
+      }
+    };
+
+    try {
+      if (this._checklistObjectiveDebounceTimer) {
+        clearTimeout(this._checklistObjectiveDebounceTimer);
+        this._checklistObjectiveDebounceTimer = null;
+      }
+    } catch (_) {}
+
+    if (flush) {
+      return doSave();
+    }
+    this._checklistObjectiveDebounceTimer = setTimeout(() => { doSave(); }, 600);
+  }
+
+  async loadChecklistForActivePlan({ force } = {}) {
+    const planId = parseInt(String(this.activePlanId || '0'), 10) || 0;
+    if (!planId) return;
+
+    // Best-effort: load available templates (for selection UI).
+    try { await this.loadChecklistTemplates({ force: false }); } catch (_) {}
+
+    // Restore explicit template selection per-plan (if any).
+    try {
+      const savedTpl = this.loadChecklistTemplateSelectionForPlan(planId);
+      if (savedTpl) {
+        this.checklistTemplateKey = savedTpl;
+      } else {
+        const loadedKey = String(this.activeChecklistLoadedForPlanId || '');
+        if (loadedKey && !loadedKey.startsWith(String(planId) + '|')) {
+          // Switching plan: reset to auto-pick unless user chose explicitly.
+          this.checklistTemplateKey = '';
+        }
+      }
+    } catch (_) {}
+
+    // Cache key must include template_key (a plan can have multiple checklist instances).
+    const tplKey = this.getChecklistTemplateKey();
+    const loadKey = `${String(planId)}|${String(tplKey)}`;
+
+    if (!force && String(this.activeChecklistLoadedForPlanId || '') === loadKey && (this.checklistStorageAvailable === false || this.activeChecklist || this.activeChecklist === null)) {
+      // already loaded for this plan; just render
+      this.renderChecklistTab();
+      return;
+    }
+
+    const statusBox = document.getElementById('planningChecklistStatusBox');
+    if (statusBox) statusBox.innerHTML = `<div class="planning-muted">Caricamento…</div>`;
+    const docBox = document.getElementById('planningChecklistDocSummaryBox');
+    if (docBox) { docBox.style.display = 'none'; docBox.innerHTML = ''; }
+    const sectionsWrap = document.getElementById('planningChecklistSections');
+    if (sectionsWrap) sectionsWrap.innerHTML = '';
+
+    try {
+      const tpl = tplKey;
+      const res = await this.apiFetch(`consulting_plans/checklists/checklist_get.php?plan_id=${encodeURIComponent(String(planId))}&template_key=${encodeURIComponent(tpl)}&csrf_token=${encodeURIComponent(String(this.csrfToken || ''))}`, { method: 'GET', json: true });
+      const data = res?.data || {};
+      this.checklistStorageAvailable = !!data.storage_available;
+      this.checklistObjectiveSupported = (data?.features && typeof data.features === 'object') ? !!data.features.objective_supported : null;
+      this.checklistEvidenceTableSupported = (data?.features && typeof data.features === 'object') ? !!data.features.evidence_table_supported : null;
+      this.activeChecklist = data.checklist || null;
+      this.activeChecklistItems = Array.isArray(data.items) ? data.items : [];
+      this.activeChecklistTemplate = (data.template_full && typeof data.template_full === 'object') ? data.template_full : (data.template || null);
+      this.activeChecklistLoadedForPlanId = loadKey;
+      this.activeChecklistDocProfile = null;
+    } catch (e) {
+      // If endpoint missing in partial deploy, show a clear message but don't crash other tabs
+      this.checklistStorageAvailable = false;
+      this.checklistObjectiveSupported = null;
+      this.checklistEvidenceTableSupported = null;
+      this.activeChecklist = null;
+      this.activeChecklistItems = [];
+      this.activeChecklistTemplate = null;
+      this.activeChecklistLoadedForPlanId = loadKey;
+    }
+
+    this.renderChecklistTab();
+  }
+
+  renderChecklistTab() {
+    const statusBox = document.getElementById('planningChecklistStatusBox');
+    const docBox = document.getElementById('planningChecklistDocSummaryBox');
+    const sectionsWrap = document.getElementById('planningChecklistSections');
+    if (!statusBox || !sectionsWrap) return;
+
+    const plan = this.getActivePlan();
+    const planId = plan ? (parseInt(plan.id, 10) || 0) : 0;
+    const clientTenantId = plan ? (parseInt(plan.client_tenant_id, 10) || 0) : 0;
+    if (!planId || !clientTenantId) {
+      statusBox.innerHTML = `<div class="planning-muted">Seleziona un piano…</div>`;
+      if (docBox) { docBox.style.display = 'none'; docBox.innerHTML = ''; }
+      sectionsWrap.innerHTML = '';
+      return;
+    }
+
+    // Keep template select always in sync with current best-effort selection.
+    try { this.renderChecklistTemplateSelect(); } catch (_) {}
+
+    // Objective field (mandatory)
+    const objEl = document.getElementById('planningChecklistObjectiveText');
+    const objDb = (this.activeChecklist && Object.prototype.hasOwnProperty.call(this.activeChecklist, 'objective_text'))
+      ? String(this.activeChecklist.objective_text || '')
+      : '';
+    const objDraft = this.loadChecklistObjectiveDraftForPlan(planId);
+    const objValue = (objDb.trim() ? objDb : objDraft);
+    if (objEl && document.activeElement !== objEl) {
+      objEl.value = String(objValue || '');
+    }
+    const objSupported = (this.checklistObjectiveSupported === true) ? true : (this.checklistObjectiveSupported === false ? false : null);
+    if (objSupported === false) {
+      this.showChecklistObjectiveMsg('DB non aggiornato: applica la migrazione 65 per salvare l’obiettivo su database.', 'error');
+    } else if (!String(objValue || '').trim()) {
+      this.showChecklistObjectiveMsg('Obiettivo obbligatorio.', 'error');
+    } else {
+      this.showChecklistObjectiveMsg('', 'muted');
+    }
+    const createBtn = document.getElementById('planningChecklistCreateBtn');
+    if (createBtn) {
+      if (objSupported === false) createBtn.disabled = true;
+      else createBtn.disabled = !String(objValue || '').trim();
+    }
+
+    if (this.checklistStorageAvailable === false) {
+      statusBox.innerHTML = `
+        <div style="font-weight:700; margin-bottom:6px;">Checklist non disponibile</div>
+        <div class="planning-muted">Schema DB non aggiornato o endpoint non disponibile. Applica la migrazione <code>database/migrations/64_consulting_project_checklists.sql</code>.</div>
+      `;
+      if (docBox) { docBox.style.display = 'none'; docBox.innerHTML = ''; }
+      sectionsWrap.innerHTML = '';
+      return;
+    }
+
+    const chk = this.activeChecklist;
+    const itemsAll = Array.isArray(this.activeChecklistItems) ? this.activeChecklistItems : [];
+    const total = itemsAll.length;
+    const done = itemsAll.filter(i => ['done', 'not_applicable'].includes(String(i?.status || '').toLowerCase())).length;
+    const present = itemsAll.filter(i => String(i?.status || '').toLowerCase() === 'present').length;
+    const requiredTotal = itemsAll.filter(i => !!i?.required).length;
+    const requiredMissing = itemsAll.filter(i => !!i?.required && ['missing','to_review'].includes(String(i?.status || '').toLowerCase())).length;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+
+    if (!chk) {
+      const tplTitle = String(this.activeChecklistTemplate?.title || this.getChecklistTemplateKey() || 'Checklist');
+      statusBox.innerHTML = `
+        <div style="font-weight:700; margin-bottom:6px;">Nessuna checklist creata</div>
+        <div class="planning-muted">Piano: <strong>${this.escapeHtml(String(plan?.title || ''))}</strong> • Cliente: <strong>${this.escapeHtml(String(plan?.client_name || `Tenant #${clientTenantId}`))}</strong></div>
+        <div class="planning-muted" style="margin-top:6px;">Template selezionato: <strong>${this.escapeHtml(tplTitle)}</strong>. Compila l’obiettivo e premi “Crea checklist da template”.</div>
+      `;
+      if (docBox) { docBox.style.display = 'none'; docBox.innerHTML = ''; }
+      sectionsWrap.innerHTML = '';
+      return;
+    }
+
+    statusBox.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px; flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700;">${this.escapeHtml(String(chk.title || 'Checklist'))}</div>
+          <div class="planning-muted">Piano: <strong>${this.escapeHtml(String(plan?.title || ''))}</strong> • Cliente: <strong>${this.escapeHtml(String(plan?.client_name || `Tenant #${clientTenantId}`))}</strong></div>
+          <div class="planning-muted" style="margin-top:4px;">Stato: <strong>${this.escapeHtml(String(chk.status || 'draft'))}</strong> • Richiesti: ${requiredTotal} (da completare: ${requiredMissing})</div>
+        </div>
+        <div style="min-width: 220px; flex:1; max-width: 360px;">
+          <div class="planning-muted" style="font-size:12px; margin-bottom:6px;">Progresso: ${done}/${total} (${pct}%) • Evidenze trovate: ${present}</div>
+          <div style="height:10px; background: var(--color-gray-200); border-radius: 999px; overflow:hidden;">
+            <div style="height:10px; width:${pct}%; background: var(--color-primary);"></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    if (docBox) {
+      const prof = this.activeChecklistDocProfile;
+      if (prof && typeof prof === 'object') {
+        const maturity = String(prof.maturity_suggested || '').trim() || '—';
+        const conf = parseInt(String(prof.confidence || '0'), 10) || 0;
+        const det = (prof.detected && typeof prof.detected === 'object') ? prof.detected : {};
+        const detManual = (det.manual === true) ? 'sì' : (det.manual === false ? 'no' : '—');
+        const detProc = (det.procedures_count_est !== undefined && det.procedures_count_est !== null) ? String(det.procedures_count_est) : '—';
+        const detRec = (det.records_count_est !== undefined && det.records_count_est !== null) ? String(det.records_count_est) : '—';
+        const detCert = (det.evidence_of_certification === true) ? 'sì' : (det.evidence_of_certification === false ? 'no' : '—');
+        const notes = String(prof?.planning_adjustments?.notes || '').trim();
+        const gaps = Array.isArray(prof.gaps) ? prof.gaps : [];
+        const gapsTop = gaps.slice(0, 4).map(g => {
+          const area = String(g?.area || '').trim();
+          const sev = String(g?.severity || '').trim();
+          const det = String(g?.detail || '').trim();
+          const head = [area, sev].filter(Boolean).join(' / ');
+          return (head ? (head + ': ') : '') + det;
+        }).filter(Boolean);
+        docBox.style.display = 'block';
+        docBox.innerHTML = `
+          <div style="font-weight:700; margin-bottom:6px;">Sommario documenti cliente (best-effort)</div>
+          <div class="planning-muted">Maturità: <strong>${this.escapeHtml(maturity)}</strong> • Confidenza: <strong>${this.escapeHtml(String(conf))}%</strong></div>
+          <div class="planning-muted" style="margin-top:6px;">Manuale: <strong>${this.escapeHtml(detManual)}</strong> • Procedure (stima): <strong>${this.escapeHtml(detProc)}</strong> • Registri (stima): <strong>${this.escapeHtml(detRec)}</strong> • Evidenza certificazione: <strong>${this.escapeHtml(detCert)}</strong></div>
+          ${notes ? `<div class="planning-muted" style="margin-top:6px;">${this.escapeHtml(notes)}</div>` : ``}
+          ${gapsTop.length ? `<div style="margin-top:10px;"><div style="font-weight:700;">Gap (sintesi)</div><div class="planning-muted">${this.escapeHtml(gapsTop.join(' | '))}</div></div>` : ``}
+        `;
+      } else {
+        docBox.style.display = 'none';
+        docBox.innerHTML = '';
+      }
+    }
+
+    // Build section title + order maps from template_full
+    const sectionTitleByKey = new Map();
+    const sectionOrderByKey = new Map();
+    try {
+      const sections = Array.isArray(this.activeChecklistTemplate?.sections) ? this.activeChecklistTemplate.sections : [];
+      sections.forEach((s, idx) => {
+        const k = String(s?.section_key || '').trim();
+        const t = String(s?.title || '').trim();
+        if (!k) return;
+        if (t) sectionTitleByKey.set(k, t);
+        sectionOrderByKey.set(k, idx * 10);
+      });
+    } catch (_) {}
+
+    // Sync filter selects (phase + status)
+    const phaseSel = document.getElementById('planningChecklistFilterPhase');
+    if (phaseSel) {
+      const chosen = String(phaseSel.value || this.checklistFilterPhase || '').trim();
+      const keys = Array.from(sectionOrderByKey.keys());
+      const ordered = keys.slice(0).sort((a, b) => (Number(sectionOrderByKey.get(a) ?? 0) - Number(sectionOrderByKey.get(b) ?? 0)) || (a < b ? -1 : 1));
+      phaseSel.innerHTML = `<option value="">Tutte</option>` + ordered.map(k => {
+        const title = sectionTitleByKey.get(k) || k;
+        return `<option value="${this.escapeAttr(k)}">${this.escapeHtml(title)}</option>`;
+      }).join('');
+      phaseSel.value = ordered.includes(chosen) ? chosen : '';
+      this.checklistFilterPhase = String(phaseSel.value || '').trim();
+    }
+    const statusSel = document.getElementById('planningChecklistFilterStatus');
+    if (statusSel) {
+      const chosen = String(statusSel.value || this.checklistFilterStatus || '').trim().toLowerCase();
+      const allowed = ['', 'missing', 'present', 'to_review', 'done', 'not_applicable'];
+      statusSel.value = allowed.includes(chosen) ? chosen : '';
+      this.checklistFilterStatus = String(statusSel.value || '').trim();
+    }
+
+    const phaseFilter = String(this.checklistFilterPhase || '').trim();
+    const statusFilter = String(this.checklistFilterStatus || '').trim().toLowerCase();
+    const itemsView = (Array.isArray(itemsAll) ? itemsAll : []).filter(it => {
+      if (!it) return false;
+      if (phaseFilter && String(it?.section_key || '') !== phaseFilter) return false;
+      if (statusFilter) {
+        const st = String(it?.status || '').trim().toLowerCase();
+        if (st !== statusFilter) return false;
+      }
+      return true;
+    });
+
+    const bySection = {};
+    itemsView.forEach(it => {
+      const sk = String(it?.section_key || 'misc').trim() || 'misc';
+      if (!bySection[sk]) bySection[sk] = [];
+      bySection[sk].push(it);
+    });
+    const sectionKeys = Object.keys(bySection);
+    sectionKeys.sort((a, b) => {
+      const oa = Number(sectionOrderByKey.get(a) ?? 999999);
+      const ob = Number(sectionOrderByKey.get(b) ?? 999999);
+      if (oa !== ob) return oa - ob;
+      return a === b ? 0 : (a < b ? -1 : 1);
+    });
+
+    const statusOptions = ['missing','present','to_review','done','not_applicable'];
+    const renderEvidence = (evArr, itemId) => {
+      const ev = Array.isArray(evArr) ? evArr : [];
+      if (!ev.length) return `<div class="planning-muted">—</div>`;
+      return `<div>` + ev.map(x => {
+        const fid = parseInt(String(x?.file_id || '0'), 10) || 0;
+        const tid = parseInt(String(x?.tenant_id || clientTenantId || '0'), 10) || 0;
+        const name = String(x?.name || '').trim() || `file #${fid}`;
+        const path = String(x?.path || '').trim();
+        const tags = Array.isArray(x?.tags) ? x.tags.map(t => String(t || '').trim()).filter(Boolean).slice(0, 6) : [];
+        const mk = Array.isArray(x?.matched_keywords) ? x.matched_keywords.map(t => String(t || '').trim()).filter(Boolean).slice(0, 6) : [];
+        const href = (clientTenantId > 0 && fid > 0)
+          ? `files.php?tenant_id=${encodeURIComponent(String(clientTenantId))}&open_file_id=${encodeURIComponent(String(fid))}`
+          : 'files.php';
+        return `
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-top:6px;">
+            <div style="min-width: 0;">
+              <div style="font-weight:700;">${this.escapeHtml(name)}</div>
+              <div class="planning-muted" style="font-size:12px;">${this.escapeHtml(path || '')}</div>
+              ${(tags.length || mk.length) ? `<div class="planning-muted" style="font-size:12px; margin-top:4px;">${this.escapeHtml([...tags, ...mk].slice(0, 8).join(' • '))}</div>` : ``}
+            </div>
+            <div class="planning-actions" style="gap:8px; flex-wrap:wrap;">
+              <a class="btn btn-secondary btn-sm" href="${this.escapeAttr(href)}" target="_blank" rel="noopener">Apri</a>
+              <button type="button" class="btn btn-secondary btn-sm" data-chk-action="remove-evidence" data-chk-item-id="${parseInt(String(itemId || '0'), 10) || 0}" data-chk-file-id="${fid}" data-chk-tenant-id="${tid}">Rimuovi</button>
+            </div>
+          </div>
+        `;
+      }).join('') + `</div>`;
+    };
+
+    sectionsWrap.innerHTML = sectionKeys.map(sk => {
+      const secTitle = sectionTitleByKey.get(sk) || sk;
+      const rows = bySection[sk] || [];
+      return `
+        <div style="margin-top: 14px; padding: 10px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); background: #fff;">
+          <div style="font-weight:700; margin-bottom:8px;">${this.escapeHtml(secTitle)}</div>
+          <div style="overflow:auto;">
+            <table class="planning-table">
+              <thead>
+                <tr>
+                  <th style="min-width:180px;">Fase</th>
+                  <th>Voce</th>
+                  <th style="width:110px;">Obblig.</th>
+                  <th style="width:150px;">Stato</th>
+                  <th style="min-width:260px;">Note/Testo</th>
+                  <th style="min-width:340px;">Evidenze</th>
+                  <th style="width:210px;">Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(it => {
+                  const id = parseInt(String(it?.id || '0'), 10) || 0;
+                  const title = String(it?.title || '').trim();
+                  const desc = String(it?.description || '').trim();
+                  const qType = String(it?.question_type || '').trim().toLowerCase();
+                  const required = !!it?.required;
+                  const st = String(it?.status || 'missing').trim().toLowerCase();
+                  const ansText = String(it?.answer_text || '');
+                  const ansJson = this.parseJsonBestEffort(it?.answer_json);
+                  const ev = this.parseJsonArrayBestEffort(it?.evidence_json);
+
+                  const reqBadge = required
+                    ? `<span class="planning-pill" style="background: rgba(220, 38, 38, 0.12); color: rgb(185, 28, 28);">SI</span>`
+                    : `<span class="planning-pill" style="background: rgba(107, 114, 128, 0.12); color: rgb(55, 65, 81);">NO</span>`;
+
+                  const statusSel = `
+                    <select class="form-control" data-chk-item-id="${id}" data-chk-field="status">
+                      ${statusOptions.map(s => `<option value="${this.escapeAttr(s)}"${s === st ? ' selected' : ''}>${this.escapeHtml(s)}</option>`).join('')}
+                    </select>
+                  `;
+
+                  let inputHtml = `<div class="planning-muted">—</div>`;
+                  let evidenceHtml = `<div class="planning-muted">—</div>`;
+                  let actionsHtml = `<div class="planning-muted">—</div>`;
+
+                  if (qType === 'text') {
+                    inputHtml = `<input class="form-control" data-chk-item-id="${id}" data-chk-field="answer_text" value="${this.escapeAttr(ansText)}" placeholder="Testo..." />`;
+                  } else if (qType === 'multiline') {
+                    inputHtml = `<textarea class="form-control" rows="3" data-chk-item-id="${id}" data-chk-field="answer_text" placeholder="Testo...">${this.escapeHtml(ansText)}</textarea>`;
+                  } else if (qType === 'bool') {
+                    const v = (ansJson === true) || String(ansText).toLowerCase() === 'true';
+                    inputHtml = `
+                      <div style="display:flex; flex-direction:column; gap: 8px;">
+                        <label class="form-checkbox-label">
+                          <input type="checkbox" class="form-checkbox" data-chk-item-id="${id}" data-chk-field="answer_bool"${v ? ' checked' : ''}>
+                          <span>Confermato</span>
+                        </label>
+                        <textarea class="form-control" rows="2" data-chk-item-id="${id}" data-chk-field="answer_text" placeholder="Note (opzionale)">${this.escapeHtml(ansText)}</textarea>
+                      </div>
+                    `;
+                  } else if (qType === 'select') {
+                    inputHtml = `<input class="form-control" data-chk-item-id="${id}" data-chk-field="answer_text" value="${this.escapeAttr(ansText)}" placeholder="Valore..." />`;
+                  } else if (qType === 'file' || qType === 'multi_file') {
+                    evidenceHtml = `${renderEvidence(ev, id)}`;
+                    actionsHtml = `
+                      <div class="planning-actions" style="flex-wrap:wrap;">
+                        <button type="button" class="btn btn-secondary btn-sm" data-chk-action="add-evidence" data-chk-item-id="${id}" data-chk-qtype="${this.escapeAttr(qType)}">Aggiungi evidenza</button>
+                        <button type="button" class="btn btn-secondary btn-sm" data-chk-action="clear-evidence" data-chk-item-id="${id}">Svuota</button>
+                      </div>
+                    `;
+                  }
+
+                  return `
+                    <tr>
+                      <td class="planning-muted" style="font-size:12px;">${this.escapeHtml(secTitle)}</td>
+                      <td style="min-width: 260px;">
+                        <div style="font-weight:700;">${this.escapeHtml(title)}</div>
+                        ${desc ? `<div class="planning-muted" style="margin-top:4px;">${this.escapeHtml(desc)}</div>` : ``}
+                      </td>
+                      <td>${reqBadge}</td>
+                      <td>${statusSel}</td>
+                      <td>${inputHtml}</td>
+                      <td>${evidenceHtml}</td>
+                      <td>${actionsHtml}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Bind dynamic inputs
+    sectionsWrap.querySelectorAll('[data-chk-field]').forEach(el => {
+      if (el.dataset?.cnxBound === '1') return;
+      const field = String(el.getAttribute('data-chk-field') || '');
+      const itemId = parseInt(String(el.getAttribute('data-chk-item-id') || '0'), 10) || 0;
+      if (!itemId || !field) return;
+
+      const onCommit = async () => {
+        try {
+          if (field === 'status') {
+            await this.updateChecklistItem(itemId, { status: String(el.value || '') });
+          } else if (field === 'answer_text') {
+            await this.updateChecklistItem(itemId, { answer_text: String(el.value || '') });
+          } else if (field === 'answer_bool') {
+            await this.updateChecklistItem(itemId, { answer_json: !!el.checked });
+          }
+        } catch (_) {}
+      };
+
+      const tag = String(el.tagName || '').toLowerCase();
+
+      // Debounced saving for text inputs (input/textarea) for better UX.
+      if (field === 'answer_text') {
+        const key = `chk:${itemId}:answer_text`;
+        const debounceMs = 500;
+        el.addEventListener('input', () => {
+          try { if (tag === 'textarea') this.autoGrowTextarea(el); } catch (_) {}
+          try {
+            const prev = this._checklistDebounceTimers?.get(key);
+            if (prev) clearTimeout(prev);
+            const t = setTimeout(() => { onCommit(); }, debounceMs);
+            this._checklistDebounceTimers?.set(key, t);
+          } catch (_) {}
+        });
+        el.addEventListener('blur', () => {
+          try {
+            const prev = this._checklistDebounceTimers?.get(key);
+            if (prev) clearTimeout(prev);
+            this._checklistDebounceTimers?.delete(key);
+          } catch (_) {}
+          onCommit();
+        });
+      } else {
+        el.addEventListener('change', onCommit);
+      }
+      el.dataset.cnxBound = '1';
+    });
+
+    sectionsWrap.querySelectorAll('[data-chk-action]').forEach(btn => {
+      if (btn.dataset?.cnxBound === '1') return;
+      btn.addEventListener('click', async () => {
+        const act = String(btn.getAttribute('data-chk-action') || '');
+        const itemId = parseInt(String(btn.getAttribute('data-chk-item-id') || '0'), 10) || 0;
+        if (!itemId) return;
+        if (act === 'clear-evidence') {
+          await this.clearChecklistEvidenceForItem(itemId);
+          return;
+        }
+        if (act === 'remove-evidence') {
+          const fid = parseInt(String(btn.getAttribute('data-chk-file-id') || '0'), 10) || 0;
+          if (fid > 0) await this.clearChecklistEvidenceForItem(itemId, fid);
+          return;
+        }
+        if (act === 'add-evidence') {
+          const qType = String(btn.getAttribute('data-chk-qtype') || 'file');
+          const raw = String(prompt(qType === 'multi_file' ? 'Inserisci file_id (anche "1,2,3"):' : 'Inserisci file_id:', '') || '').trim();
+          if (!raw) return;
+          const ids = raw.split(',').map(s => parseInt(String(s).trim(), 10) || 0).filter(n => n > 0);
+          if (!ids.length) return;
+          const use = (qType === 'multi_file') ? ids : [ids[0]];
+          await this.addChecklistEvidenceForItem(itemId, use);
+        }
+      });
+      btn.dataset.cnxBound = '1';
+    });
+  }
+
+  async openAssistantModal() {
+    const plan = this.getActivePlan();
+    if (!plan) {
+      this.toast('Seleziona un piano', 'error');
+      return;
+    }
+    const modal = document.getElementById('planningAssistantModal');
+    if (modal) modal.style.display = 'block';
+    try { await this.loadChecklistForActivePlan({ force: false }); } catch (_) {}
+    this.renderAssistantChecklistTable();
+    this.renderAssistantChat();
+    this.loadAssistantDocContext({ force: false });
+  }
+
+  closeAssistantModal() {
+    const modal = document.getElementById('planningAssistantModal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  async ensureAssistantProviders() {
+    if (this.assistantProviders && this.assistantProviders.length) return this.assistantProviders;
+    try {
+      const res = await this.apiFetch('ai/providers.php?action=list', { method: 'GET', json: true });
+      const providers = Array.isArray(res?.data?.providers) ? res.data.providers : [];
+      this.assistantProviders = providers;
+      if (!this.assistantProvider && providers.length) {
+        this.assistantProvider = String(providers[0].provider || 'openai');
+        this.assistantModel = String(providers[0].default_model || '');
+      }
+      return providers;
+    } catch (_) {
+      this.assistantProviders = [];
+      return [];
+    }
+  }
+
+  renderAssistantDocSummary() {
+    const box = document.getElementById('planningAssistantDocSummaryBox');
+    if (!box) return;
+    const prof = (this.activeChecklistDocProfile && typeof this.activeChecklistDocProfile === 'object') ? this.activeChecklistDocProfile : null;
+    if (!prof) {
+      box.style.display = 'none';
+      box.innerHTML = '';
+      return;
+    }
+    const maturity = String(prof.maturity_suggested || '');
+    const conf = parseInt(String(prof.confidence || '0'), 10) || 0;
+    const detected = (prof.detected && typeof prof.detected === 'object') ? prof.detected : {};
+    const manual = parseInt(String(detected.manual || '0'), 10) || 0;
+    const procedures = parseInt(String(detected.procedures || '0'), 10) || 0;
+    const records = parseInt(String(detected.records || '0'), 10) || 0;
+    const cert = String(detected.evidence_of_certification || '');
+    box.innerHTML = `
+      <div style="font-weight:700; margin-bottom:6px;">Stato documenti (AI)</div>
+      <div class="planning-muted">Maturità: <strong>${this.escapeHtml(maturity || 'n/d')}</strong> · Confidenza: <strong>${conf}%</strong></div>
+      <div class="planning-muted" style="margin-top:4px;">Rilevati: Manuale ${manual}, Procedure ${procedures}, Registri ${records}${cert ? ` · Certificazione: ${this.escapeHtml(cert)}` : ''}</div>
+    `;
+    box.style.display = 'block';
+  }
+
+  getAssistantTemplateItemByKey(sectionKey, itemKey) {
+    const tpl = (this.activeChecklistTemplate && typeof this.activeChecklistTemplate === 'object') ? this.activeChecklistTemplate : null;
+    if (!tpl || !Array.isArray(tpl.sections)) return null;
+    const sk = String(sectionKey || '').trim();
+    const ik = String(itemKey || '').trim();
+    if (!sk || !ik) return null;
+    for (const s of tpl.sections) {
+      if (!s || String(s.section_key || '').trim() !== sk) continue;
+      const items = Array.isArray(s.items) ? s.items : [];
+      for (const it of items) {
+        if (!it) continue;
+        if (String(it.item_key || '').trim() === ik) return it;
+      }
+    }
+    return null;
+  }
+
+  getAssistantAutoInfoForItem(item) {
+    const prof = (this.activeChecklistDocProfile && typeof this.activeChecklistDocProfile === 'object') ? this.activeChecklistDocProfile : null;
+    if (!prof) return null;
+    const tplItem = this.getAssistantTemplateItemByKey(item?.section_key, item?.item_key);
+    const kw = Array.isArray(tplItem?.autofill_keywords) ? tplItem.autofill_keywords : [];
+    const keywords = kw.map(s => String(s || '').trim().toLowerCase()).filter(Boolean);
+    if (!keywords.length) return null;
+    const evidence = Array.isArray(prof.doc_evidence) ? prof.doc_evidence : [];
+    const hits = [];
+    for (const ev of evidence) {
+      const name = String(ev?.name || '').toLowerCase();
+      const path = String(ev?.path || '').toLowerCase();
+      const tags = Array.isArray(ev?.tags) ? ev.tags.map(t => String(t || '').toLowerCase()) : [];
+      const mk = Array.isArray(ev?.matched_keywords) ? ev.matched_keywords.map(t => String(t || '').toLowerCase()) : [];
+      const hay = `${name} ${path} ${tags.join(' ')} ${mk.join(' ')}`;
+      const matched = keywords.some(k => hay.includes(k));
+      if (matched) hits.push(ev);
+      if (hits.length >= 3) break;
+    }
+    if (!hits.length) return null;
+    return {
+      confidence: parseInt(String(prof.confidence || '0'), 10) || 0,
+      files: hits,
+    };
+  }
+
+  renderAssistantChecklistTable() {
+    const wrap = document.getElementById('planningAssistantChecklistTable');
+    if (!wrap) return;
+    const items = Array.isArray(this.activeChecklistItems) ? this.activeChecklistItems : [];
+    if (!items.length) {
+      wrap.innerHTML = `<div class="planning-muted">Checklist non caricata. Apri la tab Checklist e crea/ricarica la checklist.</div>`;
+      return;
+    }
+
+    const bySection = {};
+    const sectionTitleByKey = new Map();
+    const sectionOrderByKey = new Map();
+    (this.activeChecklistTemplate?.sections || []).forEach((s, idx) => {
+      const key = String(s?.section_key || '').trim();
+      if (!key) return;
+      sectionTitleByKey.set(key, String(s?.title || key));
+      sectionOrderByKey.set(key, Number(s?.order ?? idx));
+    });
+
+    items.forEach(it => {
+      const k = String(it?.section_key || '').trim();
+      if (!bySection[k]) bySection[k] = [];
+      bySection[k].push(it);
+    });
+
+    const sectionKeys = Object.keys(bySection).sort((a, b) => {
+      const oa = Number(sectionOrderByKey.get(a) ?? 999999);
+      const ob = Number(sectionOrderByKey.get(b) ?? 999999);
+      if (oa !== ob) return oa - ob;
+      return a === b ? 0 : (a < b ? -1 : 1);
+    });
+
+    const statusOptions = ['missing','present','to_review','done','not_applicable'];
+    const renderEvidence = (evArr, itemId, clientTenantId) => {
+      const ev = Array.isArray(evArr) ? evArr : [];
+      if (!ev.length) return `<div class="planning-muted">—</div>`;
+      return `<div>` + ev.map(x => {
+        const fid = parseInt(String(x?.file_id || '0'), 10) || 0;
+        const tid = parseInt(String(x?.tenant_id || clientTenantId || '0'), 10) || 0;
+        const name = String(x?.name || '').trim() || `file #${fid}`;
+        const path = String(x?.path || '').trim();
+        const href = (clientTenantId > 0 && fid > 0)
+          ? `files.php?tenant_id=${encodeURIComponent(String(clientTenantId))}&open_file_id=${encodeURIComponent(String(fid))}`
+          : 'files.php';
+        return `
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-top:6px;">
+            <div style="min-width: 0;">
+              <div style="font-weight:700;">${this.escapeHtml(name)}</div>
+              <div class="planning-muted" style="font-size:12px;">${this.escapeHtml(path || '')}</div>
+            </div>
+            <div class="planning-actions" style="gap:8px; flex-wrap:wrap;">
+              <a class="btn btn-secondary btn-sm" href="${this.escapeAttr(href)}" target="_blank" rel="noopener">Apri</a>
+              <button type="button" class="btn btn-secondary btn-sm" data-chk-action="remove-evidence" data-chk-item-id="${parseInt(String(itemId || '0'), 10) || 0}" data-chk-file-id="${fid}" data-chk-tenant-id="${tid}">Rimuovi</button>
+            </div>
+          </div>
+        `;
+      }).join('') + `</div>`;
+    };
+
+    const clientTenantId = parseInt(String(this.getActivePlan()?.client_tenant_id || '0'), 10) || 0;
+
+    wrap.innerHTML = sectionKeys.map(sk => {
+      const secTitle = sectionTitleByKey.get(sk) || sk;
+      const rows = bySection[sk] || [];
+      return `
+        <div style="margin-top: 14px; padding: 10px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); background: #fff;">
+          <div style="font-weight:700; margin-bottom:8px;">${this.escapeHtml(secTitle)}</div>
+          <div style="overflow:auto;">
+            <table class="planning-table">
+              <thead>
+                <tr>
+                  <th style="min-width:180px;">Fase</th>
+                  <th>Voce</th>
+                  <th style="width:110px;">Obblig.</th>
+                  <th style="width:150px;">Stato</th>
+                  <th style="min-width:240px;">Note/Testo</th>
+                  <th style="min-width:320px;">Evidenze</th>
+                  <th style="min-width:220px;">Auto-detected</th>
+                  <th style="width:210px;">Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(it => {
+                  const id = parseInt(String(it?.id || '0'), 10) || 0;
+                  const title = String(it?.title || '').trim();
+                  const desc = String(it?.description || '').trim();
+                  const qType = String(it?.question_type || '').trim().toLowerCase();
+                  const required = !!it?.required;
+                  const st = String(it?.status || 'missing').trim().toLowerCase();
+                  const ansText = String(it?.answer_text || '');
+                  const ansJson = this.parseJsonBestEffort(it?.answer_json);
+                  const ev = this.parseJsonArrayBestEffort(it?.evidence_json);
+                  const autoInfo = this.getAssistantAutoInfoForItem(it);
+
+                  const reqBadge = required
+                    ? `<span class="planning-pill" style="background: rgba(220, 38, 38, 0.12); color: rgb(185, 28, 28);">SI</span>`
+                    : `<span class="planning-pill" style="background: rgba(107, 114, 128, 0.12); color: rgb(55, 65, 81);">NO</span>`;
+
+                  const statusSel = `
+                    <select class="form-control" data-chk-item-id="${id}" data-chk-field="status">
+                      ${statusOptions.map(s => `<option value="${this.escapeAttr(s)}"${s === st ? ' selected' : ''}>${this.escapeHtml(s)}</option>`).join('')}
+                    </select>
+                  `;
+
+                  let inputHtml = `<div class="planning-muted">—</div>`;
+                  let evidenceHtml = `<div class="planning-muted">—</div>`;
+                  let actionsHtml = `<div class="planning-muted">—</div>`;
+
+                  if (qType === 'text') {
+                    inputHtml = `<input class="form-control" data-chk-item-id="${id}" data-chk-field="answer_text" value="${this.escapeAttr(ansText)}" placeholder="Testo..." />`;
+                  } else if (qType === 'multiline') {
+                    inputHtml = `<textarea class="form-control" rows="3" data-chk-item-id="${id}" data-chk-field="answer_text" placeholder="Testo...">${this.escapeHtml(ansText)}</textarea>`;
+                  } else if (qType === 'bool') {
+                    const v = (ansJson === true) || String(ansText).toLowerCase() === 'true';
+                    inputHtml = `
+                      <div style="display:flex; flex-direction:column; gap: 8px;">
+                        <label class="form-checkbox-label">
+                          <input type="checkbox" class="form-checkbox" data-chk-item-id="${id}" data-chk-field="answer_bool"${v ? ' checked' : ''}>
+                          <span>Confermato</span>
+                        </label>
+                        <textarea class="form-control" rows="2" data-chk-item-id="${id}" data-chk-field="answer_text" placeholder="Note (opzionale)">${this.escapeHtml(ansText)}</textarea>
+                      </div>
+                    `;
+                  } else if (qType === 'select') {
+                    inputHtml = `<input class="form-control" data-chk-item-id="${id}" data-chk-field="answer_text" value="${this.escapeAttr(ansText)}" placeholder="Valore..." />`;
+                  } else if (qType === 'file' || qType === 'multi_file') {
+                    evidenceHtml = `${renderEvidence(ev, id, clientTenantId)}`;
+                    actionsHtml = `
+                      <div class="planning-actions" style="flex-wrap:wrap;">
+                        <button type="button" class="btn btn-secondary btn-sm" data-chk-action="add-evidence" data-chk-item-id="${id}" data-chk-qtype="${this.escapeAttr(qType)}">Aggiungi evidenza</button>
+                        <button type="button" class="btn btn-secondary btn-sm" data-chk-action="clear-evidence" data-chk-item-id="${id}">Svuota</button>
+                      </div>
+                    `;
+                  }
+
+                  const autoHtml = autoInfo ? `
+                    <div>
+                      <div style="font-weight:700;">Confidenza ${autoInfo.confidence}%</div>
+                      <div class="planning-muted" style="font-size:12px;">File: ${autoInfo.files.map(x => `#${x.file_id}`).join(', ')}</div>
+                    </div>
+                  ` : `<div class="planning-muted">—</div>`;
+
+                  return `
+                    <tr>
+                      <td class="planning-muted" style="font-size:12px;">${this.escapeHtml(secTitle)}</td>
+                      <td style="min-width: 240px;">
+                        <div style="font-weight:700;">${this.escapeHtml(title)}</div>
+                        ${desc ? `<div class="planning-muted" style="margin-top:4px;">${this.escapeHtml(desc)}</div>` : ``}
+                      </td>
+                      <td>${reqBadge}</td>
+                      <td>${statusSel}</td>
+                      <td>${inputHtml}</td>
+                      <td>${evidenceHtml}</td>
+                      <td>${autoHtml}</td>
+                      <td>${actionsHtml}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Bind dynamic inputs within assistant table
+    wrap.querySelectorAll('[data-chk-field]').forEach(el => {
+      if (el.dataset?.cnxBound === '1') return;
+      const field = String(el.getAttribute('data-chk-field') || '');
+      const itemId = parseInt(String(el.getAttribute('data-chk-item-id') || '0'), 10) || 0;
+      if (!itemId || !field) return;
+
+      const onCommit = async () => {
+        try {
+          if (field === 'status') {
+            await this.updateChecklistItem(itemId, { status: String(el.value || '') });
+          } else if (field === 'answer_text') {
+            await this.updateChecklistItem(itemId, { answer_text: String(el.value || '') });
+          } else if (field === 'answer_bool') {
+            await this.updateChecklistItem(itemId, { answer_json: !!el.checked });
+          }
+        } catch (_) {}
+      };
+
+      const tag = String(el.tagName || '').toLowerCase();
+      if (field === 'answer_text') {
+        const key = `chk:${itemId}:answer_text:assistant`;
+        const debounceMs = 500;
+        el.addEventListener('input', () => {
+          try { if (tag === 'textarea') this.autoGrowTextarea(el); } catch (_) {}
+          try {
+            const prev = this._checklistDebounceTimers?.get(key);
+            if (prev) clearTimeout(prev);
+            const t = setTimeout(() => { onCommit(); }, debounceMs);
+            this._checklistDebounceTimers?.set(key, t);
+          } catch (_) {}
+        });
+        el.addEventListener('blur', () => {
+          try {
+            const prev = this._checklistDebounceTimers?.get(key);
+            if (prev) clearTimeout(prev);
+            this._checklistDebounceTimers?.delete(key);
+          } catch (_) {}
+          onCommit();
+        });
+      } else {
+        el.addEventListener('change', onCommit);
+      }
+      el.dataset.cnxBound = '1';
+    });
+
+    wrap.querySelectorAll('[data-chk-action]').forEach(btn => {
+      if (btn.dataset?.cnxBound === '1') return;
+      btn.addEventListener('click', async () => {
+        const act = String(btn.getAttribute('data-chk-action') || '');
+        const itemId = parseInt(String(btn.getAttribute('data-chk-item-id') || '0'), 10) || 0;
+        if (!itemId) return;
+        if (act === 'clear-evidence') {
+          await this.clearChecklistEvidenceForItem(itemId);
+          return;
+        }
+        if (act === 'remove-evidence') {
+          const fid = parseInt(String(btn.getAttribute('data-chk-file-id') || '0'), 10) || 0;
+          if (fid > 0) await this.clearChecklistEvidenceForItem(itemId, fid);
+          return;
+        }
+        if (act === 'add-evidence') {
+          const qType = String(btn.getAttribute('data-chk-qtype') || 'file');
+          const raw = String(prompt(qType === 'multi_file' ? 'Inserisci file_id (anche "1,2,3"):' : 'Inserisci file_id:', '') || '').trim();
+          if (!raw) return;
+          const ids = raw.split(',').map(s => parseInt(String(s).trim(), 10) || 0).filter(n => n > 0);
+          if (!ids.length) return;
+          const use = (qType === 'multi_file') ? ids : [ids[0]];
+          await this.addChecklistEvidenceForItem(itemId, use);
+        }
+      });
+      btn.dataset.cnxBound = '1';
+    });
+  }
+
+  renderAssistantChat() {
+    const wrap = document.getElementById('planningAssistantChatMessages');
+    if (!wrap) return;
+    const msgs = Array.isArray(this.assistantMessages) ? this.assistantMessages : [];
+    if (!msgs.length) {
+      wrap.innerHTML = `<div class="planning-muted">Nessun messaggio. Avvia l’intervista per iniziare.</div>`;
+      return;
+    }
+    wrap.innerHTML = msgs.map(m => {
+      const role = String(m.role || 'assistant');
+      const meta = m.meta || null;
+      const citations = Array.isArray(meta?.citations) ? meta.citations : [];
+      return `
+        <div class="planning-assistant-chat-bubble ${role === 'assistant' ? 'assistant' : ''}">
+          <div>${this.escapeHtml(String(m.content || ''))}</div>
+          ${citations.length ? `<div class="planning-assistant-chat-meta">Fonti: ${citations.map(c => `#${c.file_id}`).join(', ')}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+    wrap.scrollTop = wrap.scrollHeight + 100;
+  }
+
+  async loadAssistantDocContext({ force } = {}) {
+    try {
+      await this.checklistAnalyzeClientDocs();
+    } catch (_) {}
+    this.renderAssistantDocSummary();
+    this.renderAssistantChecklistTable();
+  }
+
+  async startAssistantSession() {
+    const plan = this.getActivePlan();
+    const planId = plan ? (parseInt(plan.id, 10) || 0) : 0;
+    const clientTenantId = plan ? (parseInt(plan.client_tenant_id, 10) || 0) : 0;
+    if (!planId || !clientTenantId) return this.toast('Seleziona un piano valido', 'error');
+    if (!this.activeChecklist) return this.toast('Crea prima la checklist da template', 'error');
+
+    try {
+      this.startProgress('Avvio intervista AI…');
+      await this.ensureAssistantProviders();
+      const res = await this.apiFetch('ai/assistant_checklist.php?action=start_session', {
+        method: 'POST',
+        json: true,
+        body: JSON.stringify({
+          csrf_token: this.csrfToken,
+          client_tenant_id: clientTenantId,
+          plan_id: planId,
+          checklist_id: parseInt(String(this.activeChecklist?.id || '0'), 10) || 0,
+          template_key: this.getChecklistTemplateKey(),
+        }),
+      });
+      this.assistantSessionId = parseInt(String(res?.data?.session_id || '0'), 10) || 0;
+      this.assistantMessages = [];
+      this.assistantNextQuestion = '';
+      this.renderAssistantChat();
+      const statusEl = document.getElementById('planningAssistantStatusMsg');
+      if (statusEl) statusEl.textContent = 'Intervista avviata. Puoi rispondere alle domande.';
+      await this.sendAssistantMessage({ message: 'Avvia intervista guidata per la raccolta dati.' });
+    } catch (e) {
+      const errId = e?.data?.data?.error_id || e?.data?.error_id || null;
+      let msg = e?.message || 'Errore avvio intervista';
+      if (errId) msg += ` (ref: ${errId})`;
+      this.toast(msg, 'error');
+    } finally {
+      this.finishProgress();
+    }
+  }
+
+  async sendAssistantMessage({ message, useNextQuestion } = {}) {
+    const inputEl = document.getElementById('planningAssistantChatInput');
+    let text = message;
+    if (!text && useNextQuestion) text = this.assistantNextQuestion;
+    if (!text && inputEl) text = String(inputEl.value || '').trim();
+    text = String(text || '').trim();
+    if (!text) return this.toast('Inserisci un messaggio', 'error');
+    if (!this.assistantSessionId) return this.toast('Avvia prima l’intervista', 'error');
+
+    this.assistantMessages.push({ role: 'user', content: text });
+    if (inputEl) inputEl.value = '';
+    this.renderAssistantChat();
+
+    try {
+      this.assistantLoading = true;
+      await this.ensureAssistantProviders();
+      const res = await this.apiFetch('ai/assistant_checklist.php?action=send', {
+        method: 'POST',
+        json: true,
+        body: JSON.stringify({
+          csrf_token: this.csrfToken,
+          session_id: this.assistantSessionId,
+          message: text,
+          provider: this.assistantProvider || 'openai',
+          model: this.assistantModel || '',
+        }),
+      });
+      const data = res?.data || {};
+      const assistantMsg = String(data.assistant_message || '').trim();
+      const nextQ = String(data.next_question || '').trim();
+      this.assistantNextQuestion = nextQ;
+      const citations = Array.isArray(data.citations) ? data.citations : [];
+      if (assistantMsg) {
+        this.assistantMessages.push({ role: 'assistant', content: assistantMsg, meta: { citations } });
+      }
+
+      const updatedItems = Array.isArray(data.updated_items) ? data.updated_items : [];
+      if (updatedItems.length) {
+        updatedItems.forEach(u => {
+          const idx = (this.activeChecklistItems || []).findIndex(x => String(x.id) === String(u.id));
+          if (idx >= 0) this.activeChecklistItems[idx] = { ...this.activeChecklistItems[idx], ...u };
+        });
+        this.renderAssistantChecklistTable();
+      }
+
+      this.renderAssistantChat();
+    } catch (e) {
+      const errId = e?.data?.data?.error_id || e?.data?.error_id || null;
+      let msg = e?.message || 'Errore invio messaggio AI';
+      if (errId) msg += ` (ref: ${errId})`;
+      this.toast(msg, 'error');
+    } finally {
+      this.assistantLoading = false;
+    }
+  }
+
+  async updateChecklistItem(itemId, patch) {
+    const id = parseInt(String(itemId || '0'), 10) || 0;
+    if (!id) return;
+    const payload = { csrf_token: this.csrfToken, item_id: id, ...patch };
+    const res = await this.apiFetch('consulting_plans/checklists/checklist_item_update.php', {
+      method: 'POST',
+      json: true,
+      body: JSON.stringify(payload),
+    });
+    const updated = res?.data?.item || null;
+    if (updated) {
+      const idx = (this.activeChecklistItems || []).findIndex(x => String(x.id) === String(id));
+      if (idx >= 0) this.activeChecklistItems[idx] = { ...this.activeChecklistItems[idx], ...updated };
+    }
+    this.renderChecklistTab();
+  }
+
+  async addChecklistEvidenceForItem(itemId, fileIds) {
+    const id = parseInt(String(itemId || '0'), 10) || 0;
+    if (!id) return;
+    const plan = this.getActivePlan();
+    const clientTenantId = plan ? (parseInt(plan.client_tenant_id, 10) || 0) : 0;
+    if (!clientTenantId) return;
+    const ids = Array.isArray(fileIds) ? fileIds.map(x => (parseInt(String(x || '0'), 10) || 0)).filter(n => n > 0) : [];
+    if (!ids.length) return;
+
+    const useEvidenceApi = (this.checklistEvidenceTableSupported !== false);
+    for (const fid of ids) {
+      if (useEvidenceApi) {
+        try {
+          const res = await this.apiFetch('consulting_plans/checklists/checklist_evidence_add.php', {
+            method: 'POST',
+            json: true,
+            body: JSON.stringify({ csrf_token: this.csrfToken, item_id: id, file_id: fid }),
+          });
+          const updated = res?.data?.item || null;
+          if (updated) {
+            const idx = (this.activeChecklistItems || []).findIndex(x => String(x.id) === String(id));
+            if (idx >= 0) this.activeChecklistItems[idx] = { ...this.activeChecklistItems[idx], ...updated };
+          }
+          continue;
+        } catch (e) {
+          // fall back to legacy evidence_json update
+        }
+      }
+
+      // Legacy fallback: update evidence_json directly (best-effort; no file validation)
+      const cur = (this.activeChecklistItems || []).find(x => String(x.id) === String(id)) || null;
+      const qType = String(cur?.question_type || 'file').trim().toLowerCase();
+      const evCur = this.parseJsonArrayBestEffort(cur?.evidence_json);
+      const next = (qType === 'multi_file') ? evCur.slice(0) : [];
+      next.unshift({ tenant_id: clientTenantId, file_id: fid, name: '', path: '' });
+      const seen = new Set();
+      const ded = [];
+      next.forEach(x => {
+        const tid = parseInt(String(x?.tenant_id || '0'), 10) || 0;
+        const fid2 = parseInt(String(x?.file_id || '0'), 10) || 0;
+        const k = `${tid}:${fid2}`;
+        if (!tid || !fid2 || seen.has(k)) return;
+        seen.add(k);
+        ded.push(x);
+      });
+      await this.updateChecklistItem(id, { evidence_json: ded, status: 'present' });
+      return;
+    }
+    this.renderChecklistTab();
+  }
+
+  async clearChecklistEvidenceForItem(itemId, fileId = 0) {
+    const id = parseInt(String(itemId || '0'), 10) || 0;
+    if (!id) return;
+    const fid = parseInt(String(fileId || '0'), 10) || 0;
+
+    const useEvidenceApi = (this.checklistEvidenceTableSupported !== false);
+    if (useEvidenceApi) {
+      try {
+        const body = { csrf_token: this.csrfToken, item_id: id };
+        if (fid > 0) body.file_id = fid;
+        const res = await this.apiFetch('consulting_plans/checklists/checklist_evidence_clear.php', {
+          method: 'POST',
+          json: true,
+          body: JSON.stringify(body),
+        });
+        const updated = res?.data?.item || null;
+        if (updated) {
+          const idx = (this.activeChecklistItems || []).findIndex(x => String(x.id) === String(id));
+          if (idx >= 0) this.activeChecklistItems[idx] = { ...this.activeChecklistItems[idx], ...updated };
+        }
+        this.renderChecklistTab();
+        return;
+      } catch (e) {
+        // fall back to legacy evidence_json update
+      }
+    }
+
+    // Legacy fallback: clear evidence_json directly
+    const cur = (this.activeChecklistItems || []).find(x => String(x.id) === String(id)) || null;
+    const evCur = this.parseJsonArrayBestEffort(cur?.evidence_json);
+    let next = [];
+    if (fid > 0) {
+      next = evCur.filter(x => {
+        const fid2 = parseInt(String(x?.file_id || '0'), 10) || 0;
+        return fid2 !== fid;
+      });
+    } else {
+      next = [];
+    }
+    await this.updateChecklistItem(id, { evidence_json: next });
+  }
+
+  async createChecklistFromTemplateForActivePlan() {
+    const plan = this.getActivePlan();
+    const planId = plan ? (parseInt(plan.id, 10) || 0) : 0;
+    const clientTenantId = plan ? (parseInt(plan.client_tenant_id, 10) || 0) : 0;
+    if (!planId || !clientTenantId) return this.toast('Seleziona un piano', 'error');
+
+    const objEl = document.getElementById('planningChecklistObjectiveText');
+    const objectiveText = String(objEl?.value || '').trim();
+    if (!objectiveText) {
+      this.toast('Obiettivo checklist obbligatorio', 'error');
+      try { objEl?.focus?.(); } catch (_) {}
+      return;
+    }
+    if (this.checklistObjectiveSupported === false) {
+      this.toast('Checklist: DB non aggiornato (applica migrazione 65 per objective_text)', 'error');
+      return;
+    }
+
+    try {
+      this.startProgress('Creazione checklist…');
+      await this.apiFetch('consulting_plans/checklists/checklist_create.php', {
+        method: 'POST',
+        json: true,
+        body: JSON.stringify({
+          csrf_token: this.csrfToken,
+          plan_id: planId,
+          company_id: clientTenantId,
+          template_key: this.getChecklistTemplateKey(),
+          objective_text: objectiveText,
+        }),
+      });
+      this.toast('Checklist creata', 'success');
+      await this.loadChecklistForActivePlan({ force: true });
+    } catch (e) {
+      const errId = e?.data?.data?.error_id || e?.data?.error_id || null;
+      let msg = e?.message || 'Errore creazione checklist';
+      if (errId) msg += ` (ref: ${errId})`;
+      this.toast(msg, 'error');
+    } finally {
+      this.finishProgress();
+    }
+  }
+
+  async autofillChecklistFromDocsForActivePlan() {
+    const plan = this.getActivePlan();
+    const planId = plan ? (parseInt(plan.id, 10) || 0) : 0;
+    const clientTenantId = plan ? (parseInt(plan.client_tenant_id, 10) || 0) : 0;
+    if (!planId || !clientTenantId) return this.toast('Seleziona un piano', 'error');
+    if (!this.activeChecklist) return this.toast('Crea prima la checklist da template', 'error');
+    try {
+      this.startProgress('Precompilazione checklist…');
+
+      // Best-effort: run doc analysis first (if intervention_type is available).
+      // This enriches matching (doc_evidence tags/keywords) but is non-blocking if AI is unavailable.
+      const it = this.getActivePlanInterventionTypeBestEffort();
+      if (it) {
+        try {
+          const resAnalyze = await this.apiFetch('consulting_plans/client_docs_analyze.php', {
+            method: 'POST',
+            json: true,
+            body: JSON.stringify({
+              csrf_token: this.csrfToken,
+              client_tenant_id: clientTenantId,
+              standard_codes: this.getProvisioningStandardsForUi(),
+              intervention_type: it,
+            }),
+          });
+          const prof = (resAnalyze?.data && typeof resAnalyze.data.payload === 'object') ? resAnalyze.data.payload : null;
+          if (prof) this.activeChecklistDocProfile = prof;
+        } catch (_) {
+          // ignore analyze errors; proceed with metadata-based autofill
+        }
+      }
+
+      const res = await this.apiFetch('consulting_plans/checklists/checklist_autofill_from_docs.php', {
+        method: 'POST',
+        json: true,
+        body: JSON.stringify({
+          csrf_token: this.csrfToken,
+          plan_id: planId,
+          company_id: clientTenantId,
+          template_key: this.getChecklistTemplateKey(),
+        }),
+      });
+      const data = res?.data || {};
+      const updated = parseInt(String(data.updated_items || '0'), 10) || 0;
+      this.toast(`Precompilazione completata (aggiornati: ${updated})`, 'success');
+
+      // Use doc_profile summary (if returned) for UI box
+      const prof = data?.doc_profile || null;
+      if (prof && typeof prof === 'object') {
+        const base = (this.activeChecklistDocProfile && typeof this.activeChecklistDocProfile === 'object') ? this.activeChecklistDocProfile : {};
+        this.activeChecklistDocProfile = {
+          ...base,
+          maturity_suggested: String(prof.maturity_suggested || ''),
+          confidence: parseInt(String(prof.confidence || '0'), 10) || 0,
+          planning_adjustments: prof.planning_adjustments || null,
+          gaps: Array.isArray(prof.gaps) ? prof.gaps : [],
+        };
+      }
+
+      await this.loadChecklistForActivePlan({ force: true });
+    } catch (e) {
+      const errId = e?.data?.data?.error_id || e?.data?.error_id || null;
+      let msg = e?.message || 'Errore rilevamento documenti';
+      if (errId) msg += ` (ref: ${errId})`;
+      this.toast(msg, 'error');
+    } finally {
+      this.finishProgress();
+    }
+  }
+
+  async checklistReindexClientDocs() {
+    const plan = this.getActivePlan();
+    const clientTenantId = plan ? (parseInt(plan.client_tenant_id, 10) || 0) : 0;
+    if (!clientTenantId) return this.toast('Piano non valido (manca azienda cliente)', 'error');
+    try {
+      this.startProgress('Reindicizzazione documenti…');
+      const res = await this.apiFetch('consulting_plans/client_docs_reindex.php', {
+        method: 'POST',
+        json: true,
+        body: JSON.stringify({ csrf_token: this.csrfToken, client_tenant_id: clientTenantId, force: true }),
+      });
+      const st = String(res?.data?.status || '').trim();
+      if (st === 'fresh_skip') this.toast('Indicizzazione già aggiornata (≤10 min)', 'success');
+      else if (st === 'locked') this.toast('Indicizzazione già in corso (lock attivo)', 'warning');
+      else this.toast('Reindicizzazione avviata (best-effort)', 'success');
+    } catch (e) {
+      const errId = e?.data?.data?.error_id || e?.data?.error_id || null;
+      let msg = e?.message || 'Reindicizzazione non disponibile';
+      if (errId) msg += ` (ref: ${errId})`;
+      this.toast(msg, 'error');
+    } finally {
+      this.finishProgress();
+    }
+  }
+
+  async checklistAnalyzeClientDocs() {
+    const plan = this.getActivePlan();
+    const clientTenantId = plan ? (parseInt(plan.client_tenant_id, 10) || 0) : 0;
+    if (!clientTenantId) return this.toast('Piano non valido (manca azienda cliente)', 'error');
+    const it = this.getActivePlanInterventionTypeBestEffort();
+    if (!it) {
+      return this.toast('Analisi documenti: manca Tipo intervento nel piano (usa il wizard stima per generarlo).', 'error');
+    }
+    try {
+      this.startProgress('Analisi documenti…');
+
+      // Step 1: snapshot (best-effort)
+      let snap = null;
+      try {
+        const r = await this.apiFetch(`consulting_plans/client_docs_snapshot.php?client_tenant_id=${encodeURIComponent(String(clientTenantId))}&csrf_token=${encodeURIComponent(String(this.csrfToken || ''))}`, { method: 'GET', json: true });
+        snap = r?.data || null;
+      } catch (_) {
+        snap = null;
+      }
+
+      // Step 2: if stale/never, trigger reindex best-effort (non-blocking)
+      try {
+        const lastIdx = String(snap?.knowledge?.last_indexed_at || '').trim();
+        const stale = !!snap?.stale;
+        if (!lastIdx || stale) {
+          await this.apiFetch('consulting_plans/client_docs_reindex.php', {
+            method: 'POST',
+            json: true,
+            body: JSON.stringify({ csrf_token: this.csrfToken, client_tenant_id: clientTenantId, force: true }),
+          });
+        }
+      } catch (_) {
+        // ignore reindex errors
+      }
+
+      const res = await this.apiFetch('consulting_plans/client_docs_analyze.php', {
+        method: 'POST',
+        json: true,
+        body: JSON.stringify({
+          csrf_token: this.csrfToken,
+          client_tenant_id: clientTenantId,
+          standard_codes: this.getProvisioningStandardsForUi(),
+          intervention_type: it,
+        }),
+      });
+      const data = res?.data || {};
+      const prof = (data && typeof data.payload === 'object') ? data.payload : null;
+      if (prof) {
+        this.activeChecklistDocProfile = prof;
+        this.toast('Analisi completata', 'success');
+        this.renderChecklistTab();
+      } else {
+        this.toast('Analisi completata (nessun payload)', 'success');
+      }
+    } catch (e) {
+      const errId = e?.data?.data?.error_id || e?.data?.error_id || null;
+      let msg = e?.message || 'Analisi non disponibile';
+      if (errId) msg += ` (ref: ${errId})`;
+      this.toast(msg, 'error');
+    } finally {
+      this.finishProgress();
+    }
+  }
+
+  exportChecklistXlsxForActivePlan() {
+    const planId = parseInt(String(this.activePlanId || '0'), 10) || 0;
+    if (!planId) return this.toast('Seleziona un piano', 'error');
+    const tpl = this.getChecklistTemplateKey();
+    const url = `${this.apiBase}consulting_plans/checklists/checklist_export_xlsx.php?plan_id=${encodeURIComponent(String(planId))}&template_key=${encodeURIComponent(String(tpl || ''))}&csrf_token=${encodeURIComponent(String(this.csrfToken || ''))}`;
+    try {
+      window.open(url, '_blank', 'noopener');
+    } catch (_) {
+      window.location.href = url;
     }
   }
 
@@ -2938,12 +4485,15 @@ class PlanningApp {
     if (!clientId) return this.toast('Seleziona un’azienda cliente', 'error');
     try {
       this.startProgress('Reindicizzazione documenti…');
-      await this.apiFetch('consulting_plans/client_docs_reindex.php', {
+      const res = await this.apiFetch('consulting_plans/client_docs_reindex.php', {
         method: 'POST',
         json: true,
-        body: JSON.stringify({ csrf_token: this.csrfToken, client_tenant_id: clientId }),
+        body: JSON.stringify({ csrf_token: this.csrfToken, client_tenant_id: clientId, force: true }),
       });
-      this.toast('Reindicizzazione avviata (best-effort)', 'success');
+      const st = String(res?.data?.status || '').trim();
+      if (st === 'fresh_skip') this.toast('Indicizzazione già aggiornata (≤10 min)', 'success');
+      else if (st === 'locked') this.toast('Indicizzazione già in corso (lock attivo)', 'warning');
+      else this.toast('Reindicizzazione avviata (best-effort)', 'success');
     } catch (e) {
       const errId = e?.data?.data?.error_id || e?.data?.error_id || null;
       let msg = e?.message || 'Reindicizzazione non disponibile';
@@ -6594,6 +8144,12 @@ class PlanningApp {
 
   async selectPlan(planId) {
     this.activePlanId = String(planId);
+    // Reset checklist add-on state (loaded lazily when tab is opened)
+    this.activeChecklist = null;
+    this.activeChecklistItems = [];
+    this.activeChecklistTemplate = null;
+    this.activeChecklistDocProfile = null;
+    this.activeChecklistLoadedForPlanId = null;
     const plan = this.plans.find(p => String(p.id) === String(planId));
     document.getElementById('planningActivePlanTitle').textContent = plan ? `${plan.title} — ${plan.client_name || `Tenant #${plan.client_tenant_id}`}` : 'Piano';
     this.renderPlans();

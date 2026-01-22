@@ -36,6 +36,25 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/workflow_email_notifier.php';
 require_once __DIR__ . '/../includes/audit_helper.php';
 
+/**
+ * Detect column existence (schema may differ across environments).
+ */
+function tableHasColumn(Database $db, string $table, string $column): bool {
+    try {
+        $row = $db->fetchOne(
+            "SELECT COUNT(*) AS cnt
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = ?
+               AND COLUMN_NAME = ?",
+            [$table, $column]
+        );
+        return (int)($row['cnt'] ?? 0) > 0;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
 // ============================================
 // MAIN EXECUTION
 // ============================================
@@ -49,6 +68,14 @@ try {
     echo "[" . date('Y-m-d H:i:s') . "] Starting assignment expiration check...\n";
 
     $db = Database::getInstance();
+
+    // Schema detection
+    $faAssignedToCol = tableHasColumn($db, 'file_assignments', 'assigned_to_user_id') ? 'assigned_to_user_id' : 'user_id';
+    $faAssignedByCol = tableHasColumn($db, 'file_assignments', 'assigned_by_user_id') ? 'assigned_by_user_id' : 'assigned_by';
+    $faReasonCol = tableHasColumn($db, 'file_assignments', 'assignment_reason') ? 'assignment_reason' : 'reason';
+    $faHasFolderId = tableHasColumn($db, 'file_assignments', 'folder_id');
+    $filesNameCol = tableHasColumn($db, 'files', 'file_name') ? 'file_name' : 'name';
+    $foldersNameCol = tableHasColumn($db, 'folders', 'folder_name') ? 'folder_name' : 'name';
 
     // Calculate date range for warnings
     $warningStartDate = date('Y-m-d 00:00:00', strtotime('+' . EXPIRATION_WARNING_DAYS . ' days'));
@@ -64,14 +91,14 @@ try {
                 fa.id,
                 fa.tenant_id,
                 fa.file_id,
-                fa.folder_id,
-                fa.user_id,
-                fa.assigned_by,
-                fa.reason,
+                " . ($faHasFolderId ? "fa.folder_id," : "NULL as folder_id,") . "
+                fa.{$faAssignedToCol} AS assigned_to_user_id,
+                fa.{$faAssignedByCol} AS assigned_by_user_id,
+                fa.{$faReasonCol} AS assignment_reason,
                 fa.expires_at,
                 fa.expiration_warning_sent,
-                f.name as file_name,
-                fo.name as folder_name,
+                f.{$filesNameCol} as file_name,
+                " . ($faHasFolderId ? "fo.{$foldersNameCol} as folder_name," : "NULL as folder_name,") . "
                 assignee.name as assignee_name,
                 assignee.email as assignee_email,
                 assigner.name as assigner_name,
@@ -79,9 +106,9 @@ try {
                 t.name as tenant_name
               FROM file_assignments fa
               LEFT JOIN files f ON fa.file_id = f.id
-              LEFT JOIN folders fo ON fa.folder_id = fo.id
-              JOIN users assignee ON fa.user_id = assignee.id
-              JOIN users assigner ON fa.assigned_by = assigner.id
+              " . ($faHasFolderId ? "LEFT JOIN folders fo ON fa.folder_id = fo.id" : "") . "
+              JOIN users assignee ON fa.{$faAssignedToCol} = assignee.id
+              JOIN users assigner ON fa.{$faAssignedByCol} = assigner.id
               JOIN tenants t ON fa.tenant_id = t.id
               WHERE fa.deleted_at IS NULL
                 AND fa.expires_at BETWEEN ? AND ?

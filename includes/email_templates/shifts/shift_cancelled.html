@@ -1,0 +1,37 @@
+<p style="margin:0 0 12px 0;">Ciao <strong>{{USER_NAME}}</strong>,</p>
+<p style="margin:0 0 14px 0;">Il tuo turno di lavoro e stato cancellato.</p>
+
+{{#TENANT_NAME}}
+<p style="margin:0 0 14px 0;color:#374151;"><strong>Azienda:</strong> {{TENANT_NAME}}</p>
+{{/TENANT_NAME}}
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:12px 0;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;">
+  <tr><td style="padding:12px 12px;">
+    <div style="margin:0 0 8px 0;font-weight:600;color:#991b1b;">Turno cancellato</div>
+    <div style="margin:0;color:#374151;">
+      <div><strong>Data:</strong> {{SHIFT_DATE}}</div>
+      <div><strong>Tipo turno:</strong> {{SHIFT_TYPE_NAME}}</div>
+      <div><strong>Orario previsto:</strong> {{SHIFT_START_TIME}} - {{SHIFT_END_TIME}}</div>
+      {{#CANCELLED_BY_NAME}}<div style="margin-top:6px;"><strong>Cancellato da:</strong> {{CANCELLED_BY_NAME}}</div>{{/CANCELLED_BY_NAME}}
+    </div>
+  </td></tr>
+</table>
+
+{{#CANCELLATION_REASON}}
+<div style="margin:12px 0 0 0;padding:12px;border:1px solid #fecaca;border-radius:8px;color:#374151;background:#fff5f5;">
+  <div style="font-weight:600;margin:0 0 6px 0;color:#991b1b;">Motivo cancellazione</div>
+  <div style="white-space:pre-line;">{{CANCELLATION_REASON}}</div>
+</div>
+{{/CANCELLATION_REASON}}
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;">
+  <tr>
+    <td>
+      <a href="{{SHIFTS_URL}}" style="display:inline-block;background:#1a2332;color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:600;font-size:14px;line-height:18px;">Visualizza turni</a>
+    </td>
+  </tr>
+</table>
+
+<p style="margin:0;font-size:12px;line-height:18px;color:#6b7280;">
+  Per qualsiasi domanda, contatta il tuo responsabile.
+</p>

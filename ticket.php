@@ -22,6 +22,10 @@ if (!$currentUser) {
 require_once __DIR__ . '/includes/tenant_access_check.php';
 requireTenantAccess($currentUser['id'], $currentUser['role']);
 
+// Enforce Page Visibility access rules (configurazioni.php -> Visibilità Pagine)
+require_once __DIR__ . '/includes/page_access_check.php';
+checkPageAccess('ticket');
+
 // Initialize company filter
 $companyFilter = new CompanyFilter($currentUser);
 
@@ -31,234 +35,14 @@ $csrfToken = $auth->generateCSRFToken();
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <meta name="csrf-token" content="<?php echo htmlspecialchars($csrfToken); ?>">
-    <title>Ticket - CollaboraNexio</title>
-
-    <!-- Main CSS -->
-    <link rel="stylesheet" href="assets/css/styles.css">
-    <!-- Sidebar Responsive Optimization CSS -->
-    <link rel="stylesheet" href="assets/css/sidebar-responsive.css">
-    <!-- Page specific CSS -->
-    <link rel="stylesheet" href="assets/css/dashboard.css">
+<?php
+    $pageTitle = 'Ticket - Nexio';
+    $pageCss = ['assets/css/dashboard.css'];
+    require __DIR__ . '/includes/layout_head.php';
+?>
 
     <style>
-        /* Logo image style */
-        .logo-img {
-            width: 32px;
-            height: 32px;
-            background: white;
-            padding: 4px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        /* Additional sidebar styles - EXACT COPY from dashboard.php */
-        .nav-section {
-            margin-bottom: var(--space-6);
-        }
-
-        .nav-section-title {
-            padding: var(--space-2) var(--space-4);
-            font-size: var(--text-xs);
-            font-weight: var(--font-semibold);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--color-sidebar-text-muted);
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3) var(--space-4);
-            color: var(--color-sidebar-text);
-            text-decoration: none;
-            transition: all var(--transition-fast);
-            position: relative;
-            font-size: var(--text-sm);
-        }
-
-        .nav-item:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .nav-item.active {
-            background-color: rgba(255, 255, 255, 0.15);
-        }
-
-        .nav-item.active::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            background-color: var(--color-sidebar-active);
-        }
-
-        .icon {
-            width: 20px;
-            height: 20px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-style: normal;
-            color: var(--color-sidebar-text);
-            position: relative;
-        }
-
-        /* White icon styles using CSS */
-        .icon::before {
-            content: '';
-            display: block;
-            width: 18px;
-            height: 18px;
-            background-color: currentColor;
-            mask-size: contain;
-            mask-repeat: no-repeat;
-            mask-position: center;
-            -webkit-mask-size: contain;
-            -webkit-mask-repeat: no-repeat;
-            -webkit-mask-position: center;
-        }
-
-        /* Individual icon masks */
-        .icon--home::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpolyline points='9 22 9 12 15 12 15 22'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpolyline points='9 22 9 12 15 12 15 22'/%3E%3C/svg%3E");
-        }
-
-        .icon--folder::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
-        }
-
-        .icon--calendar::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
-        }
-
-        .icon--check::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='9 11 12 14 22 4'/%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='9 11 12 14 22 4'/%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'/%3E%3C/svg%3E");
-        }
-
-        .icon--ticket::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M13 5v2'/%3E%3Cpath d='M13 17v2'/%3E%3Cpath d='M13 11v2'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M13 5v2'/%3E%3Cpath d='M13 17v2'/%3E%3Cpath d='M13 11v2'/%3E%3C/svg%3E");
-        }
-
-        .icon--shield::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E");
-        }
-
-        .icon--cpu::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='4' y='4' width='16' height='16' rx='2'/%3E%3Crect x='9' y='9' width='6' height='6'/%3E%3Cline x1='9' y1='1' x2='9' y2='4'/%3E%3Cline x1='15' y1='1' x2='15' y2='4'/%3E%3Cline x1='9' y1='20' x2='9' y2='23'/%3E%3Cline x1='15' y1='20' x2='15' y2='23'/%3E%3Cline x1='20' y1='9' x2='23' y2='9'/%3E%3Cline x1='20' y1='14' x2='23' y2='14'/%3E%3Cline x1='1' y1='9' x2='4' y2='9'/%3E%3Cline x1='1' y1='14' x2='4' y2='14'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='4' y='4' width='16' height='16' rx='2'/%3E%3Crect x='9' y='9' width='6' height='6'/%3E%3Cline x1='9' y1='1' x2='9' y2='4'/%3E%3Cline x1='15' y1='1' x2='15' y2='4'/%3E%3Cline x1='9' y1='20' x2='9' y2='23'/%3E%3Cline x1='15' y1='20' x2='15' y2='23'/%3E%3Cline x1='20' y1='9' x2='23' y2='9'/%3E%3Cline x1='20' y1='14' x2='23' y2='14'/%3E%3Cline x1='1' y1='9' x2='4' y2='9'/%3E%3Cline x1='1' y1='14' x2='4' y2='14'/%3E%3C/svg%3E");
-        }
-
-        .icon--building::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z'/%3E%3Cpath d='M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'/%3E%3Cpath d='M10 6h4'/%3E%3Cpath d='M10 10h4'/%3E%3Cpath d='M10 14h4'/%3E%3Cpath d='M10 18h4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z'/%3E%3Cpath d='M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'/%3E%3Cpath d='M10 6h4'/%3E%3Cpath d='M10 10h4'/%3E%3Cpath d='M10 14h4'/%3E%3Cpath d='M10 18h4'/%3E%3C/svg%3E");
-        }
-
-        .icon--users::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
-        }
-
-        .icon--chart::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='m19 9-5 5-4-4-3 3'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='m19 9-5 5-4-4-3 3'/%3E%3C/svg%3E");
-        }
-
-        .icon--settings::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 13.54l4.24 4.24M6.34 6.34L2.1 2.1m13.8 13.8l4.24 4.24'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 13.54l4.24 4.24M6.34 6.34L2.1 2.1m13.8 13.8l4.24 4.24'/%3E%3C/svg%3E");
-        }
-
-        .icon--user::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
-        }
-
-        .icon--logout::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E");
-        }
-
-        .logo-icon {
-            font-size: var(--text-2xl);
-            width: 32px;
-            height: 32px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--color-primary);
-            color: var(--color-white);
-            border-radius: var(--radius-md);
-            font-weight: var(--font-bold);
-        }
-
-        .logo-text {
-            font-size: var(--text-xl);
-            font-weight: var(--font-bold);
-        }
-
-        .sidebar-subtitle {
-            font-size: var(--text-xs);
-            color: var(--color-sidebar-text-muted);
-            margin-top: var(--space-1);
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3);
-            background-color: rgba(255, 255, 255, 0.05);
-            border-radius: var(--radius-lg);
-        }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            background: var(--color-sidebar-active);
-            color: var(--color-white);
-            border-radius: var(--radius-full);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: var(--text-sm);
-            font-weight: var(--font-semibold);
-        }
-
-        .user-details {
-            flex: 1;
-        }
-
-        .user-name {
-            font-size: var(--text-sm);
-            font-weight: var(--font-medium);
-            color: var(--color-sidebar-text);
-        }
-
-        .user-badge {
-            font-size: 10px;
-            color: var(--color-white);
-            background: var(--color-primary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-top: 4px;
-            padding: 2px 6px;
-            border-radius: var(--radius-sm);
-            display: inline-block;
-            font-weight: var(--font-semibold);
-        }
+        /* Sidebar CSS is centralized in assets/css/styles.css */
 
         /* Page specific styles */
         .tickets-container {
@@ -661,62 +445,7 @@ $csrfToken = $auth->generateCSRFToken();
         }
     </style>
 </head>
-<body>
-    <div class="main-layout">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">
-                    <img src="assets/images/logo.png" alt="CollaboraNexio" class="logo-img">
-                    <span class="logo-text">NEXIO</span>
-                </div>
-                <div class="sidebar-subtitle">Semplifica, Connetti, Cresci Insieme</div>
-            </div>
-
-            <nav class="sidebar-nav">
-                <div class="nav-section">
-                    <div class="nav-section-title">AREA OPERATIVA</div>
-                    <a href="dashboard.php" class="nav-item"><i class="icon icon--home"></i> Dashboard</a>
-                    <a href="files.php" class="nav-item"><i class="icon icon--folder"></i> File Manager</a>
-                    <a href="calendar.php" class="nav-item"><i class="icon icon--calendar"></i> Calendario</a>
-                    <a href="tasks.php" class="nav-item"><i class="icon icon--check"></i> Task</a>
-                    <a href="ticket.php" class="nav-item active"><i class="icon icon--ticket"></i> Ticket</a>
-                    <a href="conformita.php" class="nav-item"><i class="icon icon--shield"></i> Conformità</a>
-                    <a href="ai.php" class="nav-item"><i class="icon icon--cpu"></i> AI</a>
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">GESTIONE</div>
-                    <a href="aziende.php" class="nav-item"><i class="icon icon--building"></i> Aziende</a>
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">AMMINISTRAZIONE</div>
-                    <a href="utenti.php" class="nav-item"><i class="icon icon--users"></i> Utenti</a>
-                    <a href="audit_log.php" class="nav-item"><i class="icon icon--chart"></i> Audit Log</a>
-                    <a href="configurazioni.php" class="nav-item"><i class="icon icon--settings"></i> Configurazioni</a>
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">ACCOUNT</div>
-                    <a href="profilo.php" class="nav-item"><i class="icon icon--user"></i> Il Mio Profilo</a>
-                    <a href="logout.php" class="nav-item"><i class="icon icon--logout"></i> Esci</a>
-                </div>
-            </nav>
-
-            <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar"><?php echo strtoupper(substr($currentUser['name'], 0, 2)); ?></div>
-                    <div class="user-details">
-                        <div class="user-name"><?php echo htmlspecialchars($currentUser['name']); ?></div>
-                        <div class="user-badge">SUPER ADMIN</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="main-content">
+<?php require __DIR__ . '/includes/layout_start.php'; ?>
             <div class="header">
                 <h1 class="page-title">Sistema Ticket</h1>
                 <div class="flex items-center gap-4">
@@ -894,6 +623,7 @@ $csrfToken = $auth->generateCSRFToken();
 
                     <div class="form-group">
                         <label for="ticket-urgency">Urgenza *</label>
+                        <!-- BUG-145b FIX: Uses 'medium' to match database ENUM (API fixed to accept 'medium') -->
                         <select id="ticket-urgency" name="urgency" class="form-control" required>
                             <option value="medium" selected>Normale</option>
                             <option value="low">Bassa</option>
@@ -906,6 +636,21 @@ $csrfToken = $auth->generateCSRFToken();
                         <label for="ticket-description">Descrizione Dettagliata *</label>
                         <textarea id="ticket-description" name="description" class="form-control" rows="6" required placeholder="Descrivi il problema in dettaglio..."></textarea>
                         <small class="text-muted">Fornisci quante più informazioni possibili per aiutarci a risolvere il problema</small>
+                    </div>
+
+                    <!-- FEATURE: Ticket Attachment - Allow single file upload -->
+                    <div class="form-group">
+                        <label for="ticket-attachment">Allegato (opzionale)</label>
+                        <input type="file" id="ticket-attachment" name="attachment" class="form-control"
+                               accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt"
+                               style="padding: 8px; border: 1px dashed #d1d5db; border-radius: 6px; background: #f9fafb;">
+                        <small class="text-muted">Max 5MB. Formati: immagini (JPG, PNG, GIF), PDF, Word (DOC, DOCX), testo (TXT)</small>
+                        <div id="attachment-preview" style="display: none; margin-top: 8px; padding: 8px; background: #e5e7eb; border-radius: 4px; font-size: 13px;">
+                            <span id="attachment-filename"></span>
+                            <span id="attachment-size" style="color: #6b7280; margin-left: 8px;"></span>
+                            <button type="button" onclick="window.ticketManager.clearAttachment()" style="margin-left: 8px; background: none; border: none; color: #dc2626; cursor: pointer; font-weight: 600;">&times;</button>
+                        </div>
+                        <div id="attachment-error" class="text-danger" style="display: none; margin-top: 4px; font-size: 12px;"></div>
                     </div>
 
                     <div id="create-ticket-error" class="alert alert-danger" style="display: none;"></div>
@@ -973,6 +718,21 @@ $csrfToken = $auth->generateCSRFToken();
                         <div id="detail-ticket-description" style="padding: 12px; background: white; border-radius: 6px; font-size: 13px; line-height: 1.5; color: #1F2937; white-space: pre-wrap; max-height: 150px; overflow-y: auto;"></div>
                     </div>
 
+                    <!-- FEATURE: Ticket Attachment Display -->
+                    <div id="detail-ticket-attachment-section" style="display: none; margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: #374151; text-transform: uppercase;">Allegato</h4>
+                        <div id="detail-ticket-attachment" style="padding: 12px; background: white; border-radius: 6px; display: flex; align-items: center; gap: 10px;">
+                            <span id="detail-attachment-icon" style="font-size: 24px;"></span>
+                            <div style="flex: 1; overflow: hidden;">
+                                <div id="detail-attachment-name" style="font-size: 13px; font-weight: 500; color: #1F2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+                                <div id="detail-attachment-info" style="font-size: 11px; color: #6B7280;"></div>
+                            </div>
+                            <a id="detail-attachment-download" href="#" target="_blank" style="padding: 6px 12px; background: #3B82F6; color: white; border-radius: 4px; font-size: 12px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                                <i class="icon icon--download" style="font-size: 14px;"></i> Scarica
+                            </a>
+                        </div>
+                    </div>
+
                     <!-- Admin Actions -->
                     <div id="detail-admin-actions" style="display: none;">
                         <h4 style="margin: 0 0 12px 0; font-size: 12px; font-weight: 600; color: #374151; text-transform: uppercase; padding-top: 16px; border-top: 2px solid #E5E7EB;">Azioni Admin</h4>
@@ -980,12 +740,10 @@ $csrfToken = $auth->generateCSRFToken();
                         <!-- Change Status -->
                         <div style="margin-bottom: 12px;">
                             <label style="display: block; margin-bottom: 4px; font-size: 11px; font-weight: 600; color: #6B7280;">Cambia Stato</label>
-                            <select id="detail-change-status" class="form-control" style="font-size: 13px; padding: 8px;" onchange="window.ticketManager.changeTicketStatus(this.value)">
-                                <option value="">Seleziona...</option>
+                            <select id="detail-change-status" class="form-control" style="font-size: 13px; padding: 8px;">
                                 <option value="open">Aperto</option>
                                 <option value="in_progress">In Lavorazione</option>
-                                <option value="waiting_customer">In Attesa Cliente</option>
-                                <option value="waiting_staff">In Attesa Staff</option>
+                                <option value="waiting_response">In Attesa di Risposta</option>
                                 <option value="resolved">Risolto</option>
                                 <option value="closed">Chiuso</option>
                             </select>
@@ -994,10 +752,20 @@ $csrfToken = $auth->generateCSRFToken();
                         <!-- Assign Ticket -->
                         <div style="margin-bottom: 12px;">
                             <label style="display: block; margin-bottom: 4px; font-size: 11px; font-weight: 600; color: #6B7280;">Assegna a</label>
-                            <select id="detail-assign-to" class="form-control" style="font-size: 13px; padding: 8px;" onchange="window.ticketManager.assignTicket(this.value)">
+                            <select id="detail-assign-to" class="form-control" style="font-size: 13px; padding: 8px;">
                                 <option value="">Seleziona utente...</option>
                                 <!-- Users will be populated dynamically -->
                             </select>
+                        </div>
+
+                        <div id="detail-pending-updates-hint" style="display:none; margin-top: 10px; padding: 10px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 6px; color: #1E3A8A; font-size: 12px;">
+                            <strong>Modifiche in sospeso</strong>: verranno applicate quando clicchi “Invia Risposta” oppure “Salva modifiche”.
+                        </div>
+
+                        <div style="margin-top: 10px;">
+                            <button type="button" class="btn btn--secondary" id="detail-apply-updates-btn" style="width:100%;">
+                                Salva modifiche
+                            </button>
                         </div>
 
                         <!-- Delete Ticket Button -->
@@ -1030,6 +798,14 @@ $csrfToken = $auth->generateCSRFToken();
                         </div>
                     </div>
 
+                    <!-- BUG-153 FIX: Message shown when ticket is closed -->
+                    <div id="detail-ticket-closed-notice" style="display: none; flex-shrink: 0; padding: 16px 20px; background: #FEF3C7; border-top: 2px solid #F59E0B; text-align: center;">
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: #92400E; font-size: 14px; font-weight: 500;">
+                            <span style="font-size: 18px;">&#128274;</span>
+                            <span>Questo ticket e stato chiuso. Non e possibile aggiungere ulteriori risposte.</span>
+                        </div>
+                    </div>
+
                     <!-- Reply Form (Fixed at bottom) -->
                     <div id="detail-reply-section" style="flex-shrink: 0; padding: 16px 20px; background: #F9FAFB; border-top: 2px solid #E5E7EB;">
                         <form id="ticket-reply-form" onsubmit="window.ticketManager.submitReply(event); return false;">
@@ -1052,8 +828,6 @@ $csrfToken = $auth->generateCSRFToken();
                 </div>
 
             </div>
-        </div>
-    </div>
 
     <!-- Scripts -->
     <script src="assets/js/app.js"></script>
@@ -1091,5 +865,4 @@ $csrfToken = $auth->generateCSRFToken();
             <?php endif; ?>
         });
     </script>
-</body>
-</html>
+<?php require __DIR__ . '/includes/layout_end.php'; ?>

@@ -96,6 +96,7 @@ class AuditLogger {
             $entity_id = $params['entity_id'] ?? null;
             $old_values = $params['old_values'] ?? null;
             $new_values = $params['new_values'] ?? null;
+            $metadata = $params['metadata'] ?? null;
             $description = $params['description'] ?? null;
             $ip_address = $params['ip_address'] ?? $this->getClientIp();
             $user_agent = $params['user_agent'] ?? $this->getUserAgent();
@@ -116,6 +117,10 @@ class AuditLogger {
             if (is_array($new_values)) {
                 $new_values = json_encode($new_values);
             }
+            if (is_array($metadata)) {
+                // Keep metadata JSON but avoid logging raw secrets (callers should sanitize).
+                $metadata = json_encode($metadata);
+            }
             if (is_array($request_data)) {
                 // Sanitize sensitive data
                 $request_data = $this->sanitizeRequestData($request_data);
@@ -125,12 +130,12 @@ class AuditLogger {
             // Prepare SQL statement
             $sql = "INSERT INTO audit_logs (
                         tenant_id, user_id, action, entity_type, entity_id,
-                        old_values, new_values, description,
+                        old_values, new_values, metadata, description,
                         ip_address, user_agent, session_id,
                         request_method, request_url, request_data, response_code,
                         execution_time_ms, memory_usage_kb,
                         severity, status, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
 
             $stmt = $this->conn->prepare($sql);
 
@@ -140,14 +145,28 @@ class AuditLogger {
 
             $result = $stmt->execute([
                 $tenant_id, $user_id, $action, $entity_type, $entity_id,
-                $old_values, $new_values, $description,
+                $old_values, $new_values, $metadata, $description,
                 $ip_address, $user_agent, $session_id,
                 $request_method, $request_url, $request_data, $response_code,
                 $execution_time_ms, $memory_usage_kb,
                 $severity, $status
             ]);
 
-            return $result;
+            if (!$result) return false;
+
+            // Sign integrity (non-blocking)
+            try {
+                $insertId = (int)$this->conn->lastInsertId();
+                if ($insertId > 0 && $tenant_id) {
+                    require_once __DIR__ . '/audit_integrity.php';
+                    audit_integrity_signLog($this->conn, (int)$tenant_id, $insertId);
+                }
+            } catch (Throwable $e) {
+                // Never block the main operation if signing fails
+                error_log("AuditLogger Integrity Sign Error: " . $e->getMessage());
+            }
+
+            return true;
 
         } catch (Exception $e) {
             error_log("AuditLogger Error: " . $e->getMessage());

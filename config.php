@@ -40,33 +40,62 @@ if (strpos($currentHost, 'nexiosolution.it') !== false) {
     ini_set('display_startup_errors', '1');
 }
 
-// Log degli errori per entrambi gli ambienti
+// Log degli errori per entrambi gli ambienti (set BEFORE any optional includes)
 ini_set('log_errors', '1');
 ini_set('error_log', __DIR__ . '/logs/php_errors.log');
+
+// ==============================================================
+// OPTIONAL SECRETS OVERRIDES (safe-to-include, NOT COMMITTED)
+// ==============================================================
+// This file is intended for local/tunnel environments too (e.g. Cloudflare tunnel host triggers PRODUCTION_MODE).
+// It must contain ONLY guarded define() statements (no side effects).
+// Example: define('OPENAI_API_KEY', '...');
+if (file_exists(__DIR__ . '/config.secrets.php')) {
+    require_once __DIR__ . '/config.secrets.php';
+}
+
+// ==============================================================
+// OPTIONAL PRODUCTION OVERRIDES (safe-to-include)
+// ==============================================================
+// In production you can provide a private `config.production.php` (not committed) to override/add secrets (e.g., OpenAI key).
+if (defined('PRODUCTION_MODE') && PRODUCTION_MODE && file_exists(__DIR__ . '/config.production.php')) {
+    // IMPORTANT: `config.production.php` must be safe-to-include (no side effects, no random secrets generation).
+    require_once __DIR__ . '/config.production.php';
+}
 
 // ==============================================================
 // DATABASE CONFIGURATION
 // ==============================================================
 
-// XAMPP default MySQL settings
-define('DB_HOST', 'localhost');
-define('DB_PORT', 3306);
-define('DB_NAME', 'collaboranexio');
-define('DB_USER', 'root');
-define('DB_PASS', ''); // XAMPP default: empty password
-define('DB_CHARSET', 'utf8mb4');
-define('DB_COLLATION', 'utf8mb4_unicode_ci');
+// NOTE:
+// - In production, provide credentials via private `config.production.php` OR via environment variables (CNX_DB_*).
+// - We only set defaults if constants are not already defined (so production overrides work).
+$envDbHost = getenv('CNX_DB_HOST') ?: null;
+$envDbPort = getenv('CNX_DB_PORT') ?: null;
+$envDbName = getenv('CNX_DB_NAME') ?: null;
+$envDbUser = getenv('CNX_DB_USER') ?: null;
+$envDbPass = getenv('CNX_DB_PASS') ?: null;
+
+if (!defined('DB_HOST')) define('DB_HOST', $envDbHost ?: 'localhost');
+if (!defined('DB_PORT')) define('DB_PORT', $envDbPort ? (int)$envDbPort : 3306);
+if (!defined('DB_NAME')) define('DB_NAME', $envDbName ?: 'collaboranexio');
+if (!defined('DB_USER')) define('DB_USER', $envDbUser ?: 'root');
+if (!defined('DB_PASS')) define('DB_PASS', $envDbPass !== null ? (string)$envDbPass : ''); // XAMPP default: empty password
+if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8mb4');
+if (!defined('DB_COLLATION')) define('DB_COLLATION', 'utf8mb4_unicode_ci');
 
 // PDO options
-define('DB_PERSISTENT', false); // Add missing constant
-define('LOG_LEVEL', 'ERROR'); // Add missing log level constant
-define('DB_PDO_OPTIONS', [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    PDO::ATTR_EMULATE_PREPARES => false,
-    PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
-    PDO::ATTR_PERSISTENT => false
-]);
+if (!defined('DB_PERSISTENT')) define('DB_PERSISTENT', false); // Add missing constant
+if (!defined('LOG_LEVEL')) define('LOG_LEVEL', 'ERROR'); // Add missing log level constant
+if (!defined('DB_PDO_OPTIONS')) {
+    define('DB_PDO_OPTIONS', [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
+        PDO::ATTR_PERSISTENT => false
+    ]);
+}
 
 // ==============================================================
 // SESSION CONFIGURATION
@@ -119,6 +148,14 @@ define('BASE_PATH', __DIR__);
 define('UPLOAD_PATH', __DIR__ . '/uploads');
 define('TEMP_PATH', __DIR__ . '/temp');
 define('LOG_PATH', __DIR__ . '/logs');
+
+// ==============================================================
+// OPENAI (Planning AI proposal) - defaults (override in config.production.php private copy)
+// ==============================================================
+if (!defined('OPENAI_API_KEY')) define('OPENAI_API_KEY', ''); // keep empty by default
+if (!defined('OPENAI_MODEL')) define('OPENAI_MODEL', 'gpt-5.2');
+if (!defined('OPENAI_TIMEOUT_SECONDS')) define('OPENAI_TIMEOUT_SECONDS', 20);
+if (!defined('OPENAI_API_BASE')) define('OPENAI_API_BASE', 'https://api.openai.com');
 
 // Create directories if they don't exist
 foreach ([UPLOAD_PATH, TEMP_PATH, LOG_PATH] as $path) {

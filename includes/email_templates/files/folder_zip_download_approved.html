@@ -1,0 +1,21 @@
+<p style="margin:0 0 10px 0;">Ciao <strong>{{REQUESTER_NAME}}</strong>,</p>
+
+<p style="margin:0 0 12px 0;">
+  La tua richiesta di scaricare come ZIP la cartella <strong>{{FOLDER_NAME}}</strong> è stata <strong>approvata</strong>.
+</p>
+
+<div style="margin:12px 0 0 0;padding:10px 12px;border-left:3px solid #1a2332;background:#fbfbfb;border-radius:6px;color:#374151;">
+  <strong>Nota:</strong> il link di download è valido per <strong>1 solo download</strong>.
+</div>
+
+{{{CTA_BUTTON}}}
+
+<!-- IF_NOTE -->
+<p style="margin:12px 0 0 0;color:#374151;"><strong>Messaggio del manager:</strong> {{NOTE}}</p>
+<!-- ENDIF_NOTE -->
+
+<p style="margin:14px 0 0 0;font-size:12px;line-height:18px;color:#6b7280;">
+  Se il pulsante non funziona, copia e incolla questo link nel browser:<br>
+  <a href="{{DOWNLOAD_URL}}" style="color:#1a2332;text-decoration:none;word-break:break-all;">{{DOWNLOAD_URL}}</a>
+</p>
+

@@ -23,39 +23,37 @@ if (!$currentUser) {
 require_once __DIR__ . '/includes/tenant_access_check.php';
 requireTenantAccess($currentUser['id'], $currentUser['role']);
 
+// Enforce Page Visibility access rules (configurazioni.php -> Visibilità Pagine)
+require_once __DIR__ . '/includes/page_access_check.php';
+checkPageAccess('aziende');
+
 // Check if user is super admin
 $userRole = $currentUser['user_role'] ?? $currentUser['role'] ?? 'user';
 $isSuperAdmin = ($userRole === 'super_admin');
 
 // Generate CSRF token for any forms
 $csrfToken = $auth->generateCSRFToken();
+
+// Prevent HTML caching (debug/consistency across tunnel/prod)
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+
+// Build marker to verify served version in "View Source"
+$cnxBuildId = 'aziende.php@' . (string)@filemtime(__FILE__);
 ?>
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Gestione Aziende - CollaboraNexio</title>
+<?php
+    $pageTitle = 'Gestione Aziende - Nexio';
+    $pageCss = ['assets/css/dashboard.css'];
+    require __DIR__ . '/includes/layout_head.php';
+?>
 
-    <!-- Main CSS -->
-    <link rel="stylesheet" href="assets/css/styles.css">
-    <!-- Sidebar Responsive Optimization CSS -->
-    <link rel="stylesheet" href="assets/css/sidebar-responsive.css">
-    <!-- Page specific CSS -->
-    <link rel="stylesheet" href="assets/css/dashboard.css">
+    <!-- CNX_BUILD_ID: <?php echo htmlspecialchars($cnxBuildId); ?> -->
 
     <style>
-        /* Logo image style */
-        .logo-img {
-            width: 32px;
-            height: 32px;
-            background: white;
-            padding: 4px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
         /* Additional company management specific styles */
         .form-section {
             border-top: 1px solid var(--color-gray-200);
@@ -551,142 +549,6 @@ $csrfToken = $auth->generateCSRFToken();
             border-color: var(--color-primary);
         }
 
-        /* Additional sidebar styles */
-        .nav-section {
-            margin-bottom: var(--space-6);
-        }
-
-        .nav-section-title {
-            padding: var(--space-2) var(--space-4);
-            font-size: var(--text-xs);
-            font-weight: var(--font-semibold);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--color-sidebar-text-muted);
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3) var(--space-4);
-            color: var(--color-sidebar-text);
-            text-decoration: none;
-            transition: all var(--transition-fast);
-            position: relative;
-            font-size: var(--text-sm);
-        }
-
-        .nav-item:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .nav-item.active {
-            background-color: rgba(255, 255, 255, 0.15);
-        }
-
-        .nav-item.active::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            background-color: var(--color-sidebar-active);
-        }
-
-        .icon {
-            width: 20px;
-            height: 20px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-style: normal;
-            color: var(--color-sidebar-text);
-            position: relative;
-        }
-
-        /* White icon styles using CSS */
-        .icon::before {
-            content: '';
-            display: block;
-            width: 18px;
-            height: 18px;
-            background-color: currentColor;
-            mask-size: contain;
-            mask-repeat: no-repeat;
-            mask-position: center;
-            -webkit-mask-size: contain;
-            -webkit-mask-repeat: no-repeat;
-            -webkit-mask-position: center;
-        }
-
-        /* Individual icon masks */
-        .icon--home::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpolyline points='9 22 9 12 15 12 15 22'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpolyline points='9 22 9 12 15 12 15 22'/%3E%3C/svg%3E");
-        }
-
-        .icon--folder::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
-        }
-
-        .icon--calendar::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
-        }
-
-        .icon--check::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='9 11 12 14 22 4'/%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='9 11 12 14 22 4'/%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'/%3E%3C/svg%3E");
-        }
-
-        .icon--ticket::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M13 5v2'/%3E%3Cpath d='M13 17v2'/%3E%3Cpath d='M13 11v2'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M13 5v2'/%3E%3Cpath d='M13 17v2'/%3E%3Cpath d='M13 11v2'/%3E%3C/svg%3E");
-        }
-
-        .icon--shield::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E");
-        }
-
-        .icon--cpu::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='4' y='4' width='16' height='16' rx='2'/%3E%3Crect x='9' y='9' width='6' height='6'/%3E%3Cline x1='9' y1='1' x2='9' y2='4'/%3E%3Cline x1='15' y1='1' x2='15' y2='4'/%3E%3Cline x1='9' y1='20' x2='9' y2='23'/%3E%3Cline x1='15' y1='20' x2='15' y2='23'/%3E%3Cline x1='20' y1='9' x2='23' y2='9'/%3E%3Cline x1='20' y1='14' x2='23' y2='14'/%3E%3Cline x1='1' y1='9' x2='4' y2='9'/%3E%3Cline x1='1' y1='14' x2='4' y2='14'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='4' y='4' width='16' height='16' rx='2'/%3E%3Crect x='9' y='9' width='6' height='6'/%3E%3Cline x1='9' y1='1' x2='9' y2='4'/%3E%3Cline x1='15' y1='1' x2='15' y2='4'/%3E%3Cline x1='9' y1='20' x2='9' y2='23'/%3E%3Cline x1='15' y1='20' x2='15' y2='23'/%3E%3Cline x1='20' y1='9' x2='23' y2='9'/%3E%3Cline x1='20' y1='14' x2='23' y2='14'/%3E%3Cline x1='1' y1='9' x2='4' y2='9'/%3E%3Cline x1='1' y1='14' x2='4' y2='14'/%3E%3C/svg%3E");
-        }
-
-        .icon--building::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z'/%3E%3Cpath d='M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'/%3E%3Cpath d='M10 6h4'/%3E%3Cpath d='M10 10h4'/%3E%3Cpath d='M10 14h4'/%3E%3Cpath d='M10 18h4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z'/%3E%3Cpath d='M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'/%3E%3Cpath d='M10 6h4'/%3E%3Cpath d='M10 10h4'/%3E%3Cpath d='M10 14h4'/%3E%3Cpath d='M10 18h4'/%3E%3C/svg%3E");
-        }
-
-        .icon--users::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
-        }
-
-        .icon--chart::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='m19 9-5 5-4-4-3 3'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='m19 9-5 5-4-4-3 3'/%3E%3C/svg%3E");
-        }
-
-        .icon--settings::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 13.54l4.24 4.24M6.34 6.34L2.1 2.1m13.8 13.8l4.24 4.24'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 13.54l4.24 4.24M6.34 6.34L2.1 2.1m13.8 13.8l4.24 4.24'/%3E%3C/svg%3E");
-        }
-
-        .icon--user::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
-        }
-
-        .icon--logout::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E");
-        }
-
         /* Municipality Autocomplete Styles */
         .municipality-autocomplete-wrapper {
             position: relative;
@@ -800,75 +662,6 @@ $csrfToken = $auth->generateCSRFToken();
             margin-right: 8px;
         }
 
-        .logo-icon {
-            font-size: var(--text-2xl);
-            width: 32px;
-            height: 32px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--color-primary);
-            color: var(--color-white);
-            border-radius: var(--radius-md);
-            font-weight: var(--font-bold);
-        }
-
-        .logo-text {
-            font-size: var(--text-xl);
-            font-weight: var(--font-bold);
-        }
-
-        .sidebar-subtitle {
-            font-size: var(--text-xs);
-            color: var(--color-sidebar-text-muted);
-            margin-top: var(--space-1);
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3);
-            background-color: rgba(255, 255, 255, 0.05);
-            border-radius: var(--radius-lg);
-        }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            background: var(--color-sidebar-active);
-            color: var(--color-white);
-            border-radius: var(--radius-full);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: var(--text-sm);
-            font-weight: var(--font-semibold);
-        }
-
-        .user-details {
-            flex: 1;
-        }
-
-        .user-name {
-            font-size: var(--text-sm);
-            font-weight: var(--font-medium);
-            color: var(--color-sidebar-text);
-        }
-
-        .user-badge {
-            font-size: 10px;
-            color: var(--color-white);
-            background: var(--color-primary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-top: 4px;
-            padding: 2px 6px;
-            border-radius: var(--radius-sm);
-            display: inline-block;
-            font-weight: var(--font-semibold);
-        }
-
         .toast {
             position: fixed;
             bottom: var(--space-6);
@@ -933,62 +726,7 @@ $csrfToken = $auth->generateCSRFToken();
         }
     </style>
 </head>
-<body>
-    <div class="main-layout">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">
-                    <img src="assets/images/logo.png" alt="CollaboraNexio" class="logo-img">
-                    <span class="logo-text">NEXIO</span>
-                </div>
-                <div class="sidebar-subtitle">Semplifica, Connetti, Cresci Insieme</div>
-            </div>
-
-            <nav class="sidebar-nav">
-                <div class="nav-section">
-                    <div class="nav-section-title">AREA OPERATIVA</div>
-                    <a href="dashboard.php" class="nav-item"><i class="icon icon--home"></i> Dashboard</a>
-                    <a href="files.php" class="nav-item"><i class="icon icon--folder"></i> File Manager</a>
-                    <a href="calendar.php" class="nav-item"><i class="icon icon--calendar"></i> Calendario</a>
-                    <a href="tasks.php" class="nav-item"><i class="icon icon--check"></i> Task</a>
-                    <a href="ticket.php" class="nav-item"><i class="icon icon--ticket"></i> Ticket</a>
-                    <a href="conformita.php" class="nav-item"><i class="icon icon--shield"></i> Conformità</a>
-                    <a href="ai.php" class="nav-item"><i class="icon icon--cpu"></i> AI</a>
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">GESTIONE</div>
-                    <a href="aziende.php" class="nav-item active"><i class="icon icon--building"></i> Aziende</a>
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">AMMINISTRAZIONE</div>
-                    <a href="utenti.php" class="nav-item"><i class="icon icon--users"></i> Utenti</a>
-                    <a href="audit_log.php" class="nav-item"><i class="icon icon--chart"></i> Audit Log</a>
-                    <a href="configurazioni.php" class="nav-item"><i class="icon icon--settings"></i> Configurazioni</a>
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">ACCOUNT</div>
-                    <a href="profilo.php" class="nav-item"><i class="icon icon--user"></i> Il Mio Profilo</a>
-                    <a href="logout.php" class="nav-item"><i class="icon icon--logout"></i> Esci</a>
-                </div>
-            </nav>
-
-            <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar"><?php echo strtoupper(substr($currentUser['name'], 0, 2)); ?></div>
-                    <div class="user-details">
-                        <div class="user-name"><?php echo htmlspecialchars($currentUser['name']); ?></div>
-                        <div class="user-badge"><?php echo strtoupper(str_replace('_', ' ', $userRole)); ?></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="main-content">
+<?php require __DIR__ . '/includes/layout_start.php'; ?>
             <div class="header">
                 <h1 class="page-title">Gestione Aziende</h1>
                 <div class="flex items-center gap-4">
@@ -1004,9 +742,15 @@ $csrfToken = $auth->generateCSRFToken();
                             <input type="text" id="searchInput" placeholder="Cerca aziende..." />
                             <span class="search-icon">🔍</span>
                         </div>
-                        <button class="btn btn-primary" onclick="openAddModal()">
-                            + Nuova Azienda
-                        </button>
+                        <div style="display:flex; gap: 10px; align-items:center;">
+                            <button class="btn btn-danger" id="bulkDeleteBtn" onclick="companyManager.bulkDeleteSelected()" disabled
+                                    title="Seleziona una o più aziende dalla tabella per eliminarle">
+                                🗑️ Elimina selezionate <span id="bulkDeleteCount" style="opacity:.9;"></span>
+                            </button>
+                            <button class="btn btn-primary" onclick="openAddModal()">
+                                + Nuova Azienda
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Companies table -->
@@ -1014,6 +758,9 @@ $csrfToken = $auth->generateCSRFToken();
                         <table>
                             <thead>
                                 <tr>
+                                    <th style="width: 44px; text-align:center;">
+                                        <input type="checkbox" id="companiesSelectAll" title="Seleziona tutti" />
+                                    </th>
                                     <th>ID</th>
                                     <th>Denominazione</th>
                                     <th>Codice Fiscale / Partita IVA</th>
@@ -1037,12 +784,46 @@ $csrfToken = $auth->generateCSRFToken();
                     <div class="pagination" id="pagination">
                         <!-- Pagination buttons will be loaded here via JavaScript -->
                     </div>
+                <?php elseif (in_array((string)$userRole, ['admin', 'manager'], true)): ?>
+                    <!-- Limited mode: Admin/Manager can manage tenant roles (if enabled) but cannot manage company registry -->
+                    <div class="companies-header">
+                        <div class="search-bar">
+                            <input type="text" id="searchInput" placeholder="Cerca aziende..." />
+                            <span class="search-icon">🔍</span>
+                        </div>
+                        <div class="text-sm text-muted" style="padding: 8px 10px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); background: var(--color-gray-50);">
+                            Modalità limitata: puoi gestire solo i <strong>Ruoli Aziendali</strong> (se abilitato dal Super Admin).
+                        </div>
+                    </div>
+
+                    <div class="companies-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Denominazione</th>
+                                    <th>Comune (Sede Legale)</th>
+                                    <th>Stato</th>
+                                    <th>Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody id="companiesTableBody">
+                                <!-- Companies will be loaded here via JavaScript -->
+                            </tbody>
+                        </table>
+                        <div id="emptyState" class="empty-state" style="display: none;">
+                            <div class="empty-state-icon">🏢</div>
+                            <div class="empty-state-text">Nessuna azienda trovata</div>
+                        </div>
+                    </div>
+
+                    <div class="pagination" id="pagination"></div>
                 <?php else: ?>
-                    <!-- Restricted access message for non-super admin users -->
+                    <!-- Restricted access message for other users -->
                     <div class="restricted-message">
                         <div class="restricted-icon">🔒</div>
                         <h2 class="restricted-title">Accesso Limitato</h2>
-                        <p class="restricted-text">Solo i Super Admin possono gestire le aziende.</p>
+                        <p class="restricted-text">Non hai i permessi per accedere a questa pagina.</p>
                     </div>
                 <?php endif; ?>
             </div>
@@ -1063,8 +844,8 @@ $csrfToken = $auth->generateCSRFToken();
                     <div class="form-section">
                         <h3 class="form-section-title">Dati Identificativi</h3>
                         <div class="form-group">
-                            <label for="addDenominazione">Denominazione *</label>
-                            <input type="text" id="addDenominazione" name="denominazione" required />
+                            <label for="addDenominazione">Denominazione</label>
+                            <input type="text" id="addDenominazione" name="denominazione" />
                         </div>
                         <div class="form-row">
                             <div class="form-group">
@@ -1163,9 +944,9 @@ $csrfToken = $auth->generateCSRFToken();
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="addNumeroDipendenti">Numero Dipendenti *</label>
+                                <label for="addNumeroDipendenti">Numero Dipendenti</label>
                                 <input type="number" id="addNumeroDipendenti" name="numero_dipendenti"
-                                       min="0" required />
+                                       min="0" />
                             </div>
                         </div>
                         <div class="form-row">
@@ -1194,8 +975,8 @@ $csrfToken = $auth->generateCSRFToken();
                                        placeholder="+39 02 1234567" />
                             </div>
                             <div class="form-group">
-                                <label for="addEmailAziendale">Email Aziendale *</label>
-                                <input type="email" id="addEmailAziendale" name="email_aziendale" required />
+                                <label for="addEmailAziendale">Email Aziendale</label>
+                                <input type="email" id="addEmailAziendale" name="email_aziendale" />
                             </div>
                         </div>
                         <div class="form-group">
@@ -1216,15 +997,15 @@ $csrfToken = $auth->generateCSRFToken();
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="addRappresentante">Rappresentante Legale *</label>
-                                <input type="text" id="addRappresentante" name="rappresentante_legale" required />
+                                <label for="addRappresentante">Rappresentante Legale</label>
+                                <input type="text" id="addRappresentante" name="rappresentante_legale" />
                             </div>
                         </div>
                         <div class="form-group">
                             <label for="addStatus">Stato *</label>
                             <select id="addStatus" name="status" required>
                                 <option value="active">Attivo</option>
-                                <option value="pending">In attesa</option>
+                                <option value="inactive">Inattivo</option>
                                 <option value="suspended">Sospeso</option>
                             </select>
                         </div>
@@ -1252,8 +1033,8 @@ $csrfToken = $auth->generateCSRFToken();
                     <div class="form-section">
                         <h3 class="form-section-title">Dati Identificativi</h3>
                         <div class="form-group">
-                            <label for="editDenominazione">Denominazione *</label>
-                            <input type="text" id="editDenominazione" name="denominazione" required />
+                            <label for="editDenominazione">Denominazione</label>
+                            <input type="text" id="editDenominazione" name="denominazione" />
                         </div>
                         <div class="form-row">
                             <div class="form-group">
@@ -1272,6 +1053,36 @@ $csrfToken = $auth->generateCSRFToken();
                                        data-alt-tax-field="piva" />
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Logo intestazione documenti (DOCX header) -->
+                    <div class="form-section">
+                        <h3 class="form-section-title">Logo intestazione documenti</h3>
+                        <div class="form-group">
+                            <label for="editTenantLogoFile">Logo (PNG/JPG, max 3MB)</label>
+                            <input type="file" id="editTenantLogoFile" accept="image/png,image/jpeg" />
+                            <div style="margin-top: 8px; font-size: 12px; color: var(--color-gray-600);">
+                                Corrente: <span id="editTenantLogoInfo">—</span>
+                                <a id="editTenantLogoOpenLink" href="#" target="_blank" rel="noopener" style="display:none; margin-left: 8px;">Apri</a>
+                                <button type="button" class="btn btn-secondary" id="editTenantLogoClearBtn" style="display:none; margin-left: 8px; padding: 4px 10px;">Rimuovi</button>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <button type="button" class="btn btn-primary" id="editTenantLogoUploadBtn">Carica logo</button>
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--color-gray-500);">
+                            Nota: il logo viene salvato in <code>/IMS/Assets</code> e usato per l’intestazione su tutte le pagine dei DOCX.
+                        </div>
+                    </div>
+
+                    <!-- Reset modulo documentale -->
+                    <div class="form-section">
+                        <h3 class="form-section-title">Reset modulo documentale</h3>
+                        <div style="font-size: 12px; color: #991B1B; margin-bottom: 10px;">
+                            Attenzione: elimina programmi/deliverable wizard, knowledge AI e cartelle <code>/IMS</code> e <code>/Knowledge</code> di questo tenant.
+                            Non elimina utenti, ticket, task (restano ma senza link compliance).
+                        </div>
+                        <button type="button" class="btn btn-danger" id="editTenantDocPurgeBtn">Elimina modulo documentale (irreversibile)</button>
                     </div>
 
                     <!-- Sede Legale -->
@@ -1352,15 +1163,15 @@ $csrfToken = $auth->generateCSRFToken();
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="editNumeroDipendenti">Numero Dipendenti *</label>
+                                <label for="editNumeroDipendenti">Numero Dipendenti</label>
                                 <input type="number" id="editNumeroDipendenti" name="numero_dipendenti"
-                                       min="0" required />
+                                       min="0" />
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="editDataCostituzione">Data Costituzione *</label>
-                                <input type="date" id="editDataCostituzione" name="data_costituzione" required />
+                                <label for="editDataCostituzione">Data Costituzione</label>
+                                <input type="date" id="editDataCostituzione" name="data_costituzione" />
                             </div>
                             <div class="form-group">
                                 <label for="editCapitaleSociale">Capitale Sociale (EUR)</label>
@@ -1378,18 +1189,18 @@ $csrfToken = $auth->generateCSRFToken();
                         <h3 class="form-section-title">Contatti</h3>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="editTelefono">Telefono *</label>
+                                <label for="editTelefono">Telefono</label>
                                 <input type="tel" id="editTelefono" name="telefono"
-                                       placeholder="+39 02 1234567" required />
+                                       placeholder="+39 02 1234567" />
                             </div>
                             <div class="form-group">
-                                <label for="editEmailAziendale">Email Aziendale *</label>
-                                <input type="email" id="editEmailAziendale" name="email_aziendale" required />
+                                <label for="editEmailAziendale">Email Aziendale</label>
+                                <input type="email" id="editEmailAziendale" name="email_aziendale" />
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="editPec">PEC (Posta Elettronica Certificata) *</label>
-                            <input type="email" id="editPec" name="pec" required />
+                            <label for="editPec">PEC (Posta Elettronica Certificata)</label>
+                            <input type="email" id="editPec" name="pec" />
                         </div>
                     </div>
 
@@ -1398,22 +1209,22 @@ $csrfToken = $auth->generateCSRFToken();
                         <h3 class="form-section-title">Gestione</h3>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="editManager">Manager Aziendale *</label>
-                                <select id="editManager" name="manager_user_id" required>
+                                <label for="editManager">Manager Aziendale</label>
+                                <select id="editManager" name="manager_user_id">
                                     <option value="">Seleziona un manager</option>
                                     <!-- Options will be loaded via JavaScript -->
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="editRappresentante">Rappresentante Legale *</label>
-                                <input type="text" id="editRappresentante" name="rappresentante_legale" required />
+                                <label for="editRappresentante">Rappresentante Legale</label>
+                                <input type="text" id="editRappresentante" name="rappresentante_legale" />
                             </div>
                         </div>
                         <div class="form-group">
                             <label for="editStatus">Stato *</label>
                             <select id="editStatus" name="status" required>
                                 <option value="active">Attivo</option>
-                                <option value="pending">In attesa</option>
+                                <option value="inactive">Inattivo</option>
                                 <option value="suspended">Sospeso</option>
                             </select>
                         </div>
@@ -1448,6 +1259,207 @@ $csrfToken = $auth->generateCSRFToken();
         </div>
     </div>
 
+    <?php endif; ?>
+
+    <!-- Tenant Roles Modal (Ruoli Aziendali) -->
+    <div id="rolesModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Gestione Ruoli Aziendali</h2>
+                <button class="modal-close" onclick="closeModal('rolesModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="rolesCompanyInfo" style="margin-bottom: 16px; padding: 12px; background: var(--color-gray-50); border-radius: var(--radius-md);">
+                    <strong>Azienda:</strong> <span id="rolesCompanyName">-</span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <div>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="hasCustomRolesToggle" onchange="companyManager.toggleCustomRoles()">
+                            <span>Abilita ruoli aziendali personalizzati</span>
+                        </label>
+                    </div>
+                    <button class="btn btn-primary" id="addRoleBtn" onclick="companyManager.openAddRoleForm()" style="display: none;">
+                        + Nuovo Ruolo
+                    </button>
+                </div>
+
+                <!-- Permessi assegnazione Ruolo Aziendale (solo Super Admin) -->
+                <div id="tenantRoleAssignmentPermissions" style="display:none; margin-bottom: 16px; padding: 12px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); background: var(--color-white);">
+                    <div style="font-weight: 600; margin-bottom: 8px;">Permessi assegnazione Ruolo Aziendale</div>
+                    <div style="font-size: 13px; color: var(--color-gray-600); margin-bottom: 10px;">
+                        Di default solo il Super Admin può assegnare Ruoli Aziendali agli utenti. Qui puoi abilitare, per questa azienda, quali tipi utente possono farlo.
+                    </div>
+                    <div style="display:flex; gap: 14px; flex-wrap: wrap;">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="permAssignAdmin">
+                            <span>Admin</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="permAssignManager">
+                            <span>Manager</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="permAssignUser">
+                            <span>Utente</span>
+                        </label>
+                    </div>
+                    <div style="margin-top: 10px; display:flex; justify-content:flex-end; gap: 8px;">
+                        <button type="button" class="btn btn-secondary" onclick="companyManager.resetTenantRoleAssignmentPermissions()">Reset</button>
+                        <button type="button" class="btn btn-primary" onclick="companyManager.saveTenantRoleAssignmentPermissions()">Salva Permessi</button>
+                    </div>
+                </div>
+
+                <!-- Permessi gestione Ruoli Aziendali (solo Super Admin) -->
+                <div id="tenantRoleManagementPermissions" style="display:none; margin-bottom: 16px; padding: 12px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); background: var(--color-white);">
+                    <div style="font-weight: 600; margin-bottom: 8px;">Permessi gestione Ruoli Aziendali</div>
+                    <div style="font-size: 13px; color: var(--color-gray-600); margin-bottom: 10px;">
+                        Di default solo il Super Admin può <strong>creare/modificare/eliminare</strong> Ruoli Aziendali. Qui puoi abilitare, per questa azienda, quali tipi utente possono farlo.
+                    </div>
+                    <div id="tenantRoleManagementPermStorageNote" style="display:none; margin: 10px 0 0; padding: 10px; border: 1px solid #FDE68A; background: #FFFBEB; color: #92400E; border-radius: 8px; font-size: 12px;">
+                        Nota: questa installazione non supporta il salvataggio dei permessi gestione ruoli (colonna <code>tenants.tenant_role_management_roles</code> assente). Verranno usati i valori di default.
+                    </div>
+                    <div style="display:flex; gap: 14px; flex-wrap: wrap; margin-top: 10px;">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="permRoleManageAdmin">
+                            <span>Admin</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="permRoleManageManager">
+                            <span>Manager</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="permRoleManageUser">
+                            <span>Utente</span>
+                        </label>
+                    </div>
+                    <div style="margin-top: 10px; display:flex; justify-content:flex-end; gap: 8px;">
+                        <button type="button" class="btn btn-secondary" onclick="companyManager.resetTenantRoleManagementPermissions()">Reset</button>
+                        <button type="button" class="btn btn-primary" id="tenantRoleManagementPermSaveBtn" onclick="companyManager.saveTenantRoleManagementPermissions()">Salva Permessi</button>
+                    </div>
+                </div>
+
+                <!-- Permessi Turni (per-azienda) -->
+                <div id="shiftPermissionsPanel" style="display:none; margin-bottom: 16px; padding: 12px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); background: var(--color-white);">
+                    <div style="font-weight: 600; margin-bottom: 8px;">Permessi Turni</div>
+                    <div style="font-size: 13px; color: var(--color-gray-600); margin-bottom: 10px;">
+                        Imposta quali tipi utente possono <strong>gestire</strong> i turni e quali possono <strong>approvare</strong> le richieste per questa azienda.
+                    </div>
+                    <div id="shiftPermStorageNote" style="display:none; margin: 10px 0 0; padding: 10px; border: 1px solid #FDE68A; background: #FFFBEB; color: #92400E; border-radius: 8px; font-size: 12px;">
+                        Nota: questa installazione non supporta il salvataggio dei permessi turni (colonna <code>tenants.shift_permissions</code> assente). Verranno usati i valori di default.
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                        <div style="padding: 10px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); background: var(--color-gray-50);">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Gestione Turni</div>
+                            <div style="display:flex; gap: 14px; flex-wrap: wrap;">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="permShiftManageAdmin">
+                                    <span>Admin</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="permShiftManageManager">
+                                    <span>Manager</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="permShiftManageUser">
+                                    <span>Utente</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div style="padding: 10px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); background: var(--color-gray-50);">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Approvazione Richieste</div>
+                            <div style="display:flex; gap: 14px; flex-wrap: wrap;">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="permShiftApproveAdmin">
+                                    <span>Admin</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="permShiftApproveManager">
+                                    <span>Manager</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="permShiftApproveUser">
+                                    <span>Utente</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 10px; display:flex; justify-content:flex-end; gap: 8px;">
+                        <button type="button" class="btn btn-secondary" onclick="companyManager.resetShiftPermissions()">Reset</button>
+                        <button type="button" class="btn btn-primary" id="shiftPermSaveBtn" onclick="companyManager.saveShiftPermissions()">Salva Permessi Turni</button>
+                    </div>
+                </div>
+
+                <!-- Roles List -->
+                <div id="rolesListContainer" style="display: none;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: var(--color-gray-100);">
+                                <th style="padding: 8px 12px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase;">Colore</th>
+                                <th style="padding: 8px 12px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase;">Nome</th>
+                                <th style="padding: 8px 12px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase;">Codice</th>
+                                <th style="padding: 8px 12px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase;">Utenti</th>
+                                <th style="padding: 8px 12px; text-align: center; font-size: 12px; font-weight: 600; text-transform: uppercase;">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rolesTableBody">
+                            <!-- Roles will be loaded here -->
+                        </tbody>
+                    </table>
+                    <div id="rolesEmptyState" style="display: none; text-align: center; padding: 24px; color: var(--color-gray-500);">
+                        Nessun ruolo aziendale definito. Clicca "Nuovo Ruolo" per crearne uno.
+                    </div>
+                </div>
+
+                <!-- Add/Edit Role Form -->
+                <div id="roleFormContainer" style="display: none; margin-top: 16px; padding: 16px; background: var(--color-gray-50); border-radius: var(--radius-md);">
+                    <h4 id="roleFormTitle" style="margin-bottom: 12px;">Nuovo Ruolo</h4>
+                    <form id="roleForm">
+                        <input type="hidden" id="roleFormId" value="">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="roleFormName">Nome Ruolo *</label>
+                                <input type="text" id="roleFormName" name="name" required placeholder="es. Responsabile Vendite">
+                            </div>
+                            <div class="form-group">
+                                <label for="roleFormCode">Codice</label>
+                                <input type="text" id="roleFormCode" name="code" placeholder="es. RESP_VENDITE" style="text-transform: uppercase;">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="roleFormColor">Colore</label>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <input type="color" id="roleFormColor" name="color" value="#6366f1" style="width: 48px; height: 36px; border: 1px solid var(--color-gray-300); border-radius: var(--radius-md); cursor: pointer;">
+                                    <div id="roleColorPreview" style="display: inline-block; padding: 4px 12px; border-radius: var(--radius-full); font-size: 12px; font-weight: 500; background: #6366f1; color: white;">Anteprima</div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="roleFormSortOrder">Ordine</label>
+                                <input type="number" id="roleFormSortOrder" name="sort_order" value="0" min="0">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="roleFormDescription">Descrizione</label>
+                            <textarea id="roleFormDescription" name="description" rows="2" placeholder="Descrizione del ruolo..."></textarea>
+                        </div>
+                        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px;">
+                            <button type="button" class="btn btn-secondary" onclick="companyManager.cancelRoleForm()">Annulla</button>
+                            <button type="submit" class="btn btn-primary">Salva Ruolo</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('rolesModal')">Chiudi</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast notification -->
     <div id="toast" class="toast"></div>
 
@@ -1455,20 +1467,32 @@ $csrfToken = $auth->generateCSRFToken();
     <input type="hidden" id="csrfToken" value="<?php echo htmlspecialchars($csrfToken); ?>">
 
     <script>
+        // Build marker to confirm which file version is loaded
+        window.CNX_BUILD_ID = <?php echo json_encode($cnxBuildId, JSON_UNESCAPED_UNICODE); ?>;
+
+        // Expose current user role to JS
+        window.CNX_CURRENT_USER_ROLE = <?php echo json_encode($currentUser['role'] ?? 'user', JSON_UNESCAPED_UNICODE); ?>;
+
         class CompanyManager {
             constructor() {
+                this.currentUserRole = (window.CNX_CURRENT_USER_ROLE || 'user').toString();
+                this.isSuperAdminUi = (this.currentUserRole === 'super_admin');
                 this.companies = [];
                 this.managers = [];
                 this.currentPage = 1;
                 this.itemsPerPage = 10;
                 this.searchQuery = '';
                 this.deleteCompanyId = null;
+                this.selectedCompanyIds = new Set();
+                this.currentEditCompanyId = null;
                 this.init();
             }
 
             init() {
                 this.bindEvents();
-                this.loadManagers();
+                if (this.isSuperAdminUi) {
+                    this.loadManagers();
+                }
                 this.loadCompanies();
                 this.setupValidation();
             }
@@ -1499,6 +1523,35 @@ $csrfToken = $auth->generateCSRFToken();
                     editForm.addEventListener('submit', (e) => {
                         e.preventDefault();
                         this.updateCompany();
+                    });
+                }
+
+                // Tenant logo actions (edit modal)
+                document.getElementById('editTenantLogoUploadBtn')?.addEventListener('click', async () => {
+                    if (!this.currentEditCompanyId) {
+                        this.showToast('Seleziona una azienda prima di caricare il logo', 'error');
+                        return;
+                    }
+                    await this.uploadTenantLogo(this.currentEditCompanyId);
+                });
+                document.getElementById('editTenantLogoClearBtn')?.addEventListener('click', async () => {
+                    if (!this.currentEditCompanyId) return;
+                    if (!confirm('Rimuovere il logo intestazione per questa azienda?')) return;
+                    await this.clearTenantLogo(this.currentEditCompanyId);
+                });
+
+                // Tenant document module purge (edit modal)
+                document.getElementById('editTenantDocPurgeBtn')?.addEventListener('click', async () => {
+                    if (!this.currentEditCompanyId) return;
+                    await this.purgeTenantDocumentModule(this.currentEditCompanyId);
+                });
+
+                // Bulk select all
+                const selectAll = document.getElementById('companiesSelectAll');
+                if (selectAll) {
+                    selectAll.addEventListener('change', (e) => {
+                        const checked = !!e.target.checked;
+                        this.toggleSelectAll(checked);
                     });
                 }
 
@@ -1547,6 +1600,45 @@ $csrfToken = $auth->generateCSRFToken();
                             await this.validateComuneProvincia(comune, provincia);
                         }
                     });
+                }
+            }
+
+            toggleSelectAll(checked) {
+                if (!this.companies || this.companies.length === 0) {
+                    this.selectedCompanyIds.clear();
+                    this.updateBulkDeleteUI();
+                    return;
+                }
+                if (checked) {
+                    this.companies.forEach(c => this.selectedCompanyIds.add(String(c.id)));
+                } else {
+                    this.selectedCompanyIds.clear();
+                }
+                this.renderCompanies();
+                this.updateBulkDeleteUI();
+            }
+
+            toggleSelectCompany(companyId, checked) {
+                const key = String(companyId);
+                if (checked) this.selectedCompanyIds.add(key);
+                else this.selectedCompanyIds.delete(key);
+                this.updateBulkDeleteUI();
+            }
+
+            updateBulkDeleteUI() {
+                const btn = document.getElementById('bulkDeleteBtn');
+                const countEl = document.getElementById('bulkDeleteCount');
+                const selectAll = document.getElementById('companiesSelectAll');
+
+                const count = this.selectedCompanyIds.size;
+                if (countEl) countEl.textContent = count > 0 ? `(${count})` : '';
+                if (btn) btn.disabled = count === 0;
+
+                if (selectAll) {
+                    const total = (this.companies && this.companies.length) ? this.companies.length : 0;
+                    const selected = count;
+                    selectAll.indeterminate = (selected > 0 && selected < total);
+                    selectAll.checked = (total > 0 && selected === total);
                 }
             }
 
@@ -1645,6 +1737,7 @@ $csrfToken = $auth->generateCSRFToken();
             async loadManagers() {
                 try {
                     const response = await fetch('api/users/list.php?role=manager,admin', {
+                        credentials: 'same-origin',
                         headers: {
                             'X-CSRF-Token': document.getElementById('csrfToken').value
                         }
@@ -1676,6 +1769,7 @@ $csrfToken = $auth->generateCSRFToken();
             async loadCompanies() {
                 try {
                     const response = await fetch(`api/tenants/list.php?page=${this.currentPage}&search=${encodeURIComponent(this.searchQuery)}`, {
+                        credentials: 'same-origin',
                         headers: {
                             'X-CSRF-Token': document.getElementById('csrfToken').value
                         }
@@ -1701,6 +1795,7 @@ $csrfToken = $auth->generateCSRFToken();
             renderCompanies() {
                 const tbody = document.getElementById('companiesTableBody');
                 const emptyState = document.getElementById('emptyState');
+                if (!tbody || !emptyState) return;
 
                 if (!this.companies || this.companies.length === 0) {
                     tbody.innerHTML = '';
@@ -1733,8 +1828,50 @@ $csrfToken = $auth->generateCSRFToken();
                         }
                     }
 
+                    // Admin/Manager mode: only show Roles button
+                    if (!this.isSuperAdminUi) {
+                        return `
+                    <tr>
+                        <td style="text-align: center;">
+                            <strong>${company.id}</strong>
+                        </td>
+                        <td>
+                            <div class="company-info-cell">
+                                <div class="company-avatar-table">${initials}</div>
+                                <div class="company-details-table">
+                                    <div class="company-name-table">${company.denominazione || company.name || '-'}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span style="font-size: var(--text-sm);">${comune}</span>
+                        </td>
+                        <td>
+                            <span class="status-badge ${status}">
+                                <span class="status-indicator"></span>
+                                ${this.getStatusLabel(status)}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn-icon" onclick="companyManager.openRolesModal(${company.id})" title="Gestione Ruoli Aziendali" style="color: var(--color-primary);">
+                                    👥
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                    }
+
+                    const isSelected = this.selectedCompanyIds.has(String(company.id));
                     return `
                     <tr>
+                        <td style="text-align:center;">
+                            <input type="checkbox"
+                                   class="company-row-select"
+                                   data-company-id="${company.id}"
+                                   ${isSelected ? 'checked' : ''} />
+                        </td>
                         <td style="text-align: center;">
                             <strong>${company.id}</strong>
                         </td>
@@ -1769,6 +1906,9 @@ $csrfToken = $auth->generateCSRFToken();
                                 <button class="btn-icon edit" onclick="companyManager.openEditModal(${company.id})" title="Modifica">
                                     ✏️
                                 </button>
+                                <button class="btn-icon" onclick="companyManager.openRolesModal(${company.id})" title="Gestione Ruoli Aziendali" style="color: var(--color-primary);">
+                                    👥
+                                </button>
                                 <button class="btn-icon delete" onclick="companyManager.openDeleteModal(${company.id})" title="Elimina">
                                     🗑️
                                 </button>
@@ -1776,6 +1916,92 @@ $csrfToken = $auth->generateCSRFToken();
                         </td>
                     </tr>
                 `}).join('');
+
+                if (this.isSuperAdminUi) {
+                    // bind checkbox events after rendering
+                    tbody.querySelectorAll('.company-row-select').forEach(cb => {
+                        cb.addEventListener('change', (e) => {
+                            const id = e.target.getAttribute('data-company-id');
+                            this.toggleSelectCompany(id, !!e.target.checked);
+                        });
+                    });
+
+                    this.updateBulkDeleteUI();
+                }
+            }
+
+            async bulkDeleteSelected() {
+                const ids = Array.from(this.selectedCompanyIds)
+                    .map(v => parseInt(v, 10))
+                    .filter(v => Number.isFinite(v) && v > 0);
+
+                if (!ids.length) {
+                    this.showToast('Seleziona almeno una azienda', 'error');
+                    return;
+                }
+
+                // Special protection for tenant 1
+                let confirmSystemTenant = false;
+                if (ids.includes(1)) {
+                    const typed = prompt('Stai eliminando anche il TENANT DI SISTEMA (ID 1).\nPer confermare digita: ELIMINA SISTEMA');
+                    if ((typed || '').trim().toUpperCase() !== 'ELIMINA SISTEMA') {
+                        this.showToast('Operazione annullata: conferma tenant di sistema non valida', 'error');
+                        return;
+                    }
+                    confirmSystemTenant = true;
+                }
+
+                if (!confirm(`Eliminare ${ids.length} aziende selezionate? Questa operazione è IRREVERSIBILE.`)) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch('api/tenants/bulk_delete.php', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': document.getElementById('csrfToken').value,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({
+                            csrf_token: document.getElementById('csrfToken').value,
+                            tenant_ids: ids,
+                            confirm_system_tenant: confirmSystemTenant
+                        })
+                    });
+
+                    let data = null;
+                    const raw = await response.text();
+                    try { data = raw ? JSON.parse(raw) : null; } catch (_) { data = null; }
+
+                    if (!data || !data.success) {
+                        const msg = (data && (data.error || data.message)) ? (data.error || data.message) : `Errore eliminazione multipla (HTTP ${response.status})`;
+                        this.showToast(msg, 'error');
+                        if (!data) console.error('bulk_delete non-JSON response:', raw.substring(0, 500));
+                        else console.error('bulk_delete error payload:', data);
+                        return;
+                    }
+
+                    const summary = data.data?.summary || {};
+                    const deleted = summary.deleted ?? 0;
+                    const failed = summary.failed ?? 0;
+                    const skipped = summary.skipped_not_found ?? 0;
+
+                    this.showToast(`Eliminazione completata: ${deleted} OK, ${failed} KO, ${skipped} skipped`, failed ? 'error' : 'success');
+
+                    // Clear selection and reload list
+                    this.selectedCompanyIds.clear();
+                    const selectAll = document.getElementById('companiesSelectAll');
+                    if (selectAll) {
+                        selectAll.checked = false;
+                        selectAll.indeterminate = false;
+                    }
+                    await this.loadCompanies();
+                } catch (e) {
+                    console.error('bulkDeleteSelected error:', e);
+                    this.showToast('Errore di connessione', 'error');
+                }
             }
 
             renderPagination(totalPages) {
@@ -1835,22 +2061,39 @@ $csrfToken = $auth->generateCSRFToken();
                 // Collect sedi operative
                 const sediOperative = collectSediOperative('add');
 
-                // Build JSON payload
+                // Build JSON payload (allinea ai nomi attesi dall'API /api/tenants/create.php)
                 const payload = {
                     csrf_token: document.getElementById('csrfToken').value,
                     denominazione: document.getElementById('addDenominazione').value.trim(),
                     codice_fiscale: document.getElementById('addCodiceFiscale').value.trim(),
                     partita_iva: document.getElementById('addPartitaIva').value.trim(),
                     sede_legale: sedeLegaleObj,
-                    sedi_operative: sediOperative
+                    sedi_operative: sediOperative,
+
+                    // Informazioni aziendali
+                    settore_merceologico: document.getElementById('addSettore')?.value || null,
+                    numero_dipendenti: parseInt(document.getElementById('addNumeroDipendenti')?.value || '0', 10) || 0,
+                    capitale_sociale: parseFloat(document.getElementById('addCapitaleSociale')?.value || '') || null,
+
+                    // Contatti
+                    telefono: document.getElementById('addTelefono')?.value?.trim() || null,
+                    email: document.getElementById('addEmailAziendale')?.value?.trim() || null,
+                    pec: document.getElementById('addPec')?.value?.trim() || null,
+
+                    // Gestione
+                    manager_id: document.getElementById('addManager')?.value ? parseInt(document.getElementById('addManager').value, 10) : null,
+                    rappresentante_legale: document.getElementById('addRappresentante')?.value?.trim() || null,
+                    status: document.getElementById('addStatus')?.value || 'active'
                 };
 
                 try {
                     const response = await fetch('api/tenants/create.php', {
                         method: 'POST',
+                        credentials: 'same-origin',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest'
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-Token': document.getElementById('csrfToken').value
                         },
                         body: JSON.stringify(payload)
                     });
@@ -1878,6 +2121,7 @@ $csrfToken = $auth->generateCSRFToken();
             openEditModal(companyId) {
                 const company = this.companies.find(c => c.id === companyId);
                 if (!company) return;
+                this.currentEditCompanyId = companyId;
 
                 // Clear previous sedi operative
                 document.getElementById('editSediOperativeContainer').innerHTML = '';
@@ -1923,9 +2167,154 @@ $csrfToken = $auth->generateCSRFToken();
                 document.getElementById('editPec').value = company.pec || '';
                 document.getElementById('editManager').value = company.manager_user_id || '';
                 document.getElementById('editRappresentante').value = company.rappresentante_legale || '';
-                document.getElementById('editStatus').value = company.status || 'active';
+                // Allinea eventuali stati legacy (es. 'pending') ai valori DB/API
+                const normalizedStatus = (company.status === 'pending') ? 'inactive' : (company.status || 'active');
+                document.getElementById('editStatus').value = normalizedStatus;
 
                 openModal('editModal');
+
+                // Load current logo info (best-effort)
+                try { this.loadTenantLogo(companyId); } catch (e) {}
+            }
+
+            setTenantLogoUi(info) {
+                const label = document.getElementById('editTenantLogoInfo');
+                const openLink = document.getElementById('editTenantLogoOpenLink');
+                const clearBtn = document.getElementById('editTenantLogoClearBtn');
+                const fid = info?.logo_file_id || 0;
+                if (label) label.textContent = fid ? (`File #${fid}`) : '—';
+                if (openLink) {
+                    const url = info?.open_logo_url || '';
+                    if (fid && url) {
+                        openLink.href = url;
+                        openLink.style.display = 'inline';
+                    } else {
+                        openLink.href = '#';
+                        openLink.style.display = 'none';
+                    }
+                }
+                if (clearBtn) clearBtn.style.display = fid ? 'inline-flex' : 'none';
+            }
+
+            async loadTenantLogo(tenantId) {
+                try {
+                    const csrf = document.getElementById('csrfToken')?.value || '';
+                    const res = await fetch(`api/tenants/logo.php?action=get&tenant_id=${encodeURIComponent(String(tenantId))}`, {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        headers: csrf ? { 'X-CSRF-Token': csrf } : {}
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (data && data.success && data.data) {
+                        if (data.data.storage_available === false) {
+                            this.setTenantLogoUi({ logo_file_id: 0 });
+                            this.showToast('Logo: storage non disponibile (applica migrazione 49)', 'warning');
+                            return;
+                        }
+                        this.setTenantLogoUi(data.data);
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            }
+
+            async uploadTenantLogo(tenantId) {
+                const input = document.getElementById('editTenantLogoFile');
+                const file = input?.files?.[0] || null;
+                if (!file) {
+                    this.showToast('Seleziona un file PNG/JPG', 'error');
+                    return;
+                }
+                try {
+                    const csrf = document.getElementById('csrfToken')?.value || '';
+                    const fd = new FormData();
+                    fd.append('tenant_id', String(tenantId));
+                    fd.append('logo', file);
+                    const res = await fetch('api/tenants/logo.php?action=upload', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+                        body: fd
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!data || !data.success) {
+                        const msg = (data && (data.error || data.message)) ? (data.error || data.message) : `Errore upload logo (HTTP ${res.status})`;
+                        this.showToast(msg, 'error');
+                        return;
+                    }
+                    this.showToast('Logo caricato', 'success');
+                    this.setTenantLogoUi(data.data || {});
+                } catch (e) {
+                    this.showToast('Errore di connessione', 'error');
+                }
+            }
+
+            async clearTenantLogo(tenantId) {
+                try {
+                    const csrf = document.getElementById('csrfToken')?.value || '';
+                    const res = await fetch('api/tenants/logo.php?action=clear', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(csrf ? { 'X-CSRF-Token': csrf } : {})
+                        },
+                        body: JSON.stringify({ tenant_id: tenantId })
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!data || !data.success) {
+                        const msg = (data && (data.error || data.message)) ? (data.error || data.message) : `Errore rimozione logo (HTTP ${res.status})`;
+                        this.showToast(msg, 'error');
+                        return;
+                    }
+                    this.showToast('Logo rimosso', 'success');
+                    this.setTenantLogoUi({ logo_file_id: 0 });
+                } catch (e) {
+                    this.showToast('Errore di connessione', 'error');
+                }
+            }
+
+            async purgeTenantDocumentModule(tenantId) {
+                const c1 = prompt('OPERAZIONE IRREVERSIBILE.\nDigita esattamente: ELIMINA MODULO DOCUMENTALE');
+                if ((c1 || '').trim().toUpperCase() !== 'ELIMINA MODULO DOCUMENTALE') {
+                    this.showToast('Conferma 1 non valida', 'error');
+                    return;
+                }
+                const expected2 = `PURGE-${tenantId}`;
+                const c2 = prompt(`Seconda conferma.\nDigita esattamente: ${expected2}`);
+                if ((c2 || '').trim() !== expected2) {
+                    this.showToast('Conferma 2 non valida', 'error');
+                    return;
+                }
+                if (!confirm('Confermi definitivamente?')) return;
+
+                try {
+                    const csrf = document.getElementById('csrfToken')?.value || '';
+                    const res = await fetch('api/tenants/purge_document_module.php', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(csrf ? { 'X-CSRF-Token': csrf } : {})
+                        },
+                        body: JSON.stringify({
+                            tenant_id: tenantId,
+                            confirm_tenant_id: tenantId,
+                            confirm_phrase_1: 'ELIMINA MODULO DOCUMENTALE',
+                            confirm_phrase_2: `PURGE-${tenantId}`
+                        })
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!data || !data.success) {
+                        const msg = (data && (data.error || data.message)) ? (data.error || data.message) : `Errore purge (HTTP ${res.status})`;
+                        this.showToast(msg, 'error');
+                        return;
+                    }
+                    const warns = Array.isArray(data.data?.warnings) ? data.data.warnings : [];
+                    this.showToast(`Purge completato${warns.length ? ' (con warning)' : ''}`, warns.length ? 'warning' : 'success');
+                } catch (e) {
+                    this.showToast('Errore di connessione', 'error');
+                }
             }
 
             addSedeOperativaForEdit(sede) {
@@ -2021,7 +2410,7 @@ $csrfToken = $auth->generateCSRFToken();
                 // Collect sedi operative
                 const sediOperative = collectSediOperative('edit');
 
-                // Build JSON payload
+                // Build JSON payload (allinea ai nomi attesi dall'API /api/tenants/update.php)
                 const payload = {
                     csrf_token: document.getElementById('csrfToken').value,
                     tenant_id: parseInt(document.getElementById('editCompanyId').value),
@@ -2029,28 +2418,57 @@ $csrfToken = $auth->generateCSRFToken();
                     codice_fiscale: document.getElementById('editCodiceFiscale').value.trim(),
                     partita_iva: document.getElementById('editPartitaIva').value.trim(),
                     sede_legale: sedeLegaleObj,
-                    sedi_operative: sediOperative
+                    sedi_operative: sediOperative,
+
+                    // Informazioni aziendali
+                    settore_merceologico: document.getElementById('editSettore')?.value || null,
+                    numero_dipendenti: parseInt(document.getElementById('editNumeroDipendenti')?.value || '0', 10) || 0,
+                    capitale_sociale: parseFloat(document.getElementById('editCapitaleSociale')?.value || '') || null,
+
+                    // Contatti
+                    telefono: document.getElementById('editTelefono')?.value?.trim() || null,
+                    email: document.getElementById('editEmailAziendale')?.value?.trim() || null,
+                    pec: document.getElementById('editPec')?.value?.trim() || null,
+
+                    // Gestione
+                    manager_id: document.getElementById('editManager')?.value ? parseInt(document.getElementById('editManager').value, 10) : null,
+                    rappresentante_legale: document.getElementById('editRappresentante')?.value?.trim() || null,
+                    status: document.getElementById('editStatus')?.value || 'active'
                 };
 
                 try {
                     const response = await fetch('api/tenants/update.php', {
-                        method: 'PUT',
+                        method: 'POST',
+                        credentials: 'same-origin',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest'
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-Token': document.getElementById('csrfToken').value
                         },
                         body: JSON.stringify(payload)
                     });
 
-                    const data = await response.json();
+                    let data = null;
+                    let rawText = '';
+                    try {
+                        rawText = await response.text();
+                        data = rawText ? JSON.parse(rawText) : null;
+                    } catch (e) {
+                        data = null;
+                    }
 
-                    if (data.success) {
+                    if (data && data.success) {
                         this.showToast('Azienda aggiornata con successo', 'success');
                         closeModal('editModal');
                         this.loadCompanies();
                     } else {
-                        this.showToast(data.error || data.message || 'Errore nell\'aggiornamento azienda', 'error');
-                        console.error('API Error:', data);
+                        const msg = (data && (data.error || data.message)) ? (data.error || data.message) : ('Errore aggiornamento (HTTP ' + response.status + ')');
+                        this.showToast(msg, 'error');
+                        if (!data) {
+                            console.error('updateCompany non-JSON response:', rawText.substring(0, 500));
+                        } else {
+                            console.error('updateCompany error payload:', data);
+                        }
                     }
                 } catch (error) {
                     console.error('Error updating company:', error);
@@ -2121,6 +2539,7 @@ $csrfToken = $auth->generateCSRFToken();
                 try {
                     const response = await fetch('api/tenants/delete.php', {
                         method: 'POST',
+                        credentials: 'same-origin',
                         body: formData
                     });
 
@@ -2283,6 +2702,712 @@ $csrfToken = $auth->generateCSRFToken();
                 setTimeout(() => {
                     toast.classList.remove('show');
                 }, 3000);
+            }
+
+            // ===== TENANT ROLES MANAGEMENT (Ruoli Aziendali) =====
+
+            async openRolesModal(companyId) {
+                const company = this.companies.find(c => c.id === companyId);
+                if (!company) return;
+
+                this.currentRolesCompanyId = companyId;
+                this.tenantRoles = [];
+
+                // Set company name in modal
+                document.getElementById('rolesCompanyName').textContent = company.denominazione || company.name;
+
+                // Reset form state
+                this.cancelRoleForm();
+
+                // Load roles and update UI
+                await this.loadTenantRoles(companyId);
+
+                openModal('rolesModal');
+            }
+
+            async loadTenantRoles(tenantId) {
+                try {
+                    const response = await fetch(`api/tenant-roles/list.php?tenant_id=${tenantId}&include_inactive=true`, {
+                        credentials: 'same-origin',
+                        headers: {
+                            'X-CSRF-Token': document.getElementById('csrfToken').value
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success && data.data) {
+                        this.tenantRoles = data.data.roles || [];
+                        const hasCustomRoles = data.data.tenant_has_custom_roles || false;
+                        this.canAssignCustomRoles = !!data.data.can_assign_custom_roles;
+                        this.canManageCustomRoles = !!data.data.can_manage_custom_roles;
+                        this.roleManagementPermStorageAvailable = !(data.data.storage_available_management_roles === false);
+                        this.tenantRoleManagementRolesRaw = data.data.tenant_role_management_roles ?? null;
+
+                        // Update toggle state
+                        const hasCustomRolesToggle = document.getElementById('hasCustomRolesToggle');
+                        if (hasCustomRolesToggle) {
+                            hasCustomRolesToggle.checked = hasCustomRoles;
+                            // Only Admin/Super Admin can toggle (API tenants/update requires admin+)
+                            const canToggle = (this.currentUserRole === 'super_admin' || this.currentUserRole === 'admin');
+                            hasCustomRolesToggle.disabled = !canToggle;
+                            hasCustomRolesToggle.title = !canToggle ? 'Solo Admin/Super Admin possono abilitare/disabilitare i ruoli aziendali' : '';
+                        }
+
+                        // Super Admin only: show and prefill permissions panel
+                        this.initTenantRoleAssignmentPermissionsUI(tenantId, hasCustomRoles);
+                        this.initTenantRoleManagementPermissionsUI(tenantId, hasCustomRoles);
+
+                        // Per-tenant shift permissions (super_admin/admin/manager)
+                        await this.initShiftPermissionsUI(tenantId);
+
+                        // Update UI visibility
+                        this.updateRolesUIState(hasCustomRoles);
+
+                        // Render roles table
+                        this.renderRolesTable();
+                    } else {
+                        this.showToast(data.message || 'Errore caricamento ruoli', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error loading tenant roles:', error);
+                    this.showToast('Errore di connessione', 'error');
+                }
+            }
+
+            initTenantRoleAssignmentPermissionsUI(tenantId, hasCustomRoles) {
+                const panel = document.getElementById('tenantRoleAssignmentPermissions');
+                if (!panel) return;
+
+                // Only super_admin can configure. We infer from session role via PHP-rendered badge in sidebar:
+                // Companies page is already admin-only, but we need super_admin specifically.
+                const currentRole = (window.CNX_CURRENT_USER_ROLE || '').toString();
+                const isSuperAdmin = (currentRole === 'super_admin');
+
+                if (!isSuperAdmin || !hasCustomRoles) {
+                    panel.style.display = 'none';
+                    return;
+                }
+
+                panel.style.display = 'block';
+
+                // Read allowed roles from the loaded company object (best-effort)
+                const company = this.companies.find(c => c.id === tenantId);
+                let allowed = [];
+                try {
+                    const raw = company ? (company.tenant_role_assignment_roles || null) : null;
+                    if (raw) {
+                        const decoded = JSON.parse(raw);
+                        if (Array.isArray(decoded)) allowed = decoded.map(String);
+                    }
+                } catch (e) {
+                    allowed = [];
+                }
+
+                document.getElementById('permAssignAdmin').checked = allowed.includes('admin');
+                document.getElementById('permAssignManager').checked = allowed.includes('manager');
+                document.getElementById('permAssignUser').checked = allowed.includes('user');
+            }
+
+            initTenantRoleManagementPermissionsUI(tenantId, hasCustomRoles) {
+                const panel = document.getElementById('tenantRoleManagementPermissions');
+                if (!panel) return;
+
+                const currentRole = (window.CNX_CURRENT_USER_ROLE || '').toString();
+                const isSuperAdmin = (currentRole === 'super_admin');
+                if (!isSuperAdmin || !hasCustomRoles) {
+                    panel.style.display = 'none';
+                    return;
+                }
+                panel.style.display = 'block';
+
+                const note = document.getElementById('tenantRoleManagementPermStorageNote');
+                const saveBtn = document.getElementById('tenantRoleManagementPermSaveBtn');
+                if (note) note.style.display = 'none';
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.removeAttribute('title');
+                }
+
+                if (this.roleManagementPermStorageAvailable === false) {
+                    if (note) note.style.display = 'block';
+                    if (saveBtn) {
+                        saveBtn.disabled = true;
+                        saveBtn.title = 'Permessi non salvabili: migrazione non applicata';
+                    }
+                }
+
+                let allowed = [];
+                try {
+                    const raw = this.tenantRoleManagementRolesRaw;
+                    if (typeof raw === 'string' && raw) {
+                        const decoded = JSON.parse(raw);
+                        if (Array.isArray(decoded)) allowed = decoded.map(String);
+                    }
+                } catch (e) {
+                    allowed = [];
+                }
+
+                document.getElementById('permRoleManageAdmin').checked = allowed.includes('admin');
+                document.getElementById('permRoleManageManager').checked = allowed.includes('manager');
+                document.getElementById('permRoleManageUser').checked = allowed.includes('user');
+            }
+
+            async initShiftPermissionsUI(tenantId) {
+                const panel = document.getElementById('shiftPermissionsPanel');
+                if (!panel) return;
+
+                const currentRole = (window.CNX_CURRENT_USER_ROLE || '').toString();
+                const canConfigure = (currentRole === 'super_admin' || currentRole === 'admin' || currentRole === 'manager');
+                if (!canConfigure) {
+                    panel.style.display = 'none';
+                    return;
+                }
+
+                panel.style.display = 'block';
+                const note = document.getElementById('shiftPermStorageNote');
+                const saveBtn = document.getElementById('shiftPermSaveBtn');
+                if (note) note.style.display = 'none';
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.removeAttribute('title');
+                }
+                this.shiftPermStorageAvailable = true;
+
+                // Load current permissions from API (best effort)
+                try {
+                    const url = `api/shifts/permissions.php?action=get&tenant_id=${encodeURIComponent(String(tenantId))}&_ts=${Date.now()}`;
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        headers: {
+                            'X-CSRF-Token': document.getElementById('csrfToken').value,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (data && data.success && data.data && data.data.permissions) {
+                        this.shiftPermStorageAvailable = !(data.data.storage_available === false);
+                        const perms = data.data.permissions;
+                        const manage = Array.isArray(perms.can_manage_shifts_roles) ? perms.can_manage_shifts_roles.map(String) : [];
+                        const approve = Array.isArray(perms.can_approve_shift_requests_roles) ? perms.can_approve_shift_requests_roles.map(String) : [];
+
+                        document.getElementById('permShiftManageAdmin').checked = manage.includes('admin');
+                        document.getElementById('permShiftManageManager').checked = manage.includes('manager');
+                        document.getElementById('permShiftManageUser').checked = manage.includes('user');
+
+                        document.getElementById('permShiftApproveAdmin').checked = approve.includes('admin');
+                        document.getElementById('permShiftApproveManager').checked = approve.includes('manager');
+                        document.getElementById('permShiftApproveUser').checked = approve.includes('user');
+
+                        if (data.data.storage_available === false) {
+                            if (note) note.style.display = 'block';
+                            if (saveBtn) {
+                                saveBtn.disabled = true;
+                                saveBtn.title = 'Permessi non salvabili: migrazione non applicata';
+                            }
+                        }
+                    } else {
+                        // Defaults: admin+manager enabled
+                        document.getElementById('permShiftManageAdmin').checked = true;
+                        document.getElementById('permShiftManageManager').checked = true;
+                        document.getElementById('permShiftManageUser').checked = false;
+
+                        document.getElementById('permShiftApproveAdmin').checked = true;
+                        document.getElementById('permShiftApproveManager').checked = true;
+                        document.getElementById('permShiftApproveUser').checked = false;
+                    }
+                } catch (e) {
+                    console.error('initShiftPermissionsUI error:', e);
+                }
+            }
+
+            resetShiftPermissions() {
+                const panel = document.getElementById('shiftPermissionsPanel');
+                if (!panel || panel.style.display === 'none') return;
+
+                // Defaults: admin+manager
+                document.getElementById('permShiftManageAdmin').checked = true;
+                document.getElementById('permShiftManageManager').checked = true;
+                document.getElementById('permShiftManageUser').checked = false;
+
+                document.getElementById('permShiftApproveAdmin').checked = true;
+                document.getElementById('permShiftApproveManager').checked = true;
+                document.getElementById('permShiftApproveUser').checked = false;
+            }
+
+            async saveShiftPermissions() {
+                const panel = document.getElementById('shiftPermissionsPanel');
+                if (!panel || panel.style.display === 'none') return;
+                if (this.shiftPermStorageAvailable === false) {
+                    this.showToast('Permessi turni non salvabili: migrazione non applicata', 'warning');
+                    return;
+                }
+
+                const manage = [];
+                if (document.getElementById('permShiftManageAdmin').checked) manage.push('admin');
+                if (document.getElementById('permShiftManageManager').checked) manage.push('manager');
+                if (document.getElementById('permShiftManageUser').checked) manage.push('user');
+
+                const approve = [];
+                if (document.getElementById('permShiftApproveAdmin').checked) approve.push('admin');
+                if (document.getElementById('permShiftApproveManager').checked) approve.push('manager');
+                if (document.getElementById('permShiftApproveUser').checked) approve.push('user');
+
+                try {
+                    const response = await fetch('api/shifts/permissions.php', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': document.getElementById('csrfToken').value,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({
+                            action: 'save',
+                            csrf_token: document.getElementById('csrfToken').value,
+                            tenant_id: this.currentRolesCompanyId,
+                            can_manage_shifts_roles: manage,
+                            can_approve_shift_requests_roles: approve
+                        })
+                    });
+
+                    const data = await response.json().catch(() => ({}));
+                    if (data && data.success) {
+                        this.showToast('Permessi turni aggiornati', 'success');
+                    } else {
+                        this.showToast((data && (data.error || data.message)) ? (data.error || data.message) : 'Errore aggiornamento permessi turni', 'error');
+                    }
+                } catch (e) {
+                    console.error('saveShiftPermissions error:', e);
+                    this.showToast('Errore di connessione', 'error');
+                }
+            }
+
+            resetTenantRoleAssignmentPermissions() {
+                const panel = document.getElementById('tenantRoleAssignmentPermissions');
+                if (!panel || panel.style.display === 'none') return;
+                document.getElementById('permAssignAdmin').checked = false;
+                document.getElementById('permAssignManager').checked = false;
+                document.getElementById('permAssignUser').checked = false;
+            }
+
+            async saveTenantRoleAssignmentPermissions() {
+                const panel = document.getElementById('tenantRoleAssignmentPermissions');
+                if (!panel || panel.style.display === 'none') return;
+
+                const roles = [];
+                if (document.getElementById('permAssignAdmin').checked) roles.push('admin');
+                if (document.getElementById('permAssignManager').checked) roles.push('manager');
+                if (document.getElementById('permAssignUser').checked) roles.push('user');
+
+                try {
+                    const response = await fetch('api/tenants/update.php', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': document.getElementById('csrfToken').value
+                        },
+                        body: JSON.stringify({
+                            csrf_token: document.getElementById('csrfToken').value,
+                            tenant_id: this.currentRolesCompanyId,
+                            tenant_role_assignment_roles: roles
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (data && data.success) {
+                        // Update local cache so UI remains consistent without reload
+                        const company = this.companies.find(c => c.id === this.currentRolesCompanyId);
+                        if (company) {
+                            company.tenant_role_assignment_roles = JSON.stringify(roles);
+                        }
+                        this.showToast('Permessi aggiornati', 'success');
+                    } else {
+                        this.showToast((data && (data.error || data.message)) ? (data.error || data.message) : 'Errore aggiornamento permessi', 'error');
+                    }
+                } catch (e) {
+                    console.error('saveTenantRoleAssignmentPermissions error:', e);
+                    this.showToast('Errore di connessione', 'error');
+                }
+            }
+
+            resetTenantRoleManagementPermissions() {
+                const panel = document.getElementById('tenantRoleManagementPermissions');
+                if (!panel || panel.style.display === 'none') return;
+                document.getElementById('permRoleManageAdmin').checked = false;
+                document.getElementById('permRoleManageManager').checked = false;
+                document.getElementById('permRoleManageUser').checked = false;
+            }
+
+            async saveTenantRoleManagementPermissions() {
+                const panel = document.getElementById('tenantRoleManagementPermissions');
+                if (!panel || panel.style.display === 'none') return;
+                if (this.roleManagementPermStorageAvailable === false) {
+                    this.showToast('Permessi gestione ruoli non salvabili: migrazione non applicata', 'warning');
+                    return;
+                }
+
+                const roles = [];
+                if (document.getElementById('permRoleManageAdmin').checked) roles.push('admin');
+                if (document.getElementById('permRoleManageManager').checked) roles.push('manager');
+                if (document.getElementById('permRoleManageUser').checked) roles.push('user');
+
+                try {
+                    const response = await fetch('api/tenants/update.php', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': document.getElementById('csrfToken').value
+                        },
+                        body: JSON.stringify({
+                            csrf_token: document.getElementById('csrfToken').value,
+                            tenant_id: this.currentRolesCompanyId,
+                            tenant_role_management_roles: roles
+                        })
+                    });
+
+                    const data = await response.json().catch(() => ({}));
+                    if (data && data.success) {
+                        // Update local cache so UI remains consistent without reload
+                        const company = this.companies.find(c => c.id === this.currentRolesCompanyId);
+                        if (company) {
+                            company.tenant_role_management_roles = JSON.stringify(roles);
+                        }
+                        this.tenantRoleManagementRolesRaw = JSON.stringify(roles);
+                        this.showToast('Permessi gestione ruoli aggiornati', 'success');
+                        // Keep UX consistent: canManage doesn't change for super_admin, but refresh flags anyway
+                        this.canManageCustomRoles = true;
+                        this.updateRolesUIState(!!document.getElementById('hasCustomRolesToggle')?.checked);
+                        this.renderRolesTable();
+                    } else {
+                        this.showToast((data && (data.error || data.message)) ? (data.error || data.message) : 'Errore aggiornamento permessi gestione ruoli', 'error');
+                    }
+                } catch (e) {
+                    console.error('saveTenantRoleManagementPermissions error:', e);
+                    this.showToast('Errore di connessione', 'error');
+                }
+            }
+
+            updateRolesUIState(hasCustomRoles) {
+                const rolesListContainer = document.getElementById('rolesListContainer');
+                const addRoleBtn = document.getElementById('addRoleBtn');
+
+                if (hasCustomRoles) {
+                    rolesListContainer.style.display = 'block';
+                    // Show "+ Nuovo Ruolo" only if user can manage tenant roles
+                    const canManage = !!this.canManageCustomRoles;
+                    addRoleBtn.style.display = canManage ? 'inline-flex' : 'none';
+                } else {
+                    rolesListContainer.style.display = 'none';
+                    addRoleBtn.style.display = 'none';
+                }
+            }
+
+            renderRolesTable() {
+                const tbody = document.getElementById('rolesTableBody');
+                const emptyState = document.getElementById('rolesEmptyState');
+                const canManage = !!this.canManageCustomRoles;
+
+                if (!this.tenantRoles || this.tenantRoles.length === 0) {
+                    tbody.innerHTML = '';
+                    emptyState.style.display = 'block';
+                    return;
+                }
+
+                emptyState.style.display = 'none';
+                tbody.innerHTML = this.tenantRoles.map(role => {
+                    const textColor = this.getContrastingColor(role.color || '#6366f1');
+                    return `
+                        <tr style="border-bottom: 1px solid var(--color-gray-200);">
+                            <td style="padding: 12px;">
+                                <div style="width: 24px; height: 24px; border-radius: var(--radius-full); background: ${role.color || '#6366f1'};"></div>
+                            </td>
+                            <td style="padding: 12px;">
+                                <span style="display: inline-block; padding: 4px 12px; border-radius: var(--radius-full); background: ${role.color || '#6366f1'}; color: ${textColor}; font-weight: 500;">${role.name}</span>
+                                ${role.description ? `<div style="font-size: 12px; color: var(--color-gray-500); margin-top: 4px;">${role.description}</div>` : ''}
+                            </td>
+                            <td style="padding: 12px; font-family: monospace; font-size: 12px;">${role.code || '-'}</td>
+                            <td style="padding: 12px;">
+                                <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; background: var(--color-gray-100); border-radius: var(--radius-full); font-size: 12px; font-weight: 600;">${role.user_count || 0}</span>
+                            </td>
+                            <td style="padding: 12px; text-align: center;">
+                                <div class="action-buttons" style="justify-content: center;">
+                                    <button class="btn-icon edit" onclick="companyManager.openEditRoleForm(${role.id})" title="Modifica" ${!canManage ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+                                        ✏️
+                                    </button>
+                                    <button class="btn-icon delete" onclick="companyManager.deleteRole(${role.id})" title="Elimina" ${(!canManage || role.user_count > 0) ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+                                        🗑️
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            getContrastingColor(hexColor) {
+                const hex = (hexColor || '#6366f1').replace('#', '');
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                return luminance > 0.5 ? '#000000' : '#ffffff';
+            }
+
+            async toggleCustomRoles() {
+                const hasCustomRoles = document.getElementById('hasCustomRolesToggle').checked;
+
+                try {
+                    const response = await fetch('api/tenants/update.php', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': document.getElementById('csrfToken').value
+                        },
+                        body: JSON.stringify({
+                            csrf_token: document.getElementById('csrfToken').value,
+                            tenant_id: this.currentRolesCompanyId,
+                            has_custom_roles: hasCustomRoles
+                        })
+                    });
+
+                    let data = null;
+                    let rawText = '';
+                    try {
+                        rawText = await response.text();
+                        data = rawText ? JSON.parse(rawText) : null;
+                    } catch (e) {
+                        data = null;
+                    }
+
+                    if (data && data.success) {
+                        this.updateRolesUIState(hasCustomRoles);
+                        this.showToast(hasCustomRoles ? 'Ruoli aziendali abilitati' : 'Ruoli aziendali disabilitati', 'success');
+
+                        // After enabling, reload roles list immediately
+                        if (hasCustomRoles) {
+                            try {
+                                await this.loadTenantRoles(this.currentRolesCompanyId);
+                            } catch (e) {
+                                console.warn('Failed to reload tenant roles after enabling:', e);
+                            }
+                        } else {
+                            // Clear roles list when disabling
+                            this.tenantRoles = [];
+                            this.renderRolesTable();
+                        }
+                    } else {
+                        // Revert toggle
+                        document.getElementById('hasCustomRolesToggle').checked = !hasCustomRoles;
+                        const msg = (data && (data.error || data.message)) ? (data.error || data.message) : ('Errore aggiornamento (HTTP ' + response.status + ')');
+                        this.showToast(msg, 'error');
+                        if (!data) {
+                            console.error('toggleCustomRoles non-JSON response:', rawText.substring(0, 500));
+                        } else {
+                            console.error('toggleCustomRoles error payload:', data);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error toggling custom roles:', error);
+                    document.getElementById('hasCustomRolesToggle').checked = !hasCustomRoles;
+                    this.showToast('Errore di connessione', 'error');
+                }
+            }
+
+            openAddRoleForm() {
+                if (!this.canManageCustomRoles) {
+                    this.showToast('Permessi insufficienti per creare ruoli aziendali', 'error');
+                    return;
+                }
+                document.getElementById('roleFormTitle').textContent = 'Nuovo Ruolo';
+                document.getElementById('roleFormId').value = '';
+                document.getElementById('roleFormName').value = '';
+                document.getElementById('roleFormCode').value = '';
+                document.getElementById('roleFormColor').value = '#6366f1';
+                document.getElementById('roleFormSortOrder').value = this.tenantRoles.length;
+                document.getElementById('roleFormDescription').value = '';
+                this.updateColorPreview('#6366f1');
+                document.getElementById('roleFormContainer').style.display = 'block';
+            }
+
+            openEditRoleForm(roleId) {
+                if (!this.canManageCustomRoles) {
+                    this.showToast('Permessi insufficienti per modificare ruoli aziendali', 'error');
+                    return;
+                }
+                const role = this.tenantRoles.find(r => r.id === roleId);
+                if (!role) return;
+
+                document.getElementById('roleFormTitle').textContent = 'Modifica Ruolo';
+                document.getElementById('roleFormId').value = role.id;
+                document.getElementById('roleFormName').value = role.name;
+                document.getElementById('roleFormCode').value = role.code || '';
+                document.getElementById('roleFormColor').value = role.color || '#6366f1';
+                document.getElementById('roleFormSortOrder').value = role.sort_order || 0;
+                document.getElementById('roleFormDescription').value = role.description || '';
+                this.updateColorPreview(role.color || '#6366f1');
+                document.getElementById('roleFormContainer').style.display = 'block';
+            }
+
+            cancelRoleForm() {
+                document.getElementById('roleFormContainer').style.display = 'none';
+                document.getElementById('roleForm').reset();
+            }
+
+            updateColorPreview(color) {
+                const preview = document.getElementById('roleColorPreview');
+                const textColor = this.getContrastingColor(color);
+                preview.style.background = color;
+                preview.style.color = textColor;
+            }
+
+            async saveRole() {
+                if (!this.canManageCustomRoles) {
+                    this.showToast('Permessi insufficienti per salvare ruoli aziendali', 'error');
+                    return;
+                }
+                const roleId = document.getElementById('roleFormId').value;
+                const name = document.getElementById('roleFormName').value.trim();
+                const code = document.getElementById('roleFormCode').value.trim().toUpperCase();
+                const color = document.getElementById('roleFormColor').value;
+                const sortOrder = parseInt(document.getElementById('roleFormSortOrder').value) || 0;
+                const description = document.getElementById('roleFormDescription').value.trim();
+
+                if (!name) {
+                    this.showToast('Inserisci il nome del ruolo', 'error');
+                    return;
+                }
+
+                const payload = {
+                    csrf_token: document.getElementById('csrfToken').value,
+                    tenant_id: this.currentRolesCompanyId,
+                    name: name,
+                    code: code || null,
+                    color: color,
+                    sort_order: sortOrder,
+                    description: description || null
+                };
+
+                const isEdit = roleId !== '';
+                if (isEdit) {
+                    payload.role_id = parseInt(roleId);
+                }
+
+                try {
+                    const endpoint = isEdit ? 'api/tenant-roles/update.php' : 'api/tenant-roles/create.php';
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': document.getElementById('csrfToken').value
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.showToast(isEdit ? 'Ruolo aggiornato' : 'Ruolo creato', 'success');
+                        this.cancelRoleForm();
+                        await this.loadTenantRoles(this.currentRolesCompanyId);
+                    } else {
+                        this.showToast(data.message || 'Errore salvataggio', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error saving role:', error);
+                    this.showToast('Errore di connessione', 'error');
+                }
+            }
+
+            async deleteRole(roleId) {
+                if (!this.canManageCustomRoles) {
+                    this.showToast('Permessi insufficienti per eliminare ruoli aziendali', 'error');
+                    return;
+                }
+                const role = this.tenantRoles.find(r => r.id === roleId);
+                if (!role) return;
+
+                if (role.user_count > 0) {
+                    this.showToast('Impossibile eliminare un ruolo assegnato a utenti', 'error');
+                    return;
+                }
+
+                if (!confirm(`Sei sicuro di voler eliminare il ruolo "${role.name}"?`)) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch('api/tenant-roles/delete.php', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': document.getElementById('csrfToken').value
+                        },
+                        body: JSON.stringify({
+                            csrf_token: document.getElementById('csrfToken').value,
+                            role_id: roleId,
+                            tenant_id: this.currentRolesCompanyId
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.showToast('Ruolo eliminato', 'success');
+                        await this.loadTenantRoles(this.currentRolesCompanyId);
+                    } else {
+                        this.showToast(data.message || 'Errore eliminazione', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error deleting role:', error);
+                    this.showToast('Errore di connessione', 'error');
+                }
+            }
+
+            initRoleFormListeners() {
+                // Color picker live preview
+                const colorInput = document.getElementById('roleFormColor');
+                if (colorInput) {
+                    colorInput.addEventListener('input', (e) => {
+                        this.updateColorPreview(e.target.value);
+                    });
+                }
+
+                // Form submission
+                const roleForm = document.getElementById('roleForm');
+                if (roleForm) {
+                    roleForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        this.saveRole();
+                    });
+                }
+
+                // Auto-generate code from name
+                const nameInput = document.getElementById('roleFormName');
+                const codeInput = document.getElementById('roleFormCode');
+                if (nameInput && codeInput) {
+                    nameInput.addEventListener('input', (e) => {
+                        if (!codeInput.value || codeInput.dataset.autoGenerated === 'true') {
+                            const code = e.target.value
+                                .toUpperCase()
+                                .replace(/[^A-Z0-9\s]/g, '')
+                                .replace(/\s+/g, '_')
+                                .substring(0, 20);
+                            codeInput.value = code;
+                            codeInput.dataset.autoGenerated = 'true';
+                        }
+                    });
+
+                    codeInput.addEventListener('input', () => {
+                        codeInput.dataset.autoGenerated = 'false';
+                    });
+                }
             }
         }
 
@@ -2794,40 +3919,46 @@ $csrfToken = $auth->generateCSRFToken();
         let editTaxCodeValidator;
 
         document.addEventListener('DOMContentLoaded', () => {
-            <?php if ($isSuperAdmin): ?>
+            const currentRole = (window.CNX_CURRENT_USER_ROLE || '').toString();
+            const canUseCompaniesUi = (currentRole === 'super_admin' || currentRole === 'admin' || currentRole === 'manager');
+            if (!canUseCompaniesUi) return;
+
             companyManager = new CompanyManager();
 
-            // Initialize municipality autocomplete for Add modal
-            const addComuneInput = document.getElementById('addSedeLegaleComune');
-            const addProvinciaInput = document.getElementById('addSedeLegaleProvincia');
-            if (addComuneInput && addProvinciaInput) {
-                addMunicipalityAutocomplete = new MunicipalityAutocomplete(addComuneInput, addProvinciaInput);
-            }
+            // Initialize tenant roles form listeners (needed also for Admin/Manager)
+            companyManager.initRoleFormListeners();
 
-            // Initialize municipality autocomplete for Edit modal
-            const editComuneInput = document.getElementById('editSedeLegaleComune');
-            const editProvinciaInput = document.getElementById('editSedeLegaleProvincia');
-            if (editComuneInput && editProvinciaInput) {
-                editMunicipalityAutocomplete = new MunicipalityAutocomplete(editComuneInput, editProvinciaInput);
-            }
+            // Super Admin only: init tools used by add/edit company modals
+            if (currentRole === 'super_admin') {
+                // Initialize municipality autocomplete for Add modal
+                const addComuneInput = document.getElementById('addSedeLegaleComune');
+                const addProvinciaInput = document.getElementById('addSedeLegaleProvincia');
+                if (addComuneInput && addProvinciaInput) {
+                    addMunicipalityAutocomplete = new MunicipalityAutocomplete(addComuneInput, addProvinciaInput);
+                }
 
-            // Initialize alternative tax code validators
-            const addCFInput = document.getElementById('addCodiceFiscale');
-            const addPIVAInput = document.getElementById('addPartitaIva');
-            const addForm = document.getElementById('addCompanyForm');
-            if (addCFInput && addPIVAInput && addForm) {
-                addTaxCodeValidator = new AlternativeTaxCodeValidator(addCFInput, addPIVAInput, addForm);
-            }
+                // Initialize municipality autocomplete for Edit modal
+                const editComuneInput = document.getElementById('editSedeLegaleComune');
+                const editProvinciaInput = document.getElementById('editSedeLegaleProvincia');
+                if (editComuneInput && editProvinciaInput) {
+                    editMunicipalityAutocomplete = new MunicipalityAutocomplete(editComuneInput, editProvinciaInput);
+                }
 
-            const editCFInput = document.getElementById('editCodiceFiscale');
-            const editPIVAInput = document.getElementById('editPartitaIva');
-            const editForm = document.getElementById('editCompanyForm');
-            if (editCFInput && editPIVAInput && editForm) {
-                editTaxCodeValidator = new AlternativeTaxCodeValidator(editCFInput, editPIVAInput, editForm);
+                // Initialize alternative tax code validators
+                const addCFInput = document.getElementById('addCodiceFiscale');
+                const addPIVAInput = document.getElementById('addPartitaIva');
+                const addForm = document.getElementById('addCompanyForm');
+                if (addCFInput && addPIVAInput && addForm) {
+                    addTaxCodeValidator = new AlternativeTaxCodeValidator(addCFInput, addPIVAInput, addForm);
+                }
+
+                const editCFInput = document.getElementById('editCodiceFiscale');
+                const editPIVAInput = document.getElementById('editPartitaIva');
+                const editForm = document.getElementById('editCompanyForm');
+                if (editCFInput && editPIVAInput && editForm) {
+                    editTaxCodeValidator = new AlternativeTaxCodeValidator(editCFInput, editPIVAInput, editForm);
+                }
             }
-            <?php endif; ?>
         });
     </script>
-    <?php endif; ?>
-</body>
-</html>
+<?php require __DIR__ . '/includes/layout_end.php'; ?>

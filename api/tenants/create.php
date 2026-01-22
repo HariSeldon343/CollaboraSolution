@@ -32,147 +32,133 @@ requireApiRole('admin');
 require_once '../../includes/db.php';
 $db = Database::getInstance();
 
-/**
- * Valida Codice Fiscale italiano
- */
-function validateCodiceFiscale(string $cf): bool {
-    // Pattern regex per CF italiano (16 caratteri alfanumerici)
-    // 6 lettere + 2 numeri + 1 lettera + 2 numeri + 1 lettera + 3 numeri + 1 lettera
-    $pattern = '/^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i';
-    return preg_match($pattern, strtoupper($cf)) === 1;
-}
+// BUG-155 FIX: Carica funzioni di validazione dal file condiviso
+// Evita duplicazione codice e conflitti con update.php
+require_once __DIR__ . '/tenant_validators.php';
+// Ensure tenant root folder exists (files.php file manager)
+require_once __DIR__ . '/../../includes/tenant_folder_helper.php';
 
 /**
- * Valida Partita IVA italiana
+ * Schema-drift helpers (avoid 500 when columns/tables are missing across installs)
  */
-function validatePartitaIva(string $piva): bool {
-    // Rimuove spazi e caratteri non numerici
-    $piva = preg_replace('/[^0-9]/', '', $piva);
-
-    // Deve essere esattamente 11 cifre
-    if (strlen($piva) !== 11) {
+function cnx_table_exists(Database $db, string $table): bool {
+    try {
+        $row = $db->fetchOne(
+            "SELECT 1 AS ok
+             FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = ?
+             LIMIT 1",
+            [$table]
+        );
+        return ((int)($row['ok'] ?? 0) === 1);
+    } catch (Throwable $e) {
         return false;
     }
-
-    // Verifica checksum con algoritmo Luhn modificato per P.IVA italiana
-    $sum = 0;
-    for ($i = 0; $i < 10; $i++) {
-        $digit = (int)$piva[$i];
-
-        if ($i % 2 === 0) {
-            // Posizioni dispari (0, 2, 4, 6, 8)
-            $sum += $digit;
-        } else {
-            // Posizioni pari (1, 3, 5, 7, 9)
-            $double = $digit * 2;
-            $sum += ($double > 9) ? ($double - 9) : $double;
-        }
-    }
-
-    $checkDigit = (10 - ($sum % 10)) % 10;
-
-    return $checkDigit === (int)$piva[10];
 }
 
-/**
- * Valida indirizzo sede legale completo
- */
-function validateSedeLegale(array $sede): array {
-    $errors = [];
-
-    if (empty($sede['indirizzo'])) {
-        $errors[] = 'Indirizzo sede legale obbligatorio';
-    }
-    if (empty($sede['civico'])) {
-        $errors[] = 'Civico sede legale obbligatorio';
-    }
-    if (empty($sede['comune'])) {
-        $errors[] = 'Comune sede legale obbligatorio';
-    }
-    if (empty($sede['provincia'])) {
-        $errors[] = 'Provincia sede legale obbligatoria';
-    } elseif (strlen($sede['provincia']) !== 2) {
-        $errors[] = 'Provincia deve essere 2 caratteri (es. MI, RM)';
-    }
-    if (empty($sede['cap'])) {
-        $errors[] = 'CAP sede legale obbligatorio';
-    } elseif (!preg_match('/^\d{5}$/', $sede['cap'])) {
-        $errors[] = 'CAP deve essere 5 cifre';
+function cnx_get_table_columns(Database $db, string $table): array {
+    static $cache = [];
+    if (isset($cache[$table])) {
+        return $cache[$table];
     }
 
-    return $errors;
+    $cols = [];
+    try {
+        $rows = $db->fetchAll(
+            "SELECT COLUMN_NAME
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = ?",
+            [$table]
+        );
+        foreach ($rows as $r) {
+            if (!empty($r['COLUMN_NAME'])) {
+                $cols[] = (string)$r['COLUMN_NAME'];
+            }
+        }
+    } catch (Throwable $e) {
+        $cols = [];
+    }
+
+    $cache[$table] = $cols;
+    return $cols;
 }
 
-/**
- * Valida formato telefono italiano
- */
-function validateTelefono(string $tel): bool {
-    // Pattern per telefoni italiani: +39 seguito da 6-11 cifre
-    // Accetta formati: +39 02 1234567, +39 02 12345678, +39 3331234567, 0212345678
-    $pattern = '/^(\+39\s?)?0?\d{6,11}$/';
-    return preg_match($pattern, str_replace([' ', '-', '.'], '', $tel)) === 1;
-}
-
-/**
- * Valida sedi operative (max 5)
- */
-function validateSediOperative(array $sedi): array {
-    $errors = [];
-
-    if (count($sedi) > 5) {
-        $errors[] = 'Massimo 5 sedi operative consentite';
-    }
-
-    foreach ($sedi as $index => $sede) {
-        if (empty($sede['indirizzo'])) {
-            $errors[] = "Sede operativa #" . ($index + 1) . ": indirizzo obbligatorio";
-        }
-        if (empty($sede['comune'])) {
-            $errors[] = "Sede operativa #" . ($index + 1) . ": comune obbligatorio";
-        }
-        if (!empty($sede['cap']) && !preg_match('/^\d{5}$/', $sede['cap'])) {
-            $errors[] = "Sede operativa #" . ($index + 1) . ": CAP deve essere 5 cifre";
-        }
-        if (!empty($sede['provincia']) && strlen($sede['provincia']) !== 2) {
-            $errors[] = "Sede operativa #" . ($index + 1) . ": provincia deve essere 2 caratteri";
-        }
-    }
-
-    return $errors;
+function cnx_filter_table_data(Database $db, string $table, array $data): array {
+    if (empty($data)) return [];
+    $cols = cnx_get_table_columns($db, $table);
+    if (empty($cols)) return [];
+    $allowed = array_flip($cols);
+    return array_intersect_key($data, $allowed);
 }
 
 try {
-    // Leggi input JSON
-    $input = json_decode(file_get_contents('php://input'), true);
+    // Leggi input JSON (body may have been read already by CSRF validation; use cached raw body if present)
+    $raw = $GLOBALS['CNX_RAW_BODY'] ?? file_get_contents('php://input');
+    $input = json_decode($raw ?: '', true);
 
-    if (!$input) {
-        apiError('Dati JSON non validi', 400);
+    if (!$input || !is_array($input)) {
+        // Fallback to form data
+        if (!empty($_POST) && is_array($_POST)) {
+            $input = $_POST;
+        } else {
+            apiError('Dati di input non validi', 400);
+        }
     }
 
     // Validazione campi obbligatori
     $errors = [];
+    $locationsStorageAvailable = cnx_table_exists($db, 'tenant_locations');
+    $tenantCols = cnx_get_table_columns($db, 'tenants');
+    $tenantHasCf = in_array('codice_fiscale', $tenantCols, true);
+    $tenantHasPiva = in_array('partita_iva', $tenantCols, true);
 
-    // 1. Denominazione obbligatoria
-    if (empty($input['denominazione'])) {
-        $errors[] = 'Denominazione azienda obbligatoria';
-    }
+    // 1. Denominazione NON obbligatoria (UI: richiesta solo CF/PIVA + sede legale + settore + stato)
+    // Se mancante/vuota, generiamo una denominazione di default per non rompere DB/API.
 
     // 2. CF OR P.IVA obbligatorio (almeno uno)
     $cf = !empty($input['codice_fiscale']) ? trim($input['codice_fiscale']) : null;
     $piva = !empty($input['partita_iva']) ? trim($input['partita_iva']) : null;
 
-    if (!$cf && !$piva) {
+    // Enforce only if DB actually has at least one of those columns
+    if (($tenantHasCf || $tenantHasPiva) && !$cf && !$piva) {
         $errors[] = 'Codice Fiscale o Partita IVA obbligatorio (almeno uno)';
     }
 
     // Valida CF se presente
-    if ($cf && !validateCodiceFiscale($cf)) {
+    if ($tenantHasCf && $cf && !validateCodiceFiscale($cf)) {
         $errors[] = 'Codice Fiscale non valido (deve essere 16 caratteri alfanumerici)';
     }
 
     // Valida P.IVA se presente
-    if ($piva && !validatePartitaIva($piva)) {
+    if ($tenantHasPiva && $piva && !validatePartitaIva($piva)) {
         $errors[] = 'Partita IVA non valida (deve essere 11 cifre con checksum corretto)';
+    }
+
+    // Unicità: impedisci duplicati per CF/P.IVA (soft delete aware)
+    if (($tenantHasCf || $tenantHasPiva) && ($cf || $piva)) {
+        if (!$tenantHasCf) $cf = null;
+        if (!$tenantHasPiva) $piva = null;
+        $dup = $db->fetchOne(
+            "SELECT id, denominazione, codice_fiscale, partita_iva
+             FROM tenants
+             WHERE deleted_at IS NULL
+               AND (
+                 (:cf IS NOT NULL AND :cf <> '' AND UPPER(codice_fiscale) = UPPER(:cf))
+                 OR
+                 (:piva IS NOT NULL AND :piva <> '' AND partita_iva = :piva)
+               )
+             LIMIT 1",
+            [':cf' => $cf, ':piva' => $piva]
+        );
+        if ($dup) {
+            apiError(
+                'Esiste già un\'azienda con lo stesso Codice Fiscale o Partita IVA (ID ' . (int)$dup['id'] . ').',
+                409,
+                ['duplicate_tenant_id' => (int)$dup['id']]
+            );
+        }
     }
 
     // 3. Sede legale completa obbligatoria
@@ -181,6 +167,11 @@ try {
     } else {
         $sedeErrors = validateSedeLegale($input['sede_legale']);
         $errors = array_merge($errors, $sedeErrors);
+    }
+
+    // 3b. Settore merceologico obbligatorio (richiesto dal form)
+    if (empty($input['settore_merceologico'])) {
+        $errors[] = 'Settore merceologico obbligatorio';
     }
 
     // 4. Valida sedi operative (opzionale, max 5)
@@ -244,10 +235,17 @@ try {
         apiError('Validazione fallita: ' . implode('; ', $errors), 400, ['errors' => $errors]);
     }
 
+    // Denominazione: se vuota, usa un default informativo
+    $denRaw = isset($input['denominazione']) ? trim((string)$input['denominazione']) : '';
+    if ($denRaw === '') {
+        $suffix = $piva ?: ($cf ?: '');
+        $denRaw = $suffix !== '' ? ('Azienda ' . $suffix) : 'Azienda';
+    }
+
     // Prepara i dati per l'inserimento
     $tenantData = [
-        'name' => trim($input['denominazione']), // Mantieni compatibilità con campo legacy
-        'denominazione' => trim($input['denominazione']),
+        'name' => $denRaw, // Mantieni compatibilità con campo legacy
+        'denominazione' => $denRaw,
         'codice_fiscale' => $cf ? strtoupper($cf) : null,
         'partita_iva' => $piva,
         'status' => $status
@@ -307,14 +305,20 @@ try {
     $db->beginTransaction();
 
     try {
+        // Filter tenantData based on actual columns available in this DB (schema drift safe)
+        $tenantData = cnx_filter_table_data($db, 'tenants', $tenantData);
+        if (empty($tenantData)) {
+            apiError('Impossibile creare azienda: schema tenants non allineato', 503);
+        }
+
         // Inserisci il tenant
         $tenantId = $db->insert('tenants', $tenantData);
 
         // Inserisci sede legale nella nuova tabella tenant_locations
-        if (!empty($input['sede_legale'])) {
+        if (!empty($input['sede_legale']) && $locationsStorageAvailable) {
             $sedeLegale = $input['sede_legale'];
 
-            $db->insert('tenant_locations', [
+            $ins = [
                 'tenant_id' => $tenantId,
                 'location_type' => 'sede_legale',
                 'indirizzo' => trim($sedeLegale['indirizzo']),
@@ -326,13 +330,17 @@ try {
                 'email' => !empty($sedeLegale['email']) ? trim($sedeLegale['email']) : null,
                 'is_primary' => 1,
                 'is_active' => 1
-            ]);
+            ];
+            $ins = cnx_filter_table_data($db, 'tenant_locations', $ins);
+            if (!empty($ins)) {
+                $db->insert('tenant_locations', $ins);
+            }
         }
 
         // Inserisci sedi operative nella nuova tabella tenant_locations
-        if (!empty($input['sedi_operative']) && is_array($input['sedi_operative'])) {
+        if (!empty($input['sedi_operative']) && is_array($input['sedi_operative']) && $locationsStorageAvailable) {
             foreach ($input['sedi_operative'] as $sedeOp) {
-                $db->insert('tenant_locations', [
+                $ins = [
                     'tenant_id' => $tenantId,
                     'location_type' => 'sede_operativa',
                     'indirizzo' => trim($sedeOp['indirizzo']),
@@ -346,34 +354,54 @@ try {
                     'note' => !empty($sedeOp['note']) ? trim($sedeOp['note']) : null,
                     'is_primary' => 0,
                     'is_active' => 1
-                ]);
+                ];
+                $ins = cnx_filter_table_data($db, 'tenant_locations', $ins);
+                if (!empty($ins)) {
+                    $db->insert('tenant_locations', $ins);
+                }
             }
         }
 
-        // Log audit
-        $db->insert('audit_logs', [
-            'tenant_id' => $tenantId,
-            'user_id' => $userInfo['user_id'],
-            'action' => 'create',
-            'entity_type' => 'tenant',
-            'entity_id' => $tenantId,
-            'new_values' => json_encode([
-                'tenant' => $tenantData,
-                'locations_created' => (isset($input['sede_legale']) ? 1 : 0) +
-                                       (isset($input['sedi_operative']) ? count($input['sedi_operative']) : 0)
-            ]),
-            'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
-            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null
-        ]);
+        // Log audit (NON-BLOCKING)
+        try {
+            $db->insert('audit_logs', [
+                'tenant_id' => $tenantId,
+                'user_id' => $userInfo['user_id'],
+                'action' => 'create',
+                'entity_type' => 'tenant',
+                'entity_id' => $tenantId,
+                'new_values' => json_encode([
+                    'tenant' => $tenantData,
+                    'locations_created' => (isset($input['sede_legale']) ? 1 : 0) +
+                                           (isset($input['sedi_operative']) ? count($input['sedi_operative']) : 0)
+                ], JSON_UNESCAPED_UNICODE),
+                'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null
+            ]);
+        } catch (Exception $e) {
+            error_log('[AUDIT] tenants/create audit insert failed: ' . $e->getMessage());
+        }
 
         $db->commit();
+
+        // Auto-create tenant root folder (non-blocking)
+        try {
+            cnx_ensure_tenant_root_folder(
+                $db,
+                (int)$tenantId,
+                (string)($tenantData['denominazione'] ?? $tenantData['name'] ?? ('Tenant ' . (int)$tenantId))
+            );
+        } catch (Exception $e) {
+            error_log('[tenants/create] ensure tenant root folder failed: ' . $e->getMessage());
+        }
 
         // Risposta di successo
         apiSuccess([
             'tenant_id' => $tenantId,
             'denominazione' => $tenantData['denominazione'],
             'locations_created' => (isset($input['sede_legale']) ? 1 : 0) +
-                                   (isset($input['sedi_operative']) ? count($input['sedi_operative']) : 0)
+                                   (isset($input['sedi_operative']) ? count($input['sedi_operative']) : 0),
+            'locations_storage_available' => $locationsStorageAvailable
         ], 'Azienda creata con successo');
 
     } catch (Exception $e) {

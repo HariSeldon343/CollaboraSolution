@@ -10,7 +10,7 @@ $messageType = '';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Password Dimenticata - CollaboraNexio</title>
+    <title>Password Dimenticata - Nexio</title>
     <link rel="stylesheet" href="assets/css/styles.css">
     <style>
         body {
@@ -238,7 +238,7 @@ $messageType = '';
     <div class="container">
         <div class="logo-section">
             <div class="logo">N</div>
-            <div class="app-name">CollaboraNexio</div>
+            <div class="app-name">Nexio</div>
             <div class="tagline">Semplifica, Connetti, Cresci Insieme</div>
         </div>
 

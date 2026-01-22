@@ -95,8 +95,9 @@ if (isset($_GET['stream']) && isset($_SESSION['share_access_' . $token]) && $_SE
     }
 
     // Get file path from database
+    // BUG-146c FIX: Column is 'name' not 'file_name' in files table
     $db = Database::getInstance()->getConnection();
-    $stmt = $db->prepare("SELECT file_path, file_name, mime_type, file_size FROM files WHERE id = ?");
+    $stmt = $db->prepare("SELECT file_path, name, mime_type, file_size FROM files WHERE id = ?");
     $stmt->execute([$shareData['file']['id']]);
     $file = $stmt->fetch();
 
@@ -114,7 +115,7 @@ if (isset($_GET['stream']) && isset($_SESSION['share_access_' . $token]) && $_SE
 
     // Stream file to browser
     header('Content-Type: ' . $file['mime_type']);
-    header('Content-Disposition: attachment; filename="' . $file['file_name'] . '"');
+    header('Content-Disposition: attachment; filename="' . $file['name'] . '"');
     header('Content-Length: ' . $file['file_size']);
     header('Cache-Control: no-cache, must-revalidate');
 
@@ -127,7 +128,7 @@ if (isset($_GET['stream']) && isset($_SESSION['share_access_' . $token]) && $_SE
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CollaboraNexio - Condivisione File</title>
+    <title>Nexio - Condivisione File</title>
     <style>
         * {
             margin: 0;
@@ -693,7 +694,7 @@ if (isset($_GET['stream']) && isset($_SESSION['share_access_' . $token]) && $_SE
             <div class="card-header">
                 <div class="brand">
                     <div class="brand-icon">C</div>
-                    <div class="brand-text">CollaboraNexio</div>
+                    <div class="brand-text">Nexio</div>
                 </div>
                 <div class="subtitle">Accesso Sicuro ai File Condivisi</div>
             </div>

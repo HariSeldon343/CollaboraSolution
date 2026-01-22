@@ -31,8 +31,8 @@ header('Expires: 0');
 verifyApiAuthentication();  // IMMEDIATELY after init
 
 $userInfo = getApiUserInfo();
-$userId = $userInfo['user_id'];
-$userRole = $userInfo['role'];
+$userId = (int)($userInfo['user_id'] ?? $userInfo['id'] ?? 0);
+$userRole = (string)($userInfo['role'] ?? 'user');
 
 verifyApiCsrfToken();
 
@@ -58,16 +58,43 @@ if ($requestedTenantId !== null) {
     if ($userRole === 'super_admin') {
         $tenantId = $requestedTenantId;
     } else {
-        // Validate user has access to requested tenant
-        // BUG-088 FIX: Database already initialized above
+        // BUG-144 FIX: Validate user has access to requested tenant
+        // Accept both single-tenant (users.tenant_id) and multi-tenant (user_tenant_access)
+        $sessionTenantId = (int)($userInfo['tenant_id'] ?? 0);
+        $hasAccess = ($requestedTenantId === $sessionTenantId && $sessionTenantId > 0);
 
-        $accessCheck = $db->fetchOne(
-            "SELECT COUNT(*) as cnt FROM user_tenant_access
-             WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL",
-            [$userId, $requestedTenantId]
-        );
+        if (!$hasAccess) {
+            $userTenant = $db->fetchOne(
+                "SELECT 1 as ok
+                 FROM users
+                 WHERE id = ?
+                   AND tenant_id = ?
+                   AND (deleted_at IS NULL OR deleted_at = '')
+                 LIMIT 1",
+                [$userId, $requestedTenantId]
+            );
+            if ($userTenant) $hasAccess = true;
+        }
 
-        if ($accessCheck && $accessCheck['cnt'] > 0) {
+        if (!$hasAccess) {
+            $uta = $db->fetchOne(
+                "SELECT 1 as ok
+                 FROM user_tenant_access
+                 WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL
+                 LIMIT 1",
+                [$userId, $requestedTenantId]
+            );
+            if ($uta) $hasAccess = true;
+        }
+
+        // BUG-144 FIX: Removed user_companies table check (table does not exist)
+        // Access is already checked via user_tenant_access table above
+        if (!$hasAccess && $userRole === 'admin') {
+            // Admin access already checked via user_tenant_access
+            // No additional check needed
+        }
+
+        if ($hasAccess) {
             $tenantId = $requestedTenantId;
         } else {
             api_error('Non hai accesso a questo tenant', 403);
@@ -188,9 +215,11 @@ try {
     // VALIDATE VALIDATOR AND APPROVER
     // ============================================
 
-    // If not specified, get first available validator and approver
-    if (!$validatorId) {
-        $firstValidator = $db->fetchOne(
+    // BUG-148d+149d FIX: Admin AND Manager are DEFAULT validators/approvers if no explicit workflow_roles record exists
+    // Helper function to find available user for role (checks workflow_roles first, then admin/managers)
+    $findUserForRole = function($tenantId, $workflowRole) use ($db) {
+        // First: Check explicit workflow_roles
+        $explicitUser = $db->fetchOne(
             "SELECT user_id
              FROM workflow_roles
              WHERE tenant_id = ?
@@ -199,42 +228,95 @@ try {
                AND deleted_at IS NULL
              ORDER BY created_at ASC
              LIMIT 1",
-            [$tenantId, WORKFLOW_ROLE_VALIDATOR]
+            [$tenantId, $workflowRole]
         );
 
-        if ($firstValidator === false) {
-            throw new Exception('Nessun validatore disponibile nel sistema. Configurare almeno un validatore.');
+        if ($explicitUser !== false) {
+            return $explicitUser['user_id'];
         }
 
-        $validatorId = $firstValidator['user_id'];
+        // Fallback: Get first admin/manager without explicit workflow_roles record for this role
+        // BUG-149d FIX: Include admin alongside manager as default
+        // BUG-149a FIX: Any workflow_roles record (even soft-deleted) means explicitly configured
+        $defaultAdmin = $db->fetchOne(
+            "SELECT u.id as user_id
+             FROM users u
+             WHERE u.tenant_id = ?
+               AND u.role IN ('admin', 'manager')
+               AND u.is_active = 1
+               AND u.deleted_at IS NULL
+               AND NOT EXISTS (
+                   SELECT 1 FROM workflow_roles wr
+                   WHERE wr.user_id = u.id
+                     AND wr.tenant_id = ?
+                     AND wr.workflow_role = ?
+               )
+             ORDER BY FIELD(u.role, 'admin', 'manager'), u.created_at ASC
+             LIMIT 1",
+            [$tenantId, $tenantId, $workflowRole]
+        );
+
+        if ($defaultAdmin !== false) {
+            return $defaultAdmin['user_id'];
+        }
+
+        return null;
+    };
+
+    // Helper function to check if user can act as validator/approver
+    $userCanActAsRole = function($userId, $tenantId, $workflowRole) use ($db) {
+        // Check explicit workflow_roles
+        if (userHasWorkflowRole($userId, $tenantId, $workflowRole)) {
+            return true;
+        }
+
+        // Check if user is admin/manager without explicit denial (no workflow_roles record)
+        // BUG-149d FIX: Include admin alongside manager as default
+        // BUG-149a FIX: Any workflow_roles record (even soft-deleted) means explicitly configured
+        $isDefaultAdmin = $db->fetchOne(
+            "SELECT 1
+             FROM users u
+             WHERE u.id = ?
+               AND u.tenant_id = ?
+               AND u.role IN ('admin', 'manager')
+               AND u.is_active = 1
+               AND u.deleted_at IS NULL
+               AND NOT EXISTS (
+                   SELECT 1 FROM workflow_roles wr
+                   WHERE wr.user_id = u.id
+                     AND wr.tenant_id = ?
+                     AND wr.workflow_role = ?
+               )
+             LIMIT 1",
+            [$userId, $tenantId, $tenantId, $workflowRole]
+        );
+
+        return $isDefaultAdmin !== false;
+    };
+
+    // If not specified, get first available validator and approver
+    if (!$validatorId) {
+        $validatorId = $findUserForRole($tenantId, WORKFLOW_ROLE_VALIDATOR);
+
+        if (!$validatorId) {
+            throw new Exception('Nessun validatore disponibile nel sistema. Configurare almeno un validatore o aggiungere un manager.');
+        }
     } else {
-        // Validate specified validator
-        if (!userHasWorkflowRole($validatorId, $tenantId, WORKFLOW_ROLE_VALIDATOR)) {
+        // Validate specified validator (check explicit roles OR default manager)
+        if (!$userCanActAsRole($validatorId, $tenantId, WORKFLOW_ROLE_VALIDATOR)) {
             throw new Exception('Il validatore specificato non ha il ruolo di validatore.');
         }
     }
 
     if (!$approverId) {
-        $firstApprover = $db->fetchOne(
-            "SELECT user_id
-             FROM workflow_roles
-             WHERE tenant_id = ?
-               AND workflow_role = ?
-               AND is_active = 1
-               AND deleted_at IS NULL
-             ORDER BY created_at ASC
-             LIMIT 1",
-            [$tenantId, WORKFLOW_ROLE_APPROVER]
-        );
+        $approverId = $findUserForRole($tenantId, WORKFLOW_ROLE_APPROVER);
 
-        if ($firstApprover === false) {
-            throw new Exception('Nessun approvatore disponibile nel sistema. Configurare almeno un approvatore.');
+        if (!$approverId) {
+            throw new Exception('Nessun approvatore disponibile nel sistema. Configurare almeno un approvatore o aggiungere un manager.');
         }
-
-        $approverId = $firstApprover['user_id'];
     } else {
-        // Validate specified approver
-        if (!userHasWorkflowRole($approverId, $tenantId, WORKFLOW_ROLE_APPROVER)) {
+        // Validate specified approver (check explicit roles OR default manager)
+        if (!$userCanActAsRole($approverId, $tenantId, WORKFLOW_ROLE_APPROVER)) {
             throw new Exception('L\'approvatore specificato non ha il ruolo di approvatore.');
         }
     }
@@ -374,8 +456,8 @@ try {
             $userId,
             $tenantId,
             TRANSITION_SUBMIT,
-            'document_workflow',
-            $workflowId,
+            'document',
+            $fileId,
             sprintf(
                 'Documento "%s" inviato per validazione',
                 $file['file_name']
@@ -495,6 +577,16 @@ function sendWorkflowEmail(array $data): bool {
 
         // BUG-091 FIX: Use correct sendEmail() function (not EmailSender class)
         require_once __DIR__ . '/../../../includes/mailer.php';
+        // Wrap content-only templates with the shared Nexio layout
+        if (!empty($emailContent) && function_exists('cnx_email_is_full_document') && !cnx_email_is_full_document($emailContent)) {
+            $baseUrl = defined('BASE_URL') ? BASE_URL : 'http://localhost:8888/CollaboraNexio';
+            $tenantName = $data['variables']['tenant_name'] ?? '';
+            $emailContent = renderEmailLayout($data['subject'] ?? 'Notifica workflow', $emailContent, [
+                'BASE_URL' => $baseUrl,
+                'TENANT_NAME' => (string)$tenantName,
+                'YEAR' => date('Y')
+            ], ['brandColor' => '#1a2332']);
+        }
 
         return sendEmail(
             $data['to'],

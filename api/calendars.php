@@ -189,7 +189,8 @@ function handleGetCalendars(PDO $pdo, int $tenantId): void
 
 function ensureDefaultCalendar(PDO $pdo, int $tenantId, int $userId, string $userName): void
 {
-    $stmt = $pdo->prepare('SELECT id FROM calendars WHERE tenant_id = :tenant_id LIMIT 1');
+    // BUG-127 FIX: Check for ACTIVE calendars only (exclude soft-deleted)
+    $stmt = $pdo->prepare('SELECT id FROM calendars WHERE tenant_id = :tenant_id AND deleted_at IS NULL LIMIT 1');
     $stmt->execute([':tenant_id' => $tenantId]);
 
     if ($stmt->fetch(PDO::FETCH_ASSOC)) {

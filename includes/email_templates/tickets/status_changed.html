@@ -1,0 +1,52 @@
+<p style="margin:0 0 12px 0;">Ciao <strong>{{USER_NAME}}</strong>,</p>
+<p style="margin:0 0 14px 0;">Lo stato del tuo ticket è stato aggiornato.</p>
+
+<!-- IF_TENANT_NAME -->
+<p style="margin:0 0 14px 0;color:#374151;"><strong>Azienda:</strong> {{TENANT_NAME}}</p>
+<!-- ENDIF_TENANT_NAME -->
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:12px 0;background:#fafafa;border:1px solid #eef0f3;border-radius:8px;">
+  <tr><td style="padding:12px 12px;">
+    <div style="margin:0 0 8px 0;font-weight:600;color:#111827;">Ticket</div>
+    <div style="margin:0;color:#374151;">
+      <div><strong>Numero:</strong> {{TICKET_NUMBER}}</div>
+      <div><strong>Oggetto:</strong> {{TICKET_SUBJECT}}</div>
+    </div>
+  </td></tr>
+</table>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:12px 0;border:1px solid #eef0f3;border-radius:8px;">
+  <tr><td style="padding:12px 12px;">
+    <div style="margin:0;color:#374151;">
+      <!-- IF_OLD_STATUS -->
+      <div><strong>Da:</strong> {{OLD_STATUS}}</div>
+      <!-- ENDIF_OLD_STATUS -->
+      <!-- IF_NEW_STATUS -->
+      <div><strong>A:</strong> {{NEW_STATUS}}</div>
+      <!-- ENDIF_NEW_STATUS -->
+      <div style="margin-top:6px;"><strong>Aggiornato da:</strong> {{CHANGED_BY_NAME}}</div>
+    </div>
+    <!-- IF_RESOLUTION_NOTES -->
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid #eef0f3;color:#374151;">
+      <strong>Note:</strong> {{RESOLUTION_NOTES}}
+    </div>
+    <!-- ENDIF_RESOLUTION_NOTES -->
+    <!-- IF_RESOLUTION_TIME -->
+    <div style="margin-top:10px;color:#374151;">
+      <strong>Tempo risoluzione:</strong> {{RESOLUTION_TIME}}
+    </div>
+    <!-- ENDIF_RESOLUTION_TIME -->
+  </td></tr>
+</table>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;">
+  <tr>
+    <td>
+      <a href="{{TICKET_URL}}" style="display:inline-block;background:#1a2332;color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:600;font-size:14px;line-height:18px;">Apri ticket</a>
+    </td>
+  </tr>
+</table>
+
+<p style="margin:0;font-size:12px;line-height:18px;color:#6b7280;">
+  Link diretto: <a href="{{TICKET_URL}}" style="color:#1a2332;text-decoration:none;word-break:break-all;">{{TICKET_URL}}</a>
+</p>

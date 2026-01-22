@@ -30,9 +30,17 @@ header('Expires: 0');
 verifyApiAuthentication();  // IMMEDIATELY after init
 
 $userInfo = getApiUserInfo();
-$tenantId = $userInfo['tenant_id'];
-$userId = $userInfo['user_id'];
-$userRole = $userInfo['role'];
+$userRole = (string)($userInfo['role'] ?? 'user');
+$userId = (int)($userInfo['user_id'] ?? $userInfo['id'] ?? 0);
+
+// Resolve tenant in a multi-tenant safe way (super_admin/admin may use CompanyFilter session state)
+$tenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : 0;
+if ($tenantId <= 0) {
+    $tenantId = (int)($_SESSION['company_filter_id'] ?? 0);
+}
+if ($tenantId <= 0) {
+    $tenantId = (int)($userInfo['tenant_id'] ?? 0);
+}
 
 verifyApiCsrfToken();
 
@@ -79,6 +87,51 @@ if ($filterState && !in_array($filterState, WORKFLOW_STATES)) {
 // ============================================
 
 try {
+    // Tenant must be resolved for tenant-scoped workflow dashboards.
+    // For super_admin/admin with no tenant selected, return empty stats instead of fatal error.
+    if ($tenantId <= 0) {
+        if (in_array($userRole, ['super_admin', 'admin'], true)) {
+            api_success([
+                'stats' => [
+                    'pendingValidation' => 0,
+                    'pendingApproval' => 0,
+                    'myDocuments' => 0
+                ],
+                'statistics' => [
+                    'total_workflows' => 0,
+                    'by_state' => [
+                        'draft' => 0,
+                        'in_validation' => 0,
+                        'validated' => 0,
+                        'in_approval' => 0,
+                        'approved' => 0,
+                        'rejected' => 0
+                    ],
+                    'average_rejections' => 0,
+                    'average_completion_hours' => 0
+                ],
+                'pending_actions' => [],
+                'pending_count' => ['validation' => 0, 'approval' => 0, 'rejected' => 0],
+                'performance' => [
+                    'avg_validation_hours' => 0,
+                    'avg_approval_hours' => 0,
+                    'completed_workflows' => 0,
+                    'workflows_with_rejections' => 0,
+                    'max_rejection_count' => 0
+                ],
+                'workflow_roles' => ['active_validators' => 0, 'active_approvers' => 0],
+                'current_user' => [
+                    'id' => $userId,
+                    'name' => $userInfo['user_name'] ?? '',
+                    'role' => $userRole,
+                    'is_validator' => false,
+                    'is_approver' => false
+                ]
+            ], 'Seleziona un’azienda per visualizzare le statistiche workflow.');
+        }
+
+        api_error('Tenant non valido', 400);
+    }
     // ============================================
     // 1. OVERALL STATISTICS
     // ============================================
@@ -135,7 +188,7 @@ try {
         $validationQuery = "SELECT
             dw.id,
             dw.file_id,
-            f.file_name,
+            f.name as file_name,
             dw.submitted_at,
             TIMESTAMPDIFF(HOUR, dw.submitted_at, NOW()) as hours_waiting,
             uc.name as creator_name
@@ -175,7 +228,7 @@ try {
         $approvalQuery = "SELECT
             dw.id,
             dw.file_id,
-            f.file_name,
+            f.name as file_name,
             dw.validated_at,
             TIMESTAMPDIFF(HOUR, dw.validated_at, NOW()) as hours_waiting,
             uc.name as creator_name,
@@ -224,7 +277,7 @@ try {
     $rejectedQuery = "SELECT
         dw.id,
         dw.file_id,
-        f.file_name,
+        f.name as file_name,
         dw.rejected_at,
         dw.rejection_count,
         dwh.comment as rejection_reason,
@@ -286,7 +339,7 @@ try {
             dwh.to_state,
             dwh.comment,
             f.id as file_id,
-            f.file_name,
+            f.name as file_name,
             u.name as user_name,
             u.profile_image
         FROM document_workflow_history dwh
@@ -344,11 +397,12 @@ try {
     // 5. WORKFLOW ROLE STATISTICS
     // ============================================
 
+    // Be schema-tolerant: some installs don't have workflow_roles.is_active
     $roleStatsQuery = "SELECT
         (SELECT COUNT(*) FROM workflow_roles
-         WHERE tenant_id = ? AND workflow_role = ? AND is_active = 1 AND deleted_at IS NULL) as active_validators,
+         WHERE tenant_id = ? AND workflow_role = ? AND deleted_at IS NULL) as active_validators,
         (SELECT COUNT(*) FROM workflow_roles
-         WHERE tenant_id = ? AND workflow_role = ? AND is_active = 1 AND deleted_at IS NULL) as active_approvers";
+         WHERE tenant_id = ? AND workflow_role = ? AND deleted_at IS NULL) as active_approvers";
 
     $roleStats = $db->fetchOne($roleStatsQuery, [
         $tenantId, WORKFLOW_ROLE_VALIDATOR,
@@ -360,6 +414,12 @@ try {
     // ============================================
 
     $response = [
+        // Lightweight widget payload expected by document_workflow_v2.js
+        'stats' => [
+            'pendingValidation' => count(array_filter($pendingActions, fn($a) => $a['type'] === 'validation_required')),
+            'pendingApproval' => count(array_filter($pendingActions, fn($a) => $a['type'] === 'approval_required')),
+            'myDocuments' => (int)($stats['total'] ?? 0)
+        ],
         'statistics' => [
             'total_workflows' => (int)$stats['total'],
             'by_state' => [
@@ -370,8 +430,9 @@ try {
                 'approved' => (int)$stats['approved_count'],
                 'rejected' => (int)$stats['rejected_count']
             ],
-            'average_rejections' => round($stats['avg_rejections'] ?? 0, 2),
-            'average_completion_hours' => round($stats['avg_completion_hours'] ?? 0, 1)
+            // MySQL AVG() often returns numeric strings (e.g. '0.0000') -> cast before round() (BUG-XXX)
+            'average_rejections' => round((float)($stats['avg_rejections'] ?? 0), 2),
+            'average_completion_hours' => round((float)($stats['avg_completion_hours'] ?? 0), 1)
         ],
         'pending_actions' => $pendingActions,
         'pending_count' => [
@@ -380,8 +441,8 @@ try {
             'rejected' => count(array_filter($pendingActions, fn($a) => $a['type'] === 'document_rejected'))
         ],
         'performance' => [
-            'avg_validation_hours' => round($performance['avg_validation_hours'] ?? 0, 1),
-            'avg_approval_hours' => round($performance['avg_approval_hours'] ?? 0, 1),
+            'avg_validation_hours' => round((float)($performance['avg_validation_hours'] ?? 0), 1),
+            'avg_approval_hours' => round((float)($performance['avg_approval_hours'] ?? 0), 1),
             'completed_workflows' => (int)$performance['completed_count'],
             'workflows_with_rejections' => (int)$performance['rejected_at_least_once'],
             'max_rejection_count' => (int)$performance['max_rejection_count']
@@ -408,7 +469,7 @@ try {
 
     api_success($response, 'Dashboard workflow caricata con successo.');
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
     error_log("[WORKFLOW_DASHBOARD] Error: " . $e->getMessage());
-    api_error('Errore durante caricamento dashboard workflow: ' . $e->getMessage(), 500);
+    api_error('Errore durante caricamento dashboard workflow', 500);
 }

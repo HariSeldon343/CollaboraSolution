@@ -1,0 +1,22 @@
+<p style="margin:0 0 12px 0;">Ciao <strong>{{USER_NAME}}</strong>,</p>
+
+<p style="margin:0 0 12px 0;">
+  in allegato trovi la documentazione PDF di Nexio (guida iniziale e altri documenti disponibili).
+</p>
+
+{{#DOC_NAMES}}
+<div style="margin:12px 0 0 0;">
+  <div style="font-weight:700; margin-bottom:6px;">Allegati:</div>
+  <ul style="margin:0; padding-left:18px;">
+    {{#DOC_NAMES}}
+      <li style="margin:2px 0;">{{.}}</li>
+    {{/DOC_NAMES}}
+  </ul>
+</div>
+{{/DOC_NAMES}}
+
+<p style="margin:14px 0 0 0; color:#6b7280; font-size:13px;">
+  Se non riesci ad aprire gli allegati, contatta l’amministratore del tuo tenant.
+</p>
+
+

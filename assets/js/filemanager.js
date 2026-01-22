@@ -419,9 +419,6 @@
             case 'download':
                 this.downloadFile(fileName);
                 break;
-            case 'share':
-                this.shareFile(fileName);
-                break;
             case 'more':
                 this.showFileMenu(btn, fileElement);
                 break;
@@ -468,9 +465,6 @@
                 break;
             case 'download':
                 this.downloadFile(fileName);
-                break;
-            case 'share':
-                this.shareFile(fileName);
                 break;
             case 'delete':
                 this.deleteFile(fileName);
@@ -663,7 +657,6 @@
         const menuOptions = [
             { label: 'Apri', icon: '📂', action: 'open' },
             { label: 'Scarica', icon: '⬇', action: 'download' },
-            { label: 'Condividi', icon: '🔗', action: 'share' },
             { divider: true },
             { label: 'Rinomina', icon: '✏', action: 'rename' },
             { label: 'Copia', icon: '📋', action: 'copy' },
@@ -752,9 +745,6 @@
                 break;
             case 'download':
                 this.downloadFile(fileName);
-                break;
-            case 'share':
-                this.shareFile(fileName);
                 break;
             case 'rename':
                 this.renameFile(fileName);
@@ -1104,24 +1094,8 @@
     }
 
     shareFile(fileName) {
-        console.log('Sharing file:', fileName);
-        const shareUrl = `${window.location.origin}/files/${encodeURIComponent(fileName)}`;
-
-        if (navigator.share) {
-            navigator.share({
-                title: fileName,
-                text: `Check out ${fileName}`,
-                url: shareUrl
-            }).then(() => {
-                this.showToast('File condiviso con successo', 'success');
-            }).catch((error) => {
-                console.log('Error sharing:', error);
-            });
-        } else if (navigator.clipboard) {
-            navigator.clipboard.writeText(shareUrl).then(() => {
-                this.showToast('Link di condivisione copiato negli appunti', 'success');
-            });
-        }
+        // Sharing disabled by design (security/permissions)
+        this.showToast('Condivisione disabilitata', 'error');
     }
 
     async deleteFile(fileName) {

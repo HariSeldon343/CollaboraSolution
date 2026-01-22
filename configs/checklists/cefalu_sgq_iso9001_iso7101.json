@@ -1,0 +1,367 @@
+{
+  "template_key": "CEFALU_SGQ_ISO9001_ISO7101",
+  "version": 1,
+  "title": "Checklist raccolta dati / assessment — SGQ Sanità (ISO 9001 + ISO 7101)",
+  "standards": ["ISO9001", "ISO7101"],
+  "intervention_types": ["new_implementation", "maintenance", "recertification", "scope_extension", "transition"],
+  "notes": "Template operativo per settore sanitario. Solo struttura/placeholder: nessun testo ISO/UNI copiato. Usare per raccogliere informazioni ed evidenze utili alla costruzione del sistema documentale (IMS) e alla pianificazione.",
+  "sections": [
+    {
+      "section_key": "PHASE1_STARTUP",
+      "title": "Fase 1 — Pianificazione e avvio",
+      "items": [
+        {
+          "item_key": "P1_KICKOFF_MINUTES",
+          "title": "Verbale kick-off / avvio progetto",
+          "question_type": "file",
+          "required": true,
+          "description": "Evidenza di avvio: obiettivi, perimetro, attori, vincoli, canali, calendario di massima.",
+          "suggested_evidence_type": "minutes",
+          "autofill_keywords": ["kickoff", "kick-off", "avvio", "verbale", "riunione", "meeting"],
+          "linked_artifacts_hints": ["project_minutes"]
+        },
+        {
+          "item_key": "P1_OBJECTIVE_SCOPE",
+          "title": "Obiettivo dell’assessment e perimetro (scope)",
+          "question_type": "multiline",
+          "required": true,
+          "description": "Descrivi obiettivo, sedi/strutture incluse, servizi/attività incluse, esclusioni (se presenti) e motivazioni (senza testo norma).",
+          "suggested_evidence_type": "text",
+          "autofill_keywords": ["obiettivo", "scope", "perimetro", "campo applic", "sedi", "servizi", "strutture"]
+        },
+        {
+          "item_key": "P1_STAKEHOLDERS_ROLES",
+          "title": "Stakeholder, ruoli e responsabilità chiave",
+          "question_type": "multiline",
+          "required": true,
+          "description": "Referenti direzione, qualità, risk/incident management, coordinatori, responsabili di processo, referenti IT, ecc.",
+          "suggested_evidence_type": "text",
+          "autofill_keywords": ["stakeholder", "ruoli", "responsabilità", "organigramma", "referenti", "responsabile qualità", "risk"]
+        },
+        {
+          "item_key": "P1_SITES_UNITS_SERVICES",
+          "title": "Elenco sedi/unità/servizi (mappa organizzativa operativa)",
+          "question_type": "file",
+          "required": false,
+          "description": "Documento o elenco che mappi sedi, reparti/unità, servizi erogati e relative interfacce.",
+          "suggested_evidence_type": "org_map",
+          "autofill_keywords": ["sedi", "reparti", "unità", "servizi", "organigramma", "struttura organizzativa"]
+        },
+        {
+          "item_key": "P1_CONSTRAINTS_DEADLINES",
+          "title": "Vincoli, deadline e finestre di non disponibilità",
+          "question_type": "multiline",
+          "required": false,
+          "description": "Vincoli organizzativi (es. picchi attività), periodi di blackout, scadenze esterne (best-effort).",
+          "suggested_evidence_type": "text",
+          "autofill_keywords": ["deadline", "scadenza", "blackout", "vincoli", "periodo", "finestra"]
+        }
+      ]
+    },
+    {
+      "section_key": "PHASE2_EVIDENCE_GAP",
+      "title": "Fase 2 — Raccolta evidenze e gap analysis",
+      "items": [
+        {
+          "item_key": "P2_EXISTING_DOCS_SET",
+          "title": "Raccolta documenti/evidenze esistenti (set iniziale)",
+          "question_type": "multi_file",
+          "required": true,
+          "description": "Collega i documenti già disponibili: policy, procedure, istruzioni, moduli, registri, report, dashboard, ecc.",
+          "suggested_evidence_type": "multi_file",
+          "autofill_keywords": ["manuale", "procedura", "istruzione", "policy", "registro", "modulo", "template", "report", "dashboard"]
+        },
+        {
+          "item_key": "P2_PROCESS_MAP",
+          "title": "Mappa processi / percorsi operativi (AS-IS)",
+          "question_type": "file",
+          "required": true,
+          "description": "Diagrammi o descrizione dei processi e delle interazioni principali (anche in forma di flusso).",
+          "suggested_evidence_type": "process_map",
+          "autofill_keywords": ["mappa processi", "process map", "diagramma", "flusso", "sop", "sipoc"],
+          "linked_artifacts_hints": ["process_map"]
+        },
+        {
+          "item_key": "P2_KPI_BASELINE",
+          "title": "KPI / indicatori esistenti (baseline)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Report KPI, cruscotti, indicatori di processo/servizio, obiettivi e consuntivi (se disponibili).",
+          "suggested_evidence_type": "kpi_records",
+          "autofill_keywords": ["kpi", "indicator", "cruscotto", "dashboard", "monitoraggio", "obiettivi"]
+        },
+        {
+          "item_key": "P2_RISK_INCIDENT_LOGS",
+          "title": "Log rischio/incidenti/eventi (se presente)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Evidenze di gestione segnalazioni, incidenti, eventi, azioni e follow-up (in qualunque formato).",
+          "suggested_evidence_type": "risk_incident",
+          "autofill_keywords": ["incident", "segnalazione", "evento", "near miss", "risch", "log", "registro"]
+        },
+        {
+          "item_key": "P2_GAP_ANALYSIS",
+          "title": "Report di assessment / gap analysis",
+          "question_type": "file",
+          "required": true,
+          "description": "Sintesi aree coperte/scoperte, priorità e raccomandazioni. Possibile includere riferimenti a clausole numeriche (senza testo norma).",
+          "suggested_evidence_type": "gap_report",
+          "autofill_keywords": ["gap", "assessment", "analisi", "diagnosi", "verifica", "checklist"],
+          "linked_artifacts_hints": ["gap_report"]
+        }
+      ]
+    },
+    {
+      "section_key": "PHASE3_SGQ_SETUP",
+      "title": "Fase 3 — Impostazione SGQ (governance, obiettivi, gestione rischi)",
+      "items": [
+        {
+          "item_key": "P3_GOVERNANCE_MODEL",
+          "title": "Modello di governance e ruoli di controllo",
+          "question_type": "multiline",
+          "required": true,
+          "description": "Descrivi come viene governata la qualità: ruoli, responsabilità, comitati/riunioni, flussi decisionali (best-effort).",
+          "suggested_evidence_type": "text",
+          "autofill_keywords": ["governance", "comitato", "riunione", "ruoli", "responsabilità", "qualità"]
+        },
+        {
+          "item_key": "P3_POLICY_OBJECTIVES",
+          "title": "Politica e obiettivi (bozza o versione vigente)",
+          "question_type": "file",
+          "required": false,
+          "description": "Documento di politica e obiettivi (anche bozza) da validare/approvare.",
+          "suggested_evidence_type": "policy",
+          "autofill_keywords": ["politica", "obiettivi", "quality policy", "mission", "vision"]
+        },
+        {
+          "item_key": "P3_RISK_FRAMEWORK",
+          "title": "Gestione rischi/opportunità (metodo e registro, se presente)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Metodo/criteri, matrici, registri e azioni (se già disponibili).",
+          "suggested_evidence_type": "risk_register",
+          "autofill_keywords": ["rischi", "opportunità", "risk", "matrice", "registro", "mitigazione"]
+        },
+        {
+          "item_key": "P3_DOC_ARCHITECTURE",
+          "title": "Architettura documentale SGQ (indice e categorie)",
+          "question_type": "multiline",
+          "required": true,
+          "description": "Struttura target: manuale/overview, procedure, istruzioni, moduli, registri, report. Solo struttura.",
+          "suggested_evidence_type": "text",
+          "autofill_keywords": ["architettura", "indice", "struttura documentale", "manuale", "procedure", "moduli", "registri"]
+        }
+      ]
+    },
+    {
+      "section_key": "PHASE4_DOCUMENTATION",
+      "title": "Fase 4 — Documentazione (manuale/procedure/moduli/registri)",
+      "items": [
+        {
+          "item_key": "P4_MANUAL_OR_OVERVIEW",
+          "title": "Documento overview / manuale (se presente)",
+          "question_type": "file",
+          "required": false,
+          "description": "Documento che descriva il sistema di gestione (overview/handbook/manuale).",
+          "suggested_evidence_type": "manual",
+          "autofill_keywords": ["manuale", "handbook", "overview", "sgq", "quality manual"],
+          "linked_artifacts_hints": ["manual"]
+        },
+        {
+          "item_key": "P4_CORE_PROCEDURES",
+          "title": "Procedure core (set minimo applicabile)",
+          "question_type": "multi_file",
+          "required": true,
+          "description": "Procedure/istruzioni base: gestione documenti, audit interno, NC/correttive, gestione fornitori, ecc. (best-effort).",
+          "suggested_evidence_type": "procedures",
+          "autofill_keywords": ["procedura", "procedure", "istruzione", "document", "audit", "non conform", "correttiva"],
+          "linked_artifacts_hints": ["procedure"]
+        },
+        {
+          "item_key": "P4_FORMS_RECORDS",
+          "title": "Moduli e registri (template e registrazioni)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Template e/o registrazioni già disponibili (Excel, DOCX, PDF, ecc.).",
+          "suggested_evidence_type": "records",
+          "autofill_keywords": ["modulo", "form", "registro", "record", "registrazione", "template"]
+        },
+        {
+          "item_key": "P4_DOC_APPROVALS",
+          "title": "Evidenze di approvazione/versionamento documenti (se applicabile)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Workflow/firme/verbali di approvazione e tracciabilità revisioni (best-effort).",
+          "suggested_evidence_type": "approvals",
+          "autofill_keywords": ["approvazione", "firma", "workflow", "versione", "revisione", "rev"]
+        }
+      ]
+    },
+    {
+      "section_key": "PHASE5_TRAINING",
+      "title": "Fase 5 — Formazione e sensibilizzazione",
+      "items": [
+        {
+          "item_key": "P5_TRAINING_PLAN",
+          "title": "Piano formazione",
+          "question_type": "file",
+          "required": true,
+          "description": "Destinatari, contenuti, calendario, modalità e verifica apprendimento (best-effort).",
+          "suggested_evidence_type": "training_plan",
+          "autofill_keywords": ["formazione", "training", "piano formazione", "programma formazione"]
+        },
+        {
+          "item_key": "P5_TRAINING_RECORDS",
+          "title": "Registri formazione / presenze (se disponibili)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Evidenze di partecipazione, registri presenze, attestati, report (best-effort).",
+          "suggested_evidence_type": "training_records",
+          "autofill_keywords": ["registro formazione", "presenze", "attestato", "training record"]
+        },
+        {
+          "item_key": "P5_COMPETENCE_MATRIX",
+          "title": "Matrice competenze (best-effort)",
+          "question_type": "file",
+          "required": false,
+          "description": "Matrice competenze/ruoli e requisiti (se disponibile).",
+          "suggested_evidence_type": "competence_matrix",
+          "autofill_keywords": ["competenze", "matrice competenze", "skill matrix"]
+        }
+      ]
+    },
+    {
+      "section_key": "PHASE6_IMPLEMENT_MONITOR",
+      "title": "Fase 6 — Implementazione e monitoraggio",
+      "items": [
+        {
+          "item_key": "P6_KPI_MONITORING",
+          "title": "Monitoraggi KPI / performance (registrazioni)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Evidenze di monitoraggio periodico (report, dashboard, registri).",
+          "suggested_evidence_type": "kpi_records",
+          "autofill_keywords": ["monitoraggio", "report", "dashboard", "kpi", "indicatori"]
+        },
+        {
+          "item_key": "P6_FEEDBACK_COMPLAINTS",
+          "title": "Feedback/reclami/segnalazioni (se presenti)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Evidenze di raccolta feedback, reclami, segnalazioni e gestione (best-effort).",
+          "suggested_evidence_type": "feedback",
+          "autofill_keywords": ["reclami", "feedback", "segnalazioni", "complaints", "customer"]
+        },
+        {
+          "item_key": "P6_SUPPLIERS_OUTSOURCING",
+          "title": "Gestione fornitori/outsourcing critici (se applicabile)",
+          "question_type": "file",
+          "required": false,
+          "description": "Elenco fornitori critici, criteri valutazione, contratti/SLAs, monitoraggi (best-effort).",
+          "suggested_evidence_type": "suppliers",
+          "autofill_keywords": ["fornitori", "outsourcing", "sla", "contratto", "valutazione fornitori"]
+        }
+      ]
+    },
+    {
+      "section_key": "PHASE7_INTERNAL_AUDIT_CAPA",
+      "title": "Fase 7 — Audit interno e azioni correttive",
+      "items": [
+        {
+          "item_key": "P7_INTERNAL_AUDIT_PROGRAM",
+          "title": "Programma audit interno",
+          "question_type": "file",
+          "required": true,
+          "description": "Pianificazione audit interno (ambiti/frequenza/criteri) (best-effort).",
+          "suggested_evidence_type": "internal_audit_program",
+          "autofill_keywords": ["programma audit", "piano audit", "audit interno", "internal audit"]
+        },
+        {
+          "item_key": "P7_INTERNAL_AUDIT_REPORTS",
+          "title": "Report audit interno",
+          "question_type": "multi_file",
+          "required": true,
+          "description": "Rapporti audit interno con rilievi, osservazioni, conclusioni (best-effort).",
+          "suggested_evidence_type": "internal_audit_reports",
+          "autofill_keywords": ["report audit", "rapporto audit", "verifica interna", "audit interno report"]
+        },
+        {
+          "item_key": "P7_CAPA_ACTIONS",
+          "title": "Azioni correttive (CAPA) e follow-up",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Piani di azione, responsabilità, scadenze e evidenze di chiusura (best-effort).",
+          "suggested_evidence_type": "capa",
+          "autofill_keywords": ["azione correttiva", "correttiva", "capa", "follow up", "chiusura"]
+        }
+      ]
+    },
+    {
+      "section_key": "PHASE8_MGMT_REVIEW",
+      "title": "Fase 8 — Riesame della direzione",
+      "items": [
+        {
+          "item_key": "P8_REVIEW_INPUTS",
+          "title": "Input riesame (dati, KPI, audit, NC, feedback)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Materiale preparatorio per riesame (best-effort).",
+          "suggested_evidence_type": "management_review_inputs",
+          "autofill_keywords": ["riesame", "input riesame", "management review", "kpi", "audit", "nc", "feedback"]
+        },
+        {
+          "item_key": "P8_REVIEW_MINUTES",
+          "title": "Verbale / output riesame di direzione",
+          "question_type": "file",
+          "required": true,
+          "description": "Verbale con decisioni, azioni, risorse e responsabilità (best-effort).",
+          "suggested_evidence_type": "management_review_minutes",
+          "autofill_keywords": ["verbale riesame", "riesame direzione", "management review", "direzione"]
+        }
+      ]
+    },
+    {
+      "section_key": "PHASE9_EXTERNAL_AUDIT_CLOSE",
+      "title": "Fase 9 — Audit esterno e chiusura NC",
+      "items": [
+        {
+          "item_key": "P9_READINESS_REVIEW",
+          "title": "Readiness review / preparazione audit esterno (se applicabile)",
+          "question_type": "file",
+          "required": false,
+          "description": "Checklist interna o report di preparazione all’audit esterno (best-effort).",
+          "suggested_evidence_type": "readiness",
+          "autofill_keywords": ["readiness", "preparazione audit", "pre-audit", "verifica preparazione"]
+        },
+        {
+          "item_key": "P9_EXT_AUDIT_REPORTS",
+          "title": "Report audit esterno (stage 1/2, sorveglianza, ecc.)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Report e comunicazioni dell’ente (se disponibili).",
+          "suggested_evidence_type": "external_audit",
+          "autofill_keywords": ["audit esterno", "stage 1", "stage 2", "sorveglianza", "report audit", "ente"]
+        },
+        {
+          "item_key": "P9_EXTERNAL_NC_CLOSURE",
+          "title": "Chiusura non conformità esterne (se presenti)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Risposte, piani di azione e evidenze di chiusura rilievi esterni (best-effort).",
+          "suggested_evidence_type": "external_nc_closure",
+          "autofill_keywords": ["chiusura", "rilievi", "non conform", "azione correttiva", "follow-up"]
+        },
+        {
+          "item_key": "P9_CERTIFICATE",
+          "title": "Certificato (se già rilasciato)",
+          "question_type": "file",
+          "required": false,
+          "description": "Certificato o comunicazione ufficiale (se disponibile).",
+          "suggested_evidence_type": "certificate",
+          "autofill_keywords": ["certificato", "certificate", "rilascio", "iso 9001"]
+        }
+      ]
+    }
+  ]
+}
+

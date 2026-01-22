@@ -545,11 +545,294 @@ function createFolder() {
 }
 
 /**
- * Altri metodi stub per ora
+ * Upload file to a folder
+ * BUG-136 FIX: Implemented complete file upload functionality
  */
 function uploadFile() {
-    ob_clean();
-    echo json_encode(['error' => 'Upload non ancora implementato']);
+    global $pdo, $user_id, $tenant_id, $user_role;
+
+    // CSRF validation from header (X-CSRF-Token) or form field
+    $csrf_token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_token'] ?? '';
+    if (!isset($_SESSION['csrf_token']) || $csrf_token !== $_SESSION['csrf_token']) {
+        ob_clean();
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Token CSRF non valido']);
+        return;
+    }
+
+    // Get folder_id from POST
+    $folder_id = $_POST['folder_id'] ?? null;
+
+    if (empty($folder_id)) {
+        ob_clean();
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Cartella di destinazione richiesta']);
+        return;
+    }
+
+    // Verify folder exists and get tenant_id
+    try {
+        $stmt = $pdo->prepare("
+            SELECT id, tenant_id, name
+            FROM folders
+            WHERE id = :id AND deleted_at IS NULL
+        ");
+        $stmt->execute([':id' => $folder_id]);
+        $folder = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$folder) {
+            ob_clean();
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Cartella non trovata']);
+            return;
+        }
+
+        // Verify user has access to this tenant
+        $target_tenant_id = $folder['tenant_id'];
+        if (!hasAccessToTenant($target_tenant_id)) {
+            ob_clean();
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => 'Non hai accesso a questa cartella']);
+            return;
+        }
+
+    } catch (Exception $e) {
+        error_log('Upload folder verification error: ' . $e->getMessage());
+        ob_clean();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Errore verifica cartella']);
+        return;
+    }
+
+    // Check if file was uploaded
+    if (!isset($_FILES['file']) || $_FILES['file']['error'] === UPLOAD_ERR_NO_FILE) {
+        ob_clean();
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Nessun file caricato']);
+        return;
+    }
+
+    $file = $_FILES['file'];
+
+    // Check for upload errors
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        $uploadErrors = [
+            UPLOAD_ERR_INI_SIZE => 'Il file supera la dimensione massima consentita dal server',
+            UPLOAD_ERR_FORM_SIZE => 'Il file supera la dimensione massima consentita',
+            UPLOAD_ERR_PARTIAL => 'Il file e stato caricato solo parzialmente',
+            UPLOAD_ERR_NO_TMP_DIR => 'Cartella temporanea mancante',
+            UPLOAD_ERR_CANT_WRITE => 'Impossibile scrivere il file su disco',
+            UPLOAD_ERR_EXTENSION => 'Upload bloccato da un\'estensione PHP'
+        ];
+        $errorMsg = $uploadErrors[$file['error']] ?? 'Errore sconosciuto durante l\'upload (code: ' . $file['error'] . ')';
+        ob_clean();
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $errorMsg]);
+        return;
+    }
+
+    // Validate file
+    $originalName = $file['name'];
+    $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+    $tmpPath = $file['tmp_name'];
+    $fileSize = $file['size'];
+
+    // BUG-136: Critical validation - ensure temp file has content
+    if (!file_exists($tmpPath)) {
+        error_log('[BUG-136] Upload failed: temp file does not exist at ' . $tmpPath);
+        ob_clean();
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'File temporaneo non trovato. Riprova il caricamento.']);
+        return;
+    }
+
+    $actualTmpSize = filesize($tmpPath);
+    if ($actualTmpSize === 0) {
+        error_log('[BUG-136] Upload failed: temp file is empty at ' . $tmpPath . ' (reported size: ' . $fileSize . ')');
+        ob_clean();
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Il file caricato e vuoto. Verifica che il file originale contenga dati.']);
+        return;
+    }
+
+    // Validate extension - blocked extensions
+    $blockedExtensions = ['php', 'php3', 'php4', 'php5', 'php7', 'phtml', 'phps',
+        'exe', 'bat', 'cmd', 'com', 'msi', 'app', 'deb', 'rpm',
+        'sh', 'bash', 'ps1', 'psm1', 'vbs', 'vbe', 'jse',
+        'jar', 'scr', 'dll', 'asp', 'aspx', 'cgi', 'pl', 'py',
+        'htaccess', 'htpasswd'];
+
+    if (in_array($extension, $blockedExtensions)) {
+        ob_clean();
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Tipo di file non consentito per motivi di sicurezza']);
+        return;
+    }
+
+    // Validate file size (max 100MB)
+    $maxFileSize = 100 * 1024 * 1024;
+    if ($fileSize > $maxFileSize) {
+        ob_clean();
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Il file supera la dimensione massima di 100MB']);
+        return;
+    }
+
+    // Create upload directory for tenant
+    $uploadBaseDir = dirname(__DIR__) . '/uploads/' . $target_tenant_id;
+    if (!is_dir($uploadBaseDir)) {
+        if (!mkdir($uploadBaseDir, 0755, true)) {
+            error_log('[BUG-136] Failed to create upload directory: ' . $uploadBaseDir);
+            ob_clean();
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Impossibile creare la cartella di upload']);
+            return;
+        }
+    }
+
+    // Generate safe filename
+    $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', pathinfo($originalName, PATHINFO_FILENAME));
+    if (strlen($safeName) > 100) {
+        $safeName = substr($safeName, 0, 100);
+    }
+    $uniqueSuffix = '_' . uniqid();
+    $finalFileName = $safeName . $uniqueSuffix . '.' . $extension;
+    $destinationPath = $uploadBaseDir . '/' . $finalFileName;
+
+    // Move uploaded file
+    if (!move_uploaded_file($tmpPath, $destinationPath)) {
+        error_log('[BUG-136] move_uploaded_file failed from ' . $tmpPath . ' to ' . $destinationPath);
+        ob_clean();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Impossibile salvare il file']);
+        return;
+    }
+
+    // BUG-136: Verify file was written correctly with content
+    if (!file_exists($destinationPath)) {
+        error_log('[BUG-136] File does not exist after move: ' . $destinationPath);
+        ob_clean();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'File non trovato dopo il salvataggio']);
+        return;
+    }
+
+    $savedFileSize = filesize($destinationPath);
+    if ($savedFileSize === 0) {
+        error_log('[BUG-136] File saved with 0 bytes: ' . $destinationPath . ' (original size: ' . $fileSize . ')');
+        // Clean up empty file
+        unlink($destinationPath);
+        ob_clean();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Il file e stato salvato vuoto. Riprova il caricamento.']);
+        return;
+    }
+
+    // Get MIME type
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $destinationPath);
+    finfo_close($finfo);
+
+    // MIME type overrides for Office documents
+    $mimeOverrides = [
+        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'doc' => 'application/msword',
+        'xls' => 'application/vnd.ms-excel',
+        'ppt' => 'application/vnd.ms-powerpoint',
+        'odt' => 'application/vnd.oasis.opendocument.text',
+        'ods' => 'application/vnd.oasis.opendocument.spreadsheet',
+        'odp' => 'application/vnd.oasis.opendocument.presentation'
+    ];
+    if (isset($mimeOverrides[$extension])) {
+        $mimeType = $mimeOverrides[$extension];
+    }
+
+    // Relative path for database
+    $relativePath = 'uploads/' . $target_tenant_id . '/' . $finalFileName;
+
+    // Determine if file is editable with OnlyOffice
+    $editableFormats = ['docx', 'doc', 'odt', 'xlsx', 'xls', 'ods', 'csv', 'pptx', 'ppt', 'odp', 'txt', 'rtf'];
+    $isEditable = in_array($extension, $editableFormats);
+
+    // Determine editor format
+    $editorFormatMap = [
+        'docx' => 'word', 'doc' => 'word', 'odt' => 'word', 'txt' => 'word', 'rtf' => 'word',
+        'xlsx' => 'cell', 'xls' => 'cell', 'ods' => 'cell', 'csv' => 'cell',
+        'pptx' => 'slide', 'ppt' => 'slide', 'odp' => 'slide'
+    ];
+    $editorFormat = $editorFormatMap[$extension] ?? null;
+
+    // Insert file record into database
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO files (
+                tenant_id, name, file_path, file_size, mime_type, extension,
+                is_editable, editor_format, folder_id, uploaded_by, created_at, updated_at
+            ) VALUES (
+                :tenant_id, :name, :file_path, :file_size, :mime_type, :extension,
+                :is_editable, :editor_format, :folder_id, :uploaded_by, NOW(), NOW()
+            )
+        ");
+
+        $stmt->execute([
+            ':tenant_id' => $target_tenant_id,
+            ':name' => $originalName,
+            ':file_path' => $relativePath,
+            ':file_size' => $savedFileSize,
+            ':mime_type' => $mimeType,
+            ':extension' => $extension,
+            ':is_editable' => $isEditable ? 1 : 0,
+            ':editor_format' => $editorFormat,
+            ':folder_id' => $folder_id,
+            ':uploaded_by' => $user_id
+        ]);
+
+        $fileId = $pdo->lastInsertId();
+
+        // Log audit
+        logAudit('upload_file', 'files', $fileId, [
+            'name' => $originalName,
+            'size' => $savedFileSize,
+            'folder_id' => $folder_id,
+            'mime_type' => $mimeType
+        ]);
+
+        // Log success
+        error_log('[BUG-136] File uploaded successfully: id=' . $fileId . ', name=' . $originalName . ', size=' . $savedFileSize . ', tenant=' . $target_tenant_id);
+
+        ob_clean();
+        echo json_encode([
+            'success' => true,
+            'message' => 'File caricato con successo',
+            'file' => [
+                'id' => $fileId,
+                'name' => $originalName,
+                'size' => $savedFileSize,
+                'mime_type' => $mimeType,
+                'path' => '/' . $relativePath,
+                'is_editable' => $isEditable,
+                'editor_format' => $editorFormat,
+                'uploaded_at' => date('Y-m-d H:i:s')
+            ]
+        ]);
+
+    } catch (Exception $e) {
+        // Clean up file on database error
+        if (file_exists($destinationPath)) {
+            unlink($destinationPath);
+        }
+
+        error_log('[BUG-136] Database error during file upload: ' . $e->getMessage());
+        ob_clean();
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Errore durante il salvataggio nel database',
+            'details' => DEBUG_MODE ? $e->getMessage() : null
+        ]);
+    }
 }
 
 function deleteItem() {

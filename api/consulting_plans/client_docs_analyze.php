@@ -35,6 +35,114 @@ function cnx_safe_trunc(string $s, int $maxLen): string {
     return trim(mb_substr($s, 0, $maxLen, 'UTF-8'));
 }
 
+function cnx_norm_lc(string $s): string {
+    $s = strtolower($s);
+    $s = preg_replace('/\s+/', ' ', $s) ?: $s;
+    return trim($s);
+}
+
+/**
+ * Build a best-effort list of evidence candidates from knowledge metadata.
+ * This does NOT include any extracted text; only file metadata + tags/keywords.
+ *
+ * @param array<int,array<string,mixed>> $filesMeta rows with file_id,file_name,logical_path
+ * @param array<int,array<string,mixed>> $snippets rows with file_id,excerpt (used only for keyword matching, not returned)
+ * @return array<int,array<string,mixed>>
+ */
+function cnx_build_doc_evidence(array $filesMeta, array $snippets = []): array {
+    $snippetById = [];
+    foreach ($snippets as $s) {
+        $fid = (int)($s['file_id'] ?? 0);
+        if ($fid <= 0) continue;
+        $snippetById[$fid] = cnx_norm_lc((string)($s['excerpt'] ?? ''));
+    }
+
+    $rules = [
+        // tag => [keywords...]
+        'manual' => ['manuale', 'manual', 'quality manual', 'manuale qualita', 'manuale qualità', 'sgq', 'mq'],
+        'procedures' => ['procedura', 'procedure', 'proced', 'sop', 'istruzione operativa', 'io ', 'pr '],
+        'records' => ['registro', 'registri', 'record', 'modulo', 'moduli', 'form', 'forms', 'template'],
+        'audit' => ['audit', 'verifica ispettiva', 'internal audit', 'rapporto audit'],
+        'management_review' => ['riesame', 'management review', 'review direzione', 'riesame direzione'],
+        'certification' => ['certificato', 'certificazione', 'accredit', 'ente certific', 'stage 1', 'stage 2'],
+        'nc_capa' => ['non conform', 'nc', 'azione correttiva', 'correttiva', 'capa'],
+        'kpi' => ['kpi', 'indicator', 'obiettiv', 'target', 'monitor'],
+        'risk' => ['risch', 'risk', 'opportunit', 'opportunità'],
+        'context_scope' => ['contesto', 'scope', 'campo applic', 'perimetro', 'parti interessate'],
+        'doc_control' => ['gestione document', 'controllo document', 'procedure document', 'version', 'rev'],
+    ];
+
+    $items = [];
+    foreach ($filesMeta as $r) {
+        $fid = (int)($r['file_id'] ?? 0);
+        if ($fid <= 0) continue;
+        $name = (string)($r['file_name'] ?? '');
+        $path = (string)($r['logical_path'] ?? '');
+        $hay = cnx_norm_lc($name . ' ' . $path);
+        $snip = $snippetById[$fid] ?? '';
+
+        $tags = [];
+        $matched = [];
+        $score = 0;
+        foreach ($rules as $tag => $kws) {
+            $hit = false;
+            foreach ($kws as $kw) {
+                $kwLc = cnx_norm_lc((string)$kw);
+                if ($kwLc === '') continue;
+                if ($hay !== '' && str_contains($hay, $kwLc)) {
+                    $hit = true;
+                    $matched[] = $kwLc;
+                } elseif ($snip !== '' && str_contains($snip, $kwLc)) {
+                    $hit = true;
+                    $matched[] = $kwLc;
+                }
+            }
+            if ($hit) {
+                $tags[] = $tag;
+                // weights (manual/procedures higher)
+                $score += in_array($tag, ['manual','procedures'], true) ? 6 : 3;
+            }
+        }
+
+        // Extra scoring by extension (DOCX/XLSX are typical IMS artifacts)
+        $ext = strtolower((string)pathinfo($name, PATHINFO_EXTENSION));
+        if (in_array($ext, ['docx','xlsx'], true)) $score += 1;
+
+        $matched = array_values(array_unique(array_filter($matched)));
+        $tags = array_values(array_unique(array_filter($tags)));
+        if ($score <= 0) continue;
+
+        $items[] = [
+            'file_id' => $fid,
+            'name' => $name,
+            'path' => $path,
+            'tags' => $tags,
+            'matched_keywords' => array_slice($matched, 0, 10),
+            'score' => $score,
+        ];
+    }
+
+    usort($items, static function ($a, $b) {
+        $sa = (int)($a['score'] ?? 0);
+        $sb = (int)($b['score'] ?? 0);
+        if ($sa !== $sb) return $sb <=> $sa;
+        return (int)($a['file_id'] ?? 0) <=> (int)($b['file_id'] ?? 0);
+    });
+
+    // Return a compact list (drop internal score)
+    $out = [];
+    foreach (array_slice($items, 0, 24) as $it) {
+        $out[] = [
+            'file_id' => (int)($it['file_id'] ?? 0),
+            'name' => (string)($it['name'] ?? ''),
+            'path' => (string)($it['path'] ?? ''),
+            'tags' => (array)($it['tags'] ?? []),
+            'matched_keywords' => (array)($it['matched_keywords'] ?? []),
+        ];
+    }
+    return $out;
+}
+
 try {
     $payload = json_decode(cnx_get_raw_request_body(), true) ?: [];
     $clientTenantId = (int)($payload['client_tenant_id'] ?? 0);
@@ -135,7 +243,6 @@ try {
         [$clientTenantId, $scope]
     );
 
-    $hasCached = false;
     if ($row) {
         $expiresAt = (string)($row['expires_at'] ?? '');
         $cachedFp = (string)($row['source_fingerprint'] ?? '');
@@ -144,6 +251,27 @@ try {
         if ($notExpired && $cachedFp !== '' && $cachedFp === $fingerprint && trim($payloadJson) !== '') {
             $decoded = json_decode($payloadJson, true);
             if (is_array($decoded)) {
+                // Backward-compatible enrichment: add doc_evidence if missing (metadata only).
+                if (!isset($decoded['doc_evidence']) || !is_array($decoded['doc_evidence'])) {
+                    if ($hasKnowledge && $sourceId > 0) {
+                        try {
+                            $meta = $db->fetchAll(
+                                "SELECT file_id,
+                                        MAX(file_name) AS file_name,
+                                        MAX(logical_path) AS logical_path
+                                 FROM ai_knowledge_chunks
+                                 WHERE tenant_id = ? AND source_id = ?
+                                 GROUP BY file_id
+                                 ORDER BY MAX(updated_at) DESC, file_id DESC
+                                 LIMIT 80",
+                                [$clientTenantId, $sourceId]
+                            ) ?: [];
+                            $decoded['doc_evidence'] = cnx_build_doc_evidence($meta, []);
+                        } catch (Throwable $e) {
+                            // ignore
+                        }
+                    }
+                }
                 api_success([
                     'supported' => true,
                     'cached' => true,
@@ -340,6 +468,15 @@ try {
         $docProfile['planning_adjustments']['documentation_factor'] = 1.0;
     }
     $docProfile['planning_adjustments']['documentation_factor'] = max(0.0, min(1.0, (float)$docProfile['planning_adjustments']['documentation_factor']));
+
+    // Add doc_evidence (metadata-only) for checklist autofill / UI suggestions.
+    try {
+        if (!isset($docProfile['doc_evidence']) || !is_array($docProfile['doc_evidence'])) {
+            $docProfile['doc_evidence'] = cnx_build_doc_evidence($filesMeta, $snippets);
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
 
     $expiresAt = date('Y-m-d H:i:s', time() + 86400); // 24h
     $actorUserId = (int)($userInfo['user_id'] ?? $userInfo['id'] ?? 0);

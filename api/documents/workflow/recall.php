@@ -31,8 +31,8 @@ header('Expires: 0');
 verifyApiAuthentication();  // IMMEDIATELY after init
 
 $userInfo = getApiUserInfo();
-$userId = $userInfo['user_id'];
-$userRole = $userInfo['role'];
+$userId = (int)($userInfo['user_id'] ?? $userInfo['id'] ?? 0);
+$userRole = (string)($userInfo['role'] ?? 'user');
 
 verifyApiCsrfToken();
 
@@ -58,16 +58,41 @@ if ($requestedTenantId !== null) {
     if ($userRole === 'super_admin') {
         $tenantId = $requestedTenantId;
     } else {
-        // Validate user has access to requested tenant
-        // BUG-088 FIX: Database already initialized above
+        $sessionTenantId = (int)($userInfo['tenant_id'] ?? 0);
+        $hasAccess = ($requestedTenantId === $sessionTenantId && $sessionTenantId > 0);
 
-        $accessCheck = $db->fetchOne(
-            "SELECT COUNT(*) as cnt FROM user_tenant_access
-             WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL",
-            [$userId, $requestedTenantId]
-        );
+        if (!$hasAccess) {
+            $userTenant = $db->fetchOne(
+                "SELECT 1 as ok
+                 FROM users
+                 WHERE id = ?
+                   AND tenant_id = ?
+                   AND (deleted_at IS NULL OR deleted_at = '')
+                 LIMIT 1",
+                [$userId, $requestedTenantId]
+            );
+            if ($userTenant) $hasAccess = true;
+        }
 
-        if ($accessCheck && $accessCheck['cnt'] > 0) {
+        if (!$hasAccess) {
+            $uta = $db->fetchOne(
+                "SELECT 1 as ok
+                 FROM user_tenant_access
+                 WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL
+                 LIMIT 1",
+                [$userId, $requestedTenantId]
+            );
+            if ($uta) $hasAccess = true;
+        }
+
+        // BUG-144 FIX: Removed user_companies table check (table does not exist)
+        // Access is already checked via user_tenant_access table above
+        if (!$hasAccess && $userRole === 'admin') {
+            // Admin access already checked via user_tenant_access
+            // No additional check needed
+        }
+
+        if ($hasAccess) {
             $tenantId = $requestedTenantId;
         } else {
             if ($db->inTransaction()) $db->rollback();
@@ -80,6 +105,8 @@ if ($requestedTenantId !== null) {
 
 // Include workflow constants
 require_once __DIR__ . '/../../../includes/workflow_constants.php';
+require_once __DIR__ . '/../../../includes/workflow_email_notifier.php';
+require_once __DIR__ . '/../../../config.php';
 
 // ============================================
 // REQUEST VALIDATION
@@ -159,20 +186,23 @@ try {
         throw new Exception('Workflow non trovato per questo documento.');
     }
 
-    // Check if document can be recalled from current state
-    if (in_array($workflow['current_state'], [WORKFLOW_STATE_APPROVED, WORKFLOW_STATE_DRAFT])) {
-        if ($workflow['current_state'] === WORKFLOW_STATE_APPROVED) {
-            throw new Exception('Non è possibile richiamare un documento già approvato.');
-        } elseif ($workflow['current_state'] === WORKFLOW_STATE_DRAFT) {
-            throw new Exception('Il documento è già in stato bozza.');
-        }
-    }
+    // Selected participants from last submit
+    $selected = getSelectedWorkflowParticipants((int)$tenantId, (int)$fileId);
+    $isCreator = ($workflow['created_by_user_id'] == $userId || $workflow['uploaded_by'] == $userId);
+    $isValidator = !empty($selected['validator_id']) && (int)$selected['validator_id'] === (int)$userId;
+    $isApprover = !empty($selected['approver_id']) && (int)$selected['approver_id'] === (int)$userId;
 
-    // Check if user is the creator (or admin)
-    if ($workflow['created_by_user_id'] !== $userId &&
-        $workflow['uploaded_by'] !== $userId &&
-        !in_array($userRole, ['admin', 'super_admin'])) {
-        throw new Exception('Solo il creatore del documento può richiamarlo dal workflow.');
+    // Determine target state based on role
+    $targetState = getWorkflowRevertTarget(
+        $workflow['current_state'],
+        $userRole,
+        $isCreator,
+        $isValidator,
+        $isApprover
+    );
+
+    if ($targetState === null) {
+        throw new Exception('Non hai i permessi per riportare indietro questo documento.');
     }
 
     // ============================================
@@ -184,14 +214,19 @@ try {
     // BUG-093 FIX: Remove non-existent columns (validated_by_user_id, approved_by_user_id, rejected_by_user_id)
     // These columns don't exist in document_workflow table - only tracked in history table
     $updateData = [
-        'current_state' => WORKFLOW_STATE_DRAFT,
-        'current_handler_user_id' => $workflow['created_by_user_id'],  // Reset to creator
-        'updated_at' => date('Y-m-d H:i:s'),
-        // Clear approval/validation data on recall
-        'validated_at' => null,
-        'approved_at' => null,
-        'rejected_at' => null
+        'current_state' => $targetState,
+        'current_handler_user_id' => $workflow['created_by_user_id'],  // Reset to creator/owner
+        'updated_at' => date('Y-m-d H:i:s')
     ];
+
+    // Clear approval/validation data when rolling back
+    if (in_array($targetState, [WORKFLOW_STATE_DRAFT, WORKFLOW_STATE_IN_VALIDATION], true)) {
+        $updateData['validated_at'] = null;
+        $updateData['approved_at'] = null;
+        $updateData['rejected_at'] = null;
+    } elseif ($targetState === WORKFLOW_STATE_IN_APPROVAL) {
+        $updateData['approved_at'] = null;
+    }
 
     $updated = $db->update(
         'document_workflow',
@@ -212,14 +247,15 @@ try {
         'workflow_id' => $workflow['id'],
         'file_id' => $fileId,
         'from_state' => $previousState,
-        'to_state' => WORKFLOW_STATE_DRAFT,
+        'to_state' => $targetState,
         'transition_type' => TRANSITION_RECALL,
         'performed_by_user_id' => $userId,
-        'user_role_at_time' => USER_ROLE_CREATOR,
+        'user_role_at_time' => $userRole,
         'comment' => $reason,
         'metadata' => buildWorkflowMetadata([
             'recall_reason' => $reason,
-            'recalled_from_state' => $previousState
+            'recalled_from_state' => $previousState,
+            'target_state' => $targetState
         ])
     ];
 
@@ -241,11 +277,65 @@ try {
     }
 
     // ============================================
-    // SEND EMAIL NOTIFICATIONS
+    // SEND EMAIL NOTIFICATIONS (ONLY managers)
     // ============================================
-    // BUG-091 FIX: Removed email notifications for validators/approvers
-    // (validator_email/approver_email no longer retrieved from query)
-    // Email notification system will be refactored to query workflow_roles table
+    try {
+        $notifier = new WorkflowEmailNotifier((int)$tenantId);
+        $managers = WorkflowEmailNotifier::getTenantManagers((int)$tenantId);
+
+        $recipients = [];
+        foreach ($managers as $m) {
+            $recipients[] = ['id' => $m['id'], 'name' => $m['name'], 'email' => $m['email']];
+        }
+
+        // Deduplicate by email
+        $recipients = array_values(array_reduce($recipients, function($carry, $item) {
+            $carry[$item['email']] = $item;
+            return $carry;
+        }, []));
+
+        $tenantRow = $db->fetchOne("SELECT name FROM tenants WHERE id = ?", [$tenantId]);
+        $tenantName = $tenantRow['name'] ?? 'Nexio';
+        $documentUrl = rtrim(BASE_URL, '/') . '/files.php?file_id=' . $fileId;
+
+        $templatePath = __DIR__ . '/../../../includes/email_templates/workflow/workflow_state_changed_info.html';
+        if (file_exists($templatePath)) {
+            $template = file_get_contents($templatePath);
+            foreach ($recipients as $r) {
+                $rep = [
+                    '{{USER_NAME}}' => htmlspecialchars($r['name'] ?? 'Utente'),
+                    '{{FILENAME}}' => htmlspecialchars($workflow['file_name'] ?? ('Documento #' . $fileId)),
+                    '{{STATE_LABEL}}' => getWorkflowStateLabel($targetState),
+                    '{{ACTOR_NAME}}' => htmlspecialchars($userInfo['user_name'] ?? ''),
+                    '{{CHANGE_DATE}}' => date('d/m/Y H:i'),
+                    '{{DOCUMENT_URL}}' => $documentUrl,
+                    '{{TENANT_NAME}}' => htmlspecialchars($tenantName),
+                    '{{BASE_URL}}' => BASE_URL,
+                    '{{YEAR}}' => date('Y')
+                ];
+                $body = str_replace(array_keys($rep), array_values($rep), $template);
+                // Wrap content-only templates with the shared Nexio layout
+                if (!empty($body) && function_exists('cnx_email_is_full_document') && !cnx_email_is_full_document($body)) {
+                    $body = renderEmailLayout('Aggiornamento workflow', $body, [
+                        'BASE_URL' => BASE_URL,
+                        'TENANT_NAME' => (string)$tenantName,
+                        'YEAR' => date('Y')
+                    ], ['brandColor' => '#1a2332']);
+                }
+                sendEmail($r['email'], 'Aggiornamento workflow: riportato in ' . getWorkflowStateLabel($targetState), $body, '', [
+                    'context' => [
+                        'action' => 'workflow_state_changed_info',
+                        'tenant_id' => $tenantId,
+                        'user_id' => $r['id'],
+                        'file_id' => $fileId,
+                        'new_state' => $targetState
+                    ]
+                ]);
+            }
+        }
+    } catch (Exception $e) {
+        error_log('[WORKFLOW_RECALL] Email notify error: ' . $e->getMessage());
+    }
 
     // ============================================
     // AUDIT LOGGING (BUG-029/030)
@@ -354,6 +444,16 @@ function sendWorkflowEmail(array $data): bool {
         }
 
         require_once __DIR__ . '/../../../includes/mailer.php';
+        // Wrap content-only templates with the shared Nexio layout
+        if (!empty($emailContent) && function_exists('cnx_email_is_full_document') && !cnx_email_is_full_document($emailContent)) {
+            $baseUrl = defined('BASE_URL') ? BASE_URL : 'http://localhost:8888/CollaboraNexio';
+            $tenantName = $data['variables']['tenant_name'] ?? '';
+            $emailContent = renderEmailLayout($data['subject'] ?? 'Notifica workflow', $emailContent, [
+                'BASE_URL' => $baseUrl,
+                'TENANT_NAME' => (string)$tenantName,
+                'YEAR' => date('Y')
+            ], ['brandColor' => '#1a2332']);
+        }
 
         // BUG-082 FIX: Use global sendEmail() function (EmailSender::send() doesn't exist)
         return sendEmail(

@@ -49,6 +49,18 @@ try {
     $role = $_POST['role'] ?? null;
     $tenantId = intval($_POST['tenant_id'] ?? $currentTenantId);
 
+    // TENANT_ROLES: Get tenant_role_id parameter (use -1 to indicate "remove role")
+    $tenantRoleId = null;
+    $removeTenantRole = false;
+    if (isset($_POST['tenant_role_id'])) {
+        $tenantRoleIdInput = intval($_POST['tenant_role_id']);
+        if ($tenantRoleIdInput === -1 || $_POST['tenant_role_id'] === 'null' || $_POST['tenant_role_id'] === '') {
+            $removeTenantRole = true;
+        } elseif ($tenantRoleIdInput > 0) {
+            $tenantRoleId = $tenantRoleIdInput;
+        }
+    }
+
     // Validation
     $errors = [];
     if ($userId <= 0) {
@@ -102,6 +114,36 @@ try {
 
     if (!$existingUser) {
         apiError('Utente non trovato', 404);
+    }
+
+    // TENANT_ROLES: Validate tenant_role_id if provided
+    // Use existing user's tenant unless super_admin is changing it
+    $validatedTenantRoleId = null;
+    $targetUserTenantId = (int)$existingUser['tenant_id'];
+    if ($currentUserRole === 'super_admin' && $tenantId !== (int)$existingUser['tenant_id']) {
+        $targetUserTenantId = $tenantId;
+    }
+
+    if ($tenantRoleId !== null) {
+        // Verify role exists, belongs to same tenant, is active, and not deleted
+        $roleCheckQuery = "
+            SELECT id FROM tenant_roles
+            WHERE id = :role_id
+              AND tenant_id = :tenant_id
+              AND is_active = 1
+              AND deleted_at IS NULL
+        ";
+        $roleCheckStmt = $conn->prepare($roleCheckQuery);
+        $roleCheckStmt->bindParam(':role_id', $tenantRoleId, PDO::PARAM_INT);
+        $roleCheckStmt->bindParam(':tenant_id', $targetUserTenantId, PDO::PARAM_INT);
+        $roleCheckStmt->execute();
+        $validRole = $roleCheckStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$validRole) {
+            apiError('Ruolo aziendale non valido o non appartiene a questa azienda', 400);
+        }
+
+        $validatedTenantRoleId = (int)$tenantRoleId;
     }
 
     // Check if email is being changed and if new email already exists
@@ -178,6 +220,77 @@ try {
         apiError('Errore nell\'aggiornamento dell\'utente', 500);
     }
 
+    // TENANT_ROLES: Update or create user_tenant_access record with tenant_role_id
+    if ($validatedTenantRoleId !== null || $removeTenantRole) {
+        $effectiveTenantId = isset($params[':tenant_id']) ? $tenantId : (int)$existingUser['tenant_id'];
+
+        // Check if user_tenant_access record already exists
+        $utaCheckQuery = "
+            SELECT id, tenant_role_id FROM user_tenant_access
+            WHERE user_id = :user_id
+              AND tenant_id = :tenant_id
+              AND deleted_at IS NULL
+        ";
+        $utaCheckStmt = $conn->prepare($utaCheckQuery);
+        $utaCheckStmt->bindParam(':user_id', $userId, PDO::PARAM_INT);
+        $utaCheckStmt->bindParam(':tenant_id', $effectiveTenantId, PDO::PARAM_INT);
+        $utaCheckStmt->execute();
+        $existingUta = $utaCheckStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($existingUta) {
+            // Update existing record (set to NULL if removing role)
+            if ($removeTenantRole) {
+                $utaUpdateQuery = "
+                    UPDATE user_tenant_access
+                    SET tenant_role_id = NULL,
+                        updated_at = NOW()
+                    WHERE id = :uta_id
+                ";
+                $utaUpdateStmt = $conn->prepare($utaUpdateQuery);
+                $utaUpdateStmt->bindParam(':uta_id', $existingUta['id'], PDO::PARAM_INT);
+                $utaUpdateStmt->execute();
+            } else {
+                $utaUpdateQuery = "
+                    UPDATE user_tenant_access
+                    SET tenant_role_id = :tenant_role_id,
+                        updated_at = NOW()
+                    WHERE id = :uta_id
+                ";
+                $utaUpdateStmt = $conn->prepare($utaUpdateQuery);
+                $utaUpdateStmt->bindParam(':tenant_role_id', $validatedTenantRoleId, PDO::PARAM_INT);
+                $utaUpdateStmt->bindParam(':uta_id', $existingUta['id'], PDO::PARAM_INT);
+                $utaUpdateStmt->execute();
+            }
+        } elseif (!$removeTenantRole && $validatedTenantRoleId !== null) {
+            // Create new user_tenant_access record only if we're assigning a role
+            $utaInsertQuery = "
+                INSERT INTO user_tenant_access (
+                    user_id,
+                    tenant_id,
+                    tenant_role_id,
+                    granted_by,
+                    granted_at,
+                    created_at,
+                    updated_at
+                ) VALUES (
+                    :user_id,
+                    :tenant_id,
+                    :tenant_role_id,
+                    :granted_by,
+                    NOW(),
+                    NOW(),
+                    NOW()
+                )
+            ";
+            $utaInsertStmt = $conn->prepare($utaInsertQuery);
+            $utaInsertStmt->bindParam(':user_id', $userId, PDO::PARAM_INT);
+            $utaInsertStmt->bindParam(':tenant_id', $effectiveTenantId, PDO::PARAM_INT);
+            $utaInsertStmt->bindParam(':tenant_role_id', $validatedTenantRoleId, PDO::PARAM_INT);
+            $utaInsertStmt->bindParam(':granted_by', $currentUserId, PDO::PARAM_INT);
+            $utaInsertStmt->execute();
+        }
+    }
+
     // Audit log - Track user update
     try {
         require_once '../../includes/audit_helper.php';
@@ -204,6 +317,13 @@ try {
         if (!empty($password)) {
             $newValues['password'] = '[CHANGED]';
             $oldValues['password'] = '[REDACTED]';
+        }
+
+        // TENANT_ROLES: Track tenant_role_id changes
+        if ($validatedTenantRoleId !== null) {
+            $newValues['tenant_role_id'] = $validatedTenantRoleId;
+        } elseif ($removeTenantRole) {
+            $newValues['tenant_role_id'] = null;
         }
 
         AuditLogger::logUpdate(

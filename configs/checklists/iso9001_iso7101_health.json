@@ -1,0 +1,89 @@
+{
+  "template_key": "ISO9001_ISO7101_HEALTH_MINI",
+  "title": "Sanità — ISO 9001 + ISO 7101 (Mini)",
+  "version": "1.0",
+  "standards": ["ISO9001", "ISO7101"],
+  "intervention_types": ["new_implementation", "recertification"],
+  "sections": [
+    {
+      "section_key": "governance",
+      "title": "Governance e leadership",
+      "items": [
+        {
+          "item_key": "health_goals",
+          "title": "Obiettivi di servizio",
+          "description": "Obiettivi principali per qualità e sicurezza.",
+          "required": true,
+          "question_type": "text"
+        },
+        {
+          "item_key": "policy_quality",
+          "title": "Politica qualità",
+          "description": "Esistenza di una politica interna.",
+          "required": true,
+          "question_type": "text"
+        }
+      ]
+    },
+    {
+      "section_key": "clinical",
+      "title": "Processi clinico-assistenziali",
+      "items": [
+        {
+          "item_key": "care_pathways",
+          "title": "Percorsi assistenziali",
+          "description": "Percorsi principali e responsabilità.",
+          "required": true,
+          "question_type": "text"
+        },
+        {
+          "item_key": "patient_safety",
+          "title": "Sicurezza del paziente",
+          "description": "Pratiche e controlli in atto.",
+          "required": true,
+          "question_type": "text"
+        }
+      ]
+    },
+    {
+      "section_key": "support",
+      "title": "Supporto e risorse",
+      "items": [
+        {
+          "item_key": "competence",
+          "title": "Competenze",
+          "description": "Formazione e competenze del personale.",
+          "required": true,
+          "question_type": "text"
+        },
+        {
+          "item_key": "equipment",
+          "title": "Infrastrutture e attrezzature",
+          "description": "Stato e gestione delle risorse.",
+          "required": false,
+          "question_type": "text"
+        }
+      ]
+    },
+    {
+      "section_key": "evaluation",
+      "title": "Valutazione e miglioramento",
+      "items": [
+        {
+          "item_key": "internal_audit",
+          "title": "Verifiche interne",
+          "description": "Audit interni e riesami.",
+          "required": true,
+          "question_type": "text"
+        },
+        {
+          "item_key": "improvement",
+          "title": "Miglioramento",
+          "description": "Azioni correttive/migliorative.",
+          "required": true,
+          "question_type": "text"
+        }
+      ]
+    }
+  ]
+}

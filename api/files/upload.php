@@ -281,55 +281,64 @@ function processFileUpload(array $file, int $tenantId, ?int $folderId, int $user
             error_log("[AUDIT LOG FAILURE] File upload tracking failed: " . $e->getMessage());
         }
 
-        // Check if workflow is enabled for this folder and auto-create workflow entry
+        // Always create a document_workflow row (bozza) so every file has a complete lifecycle history.
+        // Workflow activation (approvals) can still be controlled via workflow_settings, but the timeline is real.
         try {
-            $workflowEnabled = $db->fetchOne(
-                "SELECT get_workflow_enabled_for_folder(?, ?) as enabled",
-                [$tenantId, $folderId]
+            $existingWorkflow = $db->fetchOne(
+                "SELECT id
+                 FROM document_workflow
+                 WHERE tenant_id = ?
+                   AND file_id = ?
+                   AND (deleted_at IS NULL OR deleted_at = '')
+                 LIMIT 1",
+                [$tenantId, $fileId]
             );
 
-            if ($workflowEnabled && $workflowEnabled['enabled'] == 1) {
-                // Create document_workflow in bozza state
+            if ($existingWorkflow === false) {
                 $workflowId = $db->insert('document_workflow', [
                     'tenant_id' => $tenantId,
                     'file_id' => $fileId,
                     'current_state' => 'bozza',
                     'created_by_user_id' => $userId,
-                    'created_at' => date('Y-m-d H:i:s')
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s')
                 ]);
+            } else {
+                $workflowId = (int)$existingWorkflow['id'];
+            }
 
-                // Log to workflow history
+            $hasHistory = $db->fetchOne(
+                "SELECT 1 AS ok
+                 FROM document_workflow_history
+                 WHERE tenant_id = ?
+                   AND workflow_id = ?
+                   AND file_id = ?
+                 LIMIT 1",
+                [$tenantId, $workflowId, $fileId]
+            );
+
+            if ($hasHistory === false) {
                 $db->insert('document_workflow_history', [
                     'tenant_id' => $tenantId,
+                    'workflow_id' => $workflowId,
                     'file_id' => $fileId,
                     'from_state' => null,
                     'to_state' => 'bozza',
+                    'transition_type' => 'create',
                     'performed_by_user_id' => $userId,
-                    'comments' => 'Documento creato con workflow attivo - stato iniziale bozza',
+                    'user_role_at_time' => 'creator',
+                    'comment' => 'File caricato - stato iniziale bozza',
+                    'metadata' => json_encode([
+                        'source' => 'api_files_upload'
+                    ], JSON_UNESCAPED_SLASHES),
+                    'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+                    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
                     'created_at' => date('Y-m-d H:i:s')
                 ]);
-
-                // Log audit for workflow creation
-                try {
-                    AuditLogger::logCreate(
-                        $userId,
-                        $tenantId,
-                        'workflow',
-                        $workflowId,
-                        "Workflow creato automaticamente per file: {$originalName}",
-                        [
-                            'file_id' => $fileId,
-                            'initial_state' => 'bozza',
-                            'reason' => 'workflow_enabled_for_folder'
-                        ]
-                    );
-                } catch (Exception $auditEx) {
-                    error_log("[AUDIT LOG FAILURE] Workflow creation tracking failed: " . $auditEx->getMessage());
-                }
             }
         } catch (Exception $workflowEx) {
             // Non-blocking: if workflow creation fails, file upload should still succeed
-            error_log("[WORKFLOW AUTO-CREATE] Failed to create workflow for file {$fileId}: " . $workflowEx->getMessage());
+            error_log("[WORKFLOW AUTO-CREATE] Failed to ensure workflow for file {$fileId}: " . $workflowEx->getMessage());
         }
 
         return [
@@ -514,57 +523,64 @@ function processFileUploadFromPath(
         ]);
     }
 
-    // Check if workflow is enabled for this folder and auto-create workflow entry
-    try {
-        $workflowEnabled = $db->fetchOne(
-            "SELECT get_workflow_enabled_for_folder(?, ?) as enabled",
-            [$tenantId, $folderId]
-        );
+        // Always ensure workflow + create history for chunked upload as well
+        try {
+            $existingWorkflow = $db->fetchOne(
+                "SELECT id
+                 FROM document_workflow
+                 WHERE tenant_id = ?
+                   AND file_id = ?
+                   AND (deleted_at IS NULL OR deleted_at = '')
+                 LIMIT 1",
+                [$tenantId, $fileId]
+            );
 
-        if ($workflowEnabled && $workflowEnabled['enabled'] == 1) {
-            // Create document_workflow in bozza state
-            $workflowId = $db->insert('document_workflow', [
-                'tenant_id' => $tenantId,
-                'file_id' => $fileId,
-                'current_state' => 'bozza',
-                'created_by_user_id' => $userId,
-                'created_at' => date('Y-m-d H:i:s')
-            ]);
-
-            // Log to workflow history
-            $db->insert('document_workflow_history', [
-                'tenant_id' => $tenantId,
-                'file_id' => $fileId,
-                'from_state' => null,
-                'to_state' => 'bozza',
-                'performed_by_user_id' => $userId,
-                'comments' => 'Documento creato con workflow attivo - stato iniziale bozza',
-                'created_at' => date('Y-m-d H:i:s')
-            ]);
-
-            // Log audit for workflow creation
-            try {
-                require_once '../../includes/audit_helper.php';
-                AuditLogger::logCreate(
-                    $userId,
-                    $tenantId,
-                    'workflow',
-                    $workflowId,
-                    "Workflow creato automaticamente per file (chunked): {$originalName}",
-                    [
-                        'file_id' => $fileId,
-                        'initial_state' => 'bozza',
-                        'reason' => 'workflow_enabled_for_folder'
-                    ]
-                );
-            } catch (Exception $auditEx) {
-                error_log("[AUDIT LOG FAILURE] Workflow creation tracking failed: " . $auditEx->getMessage());
+            if ($existingWorkflow === false) {
+                $workflowId = $db->insert('document_workflow', [
+                    'tenant_id' => $tenantId,
+                    'file_id' => $fileId,
+                    'current_state' => 'bozza',
+                    'created_by_user_id' => $userId,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s')
+                ]);
+            } else {
+                $workflowId = (int)$existingWorkflow['id'];
             }
+
+            $hasHistory = $db->fetchOne(
+                "SELECT 1 AS ok
+                 FROM document_workflow_history
+                 WHERE tenant_id = ?
+                   AND workflow_id = ?
+                   AND file_id = ?
+                 LIMIT 1",
+                [$tenantId, $workflowId, $fileId]
+            );
+
+            if ($hasHistory === false) {
+                $db->insert('document_workflow_history', [
+                    'tenant_id' => $tenantId,
+                    'workflow_id' => $workflowId,
+                    'file_id' => $fileId,
+                    'from_state' => null,
+                    'to_state' => 'bozza',
+                    'transition_type' => 'create',
+                    'performed_by_user_id' => $userId,
+                    'user_role_at_time' => 'creator',
+                    'comment' => 'File caricato (chunked) - stato iniziale bozza',
+                    'metadata' => json_encode([
+                        'source' => 'api_files_upload_chunked'
+                    ], JSON_UNESCAPED_SLASHES),
+                    'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+                    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+                    'created_at' => date('Y-m-d H:i:s')
+                ]);
+            }
+        } catch (Exception $workflowEx) {
+            // Non-blocking: if workflow creation fails, file upload should still succeed
+            error_log("[WORKFLOW AUTO-CREATE] Failed to ensure workflow for chunked file {$fileId}: " . $workflowEx->getMessage());
         }
-    } catch (Exception $workflowEx) {
-        // Non-blocking: if workflow creation fails, file upload should still succeed
-        error_log("[WORKFLOW AUTO-CREATE] Failed to create workflow for chunked file {$fileId}: " . $workflowEx->getMessage());
-    }
 
     return [
         'success' => true,

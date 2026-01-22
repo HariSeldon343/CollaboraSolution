@@ -31,8 +31,8 @@ header('Expires: 0');
 verifyApiAuthentication();  // IMMEDIATELY after init
 
 $userInfo = getApiUserInfo();
-$userId = $userInfo['user_id'];
-$userRole = $userInfo['role'];
+$userId = (int)($userInfo['user_id'] ?? $userInfo['id'] ?? 0);
+$userRole = (string)($userInfo['role'] ?? 'user');
 
 verifyApiCsrfToken();
 
@@ -58,16 +58,41 @@ if ($requestedTenantId !== null) {
     if ($userRole === 'super_admin') {
         $tenantId = $requestedTenantId;
     } else {
-        // Validate user has access to requested tenant
-        // BUG-088 FIX: Database already initialized above
+        $sessionTenantId = (int)($userInfo['tenant_id'] ?? 0);
+        $hasAccess = ($requestedTenantId === $sessionTenantId && $sessionTenantId > 0);
 
-        $accessCheck = $db->fetchOne(
-            "SELECT COUNT(*) as cnt FROM user_tenant_access
-             WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL",
-            [$userId, $requestedTenantId]
-        );
+        if (!$hasAccess) {
+            $userTenant = $db->fetchOne(
+                "SELECT 1 as ok
+                 FROM users
+                 WHERE id = ?
+                   AND tenant_id = ?
+                   AND (deleted_at IS NULL OR deleted_at = '')
+                 LIMIT 1",
+                [$userId, $requestedTenantId]
+            );
+            if ($userTenant) $hasAccess = true;
+        }
 
-        if ($accessCheck && $accessCheck['cnt'] > 0) {
+        if (!$hasAccess) {
+            $uta = $db->fetchOne(
+                "SELECT 1 as ok
+                 FROM user_tenant_access
+                 WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL
+                 LIMIT 1",
+                [$userId, $requestedTenantId]
+            );
+            if ($uta) $hasAccess = true;
+        }
+
+        // BUG-144 FIX: Removed user_companies table check (table does not exist)
+        // Access is already checked via user_tenant_access table above
+        if (!$hasAccess && $userRole === 'admin') {
+            // Admin access already checked via user_tenant_access
+            // No additional check needed
+        }
+
+        if ($hasAccess) {
             $tenantId = $requestedTenantId;
         } else {
             if ($db->inTransaction()) $db->rollback();
@@ -171,21 +196,12 @@ try {
         );
     }
 
-    // BUG-091 FIX: Check if user has approver role (workflow_roles table)
-    if (!in_array($userRole, ['admin', 'super_admin'])) {
-        $hasApproverRole = $db->fetchOne(
-            "SELECT COUNT(*) as cnt
-             FROM workflow_roles
-             WHERE user_id = ?
-               AND tenant_id = ?
-               AND workflow_role = 'approver'
-               AND is_active = 1
-               AND (deleted_at IS NULL OR deleted_at = '')",
-            [$userId, $tenantId]
-        );
-
-        if (!$hasApproverRole || $hasApproverRole['cnt'] == 0) {
-            throw new Exception('Solo gli utenti con ruolo di approvatore possono approvare questo documento.');
+    // Enforce: only the SELECTED approver for this document (or admin/super_admin) can approve.
+    if (!in_array($userRole, ['admin', 'super_admin'], true)) {
+        $selected = getSelectedWorkflowParticipants((int)$tenantId, (int)$fileId);
+        $selectedApproverId = (int)($selected['approver_id'] ?? 0);
+        if ($selectedApproverId <= 0 || $selectedApproverId !== (int)$userId) {
+            throw new Exception('Solo l’approvatore selezionato per questo documento può approvare.');
         }
     }
 
@@ -444,6 +460,16 @@ function sendWorkflowEmail(array $data): bool {
         }
 
         require_once __DIR__ . '/../../../includes/mailer.php';
+        // Wrap content-only templates with the shared Nexio layout
+        if (!empty($emailContent) && function_exists('cnx_email_is_full_document') && !cnx_email_is_full_document($emailContent)) {
+            $baseUrl = defined('BASE_URL') ? BASE_URL : 'http://localhost:8888/CollaboraNexio';
+            $tenantName = $data['variables']['tenant_name'] ?? '';
+            $emailContent = renderEmailLayout($data['subject'] ?? 'Notifica workflow', $emailContent, [
+                'BASE_URL' => $baseUrl,
+                'TENANT_NAME' => (string)$tenantName,
+                'YEAR' => date('Y')
+            ], ['brandColor' => '#1a2332']);
+        }
 
         // BUG-082 FIX: Use global sendEmail() function (EmailSender::send() doesn't exist)
         return sendEmail(

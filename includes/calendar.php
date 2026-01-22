@@ -2746,8 +2746,14 @@ class Calendar {
             return false;
         }
 
-        // Proprietario o admin
-        return $event['organizer_id'] == $this->user_id || $this->isAdmin();
+        // Proprietario o ruolo con permesso di gestione calendario (tenant-scoped).
+        // NOTE: richiesto: anche i manager devono poter modificare eventi del tenant.
+        if ((string)$event['organizer_id'] === (string)$this->user_id) {
+            return true;
+        }
+
+        $role = $this->getCurrentUserRole();
+        return in_array($role, ['manager', 'admin', 'super_admin'], true);
     }
 
     /**

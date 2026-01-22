@@ -1,0 +1,38 @@
+<p style="margin:0 0 12px 0;">Ciao <strong>{{USER_NAME}}</strong>,</p>
+<p style="margin:0 0 14px 0;">Ti e stato assegnato un nuovo turno di lavoro.</p>
+
+{{#TENANT_NAME}}
+<p style="margin:0 0 14px 0;color:#374151;"><strong>Azienda:</strong> {{TENANT_NAME}}</p>
+{{/TENANT_NAME}}
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:12px 0;background:#fafafa;border:1px solid #eef0f3;border-radius:8px;">
+  <tr><td style="padding:12px 12px;">
+    <div style="margin:0 0 8px 0;font-weight:600;color:#111827;">Dettagli turno</div>
+    <div style="margin:0;color:#374151;">
+      <div><strong>Data:</strong> {{SHIFT_DATE}}</div>
+      <div><strong>Tipo turno:</strong> {{SHIFT_TYPE_NAME}}</div>
+      <div><strong>Orario:</strong> {{SHIFT_START_TIME}} - {{SHIFT_END_TIME}}</div>
+      {{#SHIFT_DURATION}}<div><strong>Durata:</strong> {{SHIFT_DURATION}}</div>{{/SHIFT_DURATION}}
+      {{#ASSIGNED_BY_NAME}}<div style="margin-top:6px;"><strong>Assegnato da:</strong> {{ASSIGNED_BY_NAME}}</div>{{/ASSIGNED_BY_NAME}}
+    </div>
+  </td></tr>
+</table>
+
+{{#SHIFT_NOTES}}
+<div style="margin:12px 0 0 0;padding:12px;border:1px solid #eef0f3;border-radius:8px;color:#374151;background:#ffffff;">
+  <div style="font-weight:600;margin:0 0 6px 0;color:#111827;">Note</div>
+  <div style="white-space:pre-line;">{{SHIFT_NOTES}}</div>
+</div>
+{{/SHIFT_NOTES}}
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;">
+  <tr>
+    <td>
+      <a href="{{SHIFTS_URL}}" style="display:inline-block;background:#1a2332;color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:600;font-size:14px;line-height:18px;">Visualizza turni</a>
+    </td>
+  </tr>
+</table>
+
+<p style="margin:0;font-size:12px;line-height:18px;color:#6b7280;">
+  Link diretto: <a href="{{SHIFTS_URL}}" style="color:#1a2332;text-decoration:none;word-break:break-all;">{{SHIFTS_URL}}</a>
+</p>

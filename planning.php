@@ -146,6 +146,7 @@ $planningCssVersion = ((@filemtime(__DIR__ . '/assets/css/planning.css') ?: time
                         <button type="button" class="planning-tab-btn" data-planning-tab="consultants">Consulenti</button>
                         <button type="button" class="planning-tab-btn" data-planning-tab="schedule">Calendario (bozza)</button>
                         <button type="button" class="planning-tab-btn" data-planning-tab="compliance">Sistema documentale</button>
+                        <button type="button" class="planning-tab-btn" data-planning-tab="checklist">Checklist (Progetto SGQ)</button>
                     </div>
 
                     <!-- TAB: Attività -->
@@ -229,6 +230,56 @@ $planningCssVersion = ((@filemtime(__DIR__ . '/assets/css/planning.css') ?: time
                         </div>
 
                         <div id="planningProvisionLastSummary" style="display:none; margin-top: 12px; padding: 10px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); background: var(--color-gray-50);"></div>
+                    </div>
+
+                    <!-- TAB: Checklist SGQ (add-on, opt-in) -->
+                    <div class="planning-tab-panel" id="planningTabPanelChecklist" style="display:none;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px; flex-wrap:wrap;">
+                            <div class="planning-card-title">Checklist (Progetto SGQ)</div>
+                            <div class="planning-actions" style="flex-wrap:wrap;">
+                                <button type="button" class="btn btn-secondary btn-sm" id="planningChecklistReloadBtn">Ricarica</button>
+                                <button type="button" class="btn btn-primary btn-sm" id="planningChecklistCreateBtn">Crea checklist da template</button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="planningChecklistAutofillBtn">Precompila checklist (AI)</button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="planningChecklistAssistantBtn">Raccolta dati / Gap analysis (AI)</button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="planningChecklistDocsReindexBtn">Reindicizza</button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="planningChecklistDocsAnalyzeBtn">Analizza documenti</button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="planningChecklistExportBtn">Export Excel</button>
+                            </div>
+                        </div>
+                        <div class="planning-muted" style="margin-top: 10px;">
+                            Checklist operativa per raccogliere informazioni ed evidenze (senza testo ISO/UNI). È un layer <strong>additivo</strong>: non modifica automaticamente stime/attività/provisioning.
+                        </div>
+                        <div style="display:flex; gap: 12px; flex-wrap:wrap; align-items:flex-end; margin-top: 12px;">
+                            <div class="form-group" style="min-width: 260px; flex: 1;">
+                                <label>Template checklist</label>
+                                <select id="planningChecklistTemplateSelect" class="form-control"></select>
+                            </div>
+                            <div class="form-group" style="min-width: 220px;">
+                                <label>Filtro fase</label>
+                                <select id="planningChecklistFilterPhase" class="form-control">
+                                    <option value="">Tutte</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="min-width: 220px;">
+                                <label>Filtro stato</label>
+                                <select id="planningChecklistFilterStatus" class="form-control">
+                                    <option value="">Tutti</option>
+                                    <option value="missing">missing</option>
+                                    <option value="present">present</option>
+                                    <option value="to_review">to_review</option>
+                                    <option value="done">done</option>
+                                    <option value="not_applicable">not_applicable</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top: 12px;">
+                            <label>Obiettivo della checklist <span style="color: rgb(185, 28, 28);">*</span></label>
+                            <textarea id="planningChecklistObjectiveText" class="form-control" rows="2" placeholder="Obiettivo (obbligatorio) — es. Raccolta dati e assessment iniziale per SGQ Sanità (ISO 9001 + ISO 7101)"></textarea>
+                            <div id="planningChecklistObjectiveMsg" class="planning-muted" style="margin-top: 6px; display:none;"></div>
+                        </div>
+                        <div id="planningChecklistStatusBox" style="margin-top: 12px; padding: 10px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); background: var(--color-gray-50);"></div>
+                        <div id="planningChecklistDocSummaryBox" style="display:none; margin-top: 12px; padding: 10px; border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); background: var(--color-gray-50);"></div>
+                        <div id="planningChecklistSections" style="margin-top: 12px;"></div>
                     </div>
 
                     <!-- TAB: Consulenti -->
@@ -1559,6 +1610,49 @@ $planningCssVersion = ((@filemtime(__DIR__ . '/assets/css/planning.css') ?: time
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="planningImsModuleEditCancelBtn">Annulla</button>
                 <button type="button" class="btn btn-primary" id="planningImsModuleEditSaveBtn">Salva</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Data Collection Assistant Modal -->
+    <div class="modal" id="planningAssistantModal" style="display:none;">
+        <div class="modal-content planning-assistant-modal" style="max-width: 1280px;">
+            <div class="modal-header">
+                <h2>Raccolta dati / Gap analysis (AI)</h2>
+                <button class="modal-close" id="planningAssistantModalClose">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="planning-toolbar" style="margin-bottom: 12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+                    <div class="planning-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="planningAssistantDocsReindexBtn">Aggiorna indicizzazione</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="planningAssistantDocsAnalyzeBtn">Analizza documenti</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="planningAssistantStartBtn">Avvia intervista</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="planningAssistantExportBtn">Esporta XLSX</button>
+                    </div>
+                    <div class="planning-muted" id="planningAssistantStatusMsg">Seleziona un piano e avvia l’intervista.</div>
+                </div>
+
+                <div class="planning-assistant-layout">
+                    <div class="planning-assistant-checklist">
+                        <div id="planningAssistantDocSummaryBox" class="planning-muted" style="margin-bottom:10px; padding:10px; border:1px solid var(--color-gray-200); border-radius: var(--radius-md); background: var(--color-gray-50); display:none;"></div>
+                        <div id="planningAssistantChecklistTable" style="overflow:auto;"></div>
+                    </div>
+                    <div class="planning-assistant-chat">
+                        <div id="planningAssistantChatMessages" class="planning-assistant-chat-messages"></div>
+                        <div class="planning-assistant-chat-input">
+                            <textarea id="planningAssistantChatInput" class="form-control" rows="3" placeholder="Rispondi o aggiungi dettagli..."></textarea>
+                            <div class="planning-actions" style="margin-top:8px; justify-content:flex-end; gap:8px;">
+                                <button type="button" class="btn btn-secondary btn-sm" id="planningAssistantNextQuestionBtn">Prossima domanda</button>
+                                <button type="button" class="btn btn-primary btn-sm" id="planningAssistantChatSendBtn">Invia</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

@@ -34,6 +34,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/api_auth.php';
+require_once __DIR__ . '/../../includes/audit_integrity.php';
+require_once __DIR__ . '/../../includes/page_visibility_helper.php';
 
 // 1. Initialize API environment
 initializeApiEnvironment();
@@ -44,9 +46,15 @@ verifyApiAuthentication();
 // 3. Get user info
 $userInfo = getApiUserInfo();
 
-// 4. Role-based access control: Only admin and super_admin can view audit logs
-if (!in_array($userInfo['role'], ['admin', 'super_admin'])) {
-    api_error('Accesso negato. Solo admin e super_admin possono visualizzare gli audit log.', 403);
+// 4. Role-based access control: super_admin + manager only
+if (!in_array($userInfo['role'], ['super_admin', 'manager'], true)) {
+    api_error('Accesso negato.', 403);
+}
+
+// 5. Enforce Page Visibility setting (configurazioni.php -> Visibilità Pagine)
+$tenantId = isset($userInfo['tenant_id']) ? (int)$userInfo['tenant_id'] : null;
+if (!isPageVisibleForRole('audit_log', (string)($userInfo['role'] ?? 'user'), $tenantId)) {
+    api_error('Accesso negato (pagina non abilitata per il tuo ruolo).', 403);
 }
 
 // 5. Validate required parameter
@@ -90,6 +98,19 @@ try {
             al.severity,
             al.status,
             al.created_at,
+            al.deleted_at,
+            al.session_id,
+            al.request_method,
+            al.request_url,
+            al.request_data,
+            al.response_code,
+            al.execution_time_ms,
+            al.memory_usage_kb,
+            al.integrity_algo,
+            al.integrity_key_id,
+            al.integrity_prev_hash,
+            al.integrity_hash,
+            al.integrity_signed_at,
             u.name as user_name,
             u.email as user_email,
             u.role as user_role,
@@ -107,6 +128,9 @@ try {
         api_error('Log non trovato o accesso negato', 404);
     }
 
+    // Integrity verification (tamper-evident). Use RAW DB fields (before JSON decoding).
+    $integrityVerification = audit_integrity_verifyLog($db->getConnection(), $log);
+
     // Parse JSON fields
     $formatted_log = [
         'id' => (int)$log['id'],
@@ -123,12 +147,29 @@ try {
         'description' => $log['description'],
         'old_values' => $log['old_values'] ? json_decode($log['old_values'], true) : null,
         'new_values' => $log['new_values'] ? json_decode($log['new_values'], true) : null,
+        'metadata' => $log['metadata'] ? json_decode($log['metadata'], true) : null,
         'ip_address' => $log['ip_address'],
         'user_agent' => $log['user_agent'],
-        'metadata' => $log['metadata'] ? json_decode($log['metadata'], true) : null,
+        'session_id' => $log['session_id'],
+        'request_method' => $log['request_method'],
+        'request_url' => $log['request_url'],
+        'request_data' => $log['request_data'] ? json_decode($log['request_data'], true) : null,
+        'request_data_raw' => $log['request_data'],
+        'response_code' => $log['response_code'] !== null ? (int)$log['response_code'] : null,
+        'execution_time_ms' => $log['execution_time_ms'] !== null ? (int)$log['execution_time_ms'] : null,
+        'memory_usage_kb' => $log['memory_usage_kb'] !== null ? (int)$log['memory_usage_kb'] : null,
         'severity' => $log['severity'],
         'status' => $log['status'],
-        'created_at' => $log['created_at']
+        'created_at' => $log['created_at'],
+        'deleted_at' => $log['deleted_at'],
+        'integrity' => [
+            'algo' => $log['integrity_algo'],
+            'key_id' => $log['integrity_key_id'],
+            'prev_hash' => $log['integrity_prev_hash'],
+            'hash' => $log['integrity_hash'],
+            'signed_at' => $log['integrity_signed_at'],
+            'verification' => $integrityVerification
+        ],
     ];
 
     // Additional context: Get entity details if possible

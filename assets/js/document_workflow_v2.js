@@ -20,6 +20,9 @@ class DocumentWorkflowManager {
             approvers: [],
             currentFileId: null,
             currentWorkflow: null,
+            // Cache used by role config modal to resolve system_role (admin/manager default behavior)
+            roleConfigUsers: [],
+            roleConfigUsersById: new Map(),
             dashboardStats: {
                 pendingValidation: 0,
                 pendingApproval: 0,
@@ -57,8 +60,12 @@ class DocumentWorkflowManager {
         // Create modals
         this.createWorkflowModals();
 
-        // Load validators and approvers
-        await this.loadWorkflowRoles();
+        // Load validators and approvers (manager/admin/super_admin only)
+        // Avoid noisy 403 for regular users.
+        const role = (document.getElementById('userRole')?.value || window.userRole || 'user').toString().toLowerCase();
+        if (['manager', 'admin', 'super_admin'].includes(role)) {
+            await this.loadWorkflowRoles();
+        }
 
         // Note: Workflow statuses loaded lazily per file via getWorkflowStatus()
         // Batch loading not supported by backend API (requires file_id parameter)
@@ -80,7 +87,7 @@ class DocumentWorkflowManager {
      */
     async loadWorkflowRoles() {
         try {
-            const response = await fetch(`${this.config.rolesApi}list.php`, {
+            const response = await fetch(`${this.config.rolesApi}list.php?_ts=${Date.now()}`, {
                 method: 'GET',
                 headers: {
                     'X-CSRF-Token': this.getCsrfToken()
@@ -91,13 +98,19 @@ class DocumentWorkflowManager {
             const data = await response.json();
 
             if (data.success) {
-                const roles = data.data?.roles || [];
-                this.state.validators = roles.filter(r => r.role === 'validator');
-                this.state.approvers = roles.filter(r => r.role === 'approver');
+                // Normalized payload (available_users + current validator/approver ids)
+                const availableUsers = (data.data?.available_users || []).filter(u => !!u);
+                const currentValidators = (data.data?.current?.validators || []).map(id => parseInt(id));
+                const currentApprovers = (data.data?.current?.approvers || []).map(id => parseInt(id));
+
+                // Keep state arrays with full user objects for convenience
+                this.state.validators = availableUsers.filter(u => currentValidators.includes(u.id));
+                this.state.approvers = availableUsers.filter(u => currentApprovers.includes(u.id));
 
                 console.log('[WorkflowManager] Loaded roles:', {
                     validators: this.state.validators.length,
-                    approvers: this.state.approvers.length
+                    approvers: this.state.approvers.length,
+                    available: availableUsers.length
                 });
             }
         } catch (error) {
@@ -180,7 +193,12 @@ class DocumentWorkflowManager {
      */
     async loadDashboardStats() {
         try {
-            const response = await fetch(`${this.config.workflowApi}dashboard.php`, {
+            const tenantId = this.getCurrentTenantId();
+            const apiUrl = tenantId
+                ? `${this.config.workflowApi}dashboard.php?tenant_id=${tenantId}`
+                : `${this.config.workflowApi}dashboard.php`;
+
+            const response = await fetch(apiUrl, {
                 method: 'GET',
                 headers: {
                     'X-CSRF-Token': this.getCsrfToken()
@@ -236,6 +254,21 @@ class DocumentWorkflowManager {
                     <div class="modal-body">
                         <form id="workflowActionForm">
                             <div id="actionDescription" class="alert alert-info mb-3"></div>
+
+                            <div id="submitParticipants" style="display:none; margin-bottom: 12px;">
+                                <div class="form-group">
+                                    <label for="submitValidatorSelect">Seleziona Validatore (opzionale)</label>
+                                    <select id="submitValidatorSelect" class="form-control">
+                                        <option value="">-- Seleziona validatore --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="submitApproverSelect">Seleziona Approvatore (opzionale)</label>
+                                    <select id="submitApproverSelect" class="form-control">
+                                        <option value="">-- Seleziona approvatore --</option>
+                                    </select>
+                                </div>
+                            </div>
 
                             <div class="form-group">
                                 <label for="workflowComment">Commento <span id="commentRequired" style="color: red;">*</span></label>
@@ -419,6 +452,19 @@ class DocumentWorkflowManager {
             this.currentAction = action;
             this.state.currentFileId = fileId;
 
+            // Defensive: normalize fileName so UI never shows "undefined"
+            if (!fileName) {
+                try {
+                    const card = document.querySelector(`[data-file-id="${fileId}"]`);
+                    fileName =
+                        card?.querySelector('.file-name, .file-card-info h4, .file-name-wrapper')?.textContent ||
+                        document.querySelector('.file-name')?.textContent ||
+                        'Documento';
+                } catch (e) {
+                    fileName = 'Documento';
+                }
+            }
+
             const modal = document.getElementById('workflowActionModal');
             const title = document.getElementById('workflowActionTitle');
             const description = document.getElementById('actionDescription');
@@ -434,6 +480,9 @@ class DocumentWorkflowManager {
                 button.textContent = 'Invia in Validazione';
                 button.className = 'btn btn-primary';
                 commentRequired.style.display = 'none';
+            // Show participant selectors for submit
+            this.populateSubmitParticipants();
+            document.getElementById('submitParticipants').style.display = 'block';
                 break;
 
             case 'validate':
@@ -473,6 +522,10 @@ class DocumentWorkflowManager {
             // Reset form
             document.getElementById('workflowActionForm').reset();
             document.getElementById('commentCharCount').textContent = '0';
+        // Hide participant selectors for non-submit actions
+        if (action !== 'submit') {
+            document.getElementById('submitParticipants').style.display = 'none';
+        }
 
             // Show modal
             modal.style.display = 'flex';
@@ -507,6 +560,13 @@ class DocumentWorkflowManager {
                 tenant_id: this.getCurrentTenantId() || null  // BUG-087 FIX: Pass current folder tenant_id
             };
 
+            if (this.currentAction === 'submit') {
+                const validatorId = document.getElementById('submitValidatorSelect')?.value;
+                const approverId = document.getElementById('submitApproverSelect')?.value;
+                body.validator_id = validatorId ? parseInt(validatorId) : null;
+                body.approver_id = approverId ? parseInt(approverId) : null;
+            }
+
             // BUG-090 DEBUG: Log exact request being sent
             console.log('[WorkflowManager] executeAction:', {
                 action: this.currentAction,
@@ -538,8 +598,36 @@ class DocumentWorkflowManager {
                 this.showToast(data.message || 'Azione completata con successo', 'success');
                 this.closeActionModal();
 
-                // Note: Workflow status reloaded per file via getWorkflowStatus() when needed
-                // Batch loading not supported by backend API
+                // Refresh workflow status + UI immediately for the current file (no page refresh)
+                const fileId = this.state.currentFileId;
+                if (fileId) {
+                    const workflow = await this.getWorkflowStatus(fileId);
+
+                    // Update file card/list badge immediately (replace if already present)
+                    try {
+                        const card = document.querySelector(`[data-file-id="${fileId}"]`);
+                        if (card && workflow && workflow.state) {
+                            // Remove old badges (both legacy + injected)
+                            card.querySelectorAll('.workflow-badge, .workflow-badge-injected').forEach(el => el.remove());
+
+                            const nameEl = card.querySelector('.file-name, .file-card-info h4, .file-name-wrapper');
+                            if (nameEl && typeof this.renderWorkflowBadge === 'function') {
+                                nameEl.insertAdjacentHTML('beforeend', this.renderWorkflowBadge(workflow.state));
+                            }
+                        }
+                    } catch (e) {
+                        // non-blocking
+                    }
+
+                    // Update sidebar immediately if available
+                    try {
+                        if (window.fileManager && typeof window.fileManager.loadSidebarWorkflowInfo === 'function') {
+                            window.fileManager.loadSidebarWorkflowInfo(fileId);
+                        }
+                    } catch (e) {
+                        // non-blocking
+                    }
+                }
 
                 // Reload dashboard stats
                 await this.loadDashboardStats();
@@ -571,7 +659,15 @@ class DocumentWorkflowManager {
 
             // Load history
             try {
-            const response = await fetch(`${this.config.workflowApi}history.php?file_id=${fileId}`, {
+            const tenantId = this.getCurrentTenantId();
+            const qs = new URLSearchParams({ file_id: String(fileId) });
+            if (tenantId) {
+                qs.set('tenant_id', String(tenantId));
+            }
+            // Cache-bust for Cloudflare tunnel / intermediate caches
+            qs.set('_ts', String(Date.now()));
+
+            const response = await fetch(`${this.config.workflowApi}history.php?${qs.toString()}`, {
                 method: 'GET',
                 headers: {
                     'X-CSRF-Token': this.getCsrfToken()
@@ -579,11 +675,34 @@ class DocumentWorkflowManager {
                 credentials: 'same-origin'
             });
 
-                const data = await response.json();
+                if (response.status === 404) {
+                    // Production may not have the endpoint deployed yet: fallback UX
+                    const timeline = document.getElementById('workflowTimeline');
+                    if (timeline) {
+                        timeline.innerHTML = `
+                            <p class="text-muted text-center">
+                                Storico non disponibile in questo ambiente.
+                            </p>
+                        `;
+                    }
 
-                if (data.success) {
-                    const history = data.data?.history || [];
-                    this.renderHistoryTimeline(history);
+                    // Best-effort: show current status instead of hard failing
+                    try {
+                        const status = await this.getWorkflowStatus(fileId);
+                        if (status && status.state) {
+                            this.showToast(`Storico non disponibile. Stato attuale: ${status.state_label || status.state}`, 'info');
+                        } else {
+                            this.showToast('Storico non disponibile', 'info');
+                        }
+                    } catch (e) {
+                        this.showToast('Storico non disponibile', 'info');
+                    }
+                } else {
+                    const data = await response.json();
+                    if (data.success) {
+                        const history = data.data?.history || [];
+                        this.renderHistoryTimeline(history);
+                    }
                 }
             } catch (error) {
                 console.error('[WorkflowManager] Failed to load history:', error);
@@ -619,10 +738,13 @@ class DocumentWorkflowManager {
             const actionIcons = {
                 submit: '📤',
                 validate: '✓',
+                // Backend uses TRANSITION_REJECT = 'reject_to_creator'
                 reject: '❌',
+                reject_to_creator: '❌',
                 approve: '✅',
                 recall: '↩️',
-                create: '➕'
+                create: '➕',
+                auto_transition: '⚙️'
             };
 
             const icon = actionIcons[entry.action] || '📋';
@@ -786,6 +908,9 @@ class DocumentWorkflowManager {
     renderWorkflowStatus(container, data, fileId) {
         const { file, workflow_exists, workflow, available_actions, user_role_in_workflow, can_start_workflow } = data;
 
+        // BUG-149c FIX: Ensure file.name is never undefined in templates
+        const safeFileName = (file?.name || 'Documento').replace(/'/g, "\\'");
+
         if (!workflow_exists) {
             // No workflow exists for this file
             container.innerHTML = `
@@ -793,7 +918,7 @@ class DocumentWorkflowManager {
                     <p><strong>Nessun workflow attivo per questo documento.</strong></p>
                     ${can_start_workflow ? `
                         <p>Puoi avviare il workflow inviando il documento per validazione.</p>
-                        <button class="btn btn-primary mt-3" onclick="window.workflowManager.submitForValidation(${fileId}, '${file.name.replace(/'/g, "\\'")}')">
+                        <button class="btn btn-primary mt-3" onclick="window.workflowManager.submitForValidation(${fileId}, '${safeFileName}')">
                             Invia per Validazione
                         </button>
                     ` : '<p>Solo il creatore del documento o un Manager/Admin possono avviare il workflow.</p>'}
@@ -807,8 +932,8 @@ class DocumentWorkflowManager {
         const statusHtml = `
             <div class="workflow-status-details">
                 <div class="mb-4">
-                    <h4>Documento: ${file.name}</h4>
-                    <p class="text-muted">ID: ${file.id} | Creato da: ${workflow.creator_name || 'N/A'}</p>
+                    <h4>Documento: ${file?.name || 'Documento'}</h4>
+                    <p class="text-muted">ID: ${file?.id || fileId} | Creato da: ${workflow.creator_name || 'N/A'}</p>
                 </div>
 
                 <div class="mb-4">
@@ -871,7 +996,8 @@ class DocumentWorkflowManager {
 
                                 // BUG-085 FIX: Removed closeStatusModal() call - now handled internally by showActionModal()
                                 // This prevents double-close and ensures proper modal transition timing
-                                return `<button class="btn ${btnClass} mr-2 mb-2" onclick="window.workflowManager.showActionModal('${action}', ${fileId}, '${file.name.replace(/'/g, "\\'")}')">${label}</button>`;
+                                // BUG-149c FIX: Use safeFileName to prevent undefined in template
+                                return `<button class="btn ${btnClass} mr-2 mb-2" onclick="window.workflowManager.showActionModal('${action}', ${fileId}, '${safeFileName}')">${label}</button>`;
                             }).join('')}
                         </div>
                     </div>
@@ -879,7 +1005,8 @@ class DocumentWorkflowManager {
 
                 <div class="mt-4">
                     <!-- BUG-085 FIX: Removed closeStatusModal() call - now handled internally by showHistoryModal() -->
-                    <button class="btn btn-info" onclick="window.workflowManager.showHistoryModal(${fileId}, '${file.name.replace(/'/g, "\\'")}')">
+                    <!-- BUG-149c FIX: Use safeFileName to prevent undefined -->
+                    <button class="btn btn-info" onclick="window.workflowManager.showHistoryModal(${fileId}, '${safeFileName}')">
                         Visualizza Storico
                     </button>
                 </div>
@@ -906,16 +1033,20 @@ class DocumentWorkflowManager {
     getCurrentTenantId() {
         // Try multiple sources for tenant ID
 
+        const toInt = (v) => {
+            const n = parseInt(String(v || ''), 10);
+            return Number.isFinite(n) && n > 0 ? n : null;
+        };
+
         // 1. Check file manager state (most reliable if navigating)
-        if (window.fileManager && window.fileManager.state && window.fileManager.state.currentTenantId) {
-            return parseInt(window.fileManager.state.currentTenantId);
-        }
+        const fmTenant = window.fileManager?.state?.currentTenantId ?? window.fileManager?.currentTenantId ?? null;
+        const fmTenantId = toInt(fmTenant);
+        if (fmTenantId) return fmTenantId;
 
         // 2. Check hidden field in DOM
         const hiddenField = document.getElementById('currentTenantId');
-        if (hiddenField && hiddenField.value) {
-            return parseInt(hiddenField.value);
-        }
+        const hiddenTenantId = toInt(hiddenField?.value);
+        if (hiddenTenantId) return hiddenTenantId;
 
         // 3. Fallback to null (API will use session tenant)
         return null;
@@ -929,13 +1060,21 @@ class DocumentWorkflowManager {
      */
     async loadUsersForRoleConfig() {
         try {
+            // Only manager/admin/super_admin can manage workflow role configuration.
+            // Avoid noisy 403s for normal users who may still be validators/approvers.
+            const userRole = (window.userRole || document.getElementById('userRole')?.value || 'user').toString();
+            if (!['manager', 'admin', 'super_admin'].includes(userRole)) {
+                return;
+            }
+
             // Get current tenant ID from file manager or hidden field
             const tenantId = this.getCurrentTenantId();
 
             // Build API URL with tenant_id parameter
+            const ts = Date.now();
             const apiUrl = tenantId
-                ? `${this.config.rolesApi}list.php?tenant_id=${tenantId}`
-                : `${this.config.rolesApi}list.php`;
+                ? `${this.config.rolesApi}list.php?tenant_id=${tenantId}&_ts=${ts}`
+                : `${this.config.rolesApi}list.php?_ts=${ts}`;
 
             console.log('[WorkflowManager] Loading roles from:', apiUrl);
 
@@ -960,9 +1099,13 @@ class DocumentWorkflowManager {
             }
 
             // Extract from FIXED structure (BUG-066)
-            const availableUsers = result.data?.available_users || [];
-            const currentValidators = result.data?.current?.validators || [];
-            const currentApprovers = result.data?.current?.approvers || [];
+            const availableUsers = (result.data?.available_users || []).filter(u => !!u);
+            const currentValidators = (result.data?.current?.validators || []).filter(id => !!id);
+            const currentApprovers = (result.data?.current?.approvers || []).filter(id => !!id);
+
+            // Cache for later lookups (e.g., prevent removing admin/manager default roles)
+            this.state.roleConfigUsers = availableUsers;
+            this.state.roleConfigUsersById = new Map(availableUsers.map(u => [parseInt(u.id), u]));
 
             console.log('[WorkflowManager] Roles payload:', {
                 available: availableUsers.length,
@@ -977,6 +1120,26 @@ class DocumentWorkflowManager {
             // Update "Current Roles" sections
             this.updateCurrentValidatorsList(availableUsers, currentValidators);
             this.updateCurrentApproversList(availableUsers, currentApprovers);
+
+            // Explain default behavior for admin/manager (avoid misleading "Ruolo aggiornato" when removal is not applicable)
+            try {
+                const modal = document.getElementById('workflowRoleConfigModal');
+                const noteId = 'workflowRoleDefaultsNote';
+                if (modal && !document.getElementById(noteId)) {
+                    const currentValidatorsEl = document.getElementById('currentValidators');
+                    if (currentValidatorsEl) {
+                        const note = document.createElement('div');
+                        note.id = noteId;
+                        note.className = 'text-muted';
+                        note.style.cssText = 'margin: 10px 0 0; font-size: 12px;';
+                        note.textContent = 'Nota: gli utenti con ruolo di sistema Admin/Manager sono validatori/approvatori di default per tenant e non possono essere rimossi da qui.';
+                        // Insert right before the lists to keep it visible in the "Ruoli Attuali" section
+                        currentValidatorsEl.parentElement?.insertBefore(note, currentValidatorsEl);
+                    }
+                }
+            } catch (e) {
+                // non-blocking
+            }
 
             console.log('[WorkflowManager] Populated validator dropdown with', availableUsers.length, 'users');
             console.log('[WorkflowManager] Populated approver dropdown with', availableUsers.length, 'users');
@@ -1024,15 +1187,24 @@ class DocumentWorkflowManager {
             return;
         }
 
-        // Populate with users
-        users.forEach(user => {
-            const option = document.createElement('option');
-            option.value = user.id;
-            option.textContent = `${user.name} (${user.email}) - ${user.system_role}`;
+        const selectedSet = new Set((selectedIds || []).map(v => parseInt(v)));
 
-            // Pre-select if in current validators
-            if (selectedIds.includes(user.id)) {
-                option.selected = true;
+        // Populate with users (pre-select current role members; lock admin/manager defaults)
+        users.forEach(user => {
+            const userId = parseInt(user.id);
+            const option = document.createElement('option');
+            option.value = String(userId);
+
+            const sysRole = (user.system_role || '').toString();
+            const isSelected = selectedSet.has(userId);
+            const isDefaultRole = (sysRole === 'admin' || sysRole === 'manager') && !!user.is_validator;
+
+            option.textContent = `${user.name} (${user.email})${isDefaultRole ? ' (Default)' : ''}`;
+            option.selected = isSelected;
+
+            if (isDefaultRole) {
+                option.disabled = true;
+                option.title = 'Admin/Manager sono validatori di default per tenant e non possono essere rimossi';
             }
 
             select.appendChild(option);
@@ -1062,19 +1234,82 @@ class DocumentWorkflowManager {
             return;
         }
 
-        // Populate with users
-        users.forEach(user => {
-            const option = document.createElement('option');
-            option.value = user.id;
-            option.textContent = `${user.name} (${user.email}) - ${user.system_role}`;
+        const selectedSet = new Set((selectedIds || []).map(v => parseInt(v)));
 
-            // Pre-select if in current approvers
-            if (selectedIds.includes(user.id)) {
-                option.selected = true;
+        // Populate with users (pre-select current role members; lock admin/manager defaults)
+        users.forEach(user => {
+            const userId = parseInt(user.id);
+            const option = document.createElement('option');
+            option.value = String(userId);
+
+            const sysRole = (user.system_role || '').toString();
+            const isSelected = selectedSet.has(userId);
+            const isDefaultRole = (sysRole === 'admin' || sysRole === 'manager') && !!user.is_approver;
+
+            option.textContent = `${user.name} (${user.email})${isDefaultRole ? ' (Default)' : ''}`;
+            option.selected = isSelected;
+
+            if (isDefaultRole) {
+                option.disabled = true;
+                option.title = 'Admin/Manager sono approvatori di default per tenant e non possono essere rimossi';
             }
 
             select.appendChild(option);
         });
+    }
+
+    /**
+     * Populate submit-time validator/approver selects (per-document, no preselection).
+     */
+    async populateSubmitParticipants() {
+        const validatorSelect = document.getElementById('submitValidatorSelect');
+        const approverSelect = document.getElementById('submitApproverSelect');
+        if (!validatorSelect || !approverSelect) return;
+
+        // Clear current options
+        validatorSelect.innerHTML = '<option value=\"\">-- Seleziona validatore --</option>';
+        approverSelect.innerHTML = '<option value=\"\">-- Seleziona approvatore --</option>';
+
+        try {
+            const tenantId = this.getCurrentTenantId();
+            const ts = Date.now();
+            const apiUrl = tenantId
+                ? `${this.config.rolesApi}list.php?tenant_id=${tenantId}&_ts=${ts}`
+                : `${this.config.rolesApi}list.php?_ts=${ts}`;
+
+            const resp = await fetch(apiUrl, {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: { 'X-CSRF-Token': this.getCsrfToken() }
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            if (!data.success) throw new Error(data.message || 'Errore caricamento utenti workflow');
+
+            const users = (data.data?.available_users || []).filter(u => !!u);
+
+            // BUG-149b FIX: Only add users with corresponding role to each dropdown
+            users.forEach(user => {
+                // Only add to validator dropdown if user is_validator
+                if (user.is_validator) {
+                    const optV = document.createElement('option');
+                    optV.value = user.id;
+                    optV.textContent = `${user.name} (${user.email})`;
+                    validatorSelect.appendChild(optV);
+                }
+
+                // Only add to approver dropdown if user is_approver
+                if (user.is_approver) {
+                    const optA = document.createElement('option');
+                    optA.value = user.id;
+                    optA.textContent = `${user.name} (${user.email})`;
+                    approverSelect.appendChild(optA);
+                }
+            });
+        } catch (err) {
+            console.error('[WorkflowManager] populateSubmitParticipants error:', err);
+            this.showToast('Errore nel caricamento utenti workflow', 'error');
+        }
     }
 
     /**
@@ -1087,21 +1322,54 @@ class DocumentWorkflowManager {
         container.innerHTML = '';
 
         if (validatorIds.length === 0) {
-            container.innerHTML = '<p class="text-muted">Nessun validatore assegnato</p>';
+            container.innerHTML = '<li class="list-group-item text-muted">Nessun validatore assegnato</li>';
             return;
         }
 
-        const ul = document.createElement('ul');
-        ul.className = 'list-unstyled';
         validatorIds.forEach(id => {
             const user = users.find(u => u.id === id);
             if (user) {
                 const li = document.createElement('li');
-                li.textContent = `${user.name} (${user.email})`;
-                ul.appendChild(li);
+                li.className = 'list-group-item';
+                li.style.display = 'flex';
+                li.style.alignItems = 'center';
+                li.style.justifyContent = 'space-between';
+                li.style.gap = '10px';
+
+                const label = document.createElement('span');
+                const sysRole = (user.system_role || '').toString();
+                label.textContent = `${user.name} (${user.email})`;
+
+                // Mark default roles for clarity
+                if (sysRole === 'admin' || sysRole === 'manager') {
+                    const badge = document.createElement('span');
+                    badge.textContent = 'Default';
+                    badge.style.cssText = 'margin-left: 8px; padding: 2px 6px; border-radius: 999px; font-size: 11px; border: 1px solid #e5e7eb; background: #f9fafb; color: #374151;';
+                    label.appendChild(badge);
+                }
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-sm btn-danger';
+                btn.textContent = 'Rimuovi';
+                // Prevent removing default roles (admin/manager): backend returns them as default via list.php
+                if ((user.system_role || '') === 'admin' || (user.system_role || '') === 'manager') {
+                    btn.disabled = true;
+                    btn.title = 'Admin/Manager sono validatori di default e non possono essere rimossi';
+                    btn.style.opacity = '0.55';
+                    btn.style.cursor = 'not-allowed';
+                    btn.addEventListener('click', () => {
+                        this.showToast('Gli utenti admin/manager sono validatori di default e non possono essere rimossi da qui.', 'info');
+                    });
+                } else {
+                    btn.addEventListener('click', () => this.removeWorkflowRoleUser('validator', id, validatorIds));
+                }
+
+                li.appendChild(label);
+                li.appendChild(btn);
+                container.appendChild(li);
             }
         });
-        container.appendChild(ul);
     }
 
     /**
@@ -1114,21 +1382,110 @@ class DocumentWorkflowManager {
         container.innerHTML = '';
 
         if (approverIds.length === 0) {
-            container.innerHTML = '<p class="text-muted">Nessun approvatore assegnato</p>';
+            container.innerHTML = '<li class="list-group-item text-muted">Nessun approvatore assegnato</li>';
             return;
         }
 
-        const ul = document.createElement('ul');
-        ul.className = 'list-unstyled';
         approverIds.forEach(id => {
             const user = users.find(u => u.id === id);
             if (user) {
                 const li = document.createElement('li');
-                li.textContent = `${user.name} (${user.email})`;
-                ul.appendChild(li);
+                li.className = 'list-group-item';
+                li.style.display = 'flex';
+                li.style.alignItems = 'center';
+                li.style.justifyContent = 'space-between';
+                li.style.gap = '10px';
+
+                const label = document.createElement('span');
+                const sysRole = (user.system_role || '').toString();
+                label.textContent = `${user.name} (${user.email})`;
+
+                // Mark default roles for clarity
+                if (sysRole === 'admin' || sysRole === 'manager') {
+                    const badge = document.createElement('span');
+                    badge.textContent = 'Default';
+                    badge.style.cssText = 'margin-left: 8px; padding: 2px 6px; border-radius: 999px; font-size: 11px; border: 1px solid #e5e7eb; background: #f9fafb; color: #374151;';
+                    label.appendChild(badge);
+                }
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-sm btn-danger';
+                btn.textContent = 'Rimuovi';
+                // Prevent removing default roles (admin/manager): backend returns them as default via list.php
+                if ((user.system_role || '') === 'admin' || (user.system_role || '') === 'manager') {
+                    btn.disabled = true;
+                    btn.title = 'Admin/Manager sono approvatori di default e non possono essere rimossi';
+                    btn.style.opacity = '0.55';
+                    btn.style.cursor = 'not-allowed';
+                    btn.addEventListener('click', () => {
+                        this.showToast('Gli utenti admin/manager sono approvatori di default e non possono essere rimossi da qui.', 'info');
+                    });
+                } else {
+                    btn.addEventListener('click', () => this.removeWorkflowRoleUser('approver', id, approverIds));
+                }
+
+                li.appendChild(label);
+                li.appendChild(btn);
+                container.appendChild(li);
             }
         });
-        container.appendChild(ul);
+    }
+
+    /**
+     * Remove a user from tenant-level workflow role (validator/approver) via bulk replace API.
+     * UI constraint: must keep at least 1 user for each role.
+     */
+    async removeWorkflowRoleUser(role, userIdToRemove, currentIds) {
+        // Guard: admin/manager are default roles and cannot be removed via this UI
+        try {
+            const u = this.state.roleConfigUsersById?.get?.(parseInt(userIdToRemove));
+            const sysRole = (u?.system_role || '').toString();
+            if (sysRole === 'admin' || sysRole === 'manager') {
+                this.showToast('Gli utenti admin/manager sono ruoli di default e non possono essere rimossi da qui.', 'info');
+                return;
+            }
+        } catch (e) {
+            // non-blocking
+        }
+
+        const ids = Array.isArray(currentIds) ? currentIds.slice() : [];
+        const remaining = ids.filter(id => id !== userIdToRemove);
+
+        if (remaining.length <= 0) {
+            this.showToast(`Deve esserci almeno 1 ${role === 'validator' ? 'validatore' : 'approvatore'} per tenant`, 'error');
+            return;
+        }
+
+        if (!confirm('Confermi la rimozione?')) return;
+
+        try {
+            const response = await fetch(`${this.config.rolesApi}create.php`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': this.getCsrfToken()
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    user_ids: remaining,
+                    workflow_role: role,
+                    tenant_id: this.getCurrentTenantId() || null
+                })
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Errore durante la rimozione');
+            }
+
+            this.showToast('Ruolo aggiornato', 'success');
+            await this.loadWorkflowRoles();
+            await this.loadUsersForRoleConfig();
+        } catch (err) {
+            console.error('[WorkflowManager] removeWorkflowRoleUser error:', err);
+            this.showToast(err.message || 'Errore durante la rimozione', 'error');
+        }
     }
 
     /**
@@ -1191,49 +1548,74 @@ class DocumentWorkflowManager {
                 throw new Error('Seleziona almeno un utente');
             }
 
-            let successCount = 0;
-            let errorCount = 0;
+            // Guard: admin/manager default roles cannot be removed.
+            // If user attempts to save without them, we restore them and show an informational toast (not success).
+            let restoredDefaults = false;
+            try {
+                const users = Array.isArray(this.state.roleConfigUsers) ? this.state.roleConfigUsers : [];
+                const keepIds = users
+                    .filter(u => {
+                        const sysRole = (u.system_role || '').toString();
+                        if (!(sysRole === 'admin' || sysRole === 'manager')) return false;
+                        return role === 'validator' ? !!u.is_validator : !!u.is_approver;
+                    })
+                    .map(u => parseInt(u.id))
+                    .filter(id => Number.isFinite(id) && id > 0);
 
-            // API accepts single user_id, not array
-            // Loop through selected users
-            for (const userId of userIds) {
-                try {
-                    const response = await fetch(`${this.config.rolesApi}create.php`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-Token': this.getCsrfToken()
-                        },
-                        credentials: 'same-origin',
-                        body: JSON.stringify({
-                            user_id: userId,  // Changed from user_ids to user_id (API expects single)
-                            workflow_role: role,  // Changed from role to workflow_role (API parameter name)
-                            tenant_id: this.getCurrentTenantId() || null  // BUG-072 FIX: Pass current tenant_id to prevent wrong tenant context
-                        })
-                    });
-
-                    const data = await response.json();
-
-                    if (data.success) {
-                        successCount++;
-                    } else {
-                        errorCount++;
-                        console.error(`[WorkflowManager] Failed to assign role to user ${userId}:`, data.error);
+                if (keepIds.length > 0) {
+                    const set = new Set(userIds.map(v => parseInt(v)));
+                    for (const id of keepIds) {
+                        if (!set.has(id)) {
+                            set.add(id);
+                            restoredDefaults = true;
+                        }
                     }
-                } catch (error) {
-                    errorCount++;
-                    console.error(`[WorkflowManager] Failed to save role for user ${userId}:`, error);
+                    userIds = Array.from(set);
+
+                    if (restoredDefaults) {
+                        // Ensure UI selection reflects the enforced defaults
+                        const selectId = role === 'validator' ? 'validatorUsers' : 'approverUsers';
+                        const selectEl = document.getElementById(selectId);
+                        if (selectEl) {
+                            Array.from(selectEl.options).forEach(opt => {
+                                const id = parseInt(opt.value);
+                                if (keepIds.includes(id)) {
+                                    opt.selected = true;
+                                }
+                            });
+                        }
+
+                        this.showToast('Admin/Manager sono ruoli di default e restano inclusi.', 'info');
+                    }
                 }
+            } catch (e) {
+                // non-blocking
             }
 
-            // Show result toast
-            if (successCount > 0 && errorCount === 0) {
-                this.showToast(`${successCount} ${role === 'validator' ? 'validatori' : 'approvatori'} aggiornati con successo`, 'success');
-            } else if (successCount > 0 && errorCount > 0) {
-                this.showToast(`${successCount} salvati, ${errorCount} errori`, 'warning');
-            } else {
-                throw new Error('Errore durante il salvataggio');
+            const response = await fetch(`${this.config.rolesApi}create.php`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': this.getCsrfToken()
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    user_ids: userIds,
+                    workflow_role: role,
+                    tenant_id: this.getCurrentTenantId() || null
+                })
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'Errore durante il salvataggio');
             }
+
+            const msg = restoredDefaults
+                ? `Ruoli salvati. Admin/Manager (default) sono rimasti inclusi.`
+                : `${userIds.length} ${role === 'validator' ? 'validatori' : 'approvatori'} aggiornati con successo`;
+            this.showToast(msg, restoredDefaults ? 'info' : 'success');
 
             // Reload roles and update UI
             await this.loadWorkflowRoles();

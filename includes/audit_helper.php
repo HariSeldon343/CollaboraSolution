@@ -76,6 +76,62 @@ class AuditLogger
             return false;
         }
 
+        // Normalize action/entity_type to avoid DB CHECK constraint failures across differing schemas.
+        // If the provided values aren't supported by the current DB, we fall back to safe defaults
+        // and preserve original values in metadata.
+        $allowedActions = [
+            'create', 'update', 'delete', 'restore',
+            'login', 'logout', 'login_failed', 'session_expired',
+            'download', 'upload', 'view', 'export', 'import',
+            'approve', 'reject', 'submit', 'cancel',
+            'share', 'unshare', 'permission_grant', 'permission_revoke',
+            'password_change', 'password_reset', 'email_change',
+            'tenant_switch', 'system_update', 'backup', 'restore_backup',
+            // common extensions used in some DBs
+            'access', 'assign', 'unassign', 'complete', 'reopen', 'close',
+            'comment', 'reply', 'archive', 'unarchive', 'duplicate', 'merge',
+            'move', 'rename', 'config_change', 'setting_change',
+            'document_opened', 'document_closed', 'document_saved'
+        ];
+
+        $allowedEntityTypes = [
+            'user', 'tenant', 'file', 'folder', 'project', 'task',
+            'calendar_event', 'chat_message', 'chat_channel',
+            'document_approval', 'system_setting', 'notification',
+            'permission', 'role', 'session', 'api_key', 'backup',
+            // common extensions used in some DBs
+            'page', 'ticket', 'ticket_response', 'document', 'editor_session',
+            'audit_log', 'audit_log_deletion', 'system', 'config',
+            'location', 'tenant_location'
+        ];
+
+        // Ensure metadata is an array (so we can store original values safely)
+        if (is_string($metadata) && $metadata !== '') {
+            $decoded = json_decode($metadata, true);
+            if (is_array($decoded)) {
+                $metadata = $decoded;
+            }
+        }
+        if (!is_array($metadata)) {
+            $metadata = $metadata ? ['_value' => $metadata] : [];
+        }
+
+        if (!in_array($action, $allowedActions, true)) {
+            $metadata['original_action'] = $action;
+            $action = 'update';
+        }
+
+        // Map common internal entity types to DB-friendly ones
+        if ($entityType === 'document_workflow') {
+            $metadata['original_entity_type'] = $entityType;
+            $entityType = 'document';
+        }
+
+        if (!in_array($entityType, $allowedEntityTypes, true)) {
+            $metadata['original_entity_type'] = $entityType;
+            $entityType = 'system_setting';
+        }
+
         // BUG-029 Pattern: Audit logging in separate try-catch, non-blocking
         try {
             $db = self::getDb();
@@ -101,13 +157,38 @@ class AuditLogger
                 'created_at' => date('Y-m-d H:i:s')
             ];
 
-            // Insert audit log
-            $auditInsertId = $db->insert('audit_logs', $auditData);
+            // Insert audit log (retry with minimal safe values if DB CHECK constraints differ)
+            $auditInsertId = null;
+            try {
+                $auditInsertId = $db->insert('audit_logs', $auditData);
+            } catch (Exception $ex) {
+                // Retry once with safest defaults (should exist in all schemas)
+                $auditData['action'] = 'update';
+                $auditData['entity_type'] = 'system_setting';
+                $auditData['metadata'] = json_encode(array_merge($metadata, [
+                    'audit_fallback' => true
+                ]));
+                try {
+                    $auditInsertId = $db->insert('audit_logs', $auditData);
+                } catch (Exception $ex2) {
+                    $auditInsertId = null;
+                }
+            }
 
             if (!$auditInsertId) {
                 error_log("[AUDIT LOG WARNING] Insert returned invalid ID");
                 error_log("[AUDIT LOG WARNING] Context: User ID: $userId, Tenant ID: $tenantId, Action: $action, Entity: $entityType");
                 return false;
+            }
+
+            // Tamper-evident integrity signature (non-blocking)
+            try {
+                require_once __DIR__ . '/audit_integrity.php';
+                $pdo = $db->getConnection();
+                audit_integrity_signLog($pdo, (int)$tenantId, (int)$auditInsertId);
+            } catch (Exception $e) {
+                // Never block the main operation if signing fails
+                error_log("[AUDIT INTEGRITY SIGN FAILURE] " . $e->getMessage());
             }
 
             return true;

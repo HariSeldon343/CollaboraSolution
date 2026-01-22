@@ -7,6 +7,17 @@
 declare(strict_types=1);
 
 /**
+ * Read request raw body exactly once per request and cache it.
+ * Some endpoints and CSRF validation both need access to the body; repeated reads of php://input return empty.
+ */
+function cnx_get_raw_request_body(): string {
+    if (!isset($GLOBALS['CNX_RAW_BODY'])) {
+        $GLOBALS['CNX_RAW_BODY'] = file_get_contents('php://input') ?: '';
+    }
+    return (string)$GLOBALS['CNX_RAW_BODY'];
+}
+
+/**
  * Inizializza la sessione e prepara l'ambiente API
  * DEVE essere chiamata all'inizio di ogni endpoint API
  */
@@ -79,7 +90,7 @@ function getCsrfTokenFromRequest(): ?string {
     }
 
     // 5. Prova dal body JSON
-    $input = file_get_contents('php://input');
+    $input = cnx_get_raw_request_body();
     if ($input) {
         $data = json_decode($input, true);
         if (isset($data['csrf_token'])) {

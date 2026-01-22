@@ -12,7 +12,7 @@ require_once __DIR__ . '/../includes/session_init.php';
 // Headers CORS e JSON
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token, X-Requested-With');
 header('Content-Type: application/json; charset=UTF-8');
 
 // Gestione preflight CORS
@@ -27,13 +27,48 @@ require_once __DIR__ . '/../includes/auth.php';
 
 // Parsing del path API
 $request_uri = $_SERVER['REQUEST_URI'];
+$parsed_path = parse_url($request_uri, PHP_URL_PATH);
 $base_path = '/api/';
-$path = str_replace($base_path, '', parse_url($request_uri, PHP_URL_PATH));
+
+// BUG-137 FIX: Check for ?route= parameter first (used by tasks.js fallback)
+// When called as router.php?route=tasks/create, the route is in GET parameter
+$path = '';
+if (isset($_GET['route']) && !empty($_GET['route'])) {
+    // Route passed via query parameter (e.g., router.php?route=tasks/create)
+    $path = trim($_GET['route'], '/');
+    // BUG-138: Log when router receives a query parameter route
+    if (defined('DEBUG_MODE') && DEBUG_MODE) {
+        error_log("[ROUTER] BUG-138 - Received route via query param: '$path'");
+    }
+} else {
+    // Trova la posizione di /api/ nell'URL per supportare installazioni in sottocartelle
+    $pos = strpos($parsed_path, $base_path);
+    if ($pos !== false) {
+        $path = substr($parsed_path, $pos + strlen($base_path));
+    } else {
+        // Fallback se /api/ non è trovato (es. rewrite diretti)
+        $path = ltrim($parsed_path, '/');
+    }
+
+    // BUG-137: If path is router.php, it means we're calling the router directly
+    // without a proper route - this should not happen in normal operation
+    if ($path === 'router.php' || $path === '') {
+        http_response_code(400);
+        echo json_encode(['error' => 'Route non specificata', 'code' => 'MISSING_ROUTE']);
+        exit;
+    }
+}
+
 $path_parts = explode('/', trim($path, '/'));
 
 $resource = $path_parts[0] ?? '';
 $action = $path_parts[1] ?? '';
 $id = $path_parts[2] ?? null;
+
+// Normalize action (support routes like /api/tasks/create.php when rewrite sends to router.php)
+if (is_string($action) && str_ends_with($action, '.php')) {
+    $action = preg_replace('/\.php$/', '', $action);
+}
 
 // Metodo HTTP
 $method = $_SERVER['REQUEST_METHOD'];
@@ -45,7 +80,12 @@ $current_route = $resource . '/' . $action;
 $auth = new Auth();
 $user = null;
 
-if (!in_array($current_route, $public_routes) && $resource !== 'auth') {
+// Bypass auth check for delegated task endpoints that handle their own authentication
+// This avoids double authentication checks and potential conflicts
+$delegated_task_actions = ['list', 'create', 'update', 'delete', 'assign', 'orphaned'];
+$is_delegated_task = ($resource === 'tasks' && in_array($action, $delegated_task_actions));
+
+if (!$is_delegated_task && !in_array($current_route, $public_routes) && $resource !== 'auth') {
     $user = $auth->getCurrentUser();
     if (!$user) {
         http_response_code(401);
@@ -75,6 +115,9 @@ try {
         // Calendario
         'calendar' => handleCalendar($action, $method, $user, $id),
 
+        // Turni (Work Shifts)
+        'shifts' => handleShifts($action, $method, $user, $id),
+
         // Chat
         'chat' => handleChat($action, $method, $user, $id),
 
@@ -91,7 +134,11 @@ try {
         default => throw new Exception('Risorsa non trovata', 404)
     };
 
-    echo json_encode($response);
+    // If the response contains 'delegated', we don't echo it as JSON
+    // because the included file has already handled the output
+    if (!isset($response['delegated'])) {
+        echo json_encode($response);
+    }
 
 } catch (Exception $e) {
     http_response_code($e->getCode() ?: 500);
@@ -99,6 +146,29 @@ try {
         'error' => $e->getMessage(),
         'code' => $e->getCode() ?: 500
     ]);
+}
+
+/**
+ * Handler Turni (Work Shifts)
+ * Delegates to /api/shifts/*.php endpoints (which handle their own auth/CSRF).
+ */
+function handleShifts(string $action, string $method, ?array $user, ?string $id): array {
+    // Normalize empty action to list
+    $action = $action !== '' ? $action : 'list';
+
+    // Delegate to file-based endpoints (keeps behavior consistent with direct calls)
+    $allowed = ['types', 'list', 'manage', 'requests', 'suggest'];
+    if (!in_array($action, $allowed, true)) {
+        throw new Exception('Azione non valida', 400);
+    }
+
+    $path = __DIR__ . '/shifts/' . $action . '.php';
+    if (!is_file($path)) {
+        throw new Exception('Endpoint non trovato', 404);
+    }
+
+    require_once $path;
+    return ['delegated' => 'shifts/' . $action . '.php'];
 }
 
 /**
@@ -157,8 +227,51 @@ function handleProjects(string $action, string $method, ?array $user, ?string $i
 
 /**
  * Handler Tasks
+ * BUG-138: Added debug logging to track task routing issues
  */
 function handleTasks(string $action, string $method, ?array $user, ?string $id): array {
+    // BUG-138: Debug logging (only in development)
+    if (defined('DEBUG_MODE') && DEBUG_MODE) {
+        error_log("[ROUTER] handleTasks called - action: '$action', method: '$method', id: " . ($id ?? 'null'));
+    }
+
+    // Direct delegation to the specific tasks endpoint
+    // The URL routing in .htaccess or web server might already be directing
+    // /api/tasks/create.php to the file directly, but if it hits router.php:
+
+    if ($action === 'create') {
+        if (defined('DEBUG_MODE') && DEBUG_MODE) {
+            error_log("[ROUTER] Delegating to tasks/create.php");
+        }
+        require_once __DIR__ . '/tasks/create.php';
+        return ['delegated' => 'tasks/create.php'];
+    }
+    
+    if ($action === 'update') {
+        require_once __DIR__ . '/tasks/update.php';
+        return ['delegated' => 'tasks/update.php'];
+    }
+    
+    if ($action === 'list') {
+        require_once __DIR__ . '/tasks/list.php';
+        return ['delegated' => 'tasks/list.php'];
+    }
+    
+    if ($action === 'delete') {
+        require_once __DIR__ . '/tasks/delete.php';
+        return ['delegated' => 'tasks/delete.php'];
+    }
+    
+    if ($action === 'assign') {
+        require_once __DIR__ . '/tasks/assign.php';
+        return ['delegated' => 'tasks/assign.php'];
+    }
+    
+    if ($action === 'orphaned') {
+        require_once __DIR__ . '/tasks/orphaned.php';
+        return ['delegated' => 'tasks/orphaned.php'];
+    }
+
     global $pdo;
     $tenant_id = $user['tenant_id'];
     $user_id = $user['id'];

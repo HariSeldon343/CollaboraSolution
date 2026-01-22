@@ -10,7 +10,7 @@ class AuditLogManager {
             stats: {},
             users: [],
             currentPage: 1,
-            perPage: 50,
+            perPage: 30,
             totalPages: 1,
             filters: {
                 date_from: null,
@@ -30,6 +30,9 @@ class AuditLogManager {
         console.log('[AuditLog] Initializing...');
 
         try {
+            // Default: show ALL logs (no date filter). Day pager can be used optionally.
+            this.updateDayLabel();
+
             // Load data in parallel
             await Promise.all([
                 this.loadStats(),
@@ -39,6 +42,7 @@ class AuditLogManager {
 
             // Attach event listeners
             this.attachEventListeners();
+            this.attachStatCardDrilldowns();
 
             console.log('[AuditLog] Initialization complete');
         } catch (error) {
@@ -97,6 +101,110 @@ class AuditLogManager {
         updateStatCard('stat-accesses', stats.accesses_today || stats.today_actions);
         updateStatCard('stat-modifications', stats.modifications_today || stats.modifications);
         updateStatCard('stat-critical-events', stats.critical_events || stats.critical_count);
+    }
+
+    attachStatCardDrilldowns() {
+        // Make stat cards clickable: clicking applies filters and shows the underlying logs in the table.
+        // This is intentionally lightweight (no extra modal): the table is the drilldown.
+        const map = [
+            { id: 'stat-events-today', preset: 'events_today' },
+            { id: 'stat-active-users', preset: 'active_users_24h' },
+            { id: 'stat-accesses', preset: 'accesses_today' },
+            { id: 'stat-modifications', preset: 'modifications_today' },
+            { id: 'stat-critical-events', preset: 'critical_all' },
+        ];
+
+        map.forEach(({ id, preset }) => {
+            const valueEl = document.getElementById(id);
+            const card = valueEl ? valueEl.closest('.stat-card') : null;
+            if (!card) return;
+
+            // Avoid double-binding.
+            // NOTE: audit_log.php already uses data-audit-bound="1" for styling; do not reuse that flag.
+            if (card.dataset.cnxAuditBound === '1') return;
+            card.dataset.cnxAuditBound = '1';
+
+            card.style.cursor = 'pointer';
+            card.title = 'Clicca per vedere i log che compongono questa metrica';
+
+            card.addEventListener('click', () => this.applyStatPreset(preset));
+        });
+    }
+
+    applyStatPreset(preset) {
+        // Reset UI inputs and state first
+        const dateFromEl = document.getElementById('filter-date-from');
+        const dateToEl = document.getElementById('filter-date-to');
+        const userEl = document.getElementById('filter-user');
+        const actionEl = document.getElementById('filter-action');
+        const severityEl = document.getElementById('filter-severity');
+
+        if (dateFromEl) dateFromEl.value = '';
+        if (dateToEl) dateToEl.value = '';
+        if (userEl) userEl.value = '';
+        if (actionEl) actionEl.value = '';
+        if (severityEl) severityEl.value = '';
+
+        this.state.filters.user_id = null;
+        this.state.filters.action = null;
+        this.state.filters.severity = null;
+        this.state.filters.date_from = null;
+        this.state.filters.date_to = null;
+        this.state.currentPage = 1;
+
+        const today = () => {
+            const d = new Date();
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        };
+
+        if (preset === 'events_today') {
+            const day = today();
+            if (dateFromEl) dateFromEl.value = day;
+            if (dateToEl) dateToEl.value = day;
+            this.state.filters.date_from = `${day} 00:00:00`;
+            this.state.filters.date_to = `${day} 23:59:59`;
+        } else if (preset === 'accesses_today') {
+            const day = today();
+            if (dateFromEl) dateFromEl.value = day;
+            if (dateToEl) dateToEl.value = day;
+            this.state.filters.date_from = `${day} 00:00:00`;
+            this.state.filters.date_to = `${day} 23:59:59`;
+            // Match stats.php action list
+            this.state.filters.action = 'access';
+        } else if (preset === 'modifications_today') {
+            const day = today();
+            if (dateFromEl) dateFromEl.value = day;
+            if (dateToEl) dateToEl.value = day;
+            this.state.filters.date_from = `${day} 00:00:00`;
+            this.state.filters.date_to = `${day} 23:59:59`;
+            // Match stats.php action list
+            this.state.filters.action = 'create,update,delete,file_uploaded,file_deleted,file_modified';
+        } else if (preset === 'critical_all') {
+            this.state.filters.severity = 'critical';
+            if (severityEl) severityEl.value = 'critical';
+        } else if (preset === 'active_users_24h') {
+            const now = new Date();
+            const from = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+            const pad = (n) => String(n).padStart(2, '0');
+            const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+            this.state.filters.date_from = fmt(from);
+            this.state.filters.date_to = fmt(now);
+            // No day inputs: it's last 24h, can cross midnight.
+            const label = document.getElementById('audit-day-label');
+            if (label) label.textContent = 'Ultime 24h';
+        }
+
+        this.updateDayLabel();
+        this.loadLogs().then(() => {
+            // Scroll into view for immediate feedback
+            const table = document.getElementById('audit-logs-tbody');
+            if (table) {
+                table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
     }
 
     async loadUsers() {
@@ -188,6 +296,8 @@ class AuditLogManager {
             const pagination = data.data?.pagination || {};
             this.state.currentPage = pagination.current_page || 1;
             this.state.totalPages = pagination.total_pages || 1;
+            this.state.totalRecords = pagination.total_records || 0;
+            this.state.perPage = pagination.per_page || this.state.perPage;
 
             this.renderTable();
             this.renderPagination();
@@ -252,6 +362,21 @@ class AuditLogManager {
         });
     }
 
+    /**
+     * Lightweight toast (reuses audit_log.php showNotification if present).
+     */
+    showToast(message, type = 'info') {
+        try {
+            if (typeof window.showNotification === 'function') {
+                window.showNotification(message, type);
+                return;
+            }
+        } catch (_) {
+            // ignore
+        }
+        console.log(`[AuditLog][${type}]`, message);
+    }
+
     formatTimestamp(timestamp) {
         if (!timestamp) return '<span class="timestamp">N/A</span>';
 
@@ -306,42 +431,48 @@ class AuditLogManager {
     }
 
     renderPagination() {
-        const pagination = document.querySelector('.pagination');
-        if (!pagination) return;
+        const container = document.getElementById('pagination-container');
+        const buttons = document.getElementById('pagination-buttons');
+        const info = document.getElementById('pagination-info');
 
-        const { currentPage, totalPages } = this.state;
+        if (!container || !buttons || !info) return;
 
-        let html = `
-            <button class="pagination-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="auditLogManager.changePage(${currentPage - 1})">
-                <i class="icon icon--chevron-left"></i>
-            </button>
-        `;
+        const { currentPage, totalPages, perPage, totalRecords } = this.state;
 
-        // Page numbers (simple: show current +/- 2)
-        const start = Math.max(1, currentPage - 2);
-        const end = Math.min(totalPages, currentPage + 2);
-
-        for (let i = start; i <= end; i++) {
-            html += `
-                <button class="pagination-btn ${i === currentPage ? 'active' : ''}"
-                        onclick="auditLogManager.changePage(${i})">
-                    ${i}
-                </button>
-            `;
+        if (!totalPages || totalPages <= 1) {
+            container.style.display = 'none';
+            buttons.innerHTML = '';
+            info.textContent = '';
+            return;
         }
 
+        container.style.display = 'flex';
+
+        const startIdx = ((currentPage - 1) * perPage) + 1;
+        const endIdx = Math.min(totalRecords, currentPage * perPage);
+        info.textContent = `Mostrando ${startIdx}-${endIdx} di ${totalRecords} risultati`;
+
+        let html = '';
+        html += `<button class="pagination-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="auditLogManager.changePage(${currentPage - 1})">←</button>`;
+
+        // show current +/- 2
+        const start = Math.max(1, currentPage - 2);
+        const end = Math.min(totalPages, currentPage + 2);
+        if (start > 1) {
+            html += `<button class="pagination-btn" onclick="auditLogManager.changePage(1)">1</button>`;
+            if (start > 2) html += `<span style="padding:0 6px; color:#6B7280;">...</span>`;
+        }
+        for (let i = start; i <= end; i++) {
+            html += `<button class="pagination-btn ${i === currentPage ? 'active' : ''}" onclick="auditLogManager.changePage(${i})">${i}</button>`;
+        }
         if (end < totalPages) {
-            html += `<span style="color: var(--color-gray-500)">...</span>`;
+            if (end < totalPages - 1) html += `<span style="padding:0 6px; color:#6B7280;">...</span>`;
             html += `<button class="pagination-btn" onclick="auditLogManager.changePage(${totalPages})">${totalPages}</button>`;
         }
 
-        html += `
-            <button class="pagination-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="auditLogManager.changePage(${currentPage + 1})">
-                <i class="icon icon--chevron-right"></i>
-            </button>
-        `;
+        html += `<button class="pagination-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="auditLogManager.changePage(${currentPage + 1})">→</button>`;
 
-        pagination.innerHTML = html;
+        buttons.innerHTML = html;
     }
 
     changePage(page) {
@@ -388,84 +519,273 @@ class AuditLogManager {
             return;
         }
 
-        // Parse JSON fields
-        let oldValues = 'N/A';
-        let newValues = 'N/A';
-        let metadata = 'N/A';
-
-        try {
-            if (log.old_values) {
-                const parsed = typeof log.old_values === 'string' ? JSON.parse(log.old_values) : log.old_values;
-                oldValues = `<pre>${JSON.stringify(parsed, null, 2)}</pre>`;
+        const renderJsonBox = (value) => {
+            const empty = `<div class="json-view">N/A</div>`;
+            if (!value) return empty;
+            try {
+                const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+                const pretty = JSON.stringify(parsed, null, 2);
+                return `<pre class="json-view">${this.escapeHtml(pretty)}</pre>`;
+            } catch (_) {
+                return `<div class="json-view">${this.escapeHtml(String(value))}</div>`;
             }
-        } catch (e) {
-            oldValues = this.escapeHtml(log.old_values || 'N/A');
+        };
+
+        const mask = (s, start = 6, end = 4) => {
+            const str = (s ?? '').toString();
+            if (!str) return 'N/A';
+            if (str.length <= start + end + 3) return str;
+            return `${str.slice(0, start)}…${str.slice(-end)}`;
+        };
+
+        const entityType = this.escapeHtml(log.entity_type || 'N/A');
+        const rawEntityId = (log.entity_id === null || log.entity_id === undefined) ? '' : String(log.entity_id);
+        const hasEntityId = rawEntityId !== '' && rawEntityId.toLowerCase() !== 'null' && rawEntityId.toLowerCase() !== 'undefined';
+        const entityText = hasEntityId ? `${entityType} #${this.escapeHtml(rawEntityId)}` : entityType;
+        const entityCtx = log.entity_context ? renderJsonBox(log.entity_context) : `<div class="json-view">N/A</div>`;
+
+        const integrity = log.integrity || {};
+        const integrityVerification = integrity.verification || {};
+        const integrityStatus = integrityVerification.status || 'key_unconfigured';
+        let integrityBadge = `<span class="integrity-badge integrity-na">Chiave non configurata</span>`;
+        if (integrityStatus === 'ok') {
+            integrityBadge = `<span class="integrity-badge integrity-ok">OK</span>`;
+        } else if (integrityStatus === 'fail') {
+            integrityBadge = `<span class="integrity-badge integrity-fail">FAIL</span>`;
+        } else if (integrityStatus === 'key_unknown') {
+            integrityBadge = `<span class="integrity-badge integrity-na">Chiave non disponibile</span>`;
+        } else if (integrityStatus === 'unsigned') {
+            integrityBadge = `<span class="integrity-badge integrity-na">Non firmato</span>`;
+        } else if (integrityStatus === 'key_unconfigured') {
+            integrityBadge = `<span class="integrity-badge integrity-na">Chiave non configurata</span>`;
         }
 
-        try {
-            if (log.new_values) {
-                const parsed = typeof log.new_values === 'string' ? JSON.parse(log.new_values) : log.new_values;
-                newValues = `<pre>${JSON.stringify(parsed, null, 2)}</pre>`;
-            }
-        } catch (e) {
-            newValues = this.escapeHtml(log.new_values || 'N/A');
-        }
+        const requestDataMaskedBox = log.request_data ? `<div class="json-view">[Nascosto]</div>` : `<div class="json-view">N/A</div>`;
+        const requestDataFullBox = renderJsonBox(log.request_data_raw || log.request_data);
 
-        try {
-            if (log.metadata) {
-                const parsed = typeof log.metadata === 'string' ? JSON.parse(log.metadata) : log.metadata;
-                metadata = `<pre>${JSON.stringify(parsed, null, 2)}</pre>`;
-            }
-        } catch (e) {
-            metadata = this.escapeHtml(log.metadata || 'N/A');
-        }
+        const payloadForExport = {
+            log: log,
+            exported_at: new Date().toISOString(),
+            exported_by: 'audit_log.php'
+        };
 
         content.innerHTML = `
-            <div style="display: grid; gap: 16px;">
-                <div>
-                    <strong>ID:</strong> ${log.id}
+            <div class="audit-detail-toolbar">
+                <button type="button" class="btn btn-secondary btn-sm" data-audit-copy="json">Copia JSON</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-audit-copy="hash">Copia hash</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-audit-download="json">Scarica JSON</button>
+            </div>
+
+            <div class="audit-detail-grid">
+                <div class="audit-section">
+                    <div class="audit-section-title">Identificazione</div>
+                    <dl class="audit-kv">
+                        <dt>ID log</dt><dd>${this.escapeHtml(String(log.id || 'N/A'))}</dd>
+                        <dt>Data/Ora</dt><dd>${this.formatTimestamp(log.created_at)}</dd>
+                        <dt>Tenant</dt><dd>${this.escapeHtml(String(log.tenant_name || log.tenant_denominazione || log.tenant_id || 'N/A'))}</dd>
+                        <dt>Tenant ID</dt><dd>${this.escapeHtml(String(log.tenant_id ?? 'N/A'))}</dd>
+                    </dl>
                 </div>
-                <div>
-                    <strong>Data/Ora:</strong> ${this.formatTimestamp(log.created_at)}
+
+                <div class="audit-section">
+                    <div class="audit-section-title">Attore</div>
+                    <dl class="audit-kv">
+                        <dt>Utente</dt><dd>${this.escapeHtml(log.user_name || 'Sistema')}</dd>
+                        <dt>User ID</dt><dd>${this.escapeHtml(String(log.user_id ?? 'N/A'))}</dd>
+                        <dt>Email</dt><dd>${this.escapeHtml(log.user_email || 'N/A')}</dd>
+                        <dt>Ruolo</dt><dd>${this.escapeHtml(log.user_role || 'N/A')}</dd>
+                    </dl>
                 </div>
-                <div>
-                    <strong>Utente:</strong> ${this.escapeHtml(log.user_name || 'Sistema')}
+
+                <div class="audit-section">
+                    <div class="audit-section-title">Evento</div>
+                    <dl class="audit-kv">
+                        <dt>Azione</dt><dd>${this.renderActionBadge(log.action)}</dd>
+                        <dt>Severità</dt><dd>${this.renderSeverityBadge(log.severity)}</dd>
+                        <dt>Esito</dt><dd><span class="audit-pill">${this.escapeHtml(String(log.status || 'N/A'))}</span></dd>
+                        <dt>Descrizione</dt><dd><span class="audit-detail-wrap">${this.escapeHtml(log.description || 'N/A')}</span></dd>
+                    </dl>
                 </div>
-                <div>
-                    <strong>Azione:</strong> ${this.renderActionBadge(log.action)}
-                </div>
-                <div>
-                    <strong>Entità:</strong> ${this.escapeHtml(log.entity_type)} #${log.entity_id}
-                </div>
-                <div>
-                    <strong>Descrizione:</strong> ${this.escapeHtml(log.description || 'N/A')}
-                </div>
-                <div>
-                    <strong>IP Address:</strong> ${this.escapeHtml(log.ip_address || 'N/A')}
-                </div>
-                <div>
-                    <strong>Severità:</strong> ${this.renderSeverityBadge(log.severity)}
-                </div>
-                <div>
-                    <strong>Valori Precedenti:</strong>
-                    <div style="background: #f9fafb; padding: 12px; border-radius: 4px; margin-top: 8px;">
-                        ${oldValues}
+
+                <div class="audit-section">
+                    <div class="audit-section-title">Target</div>
+                    <dl class="audit-kv">
+                        <dt>Entità</dt><dd>${entityText}</dd>
+                    </dl>
+                    <div class="audit-subblock">
+                        <div class="audit-subtitle">Contesto Entità</div>
+                        ${entityCtx}
                     </div>
                 </div>
-                <div>
-                    <strong>Nuovi Valori:</strong>
-                    <div style="background: #f9fafb; padding: 12px; border-radius: 4px; margin-top: 8px;">
-                        ${newValues}
+
+                <div class="audit-section">
+                    <div class="audit-section-title">Richiesta / Contesto</div>
+                    <dl class="audit-kv">
+                        <dt>IP</dt><dd>${this.escapeHtml(log.ip_address || 'N/A')}</dd>
+                        <dt>User-Agent</dt>
+                        <dd>
+                            <span class="audit-masked is-masked" data-audit-masked data-masked="true"
+                                  data-full="${this.escapeHtml(String(log.user_agent || ''))}"
+                                  data-masked-value="${this.escapeHtml(mask(log.user_agent, 18, 10))}">${this.escapeHtml(mask(log.user_agent, 18, 10))}</span>
+                            <button type="button" class="audit-toggle" data-audit-toggle>Mostra</button>
+                        </dd>
+                        <dt>Session ID</dt>
+                        <dd>
+                            <span class="audit-masked is-masked" data-audit-masked data-masked="true"
+                                  data-full="${this.escapeHtml(String(log.session_id || ''))}"
+                                  data-masked-value="${this.escapeHtml(mask(log.session_id, 10, 6))}">${this.escapeHtml(mask(log.session_id, 10, 6))}</span>
+                            <button type="button" class="audit-toggle" data-audit-toggle>Mostra</button>
+                        </dd>
+                        <dt>Metodo</dt><dd>${this.escapeHtml(log.request_method || 'N/A')}</dd>
+                        <dt>URL</dt><dd><span class="audit-detail-wrap">${this.escapeHtml(log.request_url || 'N/A')}</span></dd>
+                        <dt>HTTP</dt><dd>${this.escapeHtml(String(log.response_code ?? 'N/A'))}</dd>
+                    </dl>
+
+                    <div class="audit-subblock">
+                        <div class="audit-subtitle">
+                            Request data
+                            <button type="button" class="audit-toggle" data-audit-toggle-json>Mostra</button>
+                        </div>
+                        <div class="audit-json-toggle" data-audit-json-toggle>
+                            <div class="audit-json-masked">${requestDataMaskedBox}</div>
+                            <div class="audit-json-full" hidden>${requestDataFullBox}</div>
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <strong>Metadata:</strong>
-                    <div style="background: #f9fafb; padding: 12px; border-radius: 4px; margin-top: 8px;">
-                        ${metadata}
+
+                <div class="audit-section">
+                    <div class="audit-section-title">Performance</div>
+                    <dl class="audit-kv">
+                        <dt>Execution time</dt><dd>${this.escapeHtml(String(log.execution_time_ms ?? 'N/A'))} ms</dd>
+                        <dt>Memory</dt><dd>${this.escapeHtml(String(log.memory_usage_kb ?? 'N/A'))} KB</dd>
+                    </dl>
+                </div>
+
+                <div class="audit-section">
+                    <div class="audit-section-title">Integrità (anti-manomissione)</div>
+                    <dl class="audit-kv">
+                        <dt>Verifica</dt><dd>${integrityBadge}</dd>
+                        <dt>Algoritmo</dt><dd>${this.escapeHtml(String(integrity.algo || 'N/A'))}</dd>
+                        <dt>Key ID</dt><dd>${this.escapeHtml(String(integrity.key_id || 'N/A'))}</dd>
+                        <dt>Hash</dt><dd><span class="audit-detail-wrap">${this.escapeHtml(String(integrity.hash || 'N/A'))}</span></dd>
+                        <dt>Prev-hash</dt><dd><span class="audit-detail-wrap">${this.escapeHtml(String(integrity.prev_hash || 'N/A'))}</span></dd>
+                        <dt>Firmato il</dt><dd>${this.escapeHtml(String(integrity.signed_at || 'N/A'))}</dd>
+                    </dl>
+                    ${Array.isArray(integrityVerification.errors) && integrityVerification.errors.length
+                        ? (() => {
+                            const map = {
+                                integrity_key_unconfigured: 'Chiave HMAC non configurata',
+                                integrity_key_unknown: 'Chiave di firma non disponibile (rotazione/ambiente diverso)',
+                                integrity_hash_missing: 'Record non firmato',
+                                integrity_hash_mismatch: 'Hash non corrisponde (possibile manomissione)',
+                                integrity_prev_hash_mismatch: 'Catena non coerente (prev-hash)',
+                                invalid_row_identity: 'Record incompleto (tenant/id)',
+                                verify_exception: 'Errore interno di verifica'
+                            };
+                            const human = integrityVerification.errors.map(e => map[e] || e);
+                            return `<div class="audit-warning">Dettagli: ${this.escapeHtml(human.join('; '))}</div>`;
+                        })()
+                        : ''}
+                </div>
+
+                <div class="audit-section">
+                    <div class="audit-section-title">Dati (JSON)</div>
+                    <div class="audit-subblock">
+                        <div class="audit-subtitle">Valori precedenti</div>
+                        ${renderJsonBox(log.old_values)}
+                    </div>
+                    <div class="audit-subblock">
+                        <div class="audit-subtitle">Nuovi valori</div>
+                        ${renderJsonBox(log.new_values)}
+                    </div>
+                    <div class="audit-subblock">
+                        <div class="audit-subtitle">Metadata</div>
+                        ${renderJsonBox(log.metadata)}
                     </div>
                 </div>
             </div>
         `;
+
+        // Interactions (toggle/copy/download)
+        const safeCopy = async (text) => {
+            try {
+                await navigator.clipboard.writeText(text);
+                this.showToast('Copiato negli appunti', 'success');
+            } catch (_) {
+                // Fallback
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                try { document.execCommand('copy'); } catch (__) {}
+                document.body.removeChild(ta);
+                this.showToast('Copiato negli appunti', 'success');
+            }
+        };
+
+        content.querySelectorAll('[data-audit-toggle]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const span = btn.parentElement?.querySelector('[data-audit-masked]');
+                if (!span) return;
+                const isMasked = (span.getAttribute('data-masked') || 'true') === 'true';
+                if (isMasked) {
+                    span.textContent = span.getAttribute('data-full') || 'N/A';
+                    span.setAttribute('data-masked', 'false');
+                    span.classList.remove('is-masked');
+                    btn.textContent = 'Nascondi';
+                } else {
+                    span.textContent = span.getAttribute('data-masked-value') || 'N/A';
+                    span.setAttribute('data-masked', 'true');
+                    span.classList.add('is-masked');
+                    btn.textContent = 'Mostra';
+                }
+            });
+        });
+
+        const jsonToggleBtn = content.querySelector('[data-audit-toggle-json]');
+        const jsonToggleWrap = content.querySelector('[data-audit-json-toggle]');
+        if (jsonToggleBtn && jsonToggleWrap) {
+            jsonToggleBtn.addEventListener('click', () => {
+                const full = jsonToggleWrap.querySelector('.audit-json-full');
+                const maskedEl = jsonToggleWrap.querySelector('.audit-json-masked');
+                if (!full || !maskedEl) return;
+                const nowHidden = !full.hasAttribute('hidden');
+                if (nowHidden) {
+                    full.setAttribute('hidden', '');
+                    maskedEl.removeAttribute('hidden');
+                    jsonToggleBtn.textContent = 'Mostra';
+                } else {
+                    maskedEl.setAttribute('hidden', '');
+                    full.removeAttribute('hidden');
+                    jsonToggleBtn.textContent = 'Nascondi';
+                }
+            });
+        }
+
+        const copyJsonBtn = content.querySelector('[data-audit-copy=\"json\"]');
+        if (copyJsonBtn) {
+            copyJsonBtn.addEventListener('click', () => safeCopy(JSON.stringify(payloadForExport, null, 2)));
+        }
+
+        const copyHashBtn = content.querySelector('[data-audit-copy=\"hash\"]');
+        if (copyHashBtn) {
+            copyHashBtn.addEventListener('click', () => safeCopy(String(integrity.hash || '')));
+        }
+
+        const downloadBtn = content.querySelector('[data-audit-download=\"json\"]');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => {
+                const blob = new Blob([JSON.stringify(payloadForExport, null, 2)], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `audit_log_${log.id || 'detail'}.json`;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            });
+        }
 
         // BUG-048: Use .active class to trigger flexbox centering
         modal.classList.add('active');
@@ -568,30 +888,30 @@ class AuditLogManager {
     }
 
     attachEventListeners() {
-        // Filter button
-        const applyBtn = document.querySelector('.btn.btn--primary');
-        if (applyBtn && applyBtn.textContent.includes('Applica')) {
-            applyBtn.addEventListener('click', () => this.applyFilters());
-        }
-
-        // Reset button
-        const resetBtn = document.querySelector('.btn.btn--secondary');
-        if (resetBtn && resetBtn.textContent.includes('Reset')) {
-            resetBtn.addEventListener('click', () => this.resetFilters());
-        }
+        // The page uses inline onclick handlers (auditManager.applyFilters/resetFilters),
+        // so no need to bind buttons here. We keep this for future non-inline wiring.
     }
 
     applyFilters() {
-        // Get filter values
-        const dateFrom = document.querySelector('input[type="datetime-local"]')?.value;
-        const dateTo = document.querySelectorAll('input[type="datetime-local"]')[1]?.value;
+        const dateFromEl = document.getElementById('filter-date-from');
+        const dateToEl = document.getElementById('filter-date-to');
+        const userEl = document.getElementById('filter-user');
+        const actionEl = document.getElementById('filter-action');
+        const severityEl = document.getElementById('filter-severity');
 
-        this.state.filters.date_from = dateFrom || null;
-        this.state.filters.date_to = dateTo || null;
+        const dayFrom = dateFromEl ? (dateFromEl.value || '').trim() : '';
+        const dayTo = dateToEl ? (dateToEl.value || '').trim() : '';
 
-        // Reset to page 1
+        // Convert day range to datetime range (inclusive)
+        this.state.filters.date_from = dayFrom ? `${dayFrom} 00:00:00` : null;
+        this.state.filters.date_to = dayTo ? `${dayTo} 23:59:59` : null;
+
+        this.state.filters.user_id = (userEl && userEl.value) ? userEl.value : null;
+        this.state.filters.action = (actionEl && actionEl.value) ? actionEl.value : null;
+        this.state.filters.severity = (severityEl && severityEl.value) ? severityEl.value : null;
+
         this.state.currentPage = 1;
-
+        this.updateDayLabel();
         this.loadLogs();
     }
 
@@ -606,10 +926,74 @@ class AuditLogManager {
 
         this.state.currentPage = 1;
 
-        // Clear filter inputs
-        document.querySelectorAll('input[type="datetime-local"]').forEach(input => input.value = '');
-        document.querySelectorAll('select.form-control').forEach(select => select.selectedIndex = 0);
+        // Clear filter inputs (audit_log.php ids)
+        const dateFromEl = document.getElementById('filter-date-from');
+        const dateToEl = document.getElementById('filter-date-to');
+        const userEl = document.getElementById('filter-user');
+        const actionEl = document.getElementById('filter-action');
+        const severityEl = document.getElementById('filter-severity');
 
+        if (dateFromEl) dateFromEl.value = '';
+        if (dateToEl) dateToEl.value = '';
+        if (userEl) userEl.value = '';
+        if (actionEl) actionEl.value = '';
+        if (severityEl) severityEl.value = '';
+
+        // Back to all-time by default
+        this.updateDayLabel();
+        this.loadLogs();
+    }
+
+    // ===== Day paging helpers =====
+    ensureDefaultDayRange() {
+        const fromEl = document.getElementById('filter-date-from');
+        const toEl = document.getElementById('filter-date-to');
+        if (!fromEl || !toEl) return;
+        if (fromEl.value && toEl.value) return;
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const day = `${yyyy}-${mm}-${dd}`;
+        fromEl.value = day;
+        toEl.value = day;
+        this.state.filters.date_from = `${day} 00:00:00`;
+        this.state.filters.date_to = `${day} 23:59:59`;
+    }
+
+    updateDayLabel() {
+        const label = document.getElementById('audit-day-label');
+        const fromEl = document.getElementById('filter-date-from');
+        const toEl = document.getElementById('filter-date-to');
+        if (!label) return;
+        const f = fromEl ? fromEl.value : '';
+        const t = toEl ? toEl.value : '';
+        label.textContent = (f && t && f === t) ? f : ((f || t) ? `${f || '...'} → ${t || '...'}` : '-');
+    }
+
+    shiftDay(deltaDays) {
+        const fromEl = document.getElementById('filter-date-from');
+        const toEl = document.getElementById('filter-date-to');
+        if (!fromEl || !toEl) return;
+        // If no day is selected, start from today and then apply delta.
+        const day = (fromEl.value || toEl.value || '').trim();
+        if (!day) {
+            this.ensureDefaultDayRange();
+        }
+        const day2 = (fromEl.value || toEl.value || '').trim();
+        const d = new Date(`${day2}T00:00:00`);
+        if (Number.isNaN(d.getTime())) return;
+        d.setDate(d.getDate() + (parseInt(deltaDays, 10) || 0));
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const next = `${yyyy}-${mm}-${dd}`;
+        fromEl.value = next;
+        toEl.value = next;
+        this.state.filters.date_from = `${next} 00:00:00`;
+        this.state.filters.date_to = `${next} 23:59:59`;
+        this.state.currentPage = 1;
+        this.updateDayLabel();
         this.loadLogs();
     }
 
@@ -635,4 +1019,6 @@ class AuditLogManager {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[AuditLog] DOM ready, initializing manager...');
     window.auditLogManager = new AuditLogManager();
+    // Backward compatibility for inline onclick handlers in audit_log.php
+    try { window.auditManager = window.auditLogManager; } catch (_) {}
 });

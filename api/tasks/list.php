@@ -24,6 +24,49 @@ $userInfo = getApiUserInfo();
 $db = Database::getInstance();
 
 try {
+    // Tenant override (Company Filter) for privileged roles
+    // - Default: use session tenant_id
+    // - If tenant_id is passed explicitly AND current user is privileged, allow it after access check
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    $currentUserId = (int)($userInfo['user_id'] ?? 0);
+    $currentUserRole = (string)($userInfo['role'] ?? 'user');
+
+    $requestedTenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : 0;
+    $effectiveTenantId = (int)($userInfo['tenant_id'] ?? 0);
+
+    if ($requestedTenantId > 0 && in_array($currentUserRole, ['manager', 'admin', 'super_admin'], true)) {
+        if ($currentUserRole === 'super_admin') {
+            $effectiveTenantId = $requestedTenantId;
+        } else {
+            // admin/manager: must have access via user_tenant_access or primary tenant_id
+            $hasAccess = ($effectiveTenantId > 0 && $effectiveTenantId === $requestedTenantId);
+            if (!$hasAccess && $currentUserId > 0) {
+                $utaHasDeletedAt = $db->fetchOne(
+                    "SELECT 1 FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE()
+                       AND TABLE_NAME = 'user_tenant_access'
+                       AND COLUMN_NAME = 'deleted_at'
+                     LIMIT 1"
+                );
+                $utaWhere = $utaHasDeletedAt ? " AND deleted_at IS NULL" : "";
+                $uta = $db->fetchOne(
+                    "SELECT 1
+                     FROM user_tenant_access
+                     WHERE user_id = ? AND tenant_id = ?" . $utaWhere . "
+                     LIMIT 1",
+                    [$currentUserId, $requestedTenantId]
+                );
+                $hasAccess = (bool)$uta;
+            }
+            if (!$hasAccess) {
+                api_error('Accesso negato al tenant richiesto', 403);
+            }
+            $effectiveTenantId = $requestedTenantId;
+        }
+    }
+
     // Get query parameters
     $status = $_GET['status'] ?? null;
     $priority = $_GET['priority'] ?? null;
@@ -50,7 +93,7 @@ try {
 
     // Build WHERE clause with tenant isolation
     $where = ['t.tenant_id = ?', 't.deleted_at IS NULL'];
-    $params = [$userInfo['tenant_id']];
+    $params = [$effectiveTenantId];
 
     // Apply filters
     if ($status) {

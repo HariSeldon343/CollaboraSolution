@@ -13,12 +13,14 @@ class FileAssignmentManager {
             assignApi: '/CollaboraNexio/api/files/assign.php',
             assignmentsApi: '/CollaboraNexio/api/files/assignments.php',
             checkAccessApi: '/CollaboraNexio/api/files/check-access.php',
-            usersApi: '/CollaboraNexio/api/users/list.php'
+            usersApi: '/CollaboraNexio/api/users/list.php',
+            tenantRolesApi: '/CollaboraNexio/api/tenant-roles/list.php'
         };
 
         this.state = {
             assignments: new Map(),
             users: [],
+            tenantRoles: [],
             userAccess: new Map(),
             currentFileId: null,
             currentFolderId: null
@@ -44,7 +46,7 @@ class FileAssignmentManager {
         // Load users for dropdown
         await this.loadUsers();
 
-        // Create assignment modal
+        // Create assignment modal (only if page doesn't already provide one)
         this.createAssignmentModal();
 
         // Create assignments list modal
@@ -85,13 +87,80 @@ class FileAssignmentManager {
     }
 
     /**
+     * Load tenant business roles (tenant_roles) for group assignment
+     */
+    async loadTenantRoles(tenantId = null) {
+        try {
+            const getSelectedTenantIdFromCompanyFilter = () => {
+                const form = document.getElementById('companyFilterForm');
+                if (!form) return '';
+                const checked = Array.from(form.querySelectorAll('input[name="company_filter[]"]:checked'))
+                    .map(el => String(el.value || '').trim())
+                    .filter(Boolean);
+
+                // If "all" is checked (or nothing selected), we don't have a single tenant context.
+                const tenantIds = checked.filter(v => v !== 'all');
+                if (tenantIds.length !== 1) return '';
+                return tenantIds[0];
+            };
+
+            // Resolve tenant id:
+            // 1) explicit param
+            // 2) Company filter (checkbox-driven; must be exactly 1 tenant selected)
+            // 3) hidden currentTenantId (manager/user)
+            const companyTenantId = getSelectedTenantIdFromCompanyFilter();
+
+            const userRole = (window.userRole || document.getElementById('userRole')?.value || '').toString();
+            const isPrivilegedMultiTenantUser = (userRole === 'super_admin' || userRole === 'admin');
+
+            const resolvedTenantId = tenantId
+                || companyTenantId
+                // IMPORTANT: for super_admin/admin we require an explicit company filter selection,
+                // otherwise we might use an unrelated fallback tenant_id (and show empty roles).
+                || (isPrivilegedMultiTenantUser ? '' : (document.getElementById('currentTenantId')?.value || ''))
+                || document.getElementById('currentTenant')?.value
+                || '';
+
+            if (!resolvedTenantId) {
+                this.state.tenantRoles = [];
+                return [];
+            }
+
+            const response = await fetch(`${this.config.tenantRolesApi}?tenant_id=${encodeURIComponent(resolvedTenantId)}`, {
+                method: 'GET',
+                headers: {
+                    'X-CSRF-Token': this.getCsrfToken()
+                },
+                credentials: 'same-origin'
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                this.state.tenantRoles = data.data?.roles || [];
+                return this.state.tenantRoles;
+            }
+
+            this.state.tenantRoles = [];
+            return [];
+        } catch (error) {
+            console.warn('[FileAssignment] Failed to load tenant roles:', error);
+            this.state.tenantRoles = [];
+            return [];
+        }
+    }
+
+    /**
      * Load all assignments for current folder/file
      */
     async loadAssignments(fileId = null, folderId = null) {
         try {
             const params = new URLSearchParams();
-            if (fileId) params.append('file_id', fileId);
-            if (folderId) params.append('folder_id', folderId);
+            // Folders are stored in `files` too; assignments API filters by file_id only.
+            if (fileId) {
+                params.append('file_id', fileId);
+            } else if (folderId) {
+                params.append('file_id', folderId);
+            }
 
             const response = await fetch(`${this.config.assignmentsApi}?${params}`, {
                 method: 'GET',
@@ -108,7 +177,8 @@ class FileAssignmentManager {
 
                 // Store assignments by file/folder ID
                 assignments.forEach(assignment => {
-                    const key = assignment.file_id || `folder-${assignment.folder_id}`;
+                    // Folders are stored in files table; assignment key is always file_id
+                    const key = assignment.file_id;
                     if (!this.state.assignments.has(key)) {
                         this.state.assignments.set(key, []);
                     }
@@ -120,6 +190,58 @@ class FileAssignmentManager {
             }
         } catch (error) {
             console.error('[FileAssignment] Failed to load assignments:', error);
+        }
+    }
+
+    /**
+     * Get a human-readable assignment summary for a file/folder (entityId).
+     * NOTE: for regular users, the assignments API returns only their own rows, so this may be empty even if assigned to others.
+     */
+    async getActiveAssignmentSummary(fileId = null, folderId = null) {
+        try {
+            const entityId = fileId || folderId;
+            if (!entityId) {
+                return { hasAssignment: false, text: 'Non assegnato', assignment: null };
+            }
+
+            const params = new URLSearchParams();
+            params.append('file_id', String(entityId)); // folders are stored in files table too
+            params.append('per_page', '10');
+
+            const response = await fetch(`${this.config.assignmentsApi}?${params}`, {
+                method: 'GET',
+                headers: { 'X-CSRF-Token': this.getCsrfToken() },
+                credentials: 'same-origin'
+            });
+
+            const data = await response.json();
+            if (!data || !data.success) {
+                return { hasAssignment: false, text: 'Non assegnato', assignment: null };
+            }
+
+            const assignments = data.data?.assignments || [];
+            if (!Array.isArray(assignments) || assignments.length === 0) {
+                return { hasAssignment: false, text: 'Non assegnato', assignment: null };
+            }
+
+            // Prefer first row (API is sorted by expiring_soon/is_expired/created_at)
+            const a = assignments[0];
+            const type = a.assigned_to_type || (a.assigned_to && a.assigned_to.tenant_role_id ? 'tenant_role' : 'user');
+
+            let label = '';
+            if (type === 'tenant_role') {
+                const roleName = a.assigned_to?.name || a.assigned_to_role_name || a.assigned_user_name || 'Ruolo Aziendale';
+                label = `Ruolo: ${roleName}`;
+            } else {
+                const userName = a.assigned_to?.name || a.assigned_to_name || a.assigned_user_name || 'Utente';
+                label = `Utente: ${userName}`;
+            }
+
+            const suffix = assignments.length > 1 ? ` (+${assignments.length - 1})` : '';
+            return { hasAssignment: true, text: `${label}${suffix}`, assignment: a };
+        } catch (error) {
+            console.warn('[FileAssignment] Failed to get assignment summary:', error);
+            return { hasAssignment: false, text: 'Non assegnato', assignment: null };
         }
     }
 
@@ -159,6 +281,11 @@ class FileAssignmentManager {
      * Create assignment modal
      */
     createAssignmentModal() {
+        // files.php already provides an assignment modal. If present, reuse it.
+        if (document.getElementById('assignmentModal') && document.getElementById('assignToUser')) {
+            return;
+        }
+
         const modalHtml = `
             <div id="assignmentModal" class="modal" style="display: none;">
                 <div class="modal-overlay"></div>
@@ -172,11 +299,24 @@ class FileAssignmentManager {
                     <div class="modal-body">
                         <form id="assignmentForm">
                             <div class="form-group">
+                                <label for="assignmentTargetType">Tipo Assegnazione *</label>
+                                <select id="assignmentTargetType" class="form-control">
+                                    <option value="user" selected>Utente</option>
+                                    <option value="tenant_role">Ruolo Aziendale (gruppo)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
                                 <label for="assignUser">Utente *</label>
                                 <select id="assignUser" class="form-control" required>
                                     <option value="">Seleziona utente...</option>
                                 </select>
                                 <small class="form-text text-muted">Seleziona l'utente a cui assegnare l'accesso</small>
+                            </div>
+                            <div class="form-group" id="assignToTenantRoleGroup" style="display:none;">
+                                <label for="assignToTenantRole">Ruolo Aziendale *</label>
+                                <select id="assignToTenantRole" class="form-control">
+                                    <option value="">-- Seleziona ruolo aziendale --</option>
+                                </select>
                             </div>
 
                             <div class="form-group">
@@ -315,9 +455,13 @@ class FileAssignmentManager {
             modalTitle.textContent = `Assegna ${type}: ${fileName}`;
         }
 
-        // Populate users dropdown
-        const userSelect = document.getElementById('assignToUser');
+        // Populate dropdowns
+        const userSelect = document.getElementById('assignToUser') || document.getElementById('assignUser');
+        const targetTypeSelect = document.getElementById('assignmentTargetType');
+        const roleGroup = document.getElementById('assignToTenantRoleGroup');
+        const roleSelect = document.getElementById('assignToTenantRole');
         if (userSelect && this.state.users.length > 0) {
+            // Keep consistent placeholder between the two modal versions
             userSelect.innerHTML = '<option value="">-- Seleziona utente --</option>';
 
             // Get current user ID to exclude from list
@@ -334,9 +478,59 @@ class FileAssignmentManager {
             });
         }
 
+        // Populate tenant roles dropdown (if present)
+        if (roleSelect) {
+            // Best-effort: load roles lazily when opening modal (so tenant filter is already set)
+            this.loadTenantRoles().then((roles) => {
+                roleSelect.innerHTML = '<option value="">-- Seleziona ruolo aziendale --</option>';
+                (roles || []).forEach(r => {
+                    const opt = document.createElement('option');
+                    opt.value = r.id;
+                    opt.textContent = `${r.name}${r.code ? ` (${r.code})` : ''}`;
+                    if (r.color) {
+                        opt.style.backgroundColor = `${r.color}20`;
+                    }
+                    roleSelect.appendChild(opt);
+                });
+
+                // If no roles loaded, give a more explicit UX
+                if (!roles || roles.length === 0) {
+                    const userRole = (window.userRole || document.getElementById('userRole')?.value || '').toString();
+                    const isPrivilegedMultiTenantUser = (userRole === 'super_admin' || userRole === 'admin');
+                    const hasTenantContext = !isPrivilegedMultiTenantUser && !!document.getElementById('currentTenantId')?.value;
+                    roleSelect.innerHTML = hasTenantContext
+                        ? '<option value="">(Nessun ruolo aziendale disponibile)</option>'
+                        : '<option value="">(Seleziona prima un’azienda dal filtro in alto)</option>';
+                }
+            });
+        }
+
+        // Toggle UI between user vs tenant_role targets
+        const applyTargetType = () => {
+            const t = targetTypeSelect?.value || 'user';
+            const userGroup = userSelect ? userSelect.closest('.form-group') : null;
+            if (t === 'tenant_role') {
+                if (userGroup) userGroup.style.display = 'none';
+                if (roleGroup) roleGroup.style.display = 'block';
+            } else {
+                if (userGroup) userGroup.style.display = 'block';
+                if (roleGroup) roleGroup.style.display = 'none';
+            }
+        };
+        if (targetTypeSelect) {
+            targetTypeSelect.onchange = applyTargetType;
+            applyTargetType();
+        }
+
         // Reset form
         document.getElementById('assignmentForm')?.reset();
-        document.getElementById('reasonCharCount').textContent = '0';
+        const legacyCharCount = document.getElementById('reasonCharCount');
+        if (legacyCharCount) legacyCharCount.textContent = '0';
+        // files.php modal fields
+        const reasonEl = document.getElementById('assignmentReason');
+        if (reasonEl) reasonEl.value = '';
+        const expEl = document.getElementById('assignmentExpires');
+        if (expEl) expEl.value = '';
 
         // Show modal
         document.getElementById('assignmentModal').style.display = 'block';
@@ -353,43 +547,85 @@ class FileAssignmentManager {
      * Create new assignment
      */
     async createAssignment() {
-        const userId = document.getElementById('assignUser')?.value;
-        const reason = document.getElementById('assignReason')?.value;
-        const expiration = document.getElementById('assignExpiration')?.value;
+        // Support both modal variants:
+        // - files.php built-in modal: assignToUser / assignmentReason / assignmentExpires
+        // - legacy injected modal: assignUser / assignReason / assignExpiration
+        const targetType = document.getElementById('assignmentTargetType')?.value || 'user';
+        const userId = (document.getElementById('assignToUser') || document.getElementById('assignUser'))?.value;
+        const tenantRoleId = document.getElementById('assignToTenantRole')?.value;
+        const reason = (document.getElementById('assignmentReason') || document.getElementById('assignReason'))?.value;
+        const expiration = (document.getElementById('assignmentExpires') || document.getElementById('assignExpiration'))?.value;
 
-        if (!userId) {
-            this.showToast('Seleziona un utente', 'error');
-            return;
+        if (targetType === 'tenant_role') {
+            if (!tenantRoleId) {
+                this.showToast('Seleziona un ruolo aziendale', 'error');
+                return;
+            }
+        } else {
+            if (!userId) {
+                this.showToast('Seleziona un utente', 'error');
+                return;
+            }
         }
 
         try {
             const body = {
-                action: 'create',
-                user_id: parseInt(userId),
-                reason: reason || null,
+                assignment_reason: reason || null,
                 expires_at: expiration || null
             };
 
-            if (this.state.currentFileId) {
-                body.file_id = this.state.currentFileId;
-            } else if (this.state.currentFolderId) {
-                body.folder_id = this.state.currentFolderId;
+            // In this codebase folders are files with is_folder=1, so always use file_id
+            const entityId = this.state.currentFileId || this.state.currentFolderId;
+            body.file_id = entityId ? parseInt(entityId, 10) : null;
+
+            if (targetType === 'tenant_role') {
+                body.assigned_to_tenant_role_id = parseInt(tenantRoleId, 10);
+            } else {
+                body.assigned_to_user_id = parseInt(userId, 10);
             }
 
-            const response = await fetch(this.config.assignApi, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': this.getCsrfToken()
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify(body)
-            });
+            const doRequest = async (payload) => {
+                const res = await fetch(this.config.assignApi, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': this.getCsrfToken()
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+                return { res, json };
+            };
 
-            const data = await response.json();
+            // First attempt
+            let didForceReassign = false;
+            let { res: response, json: data } = await doRequest(body);
 
-            if (data.success) {
-                this.showToast('Assegnazione creata con successo', 'success');
+            // Duplicate assignment => offer reassignment
+            if (response.status === 409 && data && data.success === false && data.data && data.data.can_reassign && !body.force_reassign) {
+                const existingId = data.data.existing_assignment?.id || null;
+                const existingLabel = data.data.existing_assignment?.target_label || 'destinatario';
+                const isOk = confirm(
+                    `Questo elemento è già assegnato a ${existingLabel}${existingId ? ` (ID assegnazione: ${existingId})` : ''}.\n\n` +
+                    `Vuoi riassegnarlo?\n` +
+                    `Attenzione: la riassegnazione rimuove i privilegi di apertura a tutti gli altri utenti/ruoli aziendali.`
+                );
+
+                if (!isOk) {
+                    this.showToast('Assegnazione già presente. Nessuna modifica effettuata.', 'info');
+                    return;
+                }
+
+                // Retry with force_reassign
+                const forcedBody = { ...body, force_reassign: true };
+                didForceReassign = true;
+                ({ res: response, json: data } = await doRequest(forcedBody));
+            }
+
+            if (data && data.success) {
+                const msg = didForceReassign ? 'Riassegnazione completata con successo' : 'Assegnazione creata con successo';
+                this.showToast(msg, 'success');
                 this.closeAssignmentModal();
 
                 // Reload assignments
@@ -398,7 +634,7 @@ class FileAssignmentManager {
                 // Update file manager UI
                 this.updateAssignmentIndicators();
             } else {
-                throw new Error(data.error || 'Errore durante l\'assegnazione');
+                throw new Error(data?.error || 'Errore durante l\'assegnazione');
             }
         } catch (error) {
             console.error('[FileAssignment] Failed to create assignment:', error);
@@ -419,8 +655,11 @@ class FileAssignmentManager {
 
         // Load assignments for this file/folder
         const params = new URLSearchParams();
-        if (fileId) params.append('file_id', fileId);
-        if (folderId) params.append('folder_id', folderId);
+        if (fileId) {
+            params.append('file_id', fileId);
+        } else if (folderId) {
+            params.append('file_id', folderId);
+        }
 
         try {
             const response = await fetch(`${this.config.assignmentsApi}?${params}`, {
@@ -487,11 +726,15 @@ class FileAssignmentManager {
 
             const canRevokeThis = canRevoke || assignment.created_by == currentUserId;
 
+            const badge = assignment.assigned_target_badge || '👤';
+            const badgeColor = assignment.assigned_target_color || '#6b7280';
             return `
                 <tr>
                     <td>
                         <div class="d-flex align-items-center">
-                            <span class="badge badge-user mr-2">👤</span>
+                            <span class="badge badge-user mr-2" style="background:${badgeColor}20;border:1px solid ${badgeColor}55;">
+                                ${badge}
+                            </span>
                             <div>
                                 <div>${assignment.assigned_user_name}</div>
                                 <small class="text-muted">${assignment.assigned_user_email}</small>

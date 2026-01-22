@@ -46,7 +46,8 @@ function cnx_resolve_knowledge_folder(Database $db, int $tenantId): array {
     $rootId = $root ? (int)($root['id'] ?? 0) : 0;
     if ($rootId <= 0) return ['ok' => false, 'error' => 'Cartella root tenant non trovata'];
 
-    foreach (['Knowledge', 'IMS'] as $name) {
+    // Prefer IMS for Consulting/Planning (fallback to Knowledge if IMS is missing).
+    foreach (['IMS', 'Knowledge'] as $name) {
         $row = $db->fetchOne(
             "SELECT id, name
              FROM files
@@ -70,6 +71,8 @@ try {
     $clientTenantId = (int)($payload['client_tenant_id'] ?? 0);
     if ($clientTenantId <= 0) api_error('client_tenant_id obbligatorio', 400);
     if (!cnx_consulting_is_client_allowed($db, $userInfo, $clientTenantId)) api_error('Accesso negato', 403);
+    $forceRaw = $payload['force'] ?? null;
+    $force = ($forceRaw === true || $forceRaw === 1 || $forceRaw === '1' || $forceRaw === 'true');
 
     // Storage check (schema drift safe)
     $hasKnowledge = cnx_has_table($db, 'ai_knowledge_sources')
@@ -136,6 +139,42 @@ try {
         if ($sourceId <= 0) api_error('Impossibile creare source knowledge', 500);
     }
 
+    // Throttle: if already indexed in the last 10 minutes, skip unless forced.
+    $freshnessSeconds = null;
+    if (!$force && $sourceId > 0) {
+        try {
+            $state = $db->fetchOne(
+                "SELECT last_indexed_at
+                 FROM ai_knowledge_index_state
+                 WHERE tenant_id = ? AND source_id = ?
+                 LIMIT 1",
+                [$clientTenantId, $sourceId]
+            );
+            $last = $state ? (string)($state['last_indexed_at'] ?? '') : '';
+            if ($last !== '') {
+                $ts = strtotime($last);
+                if ($ts !== false) {
+                    $freshnessSeconds = max(0, time() - (int)$ts);
+                    if ($freshnessSeconds <= 600) {
+                        api_success([
+                            'supported' => true,
+                            'status' => 'fresh_skip',
+                            'skipped' => true,
+                            'client_tenant_id' => $clientTenantId,
+                            'source_id' => $sourceId,
+                            'folder_id' => $folderId,
+                            'folder_name' => $folderName,
+                            'last_indexed_at' => $last,
+                            'freshness_seconds' => $freshnessSeconds,
+                        ]);
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            // ignore, continue
+        }
+    }
+
     // Run delta indexing with strict caps (fast/best-effort)
     $delta = cnx_ai_index_folder_delta($db, $clientTenantId, $sourceId, $folderId, [
         'max_indexed_files' => 14,
@@ -143,41 +182,45 @@ try {
         'max_seconds' => 7,
     ]);
 
-    // Update index state best-effort
-    try {
-        $state = $db->fetchOne(
-            "SELECT id
-             FROM ai_knowledge_index_state
-             WHERE tenant_id = ? AND source_id = ?
-             LIMIT 1",
-            [$clientTenantId, $sourceId]
-        );
-        $data = [
-            'tenant_id' => $clientTenantId,
-            'source_id' => $sourceId,
-            'last_indexed_at' => date('Y-m-d H:i:s'),
-            'last_file_count' => (int)($delta['scanned_files'] ?? 0),
-            'last_error' => null,
-            'updated_by' => ($actorUserId > 0 ? $actorUserId : null),
-            'updated_at' => date('Y-m-d H:i:s'),
-        ];
-        if ($state && !empty($state['id'])) {
-            $db->update('ai_knowledge_index_state', $data, ['id' => (int)$state['id']]);
-        } else {
-            $data['created_at'] = date('Y-m-d H:i:s');
-            $db->insert('ai_knowledge_index_state', $data);
+    $locked = !empty($delta['locked']);
+    if (!$locked) {
+        // Update index state best-effort
+        try {
+            $state = $db->fetchOne(
+                "SELECT id
+                 FROM ai_knowledge_index_state
+                 WHERE tenant_id = ? AND source_id = ?
+                 LIMIT 1",
+                [$clientTenantId, $sourceId]
+            );
+            $data = [
+                'tenant_id' => $clientTenantId,
+                'source_id' => $sourceId,
+                'last_indexed_at' => date('Y-m-d H:i:s'),
+                'last_file_count' => (int)($delta['scanned_files'] ?? 0),
+                'last_error' => null,
+                'updated_by' => ($actorUserId > 0 ? $actorUserId : null),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ];
+            if ($state && !empty($state['id'])) {
+                $db->update('ai_knowledge_index_state', $data, ['id' => (int)$state['id']]);
+            } else {
+                $data['created_at'] = date('Y-m-d H:i:s');
+                $db->insert('ai_knowledge_index_state', $data);
+            }
+        } catch (Throwable $e) {
+            // non-blocking
         }
-    } catch (Throwable $e) {
-        // non-blocking
     }
 
     api_success([
         'supported' => true,
-        'status' => 'started',
+        'status' => $locked ? 'locked' : 'started',
         'client_tenant_id' => $clientTenantId,
         'source_id' => $sourceId,
         'folder_id' => $folderId,
         'folder_name' => $folderName,
+        'force' => $force,
         'delta' => $delta,
     ]);
 } catch (Throwable $e) {

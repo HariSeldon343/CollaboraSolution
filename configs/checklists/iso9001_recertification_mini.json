@@ -1,0 +1,133 @@
+{
+  "template_key": "ISO9001_RECERTIFICATION_MINI",
+  "version": 1,
+  "title": "Checklist raccolta evidenze — ISO 9001 (Ricertificazione — Mini)",
+  "standards": ["ISO9001"],
+  "notes": "Checklist snella per ricertificazione: raccoglie evidenze chiave già esistenti (certificazione, audit interno, riesame, KPI, NC/correttive, controllo documenti). Nessun testo ISO/UNI: solo struttura e collegamenti file.",
+  "sections": [
+    {
+      "section_key": "CERT_STATUS",
+      "title": "Certificazione attuale / audit esterno",
+      "items": [
+        {
+          "item_key": "CERT_CURRENT",
+          "title": "Certificato ISO 9001 attuale (PDF/DOCX)",
+          "question_type": "file",
+          "required": true,
+          "description": "Carica/collega il certificato in corso di validità (se presente).",
+          "autofill_keywords": ["certificato", "certificate", "iso9001", "iso 9001"],
+          "linked_artifacts_hints": ["certification_status"]
+        },
+        {
+          "item_key": "CERT_SCOPE",
+          "title": "Campo di applicazione (scope) e sedi incluse",
+          "question_type": "text",
+          "required": true,
+          "description": "Descrivi sinteticamente lo scope e le sedi incluse (o collega documento).",
+          "autofill_keywords": ["scope", "campo applic", "perimetro", "sedi"],
+          "linked_artifacts_hints": ["context_scope"]
+        },
+        {
+          "item_key": "EXT_AUDIT_REPORTS",
+          "title": "Report audit esterno / sorveglianza / ricertificazione (se disponibili)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Collega report precedenti (stage 1/2, sorveglianza, NC).",
+          "autofill_keywords": ["audit esterno", "stage 1", "stage 2", "sorveglianza", "surveillance", "report audit", "nc", "non conform"],
+          "linked_artifacts_hints": ["external_audit_support", "nc_closure"]
+        }
+      ]
+    },
+    {
+      "section_key": "INTERNAL_AUDIT_REVIEW",
+      "title": "Audit interno & riesame",
+      "items": [
+        {
+          "item_key": "INT_AUDIT_PROGRAM",
+          "title": "Programma audit interno (periodo corrente)",
+          "question_type": "file",
+          "required": true,
+          "description": "Piano/programma audit interno con frequenze e processi coperti.",
+          "autofill_keywords": ["programma audit", "piano audit", "audit interno", "internal audit"],
+          "linked_artifacts_hints": ["internal_audit"]
+        },
+        {
+          "item_key": "INT_AUDIT_REPORTS",
+          "title": "Rapporti audit interno (ultimi 12-24 mesi)",
+          "question_type": "multi_file",
+          "required": true,
+          "description": "Collega uno o più rapporti/verifiche ispettive interne.",
+          "autofill_keywords": ["rapporto audit", "audit interno", "verifica ispettiva", "checklist audit"],
+          "linked_artifacts_hints": ["internal_audit"]
+        },
+        {
+          "item_key": "MGMT_REVIEW_MINUTES",
+          "title": "Verbali / output riesame della direzione",
+          "question_type": "multi_file",
+          "required": true,
+          "description": "Collega verbali/output del riesame della direzione (periodo corrente).",
+          "autofill_keywords": ["riesame", "management review", "riesame direzione", "verbale riesame"],
+          "linked_artifacts_hints": ["management_review"]
+        }
+      ]
+    },
+    {
+      "section_key": "PERFORMANCE_IMPROVEMENT",
+      "title": "Performance, KPI, NC / correttive",
+      "items": [
+        {
+          "item_key": "KPI_REPORTS",
+          "title": "KPI / indicatori / obiettivi (monitoraggio)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Report KPI, dashboard, indicatori, obiettivi e consuntivi.",
+          "autofill_keywords": ["kpi", "indicator", "obiettiv", "target", "monitor", "dashboard"],
+          "linked_artifacts_hints": ["monitoring"]
+        },
+        {
+          "item_key": "NC_LOG",
+          "title": "Registro non conformità / reclami (se presente)",
+          "question_type": "file",
+          "required": false,
+          "description": "Registro NC, reclami, segnalazioni (anche Excel).",
+          "autofill_keywords": ["non conform", "nc", "reclami", "complaints", "registro"],
+          "linked_artifacts_hints": ["nc_closure"]
+        },
+        {
+          "item_key": "CAPA_ACTIONS",
+          "title": "Azioni correttive / miglioramento (CAPA) — evidenze",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Evidenze di azioni correttive, piani di miglioramento, follow-up.",
+          "autofill_keywords": ["azione correttiva", "correttiva", "capa", "miglioramento", "follow up"],
+          "linked_artifacts_hints": ["nc_closure", "ongoing"]
+        }
+      ]
+    },
+    {
+      "section_key": "DOC_CONTROL",
+      "title": "Gestione e controllo documenti",
+      "items": [
+        {
+          "item_key": "DOC_CONTROL_PROCEDURE",
+          "title": "Procedura gestione documenti / versionamento",
+          "question_type": "file",
+          "required": true,
+          "description": "Procedura/istruzione per gestione documenti, versioni, approvazioni e distribuzione.",
+          "autofill_keywords": ["gestione document", "controllo document", "version", "rev", "document control"],
+          "linked_artifacts_hints": ["documentation"]
+        },
+        {
+          "item_key": "PROCEDURES_INDEX",
+          "title": "Elenco procedure/moduli/registri (indice o elenco aggiornato)",
+          "question_type": "file",
+          "required": false,
+          "description": "Indice documenti SGQ (procedure, moduli, registri) se disponibile.",
+          "autofill_keywords": ["indice", "elenco", "procedure", "moduli", "registri", "lista documenti"],
+          "linked_artifacts_hints": ["documentation"]
+        }
+      ]
+    }
+  ]
+}
+

@@ -31,8 +31,8 @@ header('Expires: 0');
 verifyApiAuthentication();  // IMMEDIATELY after init
 
 $userInfo = getApiUserInfo();
-$userId = $userInfo['user_id'];
-$userRole = $userInfo['role'];
+$userId = (int)($userInfo['user_id'] ?? $userInfo['id'] ?? 0);
+$userRole = (string)($userInfo['role'] ?? 'user');
 
 verifyApiCsrfToken();
 
@@ -58,16 +58,41 @@ if ($requestedTenantId !== null) {
     if ($userRole === 'super_admin') {
         $tenantId = $requestedTenantId;
     } else {
-        // Validate user has access to requested tenant
-        // BUG-088 FIX: Database already initialized above
+        $sessionTenantId = (int)($userInfo['tenant_id'] ?? 0);
+        $hasAccess = ($requestedTenantId === $sessionTenantId && $sessionTenantId > 0);
 
-        $accessCheck = $db->fetchOne(
-            "SELECT COUNT(*) as cnt FROM user_tenant_access
-             WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL",
-            [$userId, $requestedTenantId]
-        );
+        if (!$hasAccess) {
+            $userTenant = $db->fetchOne(
+                "SELECT 1 as ok
+                 FROM users
+                 WHERE id = ?
+                   AND tenant_id = ?
+                   AND (deleted_at IS NULL OR deleted_at = '')
+                 LIMIT 1",
+                [$userId, $requestedTenantId]
+            );
+            if ($userTenant) $hasAccess = true;
+        }
 
-        if ($accessCheck && $accessCheck['cnt'] > 0) {
+        if (!$hasAccess) {
+            $uta = $db->fetchOne(
+                "SELECT 1 as ok
+                 FROM user_tenant_access
+                 WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL
+                 LIMIT 1",
+                [$userId, $requestedTenantId]
+            );
+            if ($uta) $hasAccess = true;
+        }
+
+        // BUG-144 FIX: Removed user_companies table check (table does not exist)
+        // Access is already checked via user_tenant_access table above
+        if (!$hasAccess && $userRole === 'admin') {
+            // Admin access already checked via user_tenant_access
+            // No additional check needed
+        }
+
+        if ($hasAccess) {
             $tenantId = $requestedTenantId;
         } else {
             if ($db->inTransaction()) $db->rollback();
@@ -173,51 +198,24 @@ try {
         );
     }
 
-    // BUG-091 FIX: Check workflow_roles table instead of non-existent columns
+    // Enforce: only the SELECTED validator/approver for this document (or admin/super_admin) can reject.
     $workflowUserRole = null;
     $canReject = false;
 
-    // Admins can always reject
-    if (in_array($userRole, ['admin', 'super_admin'])) {
+    if (in_array($userRole, ['admin', 'super_admin'], true)) {
         $workflowUserRole = USER_ROLE_ADMIN;
         $canReject = true;
     } else {
-        // Check if user is validator and document is in validation
-        if ($workflow['current_state'] === WORKFLOW_STATE_IN_VALIDATION) {
-            $hasValidatorRole = $db->fetchOne(
-                "SELECT COUNT(*) as cnt
-                 FROM workflow_roles
-                 WHERE user_id = ?
-                   AND tenant_id = ?
-                   AND workflow_role = 'validator'
-                   AND is_active = 1
-                   AND (deleted_at IS NULL OR deleted_at = '')",
-                [$userId, $tenantId]
-            );
+        $selected = getSelectedWorkflowParticipants((int)$tenantId, (int)$fileId);
+        $selectedValidatorId = (int)($selected['validator_id'] ?? 0);
+        $selectedApproverId = (int)($selected['approver_id'] ?? 0);
 
-            if ($hasValidatorRole && $hasValidatorRole['cnt'] > 0) {
-                $workflowUserRole = USER_ROLE_VALIDATOR;
-                $canReject = true;
-            }
-        }
-
-        // Check if user is approver and document is in approval
-        elseif ($workflow['current_state'] === WORKFLOW_STATE_IN_APPROVAL) {
-            $hasApproverRole = $db->fetchOne(
-                "SELECT COUNT(*) as cnt
-                 FROM workflow_roles
-                 WHERE user_id = ?
-                   AND tenant_id = ?
-                   AND workflow_role = 'approver'
-                   AND is_active = 1
-                   AND (deleted_at IS NULL OR deleted_at = '')",
-                [$userId, $tenantId]
-            );
-
-            if ($hasApproverRole && $hasApproverRole['cnt'] > 0) {
-                $workflowUserRole = USER_ROLE_APPROVER;
-                $canReject = true;
-            }
+        if ($workflow['current_state'] === WORKFLOW_STATE_IN_VALIDATION && $selectedValidatorId > 0 && $selectedValidatorId === (int)$userId) {
+            $workflowUserRole = USER_ROLE_VALIDATOR;
+            $canReject = true;
+        } elseif ($workflow['current_state'] === WORKFLOW_STATE_IN_APPROVAL && $selectedApproverId > 0 && $selectedApproverId === (int)$userId) {
+            $workflowUserRole = USER_ROLE_APPROVER;
+            $canReject = true;
         }
     }
 

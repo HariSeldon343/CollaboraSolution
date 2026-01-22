@@ -55,7 +55,7 @@ $requestedTenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : null;
 
 if ($requestedTenantId !== null) {
     if ($userRole === 'super_admin') {
-        $tenantId = $requestedTenantId;
+        $tenantId = $requestedTenantId; // explicit selection
     } else {
         // Validate via user_tenant_access
         $accessCheck = $db->fetchOne(
@@ -71,7 +71,40 @@ if ($requestedTenantId !== null) {
         }
     }
 } else {
-    $tenantId = $userInfo['tenant_id'];
+    // Default tenant selection:
+    // - Always tenant-scoped (avoid cross-tenant "mystery events" on dashboard)
+    // - For admin/super_admin, respect CompanyFilter session selection when available
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    $sessionTenantId = 0;
+    if (isset($_SESSION['company_filter_id']) && $_SESSION['company_filter_id'] !== null && $_SESSION['company_filter_id'] !== '') {
+        $sessionTenantId = (int)$_SESSION['company_filter_id'];
+    }
+
+    $tenantId = $sessionTenantId > 0 ? $sessionTenantId : (int)($userInfo['tenant_id'] ?? 0);
+    if ($tenantId <= 0) {
+        api_error('Tenant non valido', 400);
+    }
+
+    // Authorization: admin/manager/user must have access to the requested tenant.
+    // (super_admin can access all tenants)
+    if ($userRole !== 'super_admin') {
+        $primaryTenantId = (int)($userInfo['tenant_id'] ?? 0);
+        if ($primaryTenantId > 0 && $tenantId !== $primaryTenantId) {
+            $accessCheck = $db->fetchOne(
+                "SELECT COUNT(*) as cnt
+                 FROM user_tenant_access
+                 WHERE user_id = ? AND tenant_id = ?
+                   AND (deleted_at IS NULL OR deleted_at = '')",
+                [$userId, $tenantId]
+            );
+            if (!$accessCheck || (int)($accessCheck['cnt'] ?? 0) <= 0) {
+                api_error('Non hai accesso a questo tenant', 403);
+            }
+        }
+    }
 }
 
 // Limit parameter (optional)
@@ -203,18 +236,30 @@ try {
             e.end_datetime,
             e.all_day,
             e.created_at,
+            e.tenant_id,
+            t.name AS tenant_name,
             u.name as organizer_name,
             u.avatar as organizer_avatar
         FROM events e
         LEFT JOIN users u ON e.organizer_id = u.id
-        WHERE e.tenant_id = ?
-          AND e.deleted_at IS NULL
+        LEFT JOIN tenants t ON e.tenant_id = t.id
+        WHERE e.deleted_at IS NULL
           AND e.start_datetime >= NOW()
+        /**TENANT_FILTER**/
         ORDER BY e.start_datetime ASC
         LIMIT ?
     ";
 
-    $events = $db->fetchAll($upcomingEventsSql, [$tenantId, $limit]);
+    $params = [];
+    $tenantFilter = '';
+    if ($tenantId !== null) {
+        $tenantFilter = "AND e.tenant_id = ?";
+        $params[] = $tenantId;
+    }
+    $upcomingEventsSql = str_replace('/**TENANT_FILTER**/', $tenantFilter, $upcomingEventsSql);
+    $params[] = $limit;
+
+    $events = $db->fetchAll($upcomingEventsSql, $params);
 
     // Format events for frontend
     $formattedEvents = [];
@@ -236,7 +281,8 @@ try {
             'created_by' => $event['organizer_name'] ?? 'N/A',
             'created_by_avatar' => $event['organizer_avatar'] ?? null,
             'formatted_date' => date('d/m/Y', strtotime($event['start_datetime'])),
-            'formatted_datetime' => date('d/m/Y H:i', strtotime($event['start_datetime']))
+            'formatted_datetime' => date('d/m/Y H:i', strtotime($event['start_datetime'])),
+            'tenant_name' => $event['tenant_name'] ?? null
         ];
     }
 

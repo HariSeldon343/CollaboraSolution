@@ -19,6 +19,7 @@ ini_set('display_errors', '0');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/document_editor_helper.php';
+require_once __DIR__ . '/../../includes/file_access.php';
 
 // CORS headers for OnlyOffice Document Server access
 header('Access-Control-Allow-Origin: *');
@@ -52,6 +53,95 @@ function sendError(string $message, int $code = 403): void {
 }
 
 try {
+    /**
+     * Create a minimal valid blank DOCX (OpenXML) so empty placeholders can be opened in OnlyOffice.
+     * Uses ZipArchive to avoid shipping binary templates.
+     */
+    function createBlankDocxBytes(): string {
+        if (!class_exists('ZipArchive')) {
+            throw new Exception('ZipArchive non disponibile per generare DOCX vuoto');
+        }
+
+        $tmpDir = sys_get_temp_dir();
+        $tmpFile = tempnam($tmpDir, 'blank_docx_');
+        if ($tmpFile === false) {
+            throw new Exception('Impossibile creare file temporaneo');
+        }
+        // Ensure .docx extension for some Zip implementations
+        $docxPath = $tmpFile . '.docx';
+        @rename($tmpFile, $docxPath);
+
+        $zip = new ZipArchive();
+        if ($zip->open($docxPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            throw new Exception('Impossibile creare archivio DOCX');
+        }
+
+        $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            . '<Default Extension="xml" ContentType="application/xml"/>'
+            . '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+            . '</Types>');
+
+        $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+            . '</Relationships>');
+
+        $zip->addFromString('word/document.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            . '<w:body>'
+            . '<w:p><w:r><w:t></w:t></w:r></w:p>'
+            . '<w:sectPr/>'
+            . '</w:body>'
+            . '</w:document>');
+
+        $zip->close();
+
+        $bytes = @file_get_contents($docxPath);
+        @unlink($docxPath);
+
+        if ($bytes === false || $bytes === '') {
+            throw new Exception('Impossibile leggere DOCX generato');
+        }
+        return $bytes;
+    }
+
+    /**
+     * Best-effort: ensure word/document.xml contains a <w:sectPr/> inside <w:body>.
+     * Some OnlyOffice configurations may render DOCX without section properties as blank.
+     * We patch the file in place (minimal change) to improve compatibility.
+     */
+    function ensureDocxHasSectPrOnDisk(string $docxPath): bool {
+        if (!class_exists('ZipArchive')) return false;
+        if (!is_file($docxPath) || !is_writable($docxPath)) return false;
+
+        $zip = new ZipArchive();
+        if ($zip->open($docxPath) !== true) return false;
+
+        try {
+            $xml = $zip->getFromName('word/document.xml');
+            if ($xml === false || $xml === '') {
+                $zip->close();
+                return false;
+            }
+            if (strpos($xml, '<w:sectPr') !== false) {
+                $zip->close();
+                return false;
+            }
+            if (strpos($xml, '</w:body>') === false) {
+                $zip->close();
+                return false;
+            }
+            $patched = str_replace('</w:body>', '<w:sectPr/></w:body>', $xml);
+            $zip->addFromString('word/document.xml', $patched);
+            $zip->close();
+            return true;
+        } catch (Throwable $e) {
+            try { $zip->close(); } catch (Throwable $_) {}
+            return false;
+        }
+    }
     // ENHANCED LOGGING FOR DEBUGGING
     if (DEBUG_MODE) {
         error_log('=== OnlyOffice Download Request (FIXED) ===');
@@ -70,6 +160,92 @@ try {
         }
     }
 
+    /**
+     * Best-effort: if a DOCX is truly empty (no text, no placeholders), inject a minimal bootstrap
+     * content so the user does not see a "white page" and the placeholder engine has something to replace.
+     * This is conservative: it ONLY triggers when the document has no visible text.
+     */
+    function ensureDocxHasBootstrapContentOnDisk(string $docxPath): bool {
+        if (!class_exists('ZipArchive')) return false;
+        if (!is_file($docxPath) || !is_writable($docxPath)) return false;
+
+        $zip = new ZipArchive();
+        if ($zip->open($docxPath) !== true) return false;
+
+        try {
+            $xml = $zip->getFromName('word/document.xml');
+            if ($xml === false || $xml === '') {
+                $zip->close();
+                return false;
+            }
+
+            // If there are placeholders already, do nothing.
+            if (strpos($xml, '{{') !== false) {
+                $zip->close();
+                return false;
+            }
+
+            // Detect visible text inside <w:t>. If any non-whitespace exists, keep it.
+            $hasText = false;
+            if (preg_match_all('/<w:t[^>]*>(.*?)<\\/w:t>/si', $xml, $m)) {
+                foreach (($m[1] ?? []) as $chunk) {
+                    $plain = trim(html_entity_decode((string)$chunk, ENT_QUOTES | ENT_XML1, 'UTF-8'));
+                    if ($plain !== '') { $hasText = true; break; }
+                }
+            }
+            if ($hasText) {
+                $zip->close();
+                return false;
+            }
+
+            $escape = function (string $s): string {
+                return htmlspecialchars($s, ENT_XML1 | ENT_COMPAT, 'UTF-8');
+            };
+            $paragraphs = [
+                'Documento placeholder (bozza)',
+                '',
+                'Titolo documento: {{doc_title}}',
+                'Azienda: {{company_name}}',
+                'Data: {{doc_date}}',
+                'Versione: {{doc_version}}',
+                '',
+                'Scopo del sistema (sintesi):',
+                '{{scope}}',
+                '',
+                'Contenuto documento (bozza):',
+                '{{body}}',
+                '',
+                'Note:',
+                '{{notes}}',
+            ];
+
+            $body = '';
+            foreach ($paragraphs as $p) {
+                $t = $escape((string)$p);
+                $t = str_replace("\r\n", "\n", $t);
+                $parts = explode("\n", $t);
+                $runs = [];
+                foreach ($parts as $idx => $part) {
+                    $runs[] = '<w:t xml:space="preserve">' . $part . '</w:t>';
+                    if ($idx < count($parts) - 1) $runs[] = '<w:br/>';
+                }
+                $body .= '<w:p><w:r>' . implode('', $runs) . '</w:r></w:p>';
+            }
+
+            $patched = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                . '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                . '<w:body>' . $body . '<w:sectPr/></w:body>'
+                . '</w:document>';
+
+            $zip->addFromString('word/document.xml', $patched);
+            $zip->close();
+            return true;
+        } catch (Throwable $e) {
+            try { $zip->close(); } catch (Throwable $_) {}
+            return false;
+        }
+    }
+
     // Get file_id parameter
     $file_id = isset($_GET['file_id']) ? (int)$_GET['file_id'] : 0;
 
@@ -84,25 +260,51 @@ try {
     $token = '';
     $tokenSource = 'NONE';
 
-    // 1. Check query parameter first (backwards compatibility)
+    // 1) Query parameter (backwards compatibility)
     if (!empty($_GET['token'])) {
         $token = $_GET['token'];
         $tokenSource = 'QUERY_PARAM';
     }
-    // 2. Check Authorization header (OnlyOffice standard way)
-    elseif (!empty($_SERVER['HTTP_AUTHORIZATION'])) {
-        $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
-        if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
-            $token = $matches[1];
-            $tokenSource = 'AUTH_HEADER';
+
+    // 2) Authorization header (OnlyOffice standard way)
+    if (empty($token)) {
+        $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+
+        // Fallback: some stacks don't populate $_SERVER['HTTP_AUTHORIZATION']
+        // (e.g. certain Apache/FastCGI setups behind proxies). Use getallheaders().
+        if (empty($authHeader) && function_exists('getallheaders')) {
+            $headers = getallheaders();
+            $authHeader = $headers[ONLYOFFICE_JWT_HEADER] ?? $headers['Authorization'] ?? $headers['authorization'] ?? '';
+            if (!empty($authHeader)) {
+                $tokenSource = 'AUTH_HEADER_FALLBACK';
+            }
+        }
+
+        if (!empty($authHeader)) {
+            if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+                $token = $matches[1];
+                if ($tokenSource === 'NONE') {
+                    $tokenSource = 'AUTH_HEADER';
+                }
+            } else {
+                // Some proxies/clients may send the raw JWT without "Bearer "
+                $candidate = trim($authHeader);
+                if (substr_count($candidate, '.') === 2) {
+                    $token = $candidate;
+                    if ($tokenSource === 'NONE') {
+                        $tokenSource = 'AUTH_HEADER_RAW';
+                    }
+                }
+            }
         }
     }
-    // 3. Check for token in POST body (OnlyOffice sometimes sends it this way)
-    elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    // 3) Token in POST body (OnlyOffice sometimes sends it this way)
+    if (empty($token) && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $input = file_get_contents('php://input');
         if (!empty($input)) {
             $data = json_decode($input, true);
-            if (isset($data['token'])) {
+            if (isset($data['token']) && is_string($data['token']) && $data['token'] !== '') {
                 $token = $data['token'];
                 $tokenSource = 'POST_BODY';
             }
@@ -207,6 +409,28 @@ try {
         sendError('File non trovato', 404);
     }
 
+    // Enforce assignment-aware access for the user embedded in the JWT (OnlyOffice user)
+    if ($token_user_id > 0) {
+        $tokenUser = $db->fetchOne(
+            "SELECT id, role
+             FROM users
+             WHERE id = ?
+               AND deleted_at IS NULL
+             LIMIT 1",
+            [$token_user_id]
+        );
+
+        $tokenUserRole = $tokenUser && !empty($tokenUser['role']) ? (string)$tokenUser['role'] : 'user';
+
+        $access = hasFileOrFolderAccess($db, (int)$file_id, (int)$token_user_id, $tokenUserRole, (int)$file['tenant_id']);
+        if (!$access['has_access']) {
+            if (DEBUG_MODE) {
+                error_log('[OnlyOffice Download] Access denied by assignment policy: ' . json_encode($access));
+            }
+            sendError('Accesso negato', 403);
+        }
+    }
+
     // Build physical file path (with legacy fallbacks)
     $filePath = UPLOAD_PATH . '/' . $file['tenant_id'] . '/' . $file['file_path'];
 
@@ -248,6 +472,88 @@ try {
     $mimeType = $file['mime_type'] ?? 'application/octet-stream';
     $fileName = $file['name'];
 
+    // Best-effort repair for DOCX rendering issues (avoid "blank pages" in editor)
+    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    if ($ext === 'docx' && $fileSize > 0 && $fileSize < (50 * 1024 * 1024)) {
+        $patched = ensureDocxHasSectPrOnDisk($filePath);
+        // Only bootstrap truly empty docs for Compliance deliverables (avoid surprising users for normal blank docs).
+        $allowBootstrap = false;
+        try {
+            $hasCompliance = $db->fetchOne(
+                "SELECT 1 AS ok
+                 FROM information_schema.TABLES
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'compliance_artifacts'
+                 LIMIT 1"
+            );
+            if ($hasCompliance) {
+                $row = $db->fetchOne("SELECT 1 AS ok FROM compliance_artifacts WHERE file_id = ? LIMIT 1", [$file_id]);
+                $allowBootstrap = (bool)$row;
+            }
+        } catch (Throwable $_) {
+            $allowBootstrap = false;
+        }
+
+        $bootstrapped = $allowBootstrap ? ensureDocxHasBootstrapContentOnDisk($filePath) : false;
+        $patched = $patched || $bootstrapped;
+        if ($patched) {
+            clearstatcache(true, $filePath);
+            $fileSize = filesize($filePath);
+            if (DEBUG_MODE) {
+                error_log('[OnlyOffice Download] Patched DOCX in place for file_id=' . $file_id . ' (sectPr/bootstrap)');
+            }
+        }
+    }
+
+    // BUG-135 v4: Empty files are allowed - we serve a valid blank document when possible
+    if ($fileSize === 0) {
+        error_log(sprintf(
+            '[BUG-135 v4] Empty file detected during download: id=%d, name=%s, path=%s',
+            $file_id,
+            $fileName,
+            $filePath
+        ));
+
+        if ($ext === 'docx') {
+            $blank = createBlankDocxBytes();
+            $mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            $fileSize = strlen($blank);
+
+            header('Content-Type: ' . $mimeType);
+            header('Content-Length: ' . $fileSize);
+            header('Content-Disposition: attachment; filename="' . addslashes($fileName) . '"');
+            header('Cache-Control: private, max-age=3600');
+            header('Pragma: private');
+            header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 3600) . ' GMT');
+            header('X-Empty-File: true');
+
+            if (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            echo $blank;
+            exit();
+        }
+
+        // For plain text-like formats, an empty body is still a valid document
+        if (in_array($ext, ['txt', 'csv'], true)) {
+            header('Content-Type: ' . ($ext === 'csv' ? 'text/csv; charset=utf-8' : 'text/plain; charset=utf-8'));
+            header('Content-Length: 0');
+            header('Content-Disposition: attachment; filename="' . addslashes($fileName) . '"');
+            header('Cache-Control: private, max-age=3600');
+            header('Pragma: private');
+            header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 3600) . ' GMT');
+            header('X-Empty-File: true');
+            if (ob_get_level()) {
+                ob_end_clean();
+            }
+            exit();
+        }
+
+        // Unknown binary formats: still fail clearly
+        sendError('File vuoto - impossibile aprire questo formato', 400);
+    }
+
     // Log the successful download
     if (DEBUG_MODE) {
         error_log(sprintf(
@@ -262,17 +568,19 @@ try {
     // Audit log (only if we have user context)
     if ($token_user_id > 0) {
         try {
+            // Use values compatible with audit_logs CHECK constraints
             $db->insert('audit_logs', [
+                'tenant_id' => (int)$file['tenant_id'],
                 'user_id' => $token_user_id,
-                'tenant_id' => $file['tenant_id'],
-                'action' => 'document_downloaded_for_editor',
-                'entity_type' => 'document',
+                'action' => 'download',
+                'entity_type' => 'file',
                 'entity_id' => $file_id,
-                'description' => "Documento scaricato per editor: {$fileName}",
-                'new_values' => json_encode([
+                'description' => "Download file per editor: {$fileName}",
+                'metadata' => json_encode([
                     'file_name' => $fileName,
                     'file_size' => $fileSize,
-                    'token_source' => $tokenSource
+                    'token_source' => $tokenSource,
+                    'context' => 'onlyoffice_download_for_editor'
                 ]),
                 'ip_address' => $_SERVER['REMOTE_ADDR'] ?? '',
                 'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',

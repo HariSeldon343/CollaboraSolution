@@ -62,8 +62,9 @@ $db = Database::getInstance();
 
 try {
     // Verifica esistenza e permessi sull'entità
+    // BUG-146c FIX: Column is 'name' not 'file_name' in files table
     if ($entityType === 'file') {
-        $query = "SELECT id, file_name, folder_id, tenant_id
+        $query = "SELECT id, name, folder_id, tenant_id
                  FROM files
                  WHERE id = ? AND deleted_at IS NULL";
 
@@ -78,7 +79,7 @@ try {
             api_error('File non trovato o non autorizzato', 404);
         }
 
-        $entityName = $entity['file_name'];
+        $entityName = $entity['name'];
         $folderId = $entity['folder_id'];
 
     } else { // folder

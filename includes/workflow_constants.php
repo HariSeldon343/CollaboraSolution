@@ -359,6 +359,11 @@ function canUserAccessFile(int $userId, string $userRole, int $tenantId, int $fi
         return true;
     }
 
+    // Admin can access tenant files (workflow/admin operations)
+    if ($userRole === 'admin') {
+        return true;
+    }
+
     // Manager bypasses tenant restrictions
     if ($userRole === 'manager') {
         return true;
@@ -367,6 +372,26 @@ function canUserAccessFile(int $userId, string $userRole, int $tenantId, int $fi
     // Creator always has access
     if ($uploadedBy === $userId) {
         return true;
+    }
+
+    // Tenant users can view files in the File Manager (readonly workflow status for non-selected users).
+    // This matches the UI expectation that tenant users can at least see the workflow badge/state.
+    try {
+        $db = Database::getInstance();
+        $tenantMember = $db->fetchOne(
+            "SELECT 1 as ok
+             FROM users
+             WHERE id = ?
+               AND tenant_id = ?
+               AND (deleted_at IS NULL OR deleted_at = '')
+             LIMIT 1",
+            [$userId, $tenantId]
+        );
+        if ($tenantMember !== false) {
+            return true;
+        }
+    } catch (Exception $e) {
+        // Non-blocking: continue with assignment/workflow checks below.
     }
 
     // Check active assignment
@@ -382,7 +407,126 @@ function canUserAccessFile(int $userId, string $userRole, int $tenantId, int $fi
         [$fileId, $userId, $tenantId]
     );
 
-    return $assignment !== false;
+    if ($assignment !== false) {
+        return true;
+    }
+
+    // Workflow roles: validators/approvers should be able to see workflow status/actions
+    // for documents that are actually in workflow for their tenant.
+    try {
+        $hasWorkflowRole = $db->fetchOne(
+            "SELECT 1 as ok
+             FROM workflow_roles
+             WHERE tenant_id = ?
+               AND user_id = ?
+               AND is_active = 1
+               AND deleted_at IS NULL
+               AND workflow_role IN ('validator', 'approver')
+             LIMIT 1",
+            [$tenantId, $userId]
+        );
+
+        if ($hasWorkflowRole !== false) {
+            $hasWorkflow = $db->fetchOne(
+                "SELECT 1 as ok
+                 FROM document_workflow
+                 WHERE tenant_id = ?
+                   AND file_id = ?
+                   AND deleted_at IS NULL
+                 LIMIT 1",
+                [$tenantId, $fileId]
+            );
+
+            if ($hasWorkflow !== false) {
+                return true;
+            }
+        }
+    } catch (Exception $e) {
+        // Non-blocking: if workflow tables don't exist, fall back to assignment-only access.
+    }
+
+    return false;
+}
+
+/**
+ * Read selected validator/approver for a document workflow from the last submit transition.
+ * Source of truth: document_workflow_history.metadata (JSON).
+ *
+ * @return array{validator_id:int|null,approver_id:int|null}
+ */
+function getSelectedWorkflowParticipants(int $tenantId, int $fileId): array {
+    $result = ['validator_id' => null, 'approver_id' => null];
+
+    try {
+        $db = Database::getInstance();
+
+        $row = $db->fetchOne(
+            "SELECT metadata
+             FROM document_workflow_history
+             WHERE tenant_id = ?
+               AND file_id = ?
+               AND transition_type = ?
+             ORDER BY created_at DESC
+             LIMIT 1",
+            [$tenantId, $fileId, TRANSITION_SUBMIT]
+        );
+
+        if (!$row || !isset($row['metadata'])) {
+            return $result;
+        }
+
+        $meta = parseWorkflowMetadata($row['metadata']);
+
+        if (isset($meta['validator_id'])) {
+            $result['validator_id'] = (int)$meta['validator_id'];
+        }
+        if (isset($meta['approver_id'])) {
+            $result['approver_id'] = (int)$meta['approver_id'];
+        }
+
+        return $result;
+    } catch (Exception $e) {
+        return $result;
+    }
+}
+
+/**
+ * Determine if user can revert workflow and to which target state.
+ * Returns target state string or null if not allowed.
+ */
+function getWorkflowRevertTarget(
+    string $currentState,
+    string $userRole,
+    bool $isCreator,
+    bool $isValidator,
+    bool $isApprover
+): ?string {
+    // Super/admin/manager or creator: can always send to draft
+    if ($isCreator || in_array($userRole, ['manager', 'admin', 'super_admin'], true)) {
+        return WORKFLOW_STATE_DRAFT;
+    }
+
+    // Approver can step back one phase
+    if ($isApprover) {
+        if ($currentState === WORKFLOW_STATE_APPROVED) {
+            return WORKFLOW_STATE_IN_APPROVAL;
+        }
+        if ($currentState === WORKFLOW_STATE_IN_APPROVAL) {
+            return WORKFLOW_STATE_IN_VALIDATION;
+        }
+    }
+
+    // Validator can step back one phase
+    if ($isValidator) {
+        if ($currentState === WORKFLOW_STATE_VALIDATED) {
+            return WORKFLOW_STATE_IN_VALIDATION;
+        }
+        if ($currentState === WORKFLOW_STATE_IN_VALIDATION) {
+            return WORKFLOW_STATE_DRAFT;
+        }
+    }
+
+    return null;
 }
 
 /**

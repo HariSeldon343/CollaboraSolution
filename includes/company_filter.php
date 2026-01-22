@@ -16,6 +16,7 @@ class CompanyFilter {
     private ?array $currentUser;
     private array $availableCompanies = [];
     private ?int $activeCompanyFilter = null;
+    private ?array $activeCompanyFilters = null; // list of tenant IDs (null => all)
 
     /**
      * Costruttore del filtro aziende
@@ -60,9 +61,44 @@ class CompanyFilter {
         $this->handleFilterSelection();
 
         // Recupera il filtro attivo dalla sessione
-        if (isset($_SESSION['company_filter_id'])) {
-            $this->activeCompanyFilter = (int)$_SESSION['company_filter_id'];
+        $this->activeCompanyFilters = $this->normalizeSessionCompanyFilterIds();
+        if (is_array($this->activeCompanyFilters) && !empty($this->activeCompanyFilters)) {
+            $this->activeCompanyFilter = (int)$this->activeCompanyFilters[0];
+        } else {
+            // null => all companies; keep scalar null as well
+            $this->activeCompanyFilter = null;
         }
+    }
+
+    /**
+     * Normalize company filter selection from session.
+     * - Supports legacy scalar company_filter_id
+     * - Supports multi-select company_filter_ids (array)
+     * - Returns null when "all companies" is selected
+     */
+    private function normalizeSessionCompanyFilterIds(): ?array {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        $ids = $_SESSION['company_filter_ids'] ?? null;
+        if (is_array($ids)) {
+            $clean = [];
+            foreach ($ids as $v) {
+                $id = (int)$v;
+                if ($id > 0) $clean[] = $id;
+            }
+            $clean = array_values(array_unique($clean));
+            return !empty($clean) ? $clean : null;
+        }
+
+        // Legacy scalar
+        if (isset($_SESSION['company_filter_id']) && $_SESSION['company_filter_id'] !== null && $_SESSION['company_filter_id'] !== '') {
+            $id = (int)$_SESSION['company_filter_id'];
+            return $id > 0 ? [$id] : null;
+        }
+
+        return null;
     }
 
     /**
@@ -80,15 +116,15 @@ class CompanyFilter {
                 ");
                 $stmt->execute();
             } else {
-                // Admin può vedere solo le aziende assegnate
+                // BUG-144 FIX: Admin can see assigned companies via user_tenant_access
                 $stmt = $this->pdo->prepare("
                     SELECT DISTINCT t.id, t.name, t.status, t.domain
                     FROM tenants t
-                    LEFT JOIN user_companies uc ON uc.company_id = t.id
+                    LEFT JOIN user_tenant_access uta ON uta.tenant_id = t.id AND uta.deleted_at IS NULL
                     WHERE t.status = 'active' AND t.deleted_at IS NULL
                     AND (
                         t.id = :tenant_id
-                        OR (uc.user_id = :user_id AND uc.company_id = t.id)
+                        OR uta.user_id = :user_id
                     )
                     ORDER BY t.name ASC
                 ");
@@ -110,31 +146,75 @@ class CompanyFilter {
      * Gestisce la selezione del filtro dal form
      */
     private function handleFilterSelection(): void {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['company_filter'])) {
-            $selectedFilter = $_POST['company_filter'];
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return;
+        }
 
-            if ($selectedFilter === 'all') {
-                $_SESSION['company_filter_id'] = null;
-                $_SESSION['company_filter_name'] = 'Tutte le aziende';
-            } else {
-                $companyId = (int)$selectedFilter;
+        // Multi-select form uses company_filter[]; legacy uses company_filter
+        $raw = $_POST['company_filter'] ?? null;
+        if ($raw === null) {
+            $raw = $_POST['company_filter_multi'] ?? null;
+        }
+        if ($raw === null) {
+            return;
+        }
 
-                // Verifica che l'azienda sia tra quelle disponibili
-                $companyValid = false;
-                foreach ($this->availableCompanies as $company) {
-                    if ($company['id'] === $companyId) {
-                        $_SESSION['company_filter_id'] = $companyId;
-                        $_SESSION['company_filter_name'] = $company['name'];
-                        $companyValid = true;
-                        break;
-                    }
+        // Build allowlist of available company IDs
+        $allowed = [];
+        foreach ($this->availableCompanies as $company) {
+            $allowed[(int)$company['id']] = (string)$company['name'];
+        }
+
+        // "All companies" (single-select legacy)
+        if (is_string($raw) && $raw === 'all') {
+            $_SESSION['company_filter_ids'] = null;
+            $_SESSION['company_filter_id'] = null;
+            $_SESSION['company_filter_name'] = 'Tutte le aziende';
+            return;
+        }
+
+        // Multi-select array
+        $selectedIds = [];
+        if (is_array($raw)) {
+            foreach ($raw as $v) {
+                if ($v === 'all') {
+                    // "All" wins: clear selection
+                    $_SESSION['company_filter_ids'] = null;
+                    $_SESSION['company_filter_id'] = null;
+                    $_SESSION['company_filter_name'] = 'Tutte le aziende';
+                    return;
                 }
-
-                if (!$companyValid) {
-                    unset($_SESSION['company_filter_id']);
-                    unset($_SESSION['company_filter_name']);
+                $id = (int)$v;
+                if ($id > 0 && isset($allowed[$id])) {
+                    $selectedIds[] = $id;
                 }
             }
+        } else {
+            // Single value but not 'all'
+            $id = (int)$raw;
+            if ($id > 0 && isset($allowed[$id])) {
+                $selectedIds[] = $id;
+            }
+        }
+
+        $selectedIds = array_values(array_unique($selectedIds));
+
+        if (empty($selectedIds)) {
+            // Invalid selection => clear filter
+            $_SESSION['company_filter_ids'] = null;
+            $_SESSION['company_filter_id'] = null;
+            $_SESSION['company_filter_name'] = 'Tutte le aziende';
+            return;
+        }
+
+        // Persist multi-selection and keep legacy scalar for backward compatibility
+        $_SESSION['company_filter_ids'] = $selectedIds;
+        $_SESSION['company_filter_id'] = $selectedIds[0];
+
+        if (count($selectedIds) === 1) {
+            $_SESSION['company_filter_name'] = $allowed[$selectedIds[0]] ?? 'Azienda';
+        } else {
+            $_SESSION['company_filter_name'] = count($selectedIds) . ' aziende selezionate';
         }
     }
 
@@ -149,48 +229,85 @@ class CompanyFilter {
             return '';
         }
 
-        $currentFilterId = $_SESSION['company_filter_id'] ?? null;
-        $currentFilterName = $_SESSION['company_filter_name'] ?? 'Tutte le aziende';
+        $currentFilterIds = $this->normalizeSessionCompanyFilterIds(); // null => all
+        $isAll = ($currentFilterIds === null);
 
-        $html = '<div class="company-filter-wrapper">';
-        $html .= '<form method="POST" id="companyFilterForm" class="company-filter-form">';
-        $html .= '<div class="filter-select-group">';
-        $html .= '<label for="company_filter" class="filter-label">Azienda:</label>';
-        $html .= '<select name="company_filter" id="company_filter" class="filter-select" onchange="this.form.submit()">';
+        // Summary label on trigger
+        $summary = 'Tutte le aziende';
+        if (!$isAll && is_array($currentFilterIds)) {
+            if (count($currentFilterIds) === 1) {
+                $only = $currentFilterIds[0];
+                $name = null;
+                foreach ($this->availableCompanies as $c) {
+                    if ((int)$c['id'] === (int)$only) {
+                        $name = (string)($c['name'] ?? null);
+                        break;
+                    }
+                }
+                $summary = $name ?: '1 azienda';
+            } else {
+                $summary = count($currentFilterIds) . ' aziende';
+            }
+        }
 
-        // Opzione per vedere tutte le aziende
-        $selected = ($currentFilterId === null) ? 'selected' : '';
-        $html .= '<option value="all" ' . $selected . '>Tutte le aziende</option>';
+        $html = '<div class="company-filter" data-cnx-company-filter>';
+        $html .= '<form method="POST" id="companyFilterForm" class="company-filter-form" autocomplete="off">';
 
-        // Opzioni per ogni azienda disponibile
+        $html .= '<button type="button" class="company-filter-trigger" data-cnx-company-filter-trigger="" aria-expanded="false">';
+        $html .= '<span class="company-filter-label">Azienda:</span>';
+        $html .= '<span class="company-filter-value">' . htmlspecialchars($summary) . '</span>';
+        $html .= '<span class="company-filter-chevron" aria-hidden="true"></span>';
+        $html .= '</button>';
+
+        $html .= '<div class="company-filter-popover" data-cnx-company-filter-popover="" hidden>';
+        $html .= '<div class="company-filter-search-wrap">';
+        $html .= '<input type="text" class="company-filter-search" data-cnx-company-filter-search="" placeholder="Cerca azienda..." autocomplete="off" spellcheck="false">';
+        $html .= '</div>';
+        $html .= '<div class="company-filter-options" role="menu" aria-label="Seleziona aziende">';
+
+        // "All companies" (exclusive)
+        $html .= '<label class="company-filter-option">';
+        $html .= '<input type="checkbox" name="company_filter[]" value="all" ' . ($isAll ? 'checked' : '') . '>';
+        $html .= '<span>Tutte le aziende</span>';
+        $html .= '</label>';
+
+        // Companies
         foreach ($this->availableCompanies as $company) {
-            $selected = ($currentFilterId === $company['id']) ? 'selected' : '';
-            $statusBadge = ($company['status'] !== 'active') ? ' (Inattiva)' : '';
-            $html .= sprintf(
-                '<option value="%d" %s>%s%s</option>',
-                $company['id'],
-                $selected,
-                htmlspecialchars($company['name']),
-                $statusBadge
-            );
+            $id = (int)$company['id'];
+            $name = (string)($company['name'] ?? '');
+            $checked = (!$isAll && is_array($currentFilterIds) && in_array($id, $currentFilterIds, true)) ? 'checked' : '';
+            $html .= '<label class="company-filter-option">';
+            $html .= '<input type="checkbox" name="company_filter[]" value="' . (int)$id . '" ' . $checked . '>';
+            $html .= '<span>' . htmlspecialchars($name) . '</span>';
+            $html .= '</label>';
         }
 
-        $html .= '</select>';
+        $html .= '<div class="company-filter-empty" data-cnx-company-filter-empty="" hidden>Nessun risultato</div>';
         $html .= '</div>';
+
+        $html .= '<div class="company-filter-actions">';
+        $html .= '<button type="submit" class="btn btn-primary" data-cnx-company-filter-apply="">Applica</button>';
+        $html .= '<button type="button" class="btn" data-cnx-company-filter-close="">Chiudi</button>';
+        $html .= '</div>';
+
+        $html .= '</div>'; // popover
         $html .= '</form>';
-        $html .= '</div>';
+        $html .= '</div>'; // wrapper
 
-        // Aggiungi CSS inline se richiesto
-        if (!isset($options['no_styles']) || !$options['no_styles']) {
+        // Inline assets are now opt-in only (default off) to avoid breaking layout across pages.
+        if (!empty($options['inline_assets'])) {
             $html .= $this->getInlineStyles();
-        }
-
-        // Aggiungi JavaScript per auto-submit e gestione AJAX se richiesto
-        if (!isset($options['no_scripts']) || !$options['no_scripts']) {
             $html .= $this->getInlineScripts();
         }
 
         return $html;
+    }
+
+    /**
+     * Get active filter IDs (null => all companies)
+     */
+    public function getActiveFilterIds(): ?array {
+        return $this->normalizeSessionCompanyFilterIds();
     }
 
     /**
@@ -267,9 +384,11 @@ class CompanyFilter {
      * Resetta il filtro azienda
      */
     public function resetFilter(): void {
+        unset($_SESSION['company_filter_ids']);
         unset($_SESSION['company_filter_id']);
         unset($_SESSION['company_filter_name']);
         $this->activeCompanyFilter = null;
+        $this->activeCompanyFilters = null;
     }
 
     /**
@@ -281,9 +400,11 @@ class CompanyFilter {
     public function setFilter(int $companyId): bool {
         foreach ($this->availableCompanies as $company) {
             if ($company['id'] === $companyId) {
+                $_SESSION['company_filter_ids'] = [$companyId];
                 $_SESSION['company_filter_id'] = $companyId;
                 $_SESSION['company_filter_name'] = $company['name'];
                 $this->activeCompanyFilter = $companyId;
+                $this->activeCompanyFilters = [$companyId];
                 return true;
             }
         }
@@ -389,9 +510,47 @@ CSS;
 (function() {
     const filterForm = document.getElementById('companyFilterForm');
     if (!filterForm) return;
+    const select = document.getElementById('company_filter');
+    if (!select) return;
 
     // Previeni doppio submit
     let isSubmitting = false;
+    let changeTimer = null;
+
+    function normalizeSelection() {
+        const opts = Array.from(select.options);
+        const allOpt = opts.find(o => o.value === 'all');
+        if (!allOpt) return;
+
+        const selected = opts.filter(o => o.selected).map(o => o.value);
+        const hasAll = selected.includes('all');
+
+        if (hasAll && selected.length > 1) {
+            // If "all" is selected, clear other selections
+            opts.forEach(o => { o.selected = (o.value === 'all'); });
+        } else if (!hasAll && selected.length > 0) {
+            // If selecting specific companies, ensure "all" is not selected
+            allOpt.selected = false;
+        } else if (selected.length === 0) {
+            // If nothing is selected, default back to "all"
+            allOpt.selected = true;
+        }
+    }
+
+    function scheduleSubmit() {
+        if (changeTimer) clearTimeout(changeTimer);
+        // Allow multi-click selection (Ctrl/Cmd) then submit after a short idle
+        changeTimer = setTimeout(() => {
+            if (isSubmitting) return;
+            filterForm.requestSubmit ? filterForm.requestSubmit() : filterForm.submit();
+        }, 600);
+    }
+
+    select.addEventListener('change', function() {
+        normalizeSelection();
+        scheduleSubmit();
+    });
+
     filterForm.addEventListener('submit', function(e) {
         if (isSubmitting) {
             e.preventDefault();
@@ -400,7 +559,6 @@ CSS;
         isSubmitting = true;
 
         // Mostra indicatore di caricamento
-        const select = this.querySelector('select');
         if (select) {
             select.disabled = true;
             select.style.opacity = '0.5';

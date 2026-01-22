@@ -28,11 +28,17 @@ if (!$currentUser) {
 require_once __DIR__ . '/includes/tenant_access_check.php';
 requireTenantAccess($currentUser['id'], $currentUser['role']);
 
-// Only admin and super_admin can access this page
-if (!in_array($currentUser['role'], ['admin', 'super_admin'])) {
+// Allow: super_admin + manager only
+// - super_admin: all tenants
+// - manager: own tenant only (enforced again in API)
+if (!in_array($currentUser['role'], ['super_admin', 'manager'], true)) {
     header('Location: dashboard.php');
     exit;
 }
+
+// Enforce Page Visibility access rules (configurazioni.php -> Visibilità Pagine)
+require_once __DIR__ . '/includes/page_access_check.php';
+checkPageAccess('audit_log');
 
 // Initialize company filter
 $companyFilter = new CompanyFilter($currentUser);
@@ -43,18 +49,11 @@ $csrfToken = $auth->generateCSRFToken();
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <meta name="csrf-token" content="<?php echo htmlspecialchars($csrfToken); ?>">
-    <title>Registro Audit - CollaboraNexio</title>
-
-    <!-- Main CSS -->
-    <link rel="stylesheet" href="assets/css/styles.css">
-    <!-- Sidebar Responsive Optimization CSS -->
-    <link rel="stylesheet" href="assets/css/sidebar-responsive.css">
-    <!-- Page specific CSS -->
-    <link rel="stylesheet" href="assets/css/dashboard.css">
+<?php
+    $pageTitle = 'Registro Audit - Nexio';
+    $pageCss = ['assets/css/dashboard.css'];
+    require __DIR__ . '/includes/layout_head.php';
+?>
 
     <!-- Custom Styles for Audit Log Page -->
     <style>
@@ -524,8 +523,10 @@ $csrfToken = $auth->generateCSRFToken();
             max-width: 600px;
             width: 90%;
             max-height: 85vh;
-            overflow: auto;
+            overflow: hidden;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
         }
 
         .modal-header {
@@ -534,6 +535,7 @@ $csrfToken = $auth->generateCSRFToken();
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex: 0 0 auto;
         }
 
         .modal-title {
@@ -561,6 +563,9 @@ $csrfToken = $auth->generateCSRFToken();
 
         .modal-body {
             padding: 1.5rem;
+            flex: 1 1 auto;
+            overflow: auto;
+            overscroll-behavior: contain;
         }
 
         .modal-footer {
@@ -569,6 +574,166 @@ $csrfToken = $auth->generateCSRFToken();
             display: flex;
             justify-content: flex-end;
             gap: 0.75rem;
+            flex: 0 0 auto;
+        }
+
+        /* Audit detail modal content (readability) */
+        .audit-detail-grid {
+            display: grid;
+            gap: 14px;
+        }
+
+        .audit-detail-toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .btn.btn-sm {
+            padding: 0.45rem 0.75rem;
+            font-size: 0.75rem;
+            border-radius: 6px;
+        }
+
+        .audit-section {
+            border: 1px solid #E5E7EB;
+            border-radius: 10px;
+            padding: 12px;
+            background: #FFFFFF;
+        }
+
+        .audit-section-title {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 10px;
+        }
+
+        .audit-kv {
+            display: grid;
+            grid-template-columns: 160px 1fr;
+            gap: 8px 12px;
+            margin: 0;
+        }
+
+        .audit-kv dt {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #6B7280;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .audit-kv dd {
+            margin: 0;
+            font-size: 0.875rem;
+            color: #111827;
+            min-width: 0;
+        }
+
+        .audit-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            border: 1px solid #E5E7EB;
+            background: #F9FAFB;
+            color: #374151;
+        }
+
+        .audit-subblock {
+            margin-top: 10px;
+        }
+
+        .audit-subtitle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #6B7280;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 6px;
+        }
+
+        .audit-toggle {
+            border: 1px solid #D1D5DB;
+            background: #FFFFFF;
+            color: #374151;
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .audit-toggle:hover {
+            background: #F9FAFB;
+        }
+
+        .audit-warning {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #FEF3C7;
+            color: #92400E;
+            font-size: 0.875rem;
+        }
+
+        .integrity-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .integrity-ok {
+            background: #DCFCE7;
+            color: #166534;
+        }
+
+        .integrity-fail {
+            background: #FEE2E2;
+            color: #991B1B;
+        }
+
+        .integrity-na {
+            background: #F3F4F6;
+            color: #374151;
+        }
+
+        .audit-detail-row {
+            font-size: 0.875rem;
+            color: #1F2937;
+            line-height: 1.4;
+        }
+
+        .audit-detail-row strong {
+            color: #111827;
+        }
+
+        .audit-detail-wrap {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .audit-detail-block {
+            font-size: 0.875rem;
+            color: #1F2937;
+        }
+
+        .audit-detail-box {
+            margin-top: 8px;
+        }
+
+        /* Normalize pre rendering inside modal (avoid global pre dark themes) */
+        #audit-detail-content pre.json-view {
+            margin: 0;
         }
 
         /* Detail View */
@@ -600,6 +765,7 @@ $csrfToken = $auth->generateCSRFToken();
             overflow-x: auto;
             white-space: pre-wrap;
             word-break: break-word;
+            max-width: 100%;
         }
 
         /* Loading Skeleton */
@@ -939,12 +1105,10 @@ $csrfToken = $auth->generateCSRFToken();
         }
     </style>
 </head>
-<body data-user-role="<?php echo htmlspecialchars($currentUser['role']); ?>">
-    <!-- Sidebar -->
-    <?php include 'includes/sidebar.php'; ?>
-
-    <!-- Main Content -->
-    <main class="main-content" id="main-content">
+<?php
+    $bodyAttributes = 'data-user-role="' . htmlspecialchars($currentUser['role'], ENT_QUOTES) . '"';
+    require __DIR__ . '/includes/layout_start.php';
+?>
         <div class="audit-container">
             <!-- Page Header -->
             <div class="page-header">
@@ -1148,7 +1312,7 @@ $csrfToken = $auth->generateCSRFToken();
                 </div>
             </div>
         </div>
-    </main>
+    
 
     <!-- Detail Modal -->
     <div class="modal" id="audit-detail-modal">
@@ -1159,6 +1323,19 @@ $csrfToken = $auth->generateCSRFToken();
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
+                </button>
+            </div>
+
+            <!-- Day pager: quickly scroll through previous/next days -->
+            <div class="filters-actions" style="justify-content: space-between; margin-top: 10px;">
+                <button class="btn btn-secondary" onclick="auditManager.shiftDay(-1)">
+                    ← Giorno precedente
+                </button>
+                <div style="font-size: 0.875rem; color: #6B7280;">
+                    Giorno: <strong id="audit-day-label">-</strong>
+                </div>
+                <button class="btn btn-secondary" onclick="auditManager.shiftDay(1)">
+                    Giorno successivo →
                 </button>
             </div>
             <div class="modal-body" id="audit-detail-content">
@@ -1232,10 +1409,9 @@ $csrfToken = $auth->generateCSRFToken();
     <!-- Additional inline scripts for utility functions -->
     <script>
         // Alias for backward compatibility - audit_log.js creates window.auditLogManager
-        // We alias it as auditManager for use in onclick handlers
-        let auditManager;
+        // Inline onclick handlers expect a global `auditManager` (window property).
         document.addEventListener('DOMContentLoaded', function() {
-            auditManager = window.auditLogManager;
+            try { window.auditManager = window.auditLogManager; } catch (_) {}
         });
 
         // Export menu toggle
@@ -1380,5 +1556,4 @@ $csrfToken = $auth->generateCSRFToken();
         `;
         document.head.appendChild(style);
     </script>
-</body>
-</html>
+<?php require __DIR__ . '/includes/layout_end.php'; ?>

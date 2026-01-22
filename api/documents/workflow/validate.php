@@ -31,8 +31,8 @@ header('Expires: 0');
 verifyApiAuthentication();  // IMMEDIATELY after init
 
 $userInfo = getApiUserInfo();
-$userId = $userInfo['user_id'];
-$userRole = $userInfo['role'];
+$userId = (int)($userInfo['user_id'] ?? $userInfo['id'] ?? 0);
+$userRole = (string)($userInfo['role'] ?? 'user');
 
 verifyApiCsrfToken();
 
@@ -58,16 +58,41 @@ if ($requestedTenantId !== null) {
     if ($userRole === 'super_admin') {
         $tenantId = $requestedTenantId;
     } else {
-        // Validate user has access to requested tenant
-        // BUG-088 FIX: Database already initialized above
+        $sessionTenantId = (int)($userInfo['tenant_id'] ?? 0);
+        $hasAccess = ($requestedTenantId === $sessionTenantId && $sessionTenantId > 0);
 
-        $accessCheck = $db->fetchOne(
-            "SELECT COUNT(*) as cnt FROM user_tenant_access
-             WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL",
-            [$userId, $requestedTenantId]
-        );
+        if (!$hasAccess) {
+            $userTenant = $db->fetchOne(
+                "SELECT 1 as ok
+                 FROM users
+                 WHERE id = ?
+                   AND tenant_id = ?
+                   AND (deleted_at IS NULL OR deleted_at = '')
+                 LIMIT 1",
+                [$userId, $requestedTenantId]
+            );
+            if ($userTenant) $hasAccess = true;
+        }
 
-        if ($accessCheck && $accessCheck['cnt'] > 0) {
+        if (!$hasAccess) {
+            $uta = $db->fetchOne(
+                "SELECT 1 as ok
+                 FROM user_tenant_access
+                 WHERE user_id = ? AND tenant_id = ? AND deleted_at IS NULL
+                 LIMIT 1",
+                [$userId, $requestedTenantId]
+            );
+            if ($uta) $hasAccess = true;
+        }
+
+        // BUG-144 FIX: Removed user_companies table check (table does not exist)
+        // Access is already checked via user_tenant_access table above
+        if (!$hasAccess && $userRole === 'admin') {
+            // Admin access already checked via user_tenant_access
+            // No additional check needed
+        }
+
+        if ($hasAccess) {
             $tenantId = $requestedTenantId;
         } else {
             if ($db->inTransaction()) $db->rollback();
@@ -167,21 +192,12 @@ try {
         );
     }
 
-    // BUG-091 FIX: Check if user has validator role (workflow_roles table)
-    if (!in_array($userRole, ['admin', 'super_admin'])) {
-        $hasValidatorRole = $db->fetchOne(
-            "SELECT COUNT(*) as cnt
-             FROM workflow_roles
-             WHERE user_id = ?
-               AND tenant_id = ?
-               AND workflow_role = 'validator'
-               AND is_active = 1
-               AND (deleted_at IS NULL OR deleted_at = '')",
-            [$userId, $tenantId]
-        );
-
-        if (!$hasValidatorRole || $hasValidatorRole['cnt'] == 0) {
-            throw new Exception('Solo gli utenti con ruolo di validatore possono validare questo documento.');
+    // Enforce: only the SELECTED validator for this document (or admin/super_admin) can validate.
+    if (!in_array($userRole, ['admin', 'super_admin'], true)) {
+        $selected = getSelectedWorkflowParticipants((int)$tenantId, (int)$fileId);
+        $selectedValidatorId = (int)($selected['validator_id'] ?? 0);
+        if ($selectedValidatorId <= 0 || $selectedValidatorId !== (int)$userId) {
+            throw new Exception('Solo il validatore selezionato per questo documento può validare.');
         }
     }
 
@@ -242,8 +258,9 @@ try {
         'from_state' => WORKFLOW_STATE_VALIDATED,
         'to_state' => WORKFLOW_STATE_IN_APPROVAL,
         'transition_type' => 'auto_transition',
-        'performed_by_user_id' => null,  // System transition
-        'user_role_at_time' => 'system',
+        // Keep performed_by_user_id as the validator that triggered it; schema does not allow 'system' role here.
+        'performed_by_user_id' => $userId,
+        'user_role_at_time' => USER_ROLE_VALIDATOR,
         'comment' => 'Transizione automatica dopo validazione',
         'metadata' => buildWorkflowMetadata([
             'auto_transition' => true,
@@ -445,6 +462,16 @@ function sendWorkflowEmail(array $data): bool {
 
         // Use existing mailer
         require_once __DIR__ . '/../../../includes/mailer.php';
+        // Wrap content-only templates with the shared Nexio layout
+        if (!empty($emailContent) && function_exists('cnx_email_is_full_document') && !cnx_email_is_full_document($emailContent)) {
+            $baseUrl = defined('BASE_URL') ? BASE_URL : 'http://localhost:8888/CollaboraNexio';
+            $tenantName = $data['variables']['tenant_name'] ?? '';
+            $emailContent = renderEmailLayout($data['subject'] ?? 'Notifica workflow', $emailContent, [
+                'BASE_URL' => $baseUrl,
+                'TENANT_NAME' => (string)$tenantName,
+                'YEAR' => date('Y')
+            ], ['brandColor' => '#1a2332']);
+        }
 
         // BUG-082 FIX: Use global sendEmail() function (EmailSender::send() doesn't exist)
         return sendEmail(

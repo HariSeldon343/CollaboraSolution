@@ -31,6 +31,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/api_auth.php';
+require_once __DIR__ . '/../../includes/page_visibility_helper.php';
 
 // 1. Initialize API environment
 initializeApiEnvironment();
@@ -41,9 +42,15 @@ verifyApiAuthentication();
 // 3. Get user info
 $userInfo = getApiUserInfo();
 
-// 4. Role-based access control: Only admin and super_admin can view stats
-if (!in_array($userInfo['role'], ['admin', 'super_admin'])) {
-    api_error('Accesso negato. Solo admin e super_admin possono visualizzare le statistiche.', 403);
+// 4. Role-based access control: super_admin + manager only
+if (!in_array($userInfo['role'], ['super_admin', 'manager'], true)) {
+    api_error('Accesso negato.', 403);
+}
+
+// 5. Enforce Page Visibility setting (configurazioni.php -> Visibilità Pagine)
+$tenantId = isset($userInfo['tenant_id']) ? (int)$userInfo['tenant_id'] : null;
+if (!isPageVisibleForRole('audit_log', (string)($userInfo['role'] ?? 'user'), $tenantId)) {
+    api_error('Accesso negato (pagina non abilitata per il tuo ruolo).', 403);
 }
 
 // 5. Get database instance
@@ -55,7 +62,7 @@ try {
     $tenant_params = [];
 
     if ($userInfo['role'] !== 'super_admin') {
-        // Regular admin: enforce tenant isolation
+        // Manager: enforce tenant isolation
         $tenant_filter = 'AND tenant_id = ?';
         $tenant_params[] = $userInfo['tenant_id'];
     }
@@ -82,13 +89,13 @@ try {
     ";
     $active_users = (int)$db->fetchOne($active_users_query, $tenant_params)['count'];
 
-    // Statistic 3: Accesses today (login actions)
+    // Statistic 3: Accesses today (page access actions)
     $accesses_today_query = "
         SELECT COUNT(*) as count
         FROM audit_logs
         WHERE created_at >= CURDATE()
           AND deleted_at IS NULL
-          AND action IN ('login', 'user_login', 'authentication_success')
+          AND action IN ('access')
           {$tenant_filter}
     ";
     $accesses_today = (int)$db->fetchOne($accesses_today_query, $tenant_params)['count'];

@@ -17,6 +17,8 @@ use PHPMailer\PHPMailer\Exception;
 require_once __DIR__ . '/PHPMailer/PHPMailer.php';
 require_once __DIR__ . '/PHPMailer/SMTP.php';
 require_once __DIR__ . '/PHPMailer/Exception.php';
+require_once __DIR__ . '/email_layout.php';
+require_once __DIR__ . '/email_template_renderer.php';
 
 /**
  * Invia email tramite SMTP usando PHPMailer
@@ -90,7 +92,7 @@ function sendEmail($to, $subject, $htmlBody, $textBody = '', $options = []) {
         $mail->Timeout = $config['smtp_timeout'] ?? 10;
 
         // Mittente
-        $fromName = $options['fromName'] ?? $config['from_name'] ?? 'CollaboraNexio';
+        $fromName = $options['fromName'] ?? $config['from_name'] ?? 'Nexio';
         $mail->setFrom($config['from_email'], $fromName);
 
         // Reply-to
@@ -124,11 +126,15 @@ function sendEmail($to, $subject, $htmlBody, $textBody = '', $options = []) {
         $mail->CharSet = 'UTF-8';
 
         // Allegati
+        $attachedNames = [];
+        $attachedBytes = 0;
         if (!empty($options['attachments'])) {
             foreach ($options['attachments'] as $attachment) {
                 if (isset($attachment['path']) && file_exists($attachment['path'])) {
                     $name = $attachment['name'] ?? basename($attachment['path']);
                     $mail->addAttachment($attachment['path'], $name);
+                    $attachedNames[] = (string)$name;
+                    $attachedBytes += (int)@filesize($attachment['path']);
                 }
             }
         }
@@ -136,8 +142,12 @@ function sendEmail($to, $subject, $htmlBody, $textBody = '', $options = []) {
         // Invia
         $result = $mail->send();
 
-        // Log successo
-        logMailerSuccess($to, $subject, $options['context'] ?? []);
+        // Log successo (include attachment diagnostics)
+        logMailerSuccess($to, $subject, $options['context'] ?? [], [
+            'attachments_count' => count($attachedNames),
+            'attachments_names' => $attachedNames,
+            'attachments_bytes' => $attachedBytes
+        ]);
 
         return $result;
 
@@ -185,7 +195,7 @@ function loadEmailConfig() {
                 'smtp_username' => EMAIL_SMTP_USERNAME,
                 'smtp_password' => EMAIL_SMTP_PASSWORD,
                 'from_email' => EMAIL_FROM_EMAIL,
-                'from_name' => EMAIL_FROM_NAME ?? 'CollaboraNexio',
+                'from_name' => EMAIL_FROM_NAME ?? 'Nexio',
                 'reply_to' => EMAIL_REPLY_TO ?? EMAIL_FROM_EMAIL,
                 'debug_mode' => EMAIL_DEBUG_MODE ?? false,
                 'smtp_verify_ssl' => EMAIL_SMTP_VERIFY_SSL ?? true,
@@ -207,7 +217,7 @@ function loadEmailConfig() {
                 'smtp_username' => $dbConfig['smtpUsername'] ?? '',
                 'smtp_password' => $dbConfig['smtpPassword'] ?? '',
                 'from_email' => $dbConfig['fromEmail'] ?? '',
-                'from_name' => $dbConfig['fromName'] ?? 'CollaboraNexio',
+                'from_name' => $dbConfig['fromName'] ?? 'Nexio',
                 'reply_to' => $dbConfig['replyTo'] ?? $dbConfig['fromEmail'] ?? '',
                 'debug_mode' => false,
                 'smtp_verify_ssl' => true,
@@ -231,7 +241,7 @@ function loadEmailConfig() {
  * @param string $subject Oggetto
  * @param array $context Contesto (tenant_id, user_id, action)
  */
-function logMailerSuccess($to, $subject, $context = []) {
+function logMailerSuccess($to, $subject, $context = [], $extra = []) {
     $logData = [
         'timestamp' => date('Y-m-d H:i:s'),
         'status' => 'success',
@@ -241,6 +251,12 @@ function logMailerSuccess($to, $subject, $context = []) {
         'user_id' => $context['user_id'] ?? null,
         'action' => $context['action'] ?? 'email_sent'
     ];
+
+    if (is_array($extra)) {
+        if (isset($extra['attachments_count'])) $logData['attachments_count'] = $extra['attachments_count'];
+        if (isset($extra['attachments_names'])) $logData['attachments_names'] = $extra['attachments_names'];
+        if (isset($extra['attachments_bytes'])) $logData['attachments_bytes'] = $extra['attachments_bytes'];
+    }
 
     writeMailerLog($logData);
 }
@@ -335,13 +351,13 @@ function sendWelcomeEmail($to, $userName, $resetToken, $tenantName = '') {
 
     $tenant = $tenantName ? " per l'azienda $tenantName" : '';
 
-    $subject = "Benvenuto in CollaboraNexio - Imposta la tua password";
+    $subject = "Benvenuto in Nexio - Imposta la tua password";
 
     $htmlBody = getWelcomeEmailTemplate($userName, $resetLink, $tenantName, $baseUrl);
 
     $textBody = "Benvenuto $userName!
 
-Il tuo account è stato creato con successo su CollaboraNexio{$tenant}.
+Il tuo account è stato creato con successo su Nexio{$tenant}.
 
 Per iniziare ad utilizzare la piattaforma, devi prima impostare la tua password personale.
 
@@ -357,7 +373,7 @@ $resetLink
 IMPORTANTE: Questo link è valido per 24 ore.
 
 ---
-© " . date('Y') . " CollaboraNexio. Tutti i diritti riservati.";
+© " . date('Y') . " Nexio. Tutti i diritti riservati.";
 
     $context = [
         'action' => 'welcome_email',
@@ -381,13 +397,13 @@ function sendPasswordResetEmail($to, $userName, $resetToken, $tenantName = '') {
     $baseUrl = defined('BASE_URL') ? BASE_URL : 'http://localhost:8888/CollaboraNexio';
     $resetLink = $baseUrl . '/set_password.php?token=' . urlencode($resetToken);
 
-    $subject = "Reimposta la tua password - CollaboraNexio";
+    $subject = "Reimposta la tua password - Nexio";
 
     $htmlBody = getPasswordResetTemplate($userName, $resetLink, $tenantName, $baseUrl);
 
     $textBody = "Ciao $userName,
 
-Hai richiesto di reimpostare la tua password per CollaboraNexio.
+Hai richiesto di reimpostare la tua password per Nexio.
 
 Clicca sul seguente link per impostare una nuova password:
 $resetLink
@@ -397,7 +413,7 @@ Questo link scadrà tra 24 ore.
 Se non hai richiesto tu il reset della password, ignora questa email.
 
 Cordiali saluti,
-Il team di CollaboraNexio";
+Il team Nexio";
 
     $context = [
         'action' => 'password_reset',
@@ -412,103 +428,115 @@ Il team di CollaboraNexio";
  * Template HTML email di benvenuto
  */
 function getWelcomeEmailTemplate($userName, $resetLink, $tenantName, $baseUrl) {
-    $tenant = $tenantName ? " per l'azienda $tenantName" : '';
-    $year = date('Y');
+    $vars = [
+        'BASE_URL' => $baseUrl,
+        'TENANT_NAME' => (string)$tenantName,
+        'YEAR' => date('Y')
+    ];
 
-    return '<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Benvenuto in CollaboraNexio</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 20px; text-align: center; border-radius: 10px 10px 0 0; }
-        .logo { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
-        .content { background: white; padding: 40px 30px; border: 1px solid #e0e0e0; border-top: none; }
-        .button { display: inline-block; padding: 14px 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; }
-        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
-        .info-box { background: #f8f9fa; border-radius: 5px; padding: 15px; margin: 20px 0; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="logo">CollaboraNexio</div>
-            <div>La piattaforma di collaborazione aziendale</div>
-        </div>
-        <div class="content">
-            <h2>Benvenuto ' . htmlspecialchars($userName) . '!</h2>
-            <p>Il tuo account è stato creato con successo su CollaboraNexio' . htmlspecialchars($tenant) . '.</p>
-            <p>Per iniziare ad utilizzare la piattaforma, devi prima impostare la tua password personale.</p>
-            <div class="info-box">
-                <strong>📋 Requisiti password:</strong><br>
-                • Minimo 8 caratteri<br>
-                • Almeno una lettera maiuscola<br>
-                • Almeno una lettera minuscola<br>
-                • Almeno un numero
-            </div>
-            <div style="text-align: center;">
-                <a href="' . $resetLink . '" class="button">Imposta la tua password</a>
-            </div>
-            <div class="warning">
-                <strong>⏰ Importante:</strong> Questo link è valido per 24 ore.
-            </div>
-            <p style="font-size: 12px; color: #666;">Se non riesci a cliccare il pulsante, copia questo link:<br>' . htmlspecialchars($resetLink) . '</p>
-        </div>
-        <div class="footer">
-            <p>&copy; ' . $year . ' CollaboraNexio. Tutti i diritti riservati.</p>
-        </div>
-    </div>
-</body>
-</html>';
+    $safeUser = cnx_email_escape($userName);
+    $safeLink = cnx_email_escape($resetLink);
+    $brandColor = '#1a2332';
+
+    $body = ''
+        . '<p style="margin:0 0 10px 0;">Ciao <strong>' . $safeUser . '</strong>,</p>'
+        . '<p style="margin:0 0 14px 0;">Il tuo account è stato creato. Per iniziare, imposta la tua password.</p>'
+        . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0;background:#fafafa;border:1px solid #eef0f3;border-radius:8px;">'
+        . '  <tr><td style="padding:12px 12px;">'
+        . '    <div style="font-weight:600;margin:0 0 6px 0;color:#111827;">Requisiti password</div>'
+        . '    <div style="color:#374151;">Minimo 8 caratteri<br>Almeno una lettera maiuscola<br>Almeno una lettera minuscola<br>Almeno un numero</div>'
+        . '  </td></tr>'
+        . '</table>'
+        . renderEmailPrimaryButton($resetLink, 'Imposta la tua password', $brandColor)
+        . '<div style="margin:12px 0 0 0;padding:10px 12px;border-left:3px solid ' . $brandColor . ';background:#fbfbfb;border-radius:6px;color:#374151;">'
+        . '  <strong>Importante:</strong> questo link è valido per 24 ore.'
+        . '</div>'
+        . '<p style="margin:14px 0 0 0;font-size:12px;line-height:18px;color:#6b7280;">Se il pulsante non funziona, copia e incolla questo link nel browser:<br>'
+        . '<a href="' . $safeLink . '" style="color:' . $brandColor . ';text-decoration:none;word-break:break-all;">' . $safeLink . '</a></p>';
+
+    return renderEmailLayout('Benvenuto in Nexio', $body, $vars, ['brandColor' => $brandColor]);
 }
 
 /**
  * Template HTML email reset password
  */
 function getPasswordResetTemplate($userName, $resetLink, $tenantName, $baseUrl) {
-    $tenant = $tenantName ? " - $tenantName" : '';
-    $year = date('Y');
+    $vars = [
+        'BASE_URL' => $baseUrl,
+        'TENANT_NAME' => (string)$tenantName,
+        'YEAR' => date('Y')
+    ];
 
-    return '<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <title>Reset Password</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; color: #333; background: #f4f7fa; }
-        .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { padding: 30px; }
-        .button { display: inline-block; padding: 14px 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; }
-        .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
-        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; background: #f8f9fa; border-radius: 0 0 8px 8px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1 style="margin: 0;">CollaboraNexio</h1>
-            <p style="margin: 10px 0 0;">Reset della Password</p>
-        </div>
-        <div class="content">
-            <h2>Ciao ' . htmlspecialchars($userName) . ',</h2>
-            <p>Hai richiesto di reimpostare la tua password per CollaboraNexio' . htmlspecialchars($tenant) . '.</p>
-            <div style="text-align: center;">
-                <a href="' . $resetLink . '" class="button">Reimposta Password</a>
-            </div>
-            <div class="warning">
-                <strong>⏰ Importante:</strong> Questo link è valido per 24 ore.
-            </div>
-            <p style="color: #666; font-size: 14px;">Se non hai richiesto tu il reset, ignora questa email.</p>
-        </div>
-        <div class="footer">
-            <p>&copy; ' . $year . ' CollaboraNexio. Tutti i diritti riservati.</p>
-        </div>
-    </div>
-</body>
-</html>';
+    $safeUser = cnx_email_escape($userName);
+    $safeLink = cnx_email_escape($resetLink);
+    $brandColor = '#1a2332';
+
+    $body = ''
+        . '<p style="margin:0 0 10px 0;">Ciao <strong>' . $safeUser . '</strong>,</p>'
+        . '<p style="margin:0 0 14px 0;">Hai richiesto di reimpostare la password.</p>'
+        . renderEmailPrimaryButton($resetLink, 'Reimposta password', $brandColor)
+        . '<div style="margin:12px 0 0 0;padding:10px 12px;border-left:3px solid ' . $brandColor . ';background:#fbfbfb;border-radius:6px;color:#374151;">'
+        . '  <strong>Importante:</strong> questo link è valido per 24 ore.'
+        . '</div>'
+        . '<p style="margin:14px 0 0 0;font-size:12px;line-height:18px;color:#6b7280;">Se non hai richiesto tu il reset, ignora questa email.</p>'
+        . '<p style="margin:10px 0 0 0;font-size:12px;line-height:18px;color:#6b7280;">Link diretto:<br>'
+        . '<a href="' . $safeLink . '" style="color:' . $brandColor . ';text-decoration:none;word-break:break-all;">' . $safeLink . '</a></p>';
+
+    return renderEmailLayout('Reimposta password', $body, $vars, ['brandColor' => $brandColor]);
+}
+
+/**
+ * Email: Avviso scadenza password (T-1 giorno) con codice 6 cifre.
+ *
+ * @param string $to
+ * @param string $userName
+ * @param string $tenantName
+ * @param string $passwordExpiresAt DATETIME (Y-m-d H:i:s)
+ * @param string $code 6-digit numeric code (plaintext, will be shown in email)
+ * @param string|null $baseUrl
+ */
+function sendPasswordExpiryNoticeEmail(
+    string $to,
+    string $userName,
+    string $tenantName,
+    string $passwordExpiresAt,
+    string $code,
+    ?string $baseUrl = null,
+    array $context = []
+): bool {
+    $baseUrl = $baseUrl ?: (defined('BASE_URL') ? BASE_URL : 'http://localhost:8888/CollaboraNexio');
+    $platformUrl = rtrim($baseUrl, '/');
+
+    $brandColor = '#1a2332';
+    $subject = 'Avviso scadenza password - Nexio';
+
+    $expiresTs = strtotime($passwordExpiresAt);
+    $expiresLabel = $expiresTs ? date('d/m/Y H:i', $expiresTs) : $passwordExpiresAt;
+
+    $vars = [
+        'BASE_URL' => $platformUrl,
+        'TENANT_NAME' => (string)$tenantName,
+        'YEAR' => date('Y'),
+        'USER_NAME' => (string)$userName,
+        'PASSWORD_EXPIRES_DATE' => $expiresLabel,
+        'EXPIRY_CODE' => (string)$code,
+        'PLATFORM_URL' => $platformUrl,
+        // Raw button HTML
+        'CTA_BUTTON' => renderEmailPrimaryButton($platformUrl, 'Accedi alla piattaforma', $brandColor),
+    ];
+
+    $templatePath = __DIR__ . '/email_templates/security/password_expiry_notice.html';
+    $body = cnx_render_email_template_file($templatePath, $vars, ['remove_unknown_placeholders' => true]);
+
+    $htmlBody = renderEmailLayout('Scadenza password', $body, $vars, ['brandColor' => $brandColor]);
+
+    $textBody = "Ciao $userName,\n\n"
+        . "La tua password scadrà il $expiresLabel.\n"
+        . "Codice (6 cifre): $code\n\n"
+        . "Accedi alla piattaforma: $platformUrl\n\n"
+        . "© " . date('Y') . " Nexio.";
+
+    $ctx = array_merge(['action' => 'password_expiry_notice'], $context);
+
+    return sendEmail($to, $subject, $htmlBody, $textBody, ['context' => $ctx]);
 }

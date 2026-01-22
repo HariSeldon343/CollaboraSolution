@@ -1,0 +1,108 @@
+pkuid,cod_reg,cod_prov,den_uts,sigla,shape_leng,shape_area,den_reg,den_rip,ontopia,long,lat
+1,1,1,Torino,TO,539673.515131999971345,6828371659.659999847412109,Piemonte,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/001,7°26′20.5″E,45°8′41.3″N
+2,1,2,Vercelli,VC,417425.499112999998033,2082173021.319999933242798,Piemonte,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/002,8°12′33.1″E,45°31′31.0″N
+3,1,3,Novara,NO,250657.226173000002746,1340539671.720000028610229,Piemonte,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/003,8°33′14.1″E,45°33′48.6″N
+4,1,4,Cuneo,CN,489291.467512000002898,6898186047.820000648498535,Piemonte,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/004,7°35′17.8″E,44°28′37.4″N
+5,1,5,Asti,AT,312533.292987000022549,1508920340.890000104904175,Piemonte,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/005,8°11′10.3″E,44°52′39.1″N
+6,1,6,Alessandria,AL,471686.037554999988060,3557942922.590000152587891,Piemonte,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/006,8°39′47.8″E,44°49′43.0″N
+7,2,7,Aosta,AO,311187.149916000023950,3258608423.929999828338623,Valle d'Aosta,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/007,7°23′13.9″E,45°43′48.8″N
+8,7,8,Imperia,IM,178889.392978999996558,1155987340.720000028610229,Liguria,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/008,7°48′26.5″E,43°56′47.1″N
+9,7,9,Savona,SV,258577.419365999987349,1545423608.680000066757202,Liguria,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/009,8°17′24.7″E,44°16′54.0″N
+10,7,10,Genova,GE,361832.519568999996409,1834007271.539999961853027,Liguria,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/010,9°7′17.9″E,44°28′3.3″N
+11,7,11,La Spezia,SP,210850.952557999989949,882296275.746000170707703,Liguria,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/011,9°43′51.9″E,44°13′36.6″N
+12,3,12,Varese,VA,245725.892185000004247,1199246635.009999990463257,Lombardia,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/012,8°46′34.0″E,45°48′16.9″N
+13,3,13,Como,CO,260742.279412000003504,1279237175.459999799728394,Lombardia,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/013,9°9′9.5″E,45°55′44.9″N
+14,3,14,Sondrio,SO,464369.058437000028789,3194888682.570000171661377,Lombardia,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/014,9°54′43.2″E,46°17′49.5″N
+15,3,15,Milano,MI,309240.491880999994464,1574445856.349999904632568,Lombardia,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/015,9°7′22.1″E,45°27′41.5″N
+16,3,16,Bergamo,BG,310721.767082999984268,2755687716.970000267028809,Lombardia,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/016,9°47′16.8″E,45°47′47.8″N
+17,3,17,Brescia,BS,446810.527900999994017,4787096340.369999885559082,Lombardia,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/017,10°18′43.0″E,45°42′7.1″N
+18,3,18,Pavia,PV,449757.268082000024151,2967928641.469999790191650,Lombardia,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/018,9°2′12.4″E,45°6′31.7″N
+19,3,19,Cremona,CR,365490.381310999975540,1769418914.059999942779541,Lombardia,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/019,9°59′38.4″E,45°13′9.5″N
+20,3,20,Mantova,MN,386948.335227000003215,2341843209.670000076293945,Lombardia,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/020,10°45′42.8″E,45°7′28.3″N
+21,4,21,Bolzano,BZ,618014.997132000047714,7397785458.090000152587891,Trentino-Alto Adige,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/021,11°24′58.2″E,46°41′46.6″N
+22,4,22,Trento,TN,595710.901302000042051,6208179032.409999847412109,Trentino-Alto Adige,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/022,11°7′14.1″E,46°8′5.3″N
+23,5,23,Verona,VR,339322.981221999973059,3096762480.550000190734863,Veneto,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/023,11°2′10.5″E,45°25′0.5″N
+24,5,24,Vicenza,VI,320099.192888999998104,2720419600.530000209808350,Veneto,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/024,11°29′26.6″E,45°40′25.7″N
+25,5,25,Belluno,BL,418872.218701999983750,3608864385.139999866485596,Veneto,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/025,12°9′34.8″E,46°18′35.0″N
+26,5,26,Treviso,TV,294605.812075000023469,2479262051.000000000000000,Veneto,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/026,12°13′2.7″E,45°47′40.8″N
+27,5,27,Venezia,VE,438579.781579000002239,2477496010.550000190734863,Veneto,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/027,12°27′27.9″E,45°30′22.0″N
+28,5,28,Padova,PD,326433.064870000001974,2145185380.949999809265137,Veneto,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/028,11°48′28.5″E,45°20′57.5″N
+29,5,29,Rovigo,RO,326342.737208999984432,1823504832.349999904632568,Veneto,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/029,11°55′37.5″E,45°0′37.6″N
+30,6,30,Udine,UD,489479.670493000012357,4972373509.060000419616699,Friuli-Venezia Giulia,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/030,13°9′6.7″E,46°13′29.0″N
+31,6,31,Gorizia,GO,175608.195899000042118,475267553.764999985694885,Friuli-Venezia Giulia,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/031,13°28′41.8″E,45°50′26.5″N
+32,6,32,Trieste,TS,105315.486556000003475,212825649.324999988079071,Friuli-Venezia Giulia,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/032,13°45′54.6″E,45°41′25.8″N
+33,8,33,Piacenza,PC,329070.635798999981489,2586228192.900000095367432,Emilia-Romagna,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/033,9°37′13.5″E,44°52′1.6″N
+34,8,34,Parma,PR,321924.514121000014711,3445394117.039999961853027,Emilia-Romagna,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/034,10°2′50.4″E,44°40′11.6″N
+35,8,35,Reggio nell'Emilia,RE,262985.689523999986704,2290926335.610000133514404,Emilia-Romagna,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/035,10°33′5.7″E,44°36′21.6″N
+36,8,36,Modena,MO,332635.852940000011586,2687953491.289999961853027,Emilia-Romagna,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/036,10°53′32.7″E,44°32′11.7″N
+37,8,37,Bologna,BO,397453.981012000003830,3702834174.269999980926514,Emilia-Romagna,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/037,11°20′51.6″E,44°25′51.1″N
+38,8,38,Ferrara,FE,346574.076392000017222,2627625364.659999847412109,Emilia-Romagna,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/038,11°50′51.7″E,44°47′18.1″N
+39,8,39,Ravenna,RA,297685.997345999989193,1859074865.319999933242798,Emilia-Romagna,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/039,11°59′47.1″E,44°22′16.5″N
+40,8,40,Forli'-Cesena,FC,257670.916009000007762,2378315974.360000133514404,Emilia-Romagna,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/040,12°2′14.6″E,44°2′13.3″N
+41,11,41,Pesaro e Urbino,PU,320792.728203999984544,2509862503.659999847412109,Marche,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/041,12°40′43.6″E,43°41′46.9″N
+42,11,42,Ancona,AN,274214.642524000024423,1963064613.230000019073486,Marche,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/042,13°9′19.7″E,43°30′13.6″N
+43,11,43,Macerata,MC,321709.947856999991927,2780801326.329999923706055,Marche,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/043,13°14′21.8″E,43°11′21.0″N
+44,11,44,Ascoli Piceno,AP,203274.558617000031518,1229441612.269999980926514,Marche,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/044,13°33′18.6″E,42°53′16.6″N
+45,9,45,Massa Carrara,MS,203517.651244999986375,1155285009.180000066757202,Toscana,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/045,10°0′38.7″E,44°15′18.9″N
+46,9,46,Lucca,LU,211303.174919999990379,1774031316.930000066757202,Toscana,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/046,10°26′12.2″E,44°0′18.6″N
+47,9,47,Pistoia,PT,171807.569149999995716,963534658.508999943733215,Toscana,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/047,10°50′56.3″E,43°58′3.4″N
+48,9,48,Firenze,FI,420183.558123000024352,3513611755.789999961853027,Toscana,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/048,11°17′28.0″E,43°49′2.7″N
+49,9,49,Livorno,LI,445981.652385000023060,1213391462.089999914169312,Toscana,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/049,10°28′42.7″E,43°8′43.0″N
+50,9,50,Pisa,PI,339863.312238000042271,2444360371.909999847412109,Toscana,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/050,10°40′1.4″E,43°30′7.5″N
+51,9,51,Arezzo,AR,376791.909725999983493,3232904430.469999790191650,Toscana,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/051,11°51′24.4″E,43°32′1.7″N
+52,9,52,Siena,SI,394487.358155000081751,3819704453.900000095367432,Toscana,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/052,11°27′22.6″E,43°11′27.8″N
+53,9,53,Grosseto,GR,446808.730451999988873,4502276120.250000000000000,Toscana,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/053,11°14′39.7″E,42°47′16.5″N
+54,10,54,Perugia,PG,599075.159367999993265,6335654045.220000267028809,Umbria,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/054,12°31′52.6″E,43°3′59.7″N
+55,10,55,Terni,TR,380890.430083999992348,2128314676.950000047683716,Umbria,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/055,12°22′0.7″E,42°39′52.5″N
+56,12,56,Viterbo,VT,406781.454374000022653,3616255918.230000019073486,Lazio,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/056,11°59′41.7″E,42°25′26.8″N
+57,12,57,Rieti,RI,382267.386033000017051,2750019357.670000076293945,Lazio,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/057,12°57′37.4″E,42°22′35.3″N
+58,12,58,Roma,RM,612240.783272000146098,5365769687.000000000000000,Lazio,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/058,12°34′16.6″E,41°55′22.6″N
+59,12,59,Latina,LT,433238.510190000000875,2256020870.019999980926514,Lazio,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/059,13°8′41.3″E,41°25′42.6″N
+60,12,60,Frosinone,FR,335921.543589000008069,3248422088.309999942779541,Lazio,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/060,13°32′8.7″E,41°36′54.5″N
+61,15,61,Caserta,CE,331783.530527000024449,2651162709.130000114440918,Campania,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/061,14°9′39.0″E,41°13′2.4″N
+62,15,62,Benevento,BN,305855.840725000016391,2080514359.420000076293945,Campania,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/062,14°45′4.5″E,41°14′23.6″N
+63,15,63,Napoli,NA,361627.826678999990690,1176724187.130000114440918,Campania,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/063,14°20′31.8″E,40°50′39.4″N
+64,15,64,Avellino,AV,364845.972866000025533,2804521041.829999923706055,Campania,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/064,15°4′44.2″E,40°58′35.3″N
+65,15,65,Salerno,SA,481302.024967000004835,4954925127.020000457763672,Campania,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/065,15°13′48.0″E,40°26′28.1″N
+66,13,66,L'Aquila,AQ,470121.785559999989346,5046909504.560000419616699,Abruzzo,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/066,13°36′7.7″E,42°6′14.7″N
+67,13,67,Teramo,TE,219653.322627999994438,1954734891.630000114440918,Abruzzo,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/067,13°43′35.9″E,42°38′42.4″N
+68,13,68,Pescara,PE,203339.457016000000294,1228676504.799999952316284,Abruzzo,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/068,13°59′2.4″E,42°19′54.7″N
+69,13,69,Chieti,CH,262899.215922000003047,2598567385.139999866485596,Abruzzo,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/069,14°22′55.7″E,42°6′1.0″N
+70,14,70,Campobasso,CB,297640.051726999983657,2926336203.000000000000000,Molise,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/070,14°46′35.5″E,41°42′8.7″N
+71,16,71,Foggia,FG,474713.899932999978773,7008688702.460000038146973,Puglia,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/071,15°33′38.2″E,41°32′16.8″N
+72,16,72,Bari,BA,366685.184699999983422,3865139233.519999980926514,Puglia,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/072,16°45′5.5″E,40°55′51.8″N
+73,16,73,Taranto,TA,359513.739018000022043,2467161162.709999561309814,Puglia,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/073,17°12′6.1″E,40°32′30.0″N
+74,16,74,Brindisi,BR,254361.384281999984523,1860180497.739999771118164,Puglia,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/074,17°41′27.7″E,40°36′33.0″N
+75,16,75,Lecce,LE,278975.032267000002321,2797766650.949999809265137,Puglia,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/075,18°10′39.1″E,40°10′22.8″N
+76,17,76,Potenza,PZ,591888.392252999939956,6592239519.859999656677246,Basilicata,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/076,15°53′23.9″E,40°30′57.7″N
+77,17,77,Matera,MT,367054.295388000027742,3479354701.630000591278076,Basilicata,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/077,16°26′44.3″E,40°28′8.8″N
+78,18,78,Cosenza,CS,524130.762573000043631,6706181407.159999847412109,Calabria,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/078,16°19′21.1″E,39°33′53.9″N
+79,18,79,Catanzaro,CZ,327098.102130000013858,2417209600.210000038146973,Calabria,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/079,16°29′25.3″E,38°53′45.2″N
+80,18,80,Reggio di Calabria,RC,313657.299841000000015,3207758726.980000019073486,Calabria,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/080,16°1′54.8″E,38°14′20.3″N
+81,19,81,Trapani,TP,394178.195978000003379,2469399226.940000057220459,Sicilia,Isole,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/081,12°42′23.2″E,37°48′40.2″N
+82,19,82,Palermo,PA,536411.277756000054069,5005063149.720000267028809,Sicilia,Isole,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/082,13°35′12.2″E,37°52′10.1″N
+83,19,83,Messina,ME,547854.302829000051133,3266063564.329999923706055,Sicilia,Isole,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/083,14°56′33.3″E,38°2′19.6″N
+84,19,84,Agrigento,AG,460385.120300000009593,3055902441.400000095367432,Sicilia,Isole,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/084,13°30′28.0″E,37°25′43.2″N
+85,19,85,Caltanissetta,CL,397254.104767000011634,2134207584.240000009536743,Sicilia,Isole,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/085,14°4′22.4″E,37°21′24.7″N
+86,19,86,Enna,EN,351006.074957999982871,2572918241.369999885559082,Sicilia,Isole,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/086,14°25′45.8″E,37°34′50.5″N
+87,19,87,Catania,CT,516266.940166000043973,3575362913.619999885559082,Sicilia,Isole,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/087,14°49′46.2″E,37°30′44.5″N
+88,19,88,Ragusa,RG,260517.354881000006571,1623597142.720000028610229,Sicilia,Isole,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/088,14°40′57.4″E,36°54′27.5″N
+89,19,89,Siracusa,SR,378609.283906999917235,2121805423.279999971389771,Sicilia,Isole,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/089,15°1′47.1″E,37°4′33.2″N
+90,20,90,Sassari,SS,905183.007008000044152,7697795958.060000419616699,Sardegna,Isole,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/090,8°57′52.0″E,40°44′49.5″N
+91,20,91,Nuoro,NU,554834.670852000010200,5640604157.720000267028809,Sardegna,Isole,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/091,9°22′9.1″E,40°10′55.0″N
+92,20,92,Cagliari,CA,239978.161472999985563,1248053551.960000276565552,Sardegna,Isole,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/092,9°6′26.4″E,39°12′25.9″N
+93,6,93,Pordenone,PN,277313.354387000028510,2276367055.539999961853027,Friuli-Venezia Giulia,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/093,12°40′54.4″E,46°6′30.0″N
+94,14,94,Isernia,IS,259543.846301999990828,1533461631.279999971389771,Molise,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/094,14°14′58.5″E,41°38′58.1″N
+95,20,95,Oristano,OR,382709.227213000005577,2990703143.489999771118164,Sardegna,Isole,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/095,8°43′0.4″E,39°59′23.0″N
+96,1,96,Biella,BI,157593.654971000010846,912887059.246999979019165,Piemonte,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/096,8°5′41.4″E,45°34′56.4″N
+97,3,97,Lecco,LC,181337.218194999994012,805393969.039000034332275,Lombardia,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/097,9°23′8.0″E,45°54′15.1″N
+98,3,98,Lodi,LO,234746.286179999995511,782315031.108000040054321,Lombardia,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/098,9°34′46.3″E,45°13′52.0″N
+99,8,99,Rimini,RN,258644.981331999995746,923465160.404999971389771,Emilia-Romagna,Nord-est,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/099,12°26′22.8″E,43°55′36.6″N
+100,9,100,Prato,PO,119300.422858999998425,365907499.417999982833862,Toscana,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/100,11°5′34.9″E,43°57′4.1″N
+101,18,101,Crotone,KR,257916.164656000008108,1734046501.980000019073486,Calabria,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/101,16°56′46.8″E,39°10′39.4″N
+102,18,102,Vibo Valentia,VV,202204.907253000012133,1147455394.759999990463257,Calabria,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/102,16°9′42.0″E,38°37′29.9″N
+103,1,103,Verbano-Cusio-Ossola,VB,299122.352565000008326,2262616082.260000228881836,Piemonte,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/103,8°20′32.4″E,46°5′23.4″N
+104,3,108,Monza e della Brianza,MB,126681.877854000005755,405651671.117999970912933,Lombardia,Nord-ovest,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/108,9°16′13.6″E,45°37′54.0″N
+105,11,109,Fermo,FM,198243.217684000002919,861372573.593000054359436,Marche,Centro,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/109,13°34′37.6″E,43°5′57.3″N
+106,16,110,Barletta-Andria-Trani,BT,238998.226220999989891,1542097353.720000028610229,Puglia,Sud,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/110,16°10′16.2″E,41°10′22.5″N
+107,20,111,Sud Sardegna,SU,720422.577615999965928,6529139860.810000419616699,Sardegna,Isole,https://w3id.org/italia/controlled-vocabulary/territorial-classifications/provinces/111,8°56′42.8″E,39°25′42.7″N

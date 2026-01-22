@@ -18,8 +18,31 @@ if (!defined('BASE_URL')) {
 
 // OnlyOffice Server Configuration
 // CRITICAL: OnlyOffice Document Server runs on port 8083 (not 8888!)
-define('ONLYOFFICE_SERVER_URL', getenv('ONLYOFFICE_SERVER_URL') ?: 'http://localhost:8083');
-define('ONLYOFFICE_API_URL', ONLYOFFICE_SERVER_URL . '/web-apps/apps/api/documents/api.js');
+// Internal URL: used by PHP backend to reach the OnlyOffice container (healthcheck, server-side proxying)
+define('ONLYOFFICE_INTERNAL_URL', getenv('ONLYOFFICE_SERVER_URL') ?: 'http://localhost:8083');
+define('ONLYOFFICE_INTERNAL_API_URL', ONLYOFFICE_INTERNAL_URL . '/web-apps/apps/api/documents/api.js');
+
+// Public URL: used by browsers to load the OnlyOffice web app + api.js.
+// IMPORTANT: api.js must be served from a URL that preserves the expected "/web-apps/apps/api/documents/api.js" path,
+// otherwise OnlyOffice will attempt to load editor assets from wrong paths (causing 404 pages).
+//
+// Default behavior:
+// - production: use same-origin reverse proxy at BASE_URL/onlyoffice
+// - development: fallback to internal URL (localhost:8083), unless overridden
+$onlyOfficePublicBase = getenv('ONLYOFFICE_PUBLIC_URL');
+if (empty($onlyOfficePublicBase)) {
+    if (defined('PRODUCTION_MODE') && PRODUCTION_MODE) {
+        $onlyOfficePublicBase = BASE_URL . '/onlyoffice';
+    } else {
+        $onlyOfficePublicBase = ONLYOFFICE_INTERNAL_URL;
+    }
+}
+define('ONLYOFFICE_PUBLIC_URL', rtrim($onlyOfficePublicBase, '/'));
+define('ONLYOFFICE_PUBLIC_API_URL', ONLYOFFICE_PUBLIC_URL . '/web-apps/apps/api/documents/api.js');
+
+// Backwards compatible aliases (keep existing constant names used across codebase)
+define('ONLYOFFICE_SERVER_URL', ONLYOFFICE_INTERNAL_URL);
+define('ONLYOFFICE_API_URL', ONLYOFFICE_INTERNAL_API_URL);
 
 // JWT Authentication Settings
 define('ONLYOFFICE_JWT_SECRET', getenv('ONLYOFFICE_JWT_SECRET') ?: '16211f3e8588521503a1265ef24f6bda02b064c6b0ed5a1922d0f36929a613af');
@@ -28,65 +51,145 @@ define('ONLYOFFICE_JWT_ENABLED', true);
 
 // Document Server Endpoints
 // ONLYOFFICE_DOWNLOAD_URL - Must be reachable from Docker container
-if (defined('PRODUCTION_MODE') && PRODUCTION_MODE) {
-    define('ONLYOFFICE_DOWNLOAD_URL', BASE_URL . '/api/documents/download_for_editor.php');
-    define('ONLYOFFICE_CALLBACK_URL', BASE_URL . '/api/documents/save_document.php');
-} else {
-    // Development: resolve host for Docker container access
-    $detectedHost = getenv('ONLYOFFICE_DEV_HOST');
+//
+// BUG-135 FIX v2: Docker Location Detection (not request-based)
+// =============================================================
+// PROBLEM SCENARIO: Cloudflare Tunnel on Local Machine
+// - User accesses: https://app.nexiosolution.it (via Cloudflare tunnel)
+// - Server: Windows XAMPP localhost:8888 (SAME machine)
+// - OnlyOffice Docker: localhost:8083 (SAME machine)
+// - Cloudflare tunnel terminates on localhost:8888
+//
+// ISSUE with v1 (request-based detection):
+// - HTTP_HOST = "app.nexiosolution.it" (looks like production)
+// - isLocalRequest = FALSE (wrong!)
+// - DOWNLOAD_URL = https://app.nexiosolution.it/... (Docker can't reach this!)
+// - OnlyOffice Docker tries to download from public URL but fails
+//
+// SOLUTION v2: Detect WHERE Docker container runs, not WHERE request comes from
+// The key insight is: if OnlyOffice Docker is LOCAL, it needs LOCAL URLs.
+// We detect this by checking if the Docker container can be reached on localhost.
+//
+// Decision Matrix:
+// | Server Location | Docker Location | Download URL |
+// |-----------------|-----------------|--------------|
+// | Local (XAMPP)   | Local           | host.docker.internal:8888 |
+// | Remote (VPS)    | Remote          | Public BASE_URL |
+// | Remote (VPS)    | Local (N/A)     | Public BASE_URL |
 
-    if (empty($detectedHost)) {
-        // CRITICAL FIX: For Docker Desktop on Windows, MUST use host.docker.internal
-        // This allows Docker container to reach host Windows machine on port 8888
-        // Detection: Running on Windows OR in WSL environment
-        $isWindows = (PHP_OS_FAMILY === 'Windows' || stripos(PHP_OS, 'WIN') === 0);
-        $isWSL = (stripos(php_uname(), 'microsoft') !== false || file_exists('/proc/sys/fs/binfmt_misc/WSLInterop'));
+// Step 1: Check for explicit ENV overrides (highest priority)
+$downloadOverride = getenv('ONLYOFFICE_DOWNLOAD_URL');
+$callbackOverride = getenv('ONLYOFFICE_CALLBACK_URL');
 
-        if ($isWindows || $isWSL) {
-            // Windows Docker Desktop or WSL - use special DNS name
-            $detectedHost = 'host.docker.internal';
-            error_log('[OnlyOffice Config] Detected Windows/WSL environment - using host.docker.internal');
-        } else {
-            // Try to detect local LAN IP for Linux/Mac
-            $detectedHost = null;
+// Step 2: Detect if OnlyOffice Docker is LOCAL
+// We check this by seeing if ONLYOFFICE_INTERNAL_URL points to localhost
+// If the PHP process can reach localhost:8083, Docker is local.
+$onlyOfficeHost = parse_url(ONLYOFFICE_INTERNAL_URL, PHP_URL_HOST) ?? 'localhost';
+$onlyOfficePort = parse_url(ONLYOFFICE_INTERNAL_URL, PHP_URL_PORT) ?? 8083;
+
+$isDockerLocal = (
+    $onlyOfficeHost === 'localhost' ||
+    $onlyOfficeHost === '127.0.0.1' ||
+    $onlyOfficeHost === '::1'
+);
+
+// Step 3: Also detect if THIS SERVER is local (Windows/WSL/Mac development)
+// This is needed to determine the correct host.docker.internal address
+$isServerLocal = false;
+$dockerHost = getenv('ONLYOFFICE_DEV_HOST');
+
+if (empty($dockerHost)) {
+    // Auto-detect based on OS where PHP runs
+    $isWindows = (PHP_OS_FAMILY === 'Windows' || stripos(PHP_OS, 'WIN') === 0);
+    $isWSL = (stripos(php_uname(), 'microsoft') !== false || file_exists('/proc/sys/fs/binfmt_misc/WSLInterop'));
+    $isMac = (PHP_OS_FAMILY === 'Darwin');
+
+    if ($isWindows || $isWSL || $isMac) {
+        $isServerLocal = true;
+        // Docker Desktop (Windows/Mac/WSL) uses special DNS name
+        $dockerHost = 'host.docker.internal';
+    } else {
+        // Linux server: could be local dev or production
+        // Check if we're likely a dev machine by looking for typical markers
+        $hostname = gethostname() ?: '';
+        $isServerLocal = (
+            stripos($hostname, 'desktop') !== false ||
+            stripos($hostname, 'laptop') !== false ||
+            stripos($hostname, 'dev') !== false ||
+            file_exists('/home/' . get_current_user() . '/.local') // typical user desktop
+        );
+
+        if ($isServerLocal) {
+            // Try to detect LAN IP for local Linux dev
             try {
                 $sock = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
                 if ($sock) {
                     @socket_connect($sock, '8.8.8.8', 53);
                     @socket_getsockname($sock, $addr);
                     if (!empty($addr) && $addr !== '127.0.0.1') {
-                        $detectedHost = $addr;
+                        $dockerHost = $addr;
                     }
                     @socket_close($sock);
                 }
             } catch (Throwable $e) {
-                // ignore and fallback below
+                // ignore
             }
 
-            if (empty($detectedHost)) {
-                // Fallback to gethostbynamel
+            if (empty($dockerHost)) {
                 $ips = @gethostbynamel(gethostname()) ?: [];
                 foreach ($ips as $ip) {
-                    if ($ip !== '127.0.0.1') { $detectedHost = $ip; break; }
+                    if ($ip !== '127.0.0.1') { $dockerHost = $ip; break; }
                 }
             }
 
-            if (empty($detectedHost)) {
-                // Final fallback for Docker - try bridge network
-                $detectedHost = '172.17.0.1';
+            if (empty($dockerHost)) {
+                $dockerHost = '172.17.0.1'; // Docker bridge network fallback
             }
         }
     }
+}
 
-    define('ONLYOFFICE_DOWNLOAD_URL', 'http://' . $detectedHost . ':8888/CollaboraNexio/api/documents/download_for_editor.php');
-    define('ONLYOFFICE_CALLBACK_URL', 'http://' . $detectedHost . ':8888/CollaboraNexio/api/documents/save_document.php');
+// Step 4: Determine if we need local Docker URLs
+// Use local URLs when BOTH Docker AND server are local
+$useLocalDockerUrls = $isDockerLocal && $isServerLocal && !empty($dockerHost);
 
-    // Log the resolved URLs for debugging
-    if (defined('DEBUG_MODE') && DEBUG_MODE) {
-        error_log('[OnlyOffice Config] Host detected: ' . $detectedHost);
-        error_log('[OnlyOffice Config] Download URL: ' . ONLYOFFICE_DOWNLOAD_URL);
-        error_log('[OnlyOffice Config] Callback URL: ' . ONLYOFFICE_CALLBACK_URL);
-    }
+// Step 5: Build the URLs based on Docker location
+if (!empty($downloadOverride)) {
+    // ENV override takes absolute priority
+    define('ONLYOFFICE_DOWNLOAD_URL', $downloadOverride);
+} elseif ($useLocalDockerUrls) {
+    // BUG-135 v2: Docker is local - ALWAYS use internal address regardless of HTTP_HOST
+    // This ensures OnlyOffice Docker can reach Apache even when user accesses via Cloudflare tunnel
+    define('ONLYOFFICE_DOWNLOAD_URL', 'http://' . $dockerHost . ':8888/CollaboraNexio/api/documents/download_for_editor.php');
+} else {
+    // Docker is remote OR server is remote: Use public BASE_URL
+    define('ONLYOFFICE_DOWNLOAD_URL', BASE_URL . '/api/documents/download_for_editor.php');
+}
+
+if (!empty($callbackOverride)) {
+    // ENV override takes absolute priority
+    define('ONLYOFFICE_CALLBACK_URL', $callbackOverride);
+} elseif ($useLocalDockerUrls) {
+    // BUG-135 v2: Docker is local - ALWAYS use internal address
+    define('ONLYOFFICE_CALLBACK_URL', 'http://' . $dockerHost . ':8888/CollaboraNexio/api/documents/save_document.php');
+} else {
+    // Docker is remote OR server is remote: Use public BASE_URL
+    define('ONLYOFFICE_CALLBACK_URL', BASE_URL . '/api/documents/save_document.php');
+}
+
+// Debug logging
+$requestHost = $_SERVER['HTTP_HOST'] ?? 'CLI';
+$shouldLog = !defined('PRODUCTION_MODE') || !PRODUCTION_MODE || (defined('DEBUG_MODE') && DEBUG_MODE);
+if ($shouldLog) {
+    error_log('[OnlyOffice Config] BUG-135 v2 Detection:');
+    error_log('[OnlyOffice Config]   Request Host: ' . $requestHost);
+    error_log('[OnlyOffice Config]   OnlyOffice URL: ' . ONLYOFFICE_INTERNAL_URL);
+    error_log('[OnlyOffice Config]   Is Docker Local: ' . ($isDockerLocal ? 'YES' : 'NO'));
+    error_log('[OnlyOffice Config]   Is Server Local: ' . ($isServerLocal ? 'YES' : 'NO'));
+    error_log('[OnlyOffice Config]   Docker Host: ' . ($dockerHost ?? 'N/A'));
+    error_log('[OnlyOffice Config]   Use Local URLs: ' . ($useLocalDockerUrls ? 'YES' : 'NO'));
+    error_log('[OnlyOffice Config]   Download URL: ' . ONLYOFFICE_DOWNLOAD_URL);
+    error_log('[OnlyOffice Config]   Callback URL: ' . ONLYOFFICE_CALLBACK_URL);
 }
 
 // Editor Configuration
@@ -163,10 +266,10 @@ $ONLYOFFICE_VIEWONLY_EXTENSIONS = [
 $ONLYOFFICE_CUSTOMIZATION = [
     'customer' => [
         'address' => 'Italia',
-        'info' => 'CollaboraNexio - Sistema di gestione documentale',
+        'info' => 'Nexio - Sistema di gestione documentale',
         'logo' => BASE_URL . '/assets/images/logo-nexio.webp',
         'mail' => 'support@nexiosolution.it',
-        'name' => 'CollaboraNexio',
+        'name' => 'Nexio',
         'www' => 'https://app.nexiosolution.it'
     ],
     'feedback' => [

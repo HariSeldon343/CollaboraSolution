@@ -289,3 +289,64 @@ function cnx_openai_chat_json(array $messages, array $jsonSchema = null, array $
     return ['ok' => true, 'data' => $json];
 }
 
+/**
+ * OpenAI embeddings (best-effort).
+ *
+ * @param string[] $texts
+ * @return array{ok:bool,embeddings?:array<int,array<float>>,error?:string}
+ */
+function cnx_openai_embed_texts(array $texts, array $opts = []): array {
+    $apiKey = defined('OPENAI_API_KEY') ? (string)OPENAI_API_KEY : '';
+    if (trim($apiKey) === '') {
+        return ['ok' => false, 'error' => 'OpenAI non configurato (OPENAI_API_KEY mancante)'];
+    }
+    $base = defined('OPENAI_API_BASE') ? rtrim((string)OPENAI_API_BASE, '/') : 'https://api.openai.com';
+    $url = $base . '/v1/embeddings';
+    $model = defined('OPENAI_EMBEDDING_MODEL') ? (string)OPENAI_EMBEDDING_MODEL : 'text-embedding-3-small';
+    if (isset($opts['model']) && trim((string)$opts['model']) !== '') {
+        $model = (string)$opts['model'];
+    }
+    $timeout = isset($opts['timeout_seconds'])
+        ? (int)$opts['timeout_seconds']
+        : (defined('OPENAI_TIMEOUT_SECONDS') ? (int)OPENAI_TIMEOUT_SECONDS : 20);
+    $payload = [
+        'model' => $model,
+        'input' => array_values($texts),
+    ];
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $apiKey,
+        ],
+        CURLOPT_TIMEOUT => $timeout,
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+    ]);
+    $resp = curl_exec($ch);
+    $err = curl_error($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($resp === false) {
+        return ['ok' => false, 'error' => 'Errore cURL: ' . $err];
+    }
+    $decoded = json_decode($resp, true);
+    if ($code < 200 || $code >= 300) {
+        $msg = is_array($decoded) ? (string)($decoded['error']['message'] ?? $decoded['message'] ?? '') : '';
+        if ($msg === '') $msg = "HTTP {$code}";
+        return ['ok' => false, 'error' => $msg];
+    }
+    $data = $decoded['data'] ?? null;
+    if (!is_array($data)) return ['ok' => false, 'error' => 'Risposta embeddings non valida'];
+    $out = [];
+    foreach ($data as $row) {
+        $emb = $row['embedding'] ?? null;
+        if (!is_array($emb)) continue;
+        $out[] = array_map('floatval', $emb);
+    }
+    if (empty($out)) return ['ok' => false, 'error' => 'Embeddings vuote'];
+    return ['ok' => true, 'embeddings' => $out];
+}

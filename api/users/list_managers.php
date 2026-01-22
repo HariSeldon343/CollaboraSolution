@@ -42,11 +42,21 @@ try {
         LEFT JOIN tenants t ON u.tenant_id = t.id
         WHERE u.role IN ('manager', 'admin', 'super_admin')
             AND u.deleted_at IS NULL
+    ";
+
+    // Tenant isolation: managers/admins see only their tenant; super_admin sees all
+    $params = [];
+    if (($userInfo['role'] ?? '') !== 'super_admin') {
+        $query .= " AND u.tenant_id = ?";
+        $params[] = (int)($userInfo['tenant_id'] ?? 0);
+    }
+
+    $query .= "
         ORDER BY u.role DESC, u.name ASC
     ";
 
     $stmt = $conn->prepare($query);
-    $stmt->execute();
+    $stmt->execute($params);
 
     $managers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

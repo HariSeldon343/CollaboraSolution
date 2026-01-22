@@ -1,0 +1,182 @@
+{
+  "pack_key": "ISO9001_SGQ_COMPLETO",
+  "standard_code": "ISO9001",
+  "module": {
+    "module_key": "ISO9001_SGQ_COMPLETO",
+    "title": "ISO 9001 — SGQ Completo",
+    "description": "Pacchetto completo ISO 9001 (Manuale qualità + 33 procedure + registri). NO testo ISO/UNI nei template; contenuti generati in modo originale tramite wizard.",
+    "standards": ["ISO9001"],
+    "tags": ["ISO9001", "SGQ"],
+    "is_active": true
+  },
+  "masters": [
+    { "file_key": "ISO9001_MASTER_MANUALE_QUALITA", "name": "MASTER_MANUALE_QUALITA_ISO9001.docx", "kind": "docx" },
+    { "file_key": "ISO9001_MASTER_PROCEDURA", "name": "MASTER_PROCEDURA_ISO9001.docx", "kind": "docx" },
+    { "file_key": "ISO9001_MASTER_VERBALE_RAPPORTO", "name": "MASTER_VERBALE_RAPPORTO_ISO9001.docx", "kind": "docx" },
+    { "file_key": "ISO9001_MASTER_REGISTRO_BASE", "name": "MASTER_REGISTRO_BASE.xlsx", "kind": "xlsx" },
+    { "file_key": "ISO9001_MASTER_REG_NC_AZIONI", "name": "MASTER_REG_NC_AZIONI.xlsx", "kind": "xlsx" },
+    { "file_key": "ISO9001_MASTER_REG_RISCHI_OPP", "name": "MASTER_REG_RISCHI_OPP.xlsx", "kind": "xlsx" }
+  ],
+  "templates": [
+    {
+      "template_key": "ISO9001_MANUALE_QUALITA",
+      "title": "MQ-01 — Manuale Qualità (ISO 9001)",
+      "doc_type": "manual",
+      "file_kind": "docx",
+      "folder_path": "/IMS/Manuale",
+      "filename_template": "MQ-01 - Manuale_Qualita_ISO9001",
+      "doc_code_template": "MQ-01",
+      "clauses": "ALL_REQUIREMENTS",
+      "source_file_key": "ISO9001_MASTER_MANUALE_QUALITA",
+      "tags": ["ISO9001", "SGQ", "Manuale"]
+    },
+    {
+      "template_key": "ISO9001_ALLEGATO_A_POLITICA_QUALITA",
+      "title": "AL-A — Allegato A: Politica per la Qualità",
+      "doc_type": "policy",
+      "file_kind": "docx",
+      "folder_path": "/IMS/Allegati",
+      "filename_template": "AL-A - Allegato_A_Politica_per_la_Qualita",
+      "doc_code_template": "AL-A",
+      "clauses": ["5.2"],
+      "source_file_key": "ISO9001_MASTER_VERBALE_RAPPORTO",
+      "tags": ["ISO9001", "SGQ", "Allegato", "Policy"]
+    },
+    {
+      "template_key": "ISO9001_ALLEGATO_B_ORGANIGRAMMA",
+      "title": "AL-B — Allegato B: Organigramma",
+      "doc_type": "record",
+      "file_kind": "docx",
+      "folder_path": "/IMS/Allegati",
+      "filename_template": "AL-B - Allegato_B_Organigramma",
+      "doc_code_template": "AL-B",
+      "clauses": ["5.3"],
+      "source_file_key": "ISO9001_MASTER_VERBALE_RAPPORTO",
+      "tags": ["ISO9001", "SGQ", "Allegato"]
+    },
+    {
+      "template_key": "ISO9001_ALLEGATO_C_MAPPA_PROCESSI",
+      "title": "AL-C — Allegato C: Mappa dei processi",
+      "doc_type": "record",
+      "file_kind": "docx",
+      "folder_path": "/IMS/Allegati",
+      "filename_template": "AL-C - Allegato_C_Mappa_dei_processi",
+      "doc_code_template": "AL-C",
+      "clauses": ["4.4"],
+      "source_file_key": "ISO9001_MASTER_VERBALE_RAPPORTO",
+      "tags": ["ISO9001", "SGQ", "Allegato"]
+    },
+    {
+      "template_key": "ISO9001_ALLEGATO_D_MATRICE_RESPONSABILITA",
+      "title": "AL-D — Allegato D: Matrice delle responsabilità",
+      "doc_type": "record",
+      "file_kind": "docx",
+      "folder_path": "/IMS/Allegati",
+      "filename_template": "AL-D - Allegato_D_Matrice_delle_responsabilita",
+      "doc_code_template": "AL-D",
+      "clauses": ["5.3"],
+      "source_file_key": "ISO9001_MASTER_VERBALE_RAPPORTO",
+      "tags": ["ISO9001", "SGQ", "Allegato"]
+    },
+    {
+      "template_key": "ISO9001_ALLEGATO_E_ELENCO_PROCEDURE_MODULI",
+      "title": "AL-E — Allegato E: Elenco procedure e moduli",
+      "doc_type": "record",
+      "file_kind": "docx",
+      "folder_path": "/IMS/Allegati",
+      "filename_template": "AL-E - Allegato_E_Elenco_procedure_e_moduli",
+      "doc_code_template": "AL-E",
+      "clauses": ["7.5"],
+      "source_file_key": "ISO9001_MASTER_VERBALE_RAPPORTO",
+      "tags": ["ISO9001", "SGQ", "Allegato"]
+    },
+    {
+      "template_key": "ISO9001_ALLEGATO_F_TABELLA_CORRELAZIONE",
+      "title": "AL-F — Allegato F: Tabella di correlazione ISO 9001",
+      "doc_type": "record",
+      "file_kind": "docx",
+      "folder_path": "/IMS/Allegati",
+      "filename_template": "AL-F - Allegato_F_Tabella_correlazione_ISO9001",
+      "doc_code_template": "AL-F",
+      "clauses": ["4.4"],
+      "source_file_key": "ISO9001_MASTER_VERBALE_RAPPORTO",
+      "tags": ["ISO9001", "SGQ", "Allegato"]
+    },
+    {
+      "template_key": "ISO9001_PROC_INFODOC",
+      "title": "PD-01 — Informazioni documentate",
+      "doc_type": "procedure",
+      "file_kind": "docx",
+      "folder_path": "/IMS/Procedure/PD",
+      "filename_template": "PD-01 - Informazioni_documentate",
+      "doc_code_template": "PD-01",
+      "clauses": ["7.5"],
+      "source_file_key": "ISO9001_MASTER_PROCEDURA",
+      "tags": ["ISO9001", "SGQ", "Procedura", "PD"]
+    },
+    {
+      "template_key": "ISO9001_REG_RISCHI_OPP",
+      "title": "MOD-RO-01 — Registro Rischi e Opportunità",
+      "doc_type": "register",
+      "file_kind": "xlsx",
+      "folder_path": "/IMS/Moduli/Registri",
+      "filename_template": "MOD-RO-01 - Registro_Rischi_Opportunita",
+      "doc_code_template": "MOD-RO-01",
+      "clauses": ["6.1"],
+      "source_file_key": "ISO9001_MASTER_REG_RISCHI_OPP",
+      "tags": ["ISO9001", "SGQ", "Registro", "MOD"]
+    },
+    {
+      "template_key": "ISO9001_REG_NC_AZIONI",
+      "title": "MOD-NC-01 — Registro Non Conformità e Azioni",
+      "doc_type": "register",
+      "file_kind": "xlsx",
+      "folder_path": "/IMS/Moduli/Registri",
+      "filename_template": "MOD-NC-01 - Registro_NC_Azioni",
+      "doc_code_template": "MOD-NC-01",
+      "clauses": ["10.2"],
+      "source_file_key": "ISO9001_MASTER_REG_NC_AZIONI",
+      "tags": ["ISO9001", "SGQ", "Registro", "MOD"]
+    },
+
+    { "template_key": "ISO9001_PG_01", "title": "PG-01 — Gestione SGQ e contesto", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PG", "filename_template": "PG-01 - Gestione_SGQ_e_contesto", "doc_code_template": "PG-01", "clauses": ["4.1", "4.4", "10.3"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PG_02", "title": "PG-02 — Parti interessate e requisiti", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PG", "filename_template": "PG-02 - Parti_interessate_e_requisiti", "doc_code_template": "PG-02", "clauses": ["4.2", "8.2"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PG_03", "title": "PG-03 — Gestione processi, KPI e obiettivi", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PG", "filename_template": "PG-03 - Gestione_processi_KPI_e_obiettivi", "doc_code_template": "PG-03", "clauses": ["4.4", "6.2", "9.1"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PG_04", "title": "PG-04 — Audit e riesami", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PG", "filename_template": "PG-04 - Audit_e_riesami", "doc_code_template": "PG-04", "clauses": ["9.2", "9.3"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PG_05", "title": "PG-05 — Non conformità e miglioramento", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PG", "filename_template": "PG-05 - Non_conformita_e_miglioramento", "doc_code_template": "PG-05", "clauses": ["10.1", "10.2", "10.3"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+
+    { "template_key": "ISO9001_PD_02", "title": "PD-02 — Comunicazione (interna/esterna)", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PD", "filename_template": "PD-02 - Comunicazione_interna_esterna", "doc_code_template": "PD-02", "clauses": ["7.4"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura", "PD"] },
+    { "template_key": "ISO9001_PD_03", "title": "PD-03 — Competenze, formazione e consapevolezza", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PD", "filename_template": "PD-03 - Competenze_formazione_consapevolezza", "doc_code_template": "PD-03", "clauses": ["7.2", "7.3"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura", "PD"] },
+
+    { "template_key": "ISO9001_PRU_01", "title": "PRU-01 — Inserimento e qualificazione del personale", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PRU", "filename_template": "PRU-01 - Inserimento_e_qualificazione_personale", "doc_code_template": "PRU-01", "clauses": ["7.2"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PRU_02", "title": "PRU-02 — Formazione e addestramento", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PRU", "filename_template": "PRU-02 - Formazione_e_addestramento", "doc_code_template": "PRU-02", "clauses": ["7.2", "7.3"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PRU_03", "title": "PRU-03 — Valutazione competenze e consapevolezza", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PRU", "filename_template": "PRU-03 - Valutazione_competenze_e_consapevolezza", "doc_code_template": "PRU-03", "clauses": ["7.2", "7.3"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+
+    { "template_key": "ISO9001_PI_01", "title": "PI-01 — Gestione risorse e infrastrutture", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PI", "filename_template": "PI-01 - Gestione_risorse_e_infrastrutture", "doc_code_template": "PI-01", "clauses": ["7.1"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PI_02", "title": "PI-02 — Manutenzioni e tarature strumenti", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PI", "filename_template": "PI-02 - Manutenzioni_e_tarature_strumenti", "doc_code_template": "PI-02", "clauses": ["7.1"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PI_03", "title": "PI-03 — Gestione IT, backup e sicurezza dati", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PI", "filename_template": "PI-03 - Gestione_IT_backup_sicurezza_dati", "doc_code_template": "PI-03", "clauses": ["7.1", "7.5"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PI_04", "title": "PI-04 — Gestione ambiente di lavoro", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PI", "filename_template": "PI-04 - Gestione_ambiente_di_lavoro", "doc_code_template": "PI-04", "clauses": ["7.1"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+
+    { "template_key": "ISO9001_PO_01", "title": "PO-01 — Pianificazione e controllo operativi", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PO", "filename_template": "PO-01 - Pianificazione_e_controllo_operativi", "doc_code_template": "PO-01", "clauses": ["8.1"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PO_02", "title": "PO-02 — Gestione requisiti cliente e contratti", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PO", "filename_template": "PO-02 - Gestione_requisiti_cliente_e_contratti", "doc_code_template": "PO-02", "clauses": ["8.2"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PO_03", "title": "PO-03 — Progettazione e sviluppo (se applicabile)", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PO", "filename_template": "PO-03 - Progettazione_e_sviluppo", "doc_code_template": "PO-03", "clauses": ["8.3"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PO_04", "title": "PO-04 — Gestione fornitori e acquisti", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PO", "filename_template": "PO-04 - Gestione_fornitori_e_acquisti", "doc_code_template": "PO-04", "clauses": ["8.4"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PO_05", "title": "PO-05 — Controlli in accettazione e in corso d’opera", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PO", "filename_template": "PO-05 - Controlli_in_accettazione_e_in_corso_dopera", "doc_code_template": "PO-05", "clauses": ["8.4"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PO_06", "title": "PO-06 — Erogazione servizio / produzione controllata", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PO", "filename_template": "PO-06 - Erogazione_servizio_produzione_controllata", "doc_code_template": "PO-06", "clauses": ["8.5.1"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PO_07", "title": "PO-07 — Identificazione e tracciabilità (se applicabile)", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PO", "filename_template": "PO-07 - Identificazione_e_tracciabilita", "doc_code_template": "PO-07", "clauses": ["8.5.2"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PO_08", "title": "PO-08 — Proprietà del cliente / esterni", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PO", "filename_template": "PO-08 - Proprieta_del_cliente_esterni", "doc_code_template": "PO-08", "clauses": ["8.5.3"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PO_09", "title": "PO-09 — Preservazione e conservazione output", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PO", "filename_template": "PO-09 - Preservazione_e_conservazione_output", "doc_code_template": "PO-09", "clauses": ["8.5.1"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PO_10", "title": "PO-10 — Attività post-consegna (se applicabile)", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PO", "filename_template": "PO-10 - Attivita_post_consegna", "doc_code_template": "PO-10", "clauses": ["8.5.5"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PO_11", "title": "PO-11 — Gestione cambiamenti operativi", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PO", "filename_template": "PO-11 - Gestione_cambiamenti_operativi", "doc_code_template": "PO-11", "clauses": ["8.1"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PO_12", "title": "PO-12 — Rilascio prodotti/servizi", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PO", "filename_template": "PO-12 - Rilascio_prodotti_servizi", "doc_code_template": "PO-12", "clauses": ["8.6"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PO_13", "title": "PO-13 — Gestione output non conforme", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PO", "filename_template": "PO-13 - Gestione_output_non_conforme", "doc_code_template": "PO-13", "clauses": ["8.7"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+
+    { "template_key": "ISO9001_PV_01", "title": "PV-01 — Monitoraggio, misurazione e analisi", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PV", "filename_template": "PV-01 - Monitoraggio_misurazione_e_analisi", "doc_code_template": "PV-01", "clauses": ["9.1"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PV_02", "title": "PV-02 — Audit interno", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PV", "filename_template": "PV-02 - Audit_interno", "doc_code_template": "PV-02", "clauses": ["9.2"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PV_03", "title": "PV-03 — Riesame di direzione", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PV", "filename_template": "PV-03 - Riesame_di_direzione", "doc_code_template": "PV-03", "clauses": ["9.3"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+
+    { "template_key": "ISO9001_PM_01", "title": "PM-01 — Azioni correttive e gestione non conformità", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PM", "filename_template": "PM-01 - Azioni_correttive_e_gestione_non_conformita", "doc_code_template": "PM-01", "clauses": ["10.2"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] },
+    { "template_key": "ISO9001_PM_02", "title": "PM-02 — Miglioramento continuo", "doc_type": "procedure", "file_kind": "docx", "folder_path": "/IMS/Procedure/PM", "filename_template": "PM-02 - Miglioramento_continuo", "doc_code_template": "PM-02", "clauses": ["10.3"], "source_file_key": "ISO9001_MASTER_PROCEDURA", "tags": ["ISO9001", "SGQ", "Procedura"] }
+  ]
+}
+

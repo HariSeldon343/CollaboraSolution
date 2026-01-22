@@ -1,7 +1,7 @@
 ---
 name: code-refactorer
 description: Use this agent when you need to improve code quality, clean up messy or rushed code, enhance readability, optimize performance, or make code more maintainable. Examples: <example>Context: User has written a complex function that works but is hard to read and maintain. user: "I wrote this function last night and it works but it's a mess. Can you clean it up?" assistant: "I'll use the code-refactorer agent to improve the code quality and maintainability." <commentary>The user has messy code that needs cleaning up, which is exactly what the code-refactorer agent specializes in.</commentary></example> <example>Context: User wants to improve the overall code quality of a module. user: "This module has grown organically and now it's hard to understand. Can you refactor it to be more maintainable?" assistant: "Let me use the code-refactorer agent to systematically improve the code structure and maintainability." <commentary>The user needs systematic refactoring to improve maintainability, which is the core purpose of the code-refactorer agent.</commentary></example>
-model: claude-sonnet-4-5
+model: opus
 color: cyan
 ---
 

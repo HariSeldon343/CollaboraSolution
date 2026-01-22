@@ -1,0 +1,32 @@
+row,ragione_sociale,partita_iva,settore_raw,settore_mapped,result,tenant_id,message
+2,"ADI S.C.A.R.L.",07081900826,"Sanità - Assistenza Domiciliare",sanita,created,65,Creato
+3,"GRUTTADAURIA & CONSIGLIO AGRO DISTRIBUZIONI S.R.L.",02004970857,Agroalimentare,alimentare,created,66,Creato
+4,"AGRUMI-GEL S.R.L.",01549800835,Agroalimentare,alimentare,created,67,Creato
+5,"ANALISI CLINICHE AMENTA S.R.L.",02231080819,"Sanità - Analisi Cliniche",sanita,created,68,Creato
+6,"Università degli Studi di Catania - APSEMA",02772010878,Progettazione/Manutenzione,consulenza,created,69,Creato
+7,"ARA DI MASCAGNI ROSA",02342250871,"Servizi - Disinfestazione",servizi,created,70,Creato
+8,"Associazione Santantonese per la Lotta ai Tumori ONLUS",90007190870,"Associazione Sanitaria",sanita,created,71,Creato
+9,"Bioalmondsicilia S.r.l.",05627680878,Agroalimentare,alimentare,created,72,Creato
+10,"CASA ANNUNZIATA - Comunità Papa Giovanni XXIII",01433850409,"Servizi Sociali",servizi,skipped_duplicate,29,"Tenant già presente (Partita IVA)"
+11,"CONAL FOOD S.R.L.",03731020792,Agroalimentare,alimentare,created,73,Creato
+12,"Consorzio Stabile Socio-Sanitario Aretuseo (Con.So.Sar) - Società Cooperativa Sociale",01799990898,"Servizi Socio-Sanitari",sanita,created,74,Creato
+13,"DNV BUSINESS ASSURANCE ITALY S.R.L.",00820340966,"Ente Certificazione",altro,created,75,Creato
+14,"EUCI EUROPEAN CERTIFICATION INSTITUTE LTD",01726450933,"Ente Certificazione",altro,created,76,Creato
+15,"THE GUARDIAN S.R.L.",04664030873,Vigilanza,servizi,created,77,Creato
+16,"Laboratorio Analisi ""Il Nucleo"" della dr.ssa Marianna Signore & C. s.a.s.",01158460863,"Sanità - Laboratorio Analisi",sanita,created,78,Creato
+17,"LABORATORIO DI ANALISI MONTEPERGOLA S.R.L.",01999650649,"Sanità - Laboratorio Analisi",sanita,created,79,Creato
+18,"MEDTEC S.R.L.",04914270873,"Sanità - Articoli Medicali",sanita,created,80,Creato
+19,"MILLESERVIZI S.R.L.",03800200796,Multiservizi,servizi,created,81,Creato
+20,"CENTRO CLINICO E DIAGNOSTICO G.B. MORGAGNI S.R.L. (Policlinico Morgagni)",00248620874,"Sanità - Policlinico/Diagnostica",sanita,created,82,Creato
+21,"Ortogel S.p.A.",00678650870,Agroalimentare,alimentare,created,83,Creato
+22,"AZIENDA OSPEDALIERA PAPARDO",03051880833,"Sanità - Ospedale",sanita,created,84,Creato
+23,"PL3 & PARTNERS S.R.L.",04618690962,"Consulenza IT",consulenza,created,85,Creato
+24,"Riabilia di Luigi Barillaro & C. S.r.l.",01374620803,"Sanità - Riabilitazione",sanita,created,86,Creato
+25,"RINA S.p.A.",03794120109,"Ente Certificazione",altro,created,87,Creato
+26,"ROMOLO HOSPITAL S.R.L.",02056980796,"Sanità - Ospedale",sanita,created,88,Creato
+27,"Salus Mangialavori S.r.l.",02010240790,"Sanità - Analisi Cliniche",sanita,created,89,Creato
+28,"SOLVING ENGINEERING S.R.L.",03193640806,Ingegneria,consulenza,created,90,Creato
+29,"STIMA S.R.L.",03695410872,"Vending - Distributori automatici",altro,created,91,Creato
+30,"SUPER LAP S.R.L.S.",05973000879,"Commercio Autoveicoli",commercio,created,92,Creato
+31,"VENUSLAB s.a.s. di Curinga Giuseppe & C.",02610700805,Servizi,servizi,created,93,Creato
+32,"Comunità Terapeutica Assistita Villa Chiara S.r.l.",02228000879,"Sanità - Riabilitazione Psichiatrica",sanita,created,94,Creato

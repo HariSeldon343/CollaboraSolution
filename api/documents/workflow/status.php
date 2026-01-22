@@ -30,9 +30,14 @@ header('Expires: 0');
 verifyApiAuthentication();  // IMMEDIATELY after init
 
 $userInfo = getApiUserInfo();
-$tenantId = $userInfo['tenant_id'];
-$userId = $userInfo['user_id'];
-$userRole = $userInfo['role'];
+$tenantIdFromUser = (int)($userInfo['tenant_id'] ?? 0);
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+$companyFilterId = (isset($_SESSION['company_filter_id']) && $_SESSION['company_filter_id'] !== null) ? (int)$_SESSION['company_filter_id'] : 0;
+$tenantId = $companyFilterId > 0 ? $companyFilterId : $tenantIdFromUser;
+$userId = (int)($userInfo['user_id'] ?? $userInfo['id'] ?? 0);
+$userRole = (string)($userInfo['role'] ?? 'user');
 
 // No CSRF required for GET requests (read-only operation)
 
@@ -75,30 +80,80 @@ try {
         $file = $db->fetchOne(
             "SELECT id, name, uploaded_by, folder_id, file_size, mime_type, tenant_id, is_folder
              FROM files
-             WHERE id = ? AND deleted_at IS NULL",
+             WHERE id = ? AND (deleted_at IS NULL OR deleted_at = '')",
             [$fileId]
         );
         if ($file && $file['tenant_id']) {
             $tenantId = (int)$file['tenant_id'];
         }
     } else {
+        // If Company Filter is active (single tenant), keep strict tenant filtering.
+        // If Company Filter is "Tutte le aziende" (company_filter_id is NULL), resolve tenant_id from the file row (admin/super_admin UX).
+        $file = false;
+
+        if ($companyFilterId > 0) {
+            $file = $db->fetchOne(
+                "SELECT id, name, uploaded_by, folder_id, file_size, mime_type, tenant_id, is_folder
+                 FROM files
+                 WHERE id = ?
+                   AND tenant_id = ?
+                   AND (deleted_at IS NULL OR deleted_at = '')",
+                [$fileId, $tenantId]
+            );
+        } else {
+            // First try strict tenant (backward compat for users/managers)
+            if ($tenantId > 0) {
         $file = $db->fetchOne(
             "SELECT id, name, uploaded_by, folder_id, file_size, mime_type, tenant_id, is_folder
              FROM files
              WHERE id = ?
                AND tenant_id = ?
-               AND deleted_at IS NULL",
+               AND (deleted_at IS NULL OR deleted_at = '')",
             [$fileId, $tenantId]
         );
+            }
+
+            // Admin (and sessions with missing/incorrect tenant) fallback: resolve from file row cross-tenant, then verify access.
+            if ($file === false && in_array($userRole, ['admin'], true)) {
+                $file = $db->fetchOne(
+                    "SELECT id, name, uploaded_by, folder_id, file_size, mime_type, tenant_id, is_folder
+                     FROM files
+                     WHERE id = ?
+                       AND (deleted_at IS NULL OR deleted_at = '')",
+                    [$fileId]
+                );
+                if ($file && !empty($file['tenant_id'])) {
+                    $resolvedTenantId = (int)$file['tenant_id'];
+                    $hasTenantAccess = ($tenantIdFromUser > 0 && $tenantIdFromUser === $resolvedTenantId);
+                    if (!$hasTenantAccess) {
+                        $uta = $db->fetchOne(
+                            "SELECT 1 FROM user_tenant_access WHERE user_id = ? AND tenant_id = ? LIMIT 1",
+                            [$userId, $resolvedTenantId]
+                        );
+                        $hasTenantAccess = (bool)$uta;
+                    }
+                    if (!$hasTenantAccess) {
+                        api_error('Non hai accesso a questo file.', 403);
+                    }
+                    $tenantId = $resolvedTenantId;
+                }
+            }
+        }
     }
 
     if ($file === false) {
         api_error('File non trovato o accesso negato.', 404);
     }
 
-    // Check if user has access to the file
-    if (!canUserAccessFile($userId, $userRole, $tenantId, $fileId, $file['uploaded_by'])) {
-        api_error('Non hai accesso a questo file.', 403);
+    // Access rule for workflow status:
+    // - super_admin: handled above (cross-tenant)
+    // - same-tenant users: readonly status is allowed (no actions unless selected)
+    // - if tenant cannot be resolved, fall back to strict check
+    if ($userRole !== 'super_admin') {
+        $fileTenantId = isset($file['tenant_id']) ? (int)$file['tenant_id'] : 0;
+        if ($tenantId > 0 && $fileTenantId > 0 && $fileTenantId !== $tenantId) {
+            api_error('Non hai accesso a questo file.', 403);
+        }
     }
 
     // ============================================
@@ -132,40 +187,32 @@ try {
                     [$fileId, $tenantId]
                 );
 
-                // Get validator/approver info from workflow_roles table (if workflow exists)
+                // Determine selected validator/approver for this document from history metadata (source of truth)
                 if ($workflow !== false) {
-                    $validators = $db->fetchAll(
-                        "SELECT u.id, u.name, u.email
-                         FROM workflow_roles wr
-                         JOIN users u ON u.id = wr.user_id
-                         WHERE wr.tenant_id = ?
-                           AND wr.workflow_role = 'validator'
-                           AND wr.deleted_at IS NULL
-                           AND wr.is_active = 1
-                         LIMIT 1",
-                        [$tenantId]
-                    );
+                    $selected = getSelectedWorkflowParticipants((int)$tenantId, (int)$fileId);
+                    $validatorId = $selected['validator_id'] ?? null;
+                    $approverId = $selected['approver_id'] ?? null;
 
-                    $approvers = $db->fetchAll(
-                        "SELECT u.id, u.name, u.email
-                         FROM workflow_roles wr
-                         JOIN users u ON u.id = wr.user_id
-                         WHERE wr.tenant_id = ?
-                           AND wr.workflow_role = 'approver'
-                           AND wr.deleted_at IS NULL
-                           AND wr.is_active = 1
-                         LIMIT 1",
-                        [$tenantId]
-                    );
+                    $workflow['validator_id'] = $validatorId ? (int)$validatorId : null;
+                    $workflow['approver_id'] = $approverId ? (int)$approverId : null;
 
-                    // Add validator/approver info to workflow array
-                    $workflow['validator_id'] = !empty($validators) ? $validators[0]['id'] : null;
-                    $workflow['validator_name'] = !empty($validators) ? $validators[0]['name'] : null;
-                    $workflow['validator_email'] = !empty($validators) ? $validators[0]['email'] : null;
+                    if ($workflow['validator_id']) {
+                        $u = $db->fetchOne("SELECT id, name, email FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1", [$workflow['validator_id']]);
+                        $workflow['validator_name'] = $u ? ($u['name'] ?? null) : null;
+                        $workflow['validator_email'] = $u ? ($u['email'] ?? null) : null;
+                    } else {
+                        $workflow['validator_name'] = null;
+                        $workflow['validator_email'] = null;
+                    }
 
-                    $workflow['approver_id'] = !empty($approvers) ? $approvers[0]['id'] : null;
-                    $workflow['approver_name'] = !empty($approvers) ? $approvers[0]['name'] : null;
-                    $workflow['approver_email'] = !empty($approvers) ? $approvers[0]['email'] : null;
+                    if ($workflow['approver_id']) {
+                        $u = $db->fetchOne("SELECT id, name, email FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1", [$workflow['approver_id']]);
+                        $workflow['approver_name'] = $u ? ($u['name'] ?? null) : null;
+                        $workflow['approver_email'] = $u ? ($u['email'] ?? null) : null;
+                    } else {
+                        $workflow['approver_name'] = null;
+                        $workflow['approver_email'] = null;
+                    }
                 }
             }
         } catch (Exception $e) {
@@ -211,18 +258,8 @@ try {
             );
 
             if ($response['can_start_workflow']) {
-                $response['available_actions'][] = [
-                    'action' => 'submit',
-                    'label' => 'Invia per Validazione',
-                    'description' => 'Avvia il workflow di approvazione',
-                    'endpoint' => '/api/documents/workflow/submit.php',
-                    'method' => 'POST',
-                    'requirements' => [
-                        'validator_id' => 'optional',
-                        'approver_id' => 'optional',
-                        'notes' => 'optional'
-                    ]
-                ];
+                // Frontend expects array of strings (see filemanager_enhanced.js renderSidebarWorkflowActions)
+                $response['available_actions'][] = 'submit';
             }
 
             $response['message'] = 'Nessun workflow attivo per questo documento';
@@ -240,10 +277,10 @@ try {
         if ($workflow['creator_id'] == $userId) {
             $userRoleInWorkflow = 'creator';
         }
-        if ($workflow['validator_id'] == $userId) {
+        if (!empty($workflow['validator_id']) && (int)$workflow['validator_id'] == (int)$userId) {
             $userRoleInWorkflow = $userRoleInWorkflow ? 'creator_and_validator' : 'validator';
         }
-        if ($workflow['approver_id'] == $userId) {
+        if (!empty($workflow['approver_id']) && (int)$workflow['approver_id'] == (int)$userId) {
             $userRoleInWorkflow = $userRoleInWorkflow ? $userRoleInWorkflow . '_and_approver' : 'approver';
         }
         if (in_array($userRole, ['admin', 'super_admin'])) {
@@ -313,6 +350,12 @@ try {
 
         $availableActions = [];
 
+        // Only selected participants (or admin/super_admin) can act; others see readonly status.
+        $isCreator = ($workflow['creator_id'] == $userId);
+        $isValidator = !empty($workflow['validator_id']) && (int)$workflow['validator_id'] == (int)$userId;
+        $isApprover = !empty($workflow['approver_id']) && (int)$workflow['approver_id'] == (int)$userId;
+        $revertTarget = getWorkflowRevertTarget($currentState, $userRole, $isCreator, $isValidator, $isApprover);
+
         switch ($currentState) {
             case WORKFLOW_STATE_DRAFT:
                 if ($workflow['creator_id'] == $userId || in_array($userRole, ['admin', 'super_admin'])) {
@@ -327,7 +370,7 @@ try {
                 break;
 
             case WORKFLOW_STATE_IN_VALIDATION:
-                if ($workflow['validator_id'] == $userId || in_array($userRole, ['admin', 'super_admin'])) {
+                if ((!empty($workflow['validator_id']) && (int)$workflow['validator_id'] == (int)$userId) || in_array($userRole, ['admin', 'super_admin'])) {
                     $availableActions[] = [
                         'action' => 'validate',
                         'label' => 'Valida Documento',
@@ -358,7 +401,7 @@ try {
                 break;
 
             case WORKFLOW_STATE_IN_APPROVAL:
-                if ($workflow['approver_id'] == $userId || in_array($userRole, ['admin', 'super_admin'])) {
+                if ((!empty($workflow['approver_id']) && (int)$workflow['approver_id'] == (int)$userId) || in_array($userRole, ['admin', 'super_admin'])) {
                     $availableActions[] = [
                         'action' => 'approve',
                         'label' => 'Approva Definitivamente',
@@ -405,6 +448,18 @@ try {
                 break;
         }
 
+        // Revert/recall action for authorized roles (manager/admin/super_admin/creator or validator/approver step-back)
+        if ($revertTarget && $currentState !== WORKFLOW_STATE_DRAFT) {
+            $label = ($revertTarget === WORKFLOW_STATE_DRAFT) ? 'Riapri in Bozza' : 'Riporta allo step precedente';
+            $availableActions[] = [
+                'action' => 'recall',
+                'label' => $label,
+                'description' => 'Riporta il documento allo stato precedente',
+                'endpoint' => '/api/documents/workflow/recall.php',
+                'method' => 'POST'
+            ];
+        }
+
         // BUG-084 FIX: Removed view_history from available_actions
         // User already has dedicated "Visualizza Storico" button at modal bottom (line 845 document_workflow_v2.js)
         // view_history action had no frontend handler in showActionModal(), causing debug-style button with literal text
@@ -416,6 +471,10 @@ try {
         $actionNames = array_map(function($action) {
             return $action['action'];
         }, $availableActions);
+
+        // BUG-150c FIX: Remove duplicate actions (e.g., 'recall' added by both creator check and getWorkflowRevertTarget)
+        // This prevents duplicate buttons in the sidebar
+        $actionNames = array_values(array_unique($actionNames));
 
         // Keep both formats for backward compatibility and future use
         $response['available_actions'] = $actionNames;  // ✅ Array of strings for button rendering

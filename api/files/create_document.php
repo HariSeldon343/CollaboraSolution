@@ -184,73 +184,86 @@ function createDocument(string $type, string $name, int $tenantId, ?int $folderI
             error_log('Audit log failed: ' . $auditError->getMessage());
         }
 
-        // Check if workflow is enabled for this folder and auto-create workflow entry
+        // Always create a document_workflow row (bozza) so every file has a complete lifecycle history.
+        // Workflow activation (approvals) can still be controlled via workflow_settings, but the timeline is real.
         try {
-            $workflowEnabled = $db->fetchOne(
-                "SELECT get_workflow_enabled_for_folder(?, ?) as enabled",
-                [$tenantId, $folderId]
+            // Create workflow if missing (idempotent)
+            $existingWorkflow = $db->fetchOne(
+                "SELECT id
+                 FROM document_workflow
+                 WHERE tenant_id = ?
+                   AND file_id = ?
+                   AND (deleted_at IS NULL OR deleted_at = '')
+                 LIMIT 1",
+                [$tenantId, $fileId]
             );
 
-            if ($workflowEnabled && $workflowEnabled['enabled'] == 1) {
-                // Create document_workflow in bozza state
+            if ($existingWorkflow === false) {
                 $workflowId = $db->insert('document_workflow', [
                     'tenant_id' => $tenantId,
                     'file_id' => $fileId,
                     'current_state' => 'bozza',
                     'created_by_user_id' => $userId,
-                    'created_at' => date('Y-m-d H:i:s')
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s')
                 ]);
+            } else {
+                $workflowId = (int)$existingWorkflow['id'];
+            }
 
-                // BUG-082 FIX: Set flag to trigger email notification after workflow creation
-                // This variable is checked on line 240 to send creation emails to creator + validators
-                $workflowCreated = true;
+            // Ensure there is at least one history entry (create)
+            $hasHistory = $db->fetchOne(
+                "SELECT 1 AS ok
+                 FROM document_workflow_history
+                 WHERE tenant_id = ?
+                   AND workflow_id = ?
+                   AND file_id = ?
+                 LIMIT 1",
+                [$tenantId, $workflowId, $fileId]
+            );
 
-                // Log to workflow history
+            if ($hasHistory === false) {
                 $db->insert('document_workflow_history', [
                     'tenant_id' => $tenantId,
+                    'workflow_id' => $workflowId,
                     'file_id' => $fileId,
                     'from_state' => null,
                     'to_state' => 'bozza',
+                    'transition_type' => 'create',
                     'performed_by_user_id' => $userId,
-                    'comments' => 'Documento creato con workflow attivo - stato iniziale bozza',
+                    'user_role_at_time' => 'creator',
+                    'comment' => 'Documento creato - stato iniziale bozza',
+                    'metadata' => json_encode([
+                        'source' => 'api_files_create_document'
+                    ], JSON_UNESCAPED_SLASHES),
+                    'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+                    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
                     'created_at' => date('Y-m-d H:i:s')
                 ]);
+            }
 
-                // Log audit for workflow creation
+            // Send email notifications only if workflow is enabled for this folder
+            $workflowEnabled = null;
+            try {
+                $workflowEnabled = $db->fetchOne(
+                    "SELECT get_workflow_enabled_for_folder(?, ?) as enabled",
+                    [$tenantId, $folderId]
+                );
+            } catch (Exception $e) {
+                $workflowEnabled = null;
+            }
+
+            if ($workflowEnabled && (int)($workflowEnabled['enabled'] ?? 0) === 1) {
                 try {
-                    require_once __DIR__ . '/../../includes/audit_helper.php';
-                    AuditLogger::logCreate(
-                        $userId,
-                        $tenantId,
-                        'workflow',
-                        $workflowId,
-                        "Workflow creato automaticamente per documento: {$name}",
-                        [
-                            'file_id' => $fileId,
-                            'initial_state' => 'bozza',
-                            'reason' => 'workflow_enabled_for_folder'
-                        ]
-                    );
-                } catch (Exception $auditEx) {
-                    error_log("[AUDIT LOG FAILURE] Workflow creation tracking failed: " . $auditEx->getMessage());
+                    require_once __DIR__ . '/../../includes/workflow_email_notifier.php';
+                    WorkflowEmailNotifier::notifyDocumentCreated($fileId, $userId, $tenantId);
+                } catch (Exception $emailEx) {
+                    error_log("[CREATE_DOCUMENT] Email notification failed: " . $emailEx->getMessage());
                 }
             }
         } catch (Exception $workflowEx) {
-            // Non-blocking: if workflow creation fails, document creation should still succeed
-            error_log("[WORKFLOW AUTO-CREATE] Failed to create workflow for document {$fileId}: " . $workflowEx->getMessage());
-        }
-
-        // Send email notification if workflow was successfully created
-        // BUG-082 FIX: Simplified condition - $workflowCreated is set to true after successful workflow insert
-        // No need to re-check $workflowEnabled here (already verified when setting $workflowCreated)
-        if (isset($workflowCreated) && $workflowCreated) {
-            try {
-                require_once __DIR__ . '/../../includes/workflow_email_notifier.php';
-                WorkflowEmailNotifier::notifyDocumentCreated($fileId, $userId, $tenantId);
-            } catch (Exception $emailEx) {
-                error_log("[CREATE_DOCUMENT] Email notification failed: " . $emailEx->getMessage());
-                // DO NOT throw - operation already committed
-            }
+            // Non-blocking: document creation should still succeed
+            error_log("[WORKFLOW AUTO-CREATE] Failed to ensure workflow for document {$fileId}: " . $workflowEx->getMessage());
         }
 
         return [

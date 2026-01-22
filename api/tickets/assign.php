@@ -20,11 +20,13 @@ verifyApiAuthentication();
 // Verify CSRF token for POST request
 verifyApiCsrfToken();
 
-// Require admin+ role
-requireApiRole('admin');
+// RBAC: only super_admin can take in charge / assign tickets
+$userInfo = getApiUserInfo();
+if (($userInfo['role'] ?? '') !== 'super_admin') {
+    api_error('Solo i Super User possono assegnare/prendere in carico i ticket', 403);
+}
 
 // Get user context
-$userInfo = getApiUserInfo();
 $db = Database::getInstance();
 
 try {
@@ -47,22 +49,11 @@ try {
     $ticketId = (int)$data['ticket_id'];
     $assignedTo = $data['assigned_to'] ? (int)$data['assigned_to'] : null;
 
-    // ========================================
-    // RBAC: Check ticket access
-    // ========================================
-    if ($userInfo['role'] === 'super_admin') {
-        // Super admin can assign ANY ticket across all tenants
-        $ticket = $db->fetchOne(
-            'SELECT * FROM tickets WHERE id = ? AND deleted_at IS NULL',
-            [$ticketId]
-        );
-    } else {
-        // Admin can only assign tickets in their tenant
-        $ticket = $db->fetchOne(
-            'SELECT * FROM tickets WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL',
-            [$ticketId, $userInfo['tenant_id']]
-        );
-    }
+    // Super admin can assign ANY ticket across all tenants
+    $ticket = $db->fetchOne(
+        'SELECT * FROM tickets WHERE id = ? AND deleted_at IS NULL',
+        [$ticketId]
+    );
 
     if (!$ticket) {
         api_error('Ticket non trovato o non accessibile', 404);
@@ -73,20 +64,12 @@ try {
         api_error('Non è possibile assegnare un ticket chiuso', 403);
     }
 
-    // If assigning to a user, validate they exist
+    // If assigning to a user, validate they exist (cross-tenant allowed for super_admin)
     if ($assignedTo) {
-        // Super admin can assign cross-tenant, admin only within tenant
-        if ($userInfo['role'] === 'super_admin') {
-            $assignedUser = $db->fetchOne(
-                'SELECT id, name, email, tenant_id FROM users WHERE id = ? AND deleted_at IS NULL',
-                [$assignedTo]
-            );
-        } else {
-            $assignedUser = $db->fetchOne(
-                'SELECT id, name, email, tenant_id FROM users WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL',
-                [$assignedTo, $userInfo['tenant_id']]
-            );
-        }
+        $assignedUser = $db->fetchOne(
+            'SELECT id, name, email, tenant_id FROM users WHERE id = ? AND deleted_at IS NULL',
+            [$assignedTo]
+        );
 
         if (!$assignedUser) {
             api_error('Utente assegnatario non trovato', 404);
@@ -113,10 +96,11 @@ try {
             $updateData['first_response_at'] = date('Y-m-d H:i:s');
 
             // Calculate first response time in minutes
+            // BUG-147c FIX: Column is 'first_response_time_minutes' not 'first_response_time'
             $createdTime = strtotime($ticket['created_at']);
             $responseTime = time();
             $responseMinutes = round(($responseTime - $createdTime) / 60, 2);
-            $updateData['first_response_time'] = $responseMinutes;
+            $updateData['first_response_time_minutes'] = $responseMinutes;
         }
 
         $db->update('tickets', $updateData, [

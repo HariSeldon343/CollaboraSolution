@@ -1,0 +1,177 @@
+/* AI Hub (ai.php) — lightweight page-specific styles */
+
+.ai-hub-wrap {
+  padding: var(--space-6);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.ai-hub-card {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.ai-hub-header {
+  padding: var(--space-5);
+  border-bottom: 1px solid var(--color-gray-200);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.ai-hub-title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  margin: 0;
+}
+
+.ai-hub-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.ai-hub-controls .form-control {
+  min-width: 180px;
+}
+
+.ai-hub-body {
+  padding: var(--space-5);
+}
+
+.ai-hub-messages {
+  height: 460px;
+  overflow-y: auto;
+  padding: var(--space-4);
+  background: var(--color-gray-50);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+}
+
+.ai-hub-msg {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.ai-hub-msg.user {
+  flex-direction: row-reverse;
+}
+
+.ai-hub-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.ai-hub-msg.assistant .ai-hub-avatar {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+}
+
+.ai-hub-bubble {
+  max-width: 75%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+  white-space: pre-wrap;
+}
+
+.ai-hub-msg.user .ai-hub-bubble {
+  background: var(--color-primary);
+  color: white;
+}
+
+.ai-hub-citations {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-gray-200);
+  font-size: 12px;
+  color: var(--color-gray-600);
+}
+
+.ai-hub-citations a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.ai-hub-citations a:hover {
+  text-decoration: underline;
+}
+
+.ai-hub-footer {
+  margin-top: var(--space-4);
+  display: flex;
+  gap: var(--space-3);
+}
+
+.ai-hub-footer input {
+  flex: 1;
+}
+
+.ai-hub-warn {
+  margin-top: var(--space-3);
+  padding: 10px;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  background: var(--color-gray-50);
+  color: var(--color-gray-700);
+  font-size: 13px;
+  display: none;
+}
+
+.ai-hub-knowledge-test {
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.ai-hub-knowledge-test-row {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.ai-hub-knowledge-test-row .form-control {
+  flex: 1;
+  min-width: 260px;
+}
+
+.ai-hub-knowledge-test-results {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  background: var(--color-gray-50);
+  color: var(--color-gray-700);
+  font-size: 13px;
+}
+
+.ai-hub-knowledge-test-results ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.ai-hub-knowledge-test-results li + li {
+  margin-top: 8px;
+}
+
+.ai-hub-knowledge-test-results a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.ai-hub-knowledge-test-results a:hover {
+  text-decoration: underline;
+}

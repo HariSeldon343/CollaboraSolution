@@ -14,6 +14,7 @@ declare(strict_types=1);
 // Include centralized API authentication
 require_once __DIR__ . '/../../includes/api_auth.php';
 require_once __DIR__ . '/../../includes/document_editor_helper.php';
+require_once __DIR__ . '/../../includes/file_access.php';
 
 // Initialize API environment
 initializeApiEnvironment();
@@ -93,6 +94,16 @@ try {
     // CRITICAL FIX: Use the FILE's tenant_id, not the user's session tenant_id
     $file_tenant_id = $fileInfo['tenant_id']; // This is the correct tenant!
 
+    // Enforce assignment-aware access rules (block if assigned to others)
+    $access = hasFileOrFolderAccess($db, (int)$file_id, (int)$user_id, (string)$user_role, (int)$file_tenant_id);
+    if (!$access['has_access']) {
+        apiError(
+            'Accesso negato: documento assegnato',
+            403,
+            DEBUG_MODE ? ['access' => $access] : null
+        );
+    }
+
     if (DEBUG_MODE) {
         error_log("=== TENANT ID DEBUG ===");
         error_log("User session tenant_id: $user_tenant_id");
@@ -107,12 +118,59 @@ try {
         apiError('Formato file non supportato per l\'editor', 400);
     }
 
+    // BUG-135 v3: Validate file has content before opening
+    // Empty files cause OnlyOffice error -4 "Download failed"
+    $physicalPath = $fileInfo['physical_path'];
+    $fileExists = file_exists($physicalPath);
+    $actualFileSize = $fileExists ? filesize($physicalPath) : 0;
+
+    if (!$fileExists) {
+        error_log("[BUG-135 v3] File not found on disk: $physicalPath");
+        apiError('File fisico non trovato sul server', 404);
+    }
+
+    if ($actualFileSize === 0) {
+        // Allow empty placeholders: download_for_editor.php will serve a valid blank document
+        // so OnlyOffice doesn't fail with -4.
+        error_log("[BUG-135 v4] Empty file detected (allowed): $physicalPath (size=0)");
+    }
+
+    if (DEBUG_MODE) {
+        error_log("[BUG-135 v3] File validated: $physicalPath (size=$actualFileSize bytes)");
+    }
+
+    // Check current workflow state: if not draft, force view-only
+    $workflowState = null;
+    try {
+        $wfRow = $db->fetchOne(
+            "SELECT current_state
+             FROM document_workflow
+             WHERE file_id = ?
+               AND tenant_id = ?
+               AND (deleted_at IS NULL OR deleted_at = '')
+             LIMIT 1",
+            [$file_id, $file_tenant_id]
+        );
+        if ($wfRow && isset($wfRow['current_state'])) {
+            $workflowState = $wfRow['current_state'];
+        }
+    } catch (Exception $e) {
+        // ignore, fall back to permissions
+    }
+
     // Check permissions
     $permissions = checkFileEditPermissions($file_id, $user_id, $user_role);
 
-    // Force view mode if user doesn't have edit permission or file is view-only
-    if ($mode === 'edit' && (!$permissions['edit'] || $fileInfo['is_viewonly'])) {
+    // Force view mode if workflow state is not bozza, or user lacks edit permission, or file is view-only
+    $isDraft = ($workflowState === null || $workflowState === 'bozza');
+    if ($mode === 'edit' && (!$isDraft || !$permissions['edit'] || $fileInfo['is_viewonly'])) {
         $mode = 'view';
+        // Harden permissions to view-only
+        $permissions['edit'] = false;
+        $permissions['review'] = false;
+        $permissions['fillForms'] = false;
+        $permissions['modifyContentControl'] = false;
+        $permissions['modifyFilter'] = false;
     }
 
     // Clean up expired sessions
@@ -291,19 +349,23 @@ try {
         ]
     ];
 
-    // ENHANCED LOGGING FOR DEBUGGING
-    if (DEBUG_MODE) {
-        error_log('=== OnlyOffice Document Opening Debug (FIXED) ===');
-        error_log('User session tenant_id: ' . $user_tenant_id);
-        error_log('File actual tenant_id: ' . $file_tenant_id);
-        error_log('JWT token tenant_id: ' . $file_tenant_id);
-        error_log('File ID: ' . $file_id);
-        error_log('File Name: ' . $fileInfo['name']);
-        error_log('Document Key: ' . $documentKey);
-        error_log('Mode: ' . $mode);
-        error_log('Download URL: ' . $fileUrl);
-        error_log('=== End OnlyOffice Debug ===');
-    }
+    // ENHANCED LOGGING FOR DEBUGGING (BUG-135 v3)
+    error_log('[BUG-135 v3] === OnlyOffice Document Opening Debug ===');
+    error_log('[BUG-135 v3] User session tenant_id: ' . $user_tenant_id);
+    error_log('[BUG-135 v3] File actual tenant_id: ' . $file_tenant_id);
+    error_log('[BUG-135 v3] JWT token tenant_id: ' . $file_tenant_id);
+    error_log('[BUG-135 v3] File ID: ' . $file_id);
+    error_log('[BUG-135 v3] File Name: ' . $fileInfo['name']);
+    error_log('[BUG-135 v3] Document Key: ' . $documentKey);
+    error_log('[BUG-135 v3] Mode: ' . $mode);
+    error_log('[BUG-135 v3] Download URL: ' . $fileUrl);
+    error_log('[BUG-135 v3] Callback URL: ' . ($callbackUrl ?? 'NULL'));
+    error_log('[BUG-135 v3] Config document.url: ' . ($config['document']['url'] ?? 'NULL'));
+    error_log('[BUG-135 v3] Config editorConfig.callbackUrl: ' . ($config['editorConfig']['callbackUrl'] ?? 'NULL'));
+    error_log('[BUG-135 v3] ONLYOFFICE_DOWNLOAD_URL constant: ' . ONLYOFFICE_DOWNLOAD_URL);
+    error_log('[BUG-135 v3] ONLYOFFICE_CALLBACK_URL constant: ' . ONLYOFFICE_CALLBACK_URL);
+    error_log('[BUG-135 v3] Full config JSON: ' . json_encode($config));
+    error_log('[BUG-135 v3] === End OnlyOffice Debug ===');
 
     // Log audit
     logDocumentAudit('document_opened', $file_id, $user_id, [

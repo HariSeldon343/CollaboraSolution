@@ -1,280 +1,73 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Benvenuto in CollaboraNexio</title>
-    <!--[if mso]>
-    <noscript>
-        <xml>
-            <o:OfficeDocumentSettings>
-                <o:PixelsPerInch>96</o:PixelsPerInch>
-            </o:OfficeDocumentSettings>
-        </xml>
-    </noscript>
-    <![endif]-->
-    <style>
-        /* Reset styles */
-        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
-        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
-        img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
-
-        /* General styles */
-        body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background-color: #f4f7fa !important;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        }
-
-        /* Mobile styles */
-        @media screen and (max-width: 600px) {
-            .mobile-hide { display: none !important; }
-            .mobile-center { text-align: center !important; }
-            .container { padding: 0 !important; }
-            .wrapper { padding: 10px !important; }
-            .content { padding: 20px !important; }
-            .button { width: 100% !important; max-width: 300px !important; }
-        }
-
-        /* Dark mode support */
-        @media (prefers-color-scheme: dark) {
-            body { background-color: #1a1a1a !important; }
-            .content { background-color: #2a2a2a !important; color: #ffffff !important; }
-            h1, h2, h3, p { color: #ffffff !important; }
-            .info-box { background-color: #3a3a3a !important; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="x-apple-disable-message-reformatting">
+  <title>Benvenuto in Nexio</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-
-<!-- Main wrapper -->
-<table border="0" cellpadding="0" cellspacing="0" width="100%" style="table-layout: fixed; background-color: #f4f7fa;">
+<body style="margin:0;padding:0;background:#f6f7f9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f6f7f9;">
     <tr>
-        <td align="center" style="padding: 40px 0;">
-            <!-- Email container -->
-            <table class="container" border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-
-                <!-- Header -->
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
+          <tr>
+            <td style="padding:18px 20px;border-bottom:1px solid #eef0f3;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                    <td align="center" style="padding: 0;">
-                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                            <tr>
-                                <td align="center" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; border-radius: 8px 8px 0 0;">
-                                    <!-- Logo -->
-                                    <table border="0" cellpadding="0" cellspacing="0">
-                                        <tr>
-                                            <td align="center" style="padding-bottom: 10px;">
-                                                <div style="width: 80px; height: 80px; background-color: white; border-radius: 16px; display: inline-block; padding: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-                                                    <img src="{{BASE_URL}}/assets/images/logo.png" alt="CollaboraNexio" style="width: 100%; height: 100%; object-fit: contain;">
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td align="center">
-                                                <h1 style="margin: 0; color: #ffffff; font-size: 32px; font-weight: 700; letter-spacing: -1px;">CollaboraNexio</h1>
-                                                <p style="margin: 10px 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Semplifica, Connetti, Cresci Insieme</p>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </td>
-                            </tr>
-                        </table>
-                    </td>
+                  <td valign="middle" style="width:40px;padding-right:12px;">
+                    <img src="{{BASE_URL}}/assets/images/logo.png" alt="Nexio" width="32" height="32" style="display:block;border:0;outline:none;text-decoration:none;width:32px;height:32px;">
+                  </td>
+                  <td valign="middle" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:20px;color:#1a2332;font-weight:700;">
+                    Nexio{{TENANT_NAME}}
+                  </td>
+                  <td valign="middle" align="right" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:12px;line-height:18px;color:#6b7280;">
+                    Benvenuto
+                  </td>
                 </tr>
+              </table>
+            </td>
+          </tr>
 
-                <!-- Content -->
+          <tr>
+            <td style="padding:22px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:22px;color:#111827;">
+              <p style="margin:0 0 10px 0;">Ciao <strong>{{USER_NAME}}</strong>,</p>
+              <p style="margin:0 0 14px 0;">Per iniziare, imposta la tua password.</p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0;background:#fafafa;border:1px solid #eef0f3;border-radius:8px;">
+                <tr><td style="padding:12px 12px;">
+                  <div style="font-weight:600;margin:0 0 6px 0;color:#111827;">Requisiti password</div>
+                  <div style="color:#374151;">Minimo 8 caratteri<br>Almeno una lettera maiuscola<br>Almeno una lettera minuscola<br>Almeno un numero</div>
+                </td></tr>
+              </table>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;">
                 <tr>
-                    <td class="content" style="padding: 40px 30px;">
-                        <!-- Welcome message -->
-                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                            <tr>
-                                <td style="padding-bottom: 30px;">
-                                    <h2 style="margin: 0 0 10px; color: #333333; font-size: 28px; font-weight: 600;">
-                                        Benvenuto, {{USER_NAME}}!
-                                    </h2>
-                                    <p style="margin: 0; color: #666666; font-size: 16px; line-height: 24px;">
-                                        Il tuo account è stato creato con successo su CollaboraNexio{{TENANT_NAME}}.
-                                    </p>
-                                </td>
-                            </tr>
-
-                            <!-- Info section -->
-                            <tr>
-                                <td style="padding-bottom: 30px;">
-                                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8f9fa; border-radius: 8px;">
-                                        <tr>
-                                            <td style="padding: 20px;">
-                                                <h3 style="margin: 0 0 15px; color: #333333; font-size: 18px; font-weight: 600;">
-                                                    🔐 Completa la registrazione
-                                                </h3>
-                                                <p style="margin: 0 0 15px; color: #666666; font-size: 14px; line-height: 21px;">
-                                                    Per accedere alla piattaforma, devi impostare la tua password personale.
-                                                    Clicca sul pulsante qui sotto per completare la configurazione del tuo account.
-                                                </p>
-                                                <table border="0" cellpadding="0" cellspacing="0">
-                                                    <tr>
-                                                        <td style="padding-top: 10px;">
-                                                            <p style="margin: 0; color: #666666; font-size: 13px; font-weight: 600;">
-                                                                La password deve contenere:
-                                                            </p>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td style="padding-left: 20px; padding-top: 5px;">
-                                                            <p style="margin: 0; color: #666666; font-size: 13px; line-height: 20px;">
-                                                                ✓ Minimo 8 caratteri<br>
-                                                                ✓ Almeno una lettera maiuscola<br>
-                                                                ✓ Almeno una lettera minuscola<br>
-                                                                ✓ Almeno un numero
-                                                            </p>
-                                                        </td>
-                                                    </tr>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </td>
-                            </tr>
-
-                            <!-- CTA Button -->
-                            <tr>
-                                <td align="center" style="padding-bottom: 30px;">
-                                    <table border="0" cellpadding="0" cellspacing="0">
-                                        <tr>
-                                            <td align="center" style="border-radius: 6px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                                                <a href="{{RESET_LINK}}" target="_blank" class="button" style="display: inline-block; padding: 16px 36px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 6px;">
-                                                    Imposta la tua Password
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </td>
-                            </tr>
-
-                            <!-- Warning box -->
-                            <tr>
-                                <td style="padding-bottom: 30px;">
-                                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-left: 4px solid #ffc107; background-color: #fff8e1;">
-                                        <tr>
-                                            <td style="padding: 15px 20px;">
-                                                <p style="margin: 0; color: #856404; font-size: 14px;">
-                                                    <strong>⏰ Importante:</strong> Questo link scadrà tra 24 ore.
-                                                    Se non completi la procedura entro questo termine, dovrai richiedere un nuovo link al tuo amministratore.
-                                                </p>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </td>
-                            </tr>
-
-                            <!-- Alternative link -->
-                            <tr>
-                                <td style="padding-bottom: 30px; border-bottom: 1px solid #e0e0e0;">
-                                    <p style="margin: 0 0 10px; color: #999999; font-size: 13px;">
-                                        Se il pulsante non funziona, copia e incolla questo link nel tuo browser:
-                                    </p>
-                                    <p style="margin: 0; word-break: break-all;">
-                                        <a href="{{RESET_LINK}}" style="color: #667eea; font-size: 12px; text-decoration: none;">{{RESET_LINK}}</a>
-                                    </p>
-                                </td>
-                            </tr>
-
-                            <!-- Help section -->
-                            <tr>
-                                <td style="padding-top: 30px;">
-                                    <h3 style="margin: 0 0 15px; color: #333333; font-size: 18px; font-weight: 600;">
-                                        Hai bisogno di aiuto?
-                                    </h3>
-                                    <p style="margin: 0 0 10px; color: #666666; font-size: 14px; line-height: 21px;">
-                                        Se hai problemi con l'accesso o domande sulla piattaforma, non esitare a contattare:
-                                    </p>
-                                    <ul style="margin: 10px 0; padding-left: 20px; color: #666666; font-size: 14px; line-height: 21px;">
-                                        <li>Il tuo amministratore di sistema</li>
-                                        <li>Il supporto tecnico: <a href="mailto:support@collaboranexio.com" style="color: #667eea; text-decoration: none;">support@collaboranexio.com</a></li>
-                                    </ul>
-                                </td>
-                            </tr>
-
-                            <!-- Features preview -->
-                            <tr>
-                                <td style="padding-top: 30px;">
-                                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8f9fa; border-radius: 8px;">
-                                        <tr>
-                                            <td style="padding: 20px;">
-                                                <h3 style="margin: 0 0 15px; color: #333333; font-size: 16px; font-weight: 600;">
-                                                    🚀 Cosa potrai fare con CollaboraNexio:
-                                                </h3>
-                                                <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                                    <tr>
-                                                        <td width="30" valign="top">📁</td>
-                                                        <td style="padding-bottom: 8px;">
-                                                            <p style="margin: 0; color: #666666; font-size: 13px;">
-                                                                <strong>File Manager:</strong> Gestisci e condividi documenti
-                                                            </p>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td width="30" valign="top">📅</td>
-                                                        <td style="padding-bottom: 8px;">
-                                                            <p style="margin: 0; color: #666666; font-size: 13px;">
-                                                                <strong>Calendario:</strong> Organizza eventi e scadenze
-                                                            </p>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td width="30" valign="top">✅</td>
-                                                        <td style="padding-bottom: 8px;">
-                                                            <p style="margin: 0; color: #666666; font-size: 13px;">
-                                                                <strong>Task Manager:</strong> Gestisci progetti e attività
-                                                            </p>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td width="30" valign="top">💬</td>
-                                                        <td>
-                                                            <p style="margin: 0; color: #666666; font-size: 13px;">
-                                                                <strong>Chat:</strong> Comunica con il tuo team in tempo reale
-                                                            </p>
-                                                        </td>
-                                                    </tr>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </td>
-                            </tr>
-                        </table>
-                    </td>
+                  <td>
+                    <a href="{{RESET_LINK}}" style="display:inline-block;background:#1a2332;color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:600;font-size:14px;line-height:18px;">Imposta la password</a>
+                  </td>
                 </tr>
+              </table>
 
-                <!-- Footer -->
-                <tr>
-                    <td style="background-color: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px;">
-                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                            <tr>
-                                <td align="center">
-                                    <p style="margin: 0 0 10px; color: #999999; font-size: 12px;">
-                                        © {{YEAR}} CollaboraNexio. Tutti i diritti riservati.
-                                    </p>
-                                    <p style="margin: 0 0 10px; color: #999999; font-size: 11px;">
-                                        Questa email è stata inviata automaticamente. Per favore non rispondere.
-                                    </p>
-                                    <p style="margin: 0;">
-                                        <a href="{{BASE_URL}}" style="color: #667eea; font-size: 12px; text-decoration: none;">
-                                            Visita CollaboraNexio
-                                        </a>
-                                    </p>
-                                </td>
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
+              <div style="margin:12px 0 0 0;padding:10px 12px;border-left:3px solid #1a2332;background:#fbfbfb;border-radius:6px;color:#374151;">
+                <strong>Importante:</strong> questo link è valido per 24 ore.
+              </div>
 
-            </table>
-        </td>
+              <p style="margin:14px 0 0 0;font-size:12px;line-height:18px;color:#6b7280;">Link diretto:<br>
+                <a href="{{RESET_LINK}}" style="color:#1a2332;text-decoration:none;word-break:break-all;">{{RESET_LINK}}</a>
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:16px 20px;border-top:1px solid #eef0f3;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:12px;line-height:18px;color:#6b7280;">
+              <div style="margin:0 0 6px 0;">&copy; {{YEAR}} Nexio. Tutti i diritti riservati.</div>
+              <div style="margin:0;">Email automatica. Per favore non rispondere. <a href="{{BASE_URL}}" style="color:#1a2332;text-decoration:none;">Apri Nexio</a></div>
+            </td>
+          </tr>
+        </table>
+      </td>
     </tr>
-</table>
-
+  </table>
 </body>
 </html>

@@ -67,10 +67,13 @@ try {
         $where[] = 't.tenant_id = ?';
         $params[] = $userInfo['tenant_id'];
     } else {
-        // Regular users see only their tickets in their tenant
+        // Regular users see:
+        // - their own tickets
+        // - tickets assigned to them
         $where[] = 't.tenant_id = ?';
-        $where[] = 't.created_by = ?';
+        $where[] = '(t.created_by = ? OR t.assigned_to = ?)';
         $params[] = $userInfo['tenant_id'];
+        $params[] = $userInfo['user_id'];
         $params[] = $userInfo['user_id'];
     }
 
@@ -174,8 +177,9 @@ try {
         $statusParams[] = $userInfo['tenant_id'];
     } else {
         $statusWhere[] = 't.tenant_id = ?';
-        $statusWhere[] = 't.created_by = ?';
+        $statusWhere[] = '(t.created_by = ? OR t.assigned_to = ?)';
         $statusParams[] = $userInfo['tenant_id'];
+        $statusParams[] = $userInfo['user_id'];
         $statusParams[] = $userInfo['user_id'];
     }
 

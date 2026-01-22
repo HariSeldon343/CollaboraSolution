@@ -4,21 +4,36 @@
  *
  * Features:
  * - Tracciamento attività utente (mouse, keyboard, scroll)
- * - Warning modal a 4:30 minuti (30 secondi prima dello scadere)
+ * - Warning modal (30 secondi prima dello scadere)
  * - Countdown visibile
  * - Pulsante "Estendi Sessione"
- * - Auto-logout a 5:00 minuti di inattività
+ * - Auto-logout dopo 300 secondi di inattività (default)
  *
  * @version 1.0.0
  * @date 2025-10-21
  */
+(() => {
+    'use strict';
 
-class SessionTimeoutManager {
+    // Idempotency: if already loaded once, do nothing (prevents "Identifier ... already declared")
+    if (window.SessionTimeoutManager) {
+        return;
+    }
+
+    class SessionTimeoutManager {
     constructor(options = {}) {
-        // Configurazione (default: 5 minuti)
-        this.timeoutMinutes = options.timeoutMinutes || 5;
-        this.timeoutMs = this.timeoutMinutes * 60 * 1000; // 5 min in millisecondi
-        this.warningMs = this.timeoutMs - 30000; // Warning a 4:30 (30 secondi prima)
+        // Evita doppia inizializzazione se incluso due volte
+        if (window.sessionTimeoutManager) {
+            return window.sessionTimeoutManager;
+        }
+
+        // Configurazione:
+        // - warning dopo `inactivitySeconds` (default 270s)
+        // - logout effettivo dopo `inactivitySeconds + countdownSeconds` (default 300s)
+        this.inactivitySeconds = Number.isFinite(options.inactivitySeconds) ? options.inactivitySeconds : 270;
+        this.countdownSeconds = Number.isFinite(options.countdownSeconds) ? options.countdownSeconds : 30;
+        this.warningMs = this.inactivitySeconds * 1000;
+        this.logoutMs = (this.inactivitySeconds + this.countdownSeconds) * 1000;
 
         // Stato
         this.lastActivity = Date.now();
@@ -42,8 +57,10 @@ class SessionTimeoutManager {
 
     init() {
         console.log('[SessionTimeout] Inizializzazione sistema timeout sessione...');
-        console.log(`[SessionTimeout] Timeout configurato: ${this.timeoutMinutes} minuti`);
-        console.log(`[SessionTimeout] Warning a: ${(this.timeoutMinutes * 60 - 30)} secondi`);
+        console.log(`[SessionTimeout] Inattivita: ${this.inactivitySeconds}s, countdown: ${this.countdownSeconds}s`);
+
+        // Nota: il timeout deve valere su tutte le pagine dell'applicazione.
+        // Il CSRF serve solo per il keepalive; se manca, continuiamo comunque con modal+logout.
 
         // Crea modal warning
         this.createWarningModal();
@@ -278,15 +295,16 @@ class SessionTimeoutManager {
         const now = Date.now();
         const timeSinceLastActivity = now - this.lastActivity;
 
+        // IMPORTANT: when the warning modal is shown, activity MUST NOT dismiss it.
+        // The user must explicitly click "Estendi Sessione" to cancel the countdown.
+        if (this.warningShown) {
+            return;
+        }
+
         // Aggiorna solo se è passato almeno 1 secondo dall'ultima attività
         // (evita troppi aggiornamenti da mousemove)
         if (timeSinceLastActivity > 1000) {
             this.lastActivity = now;
-
-            // Se c'era un warning, nascondilo
-            if (this.warningShown) {
-                this.hideWarning();
-            }
         }
     }
 
@@ -306,7 +324,7 @@ class SessionTimeoutManager {
         const elapsed = now - this.lastActivity;
 
         // Se timeout completo -> logout
-        if (elapsed >= this.timeoutMs) {
+        if (elapsed >= this.logoutMs) {
             console.log('[SessionTimeout] Timeout scaduto - logout automatico');
             this.logout();
             return;
@@ -314,14 +332,14 @@ class SessionTimeoutManager {
 
         // Se tempo per warning e non ancora mostrato -> mostra
         if (elapsed >= this.warningMs && !this.warningShown) {
-            const secondsRemaining = Math.floor((this.timeoutMs - elapsed) / 1000);
+            const secondsRemaining = Math.ceil((this.logoutMs - elapsed) / 1000);
             console.log(`[SessionTimeout] Mostrando warning - ${secondsRemaining} secondi rimanenti`);
             this.showWarning(secondsRemaining);
         }
 
         // Se warning mostrato -> aggiorna countdown
         if (this.warningShown) {
-            const secondsRemaining = Math.floor((this.timeoutMs - elapsed) / 1000);
+            const secondsRemaining = Math.max(0, Math.ceil((this.logoutMs - elapsed) / 1000));
             this.updateCountdown(secondsRemaining);
         }
     }
@@ -370,13 +388,31 @@ class SessionTimeoutManager {
     /**
      * Estendi sessione - reset timer
      */
-    extendSession() {
+    async extendSession() {
         console.log('[SessionTimeout] Sessione estesa - reset timer');
         this.lastActivity = Date.now();
         this.hideWarning();
 
-        // Opzionale: ping al server per estendere sessione server-side
-        // fetch('/CollaboraNexio/api/auth/keepalive.php', { method: 'POST' });
+        // Ping al server per estendere sessione server-side
+        try {
+            const token =
+                document.getElementById('csrfToken')?.value ||
+                document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+                '';
+            await fetch('/CollaboraNexio/api/session/keepalive.php?_ts=' + Date.now(), {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': token,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ action: 'keepalive' })
+            });
+        } catch (e) {
+            // Non bloccare l'utente se il keepalive fallisce: il timer client-side e' stato resettato comunque.
+            console.warn('[SessionTimeout] keepalive failed:', e);
+        }
     }
 
     /**
@@ -393,8 +429,8 @@ class SessionTimeoutManager {
             clearInterval(this.countdownInterval);
         }
 
-        // Reindirizza a login con parametro timeout
-        window.location.href = '/CollaboraNexio/index.php?timeout=1';
+        // Logout server-side (distrugge sessione) e ritorna a login
+        window.location.href = '/CollaboraNexio/logout.php?_ts=' + Date.now();
     }
 
     /**
@@ -422,18 +458,30 @@ class SessionTimeoutManager {
     }
 }
 
+// Expose class (optional) for debugging/testing
+window.SessionTimeoutManager = SessionTimeoutManager;
+
 // Auto-inizializzazione quando DOM è pronto
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+        const totalInactivitySeconds = parseInt(document.querySelector('meta[name="cnx-session-inactivity-seconds"]')?.getAttribute('content') || '300', 10) || 300;
+        const countdownSeconds = parseInt(document.querySelector('meta[name="cnx-session-countdown-seconds"]')?.getAttribute('content') || '30', 10) || 30;
+        const warningSeconds = Math.max(0, totalInactivitySeconds - countdownSeconds);
         window.sessionTimeoutManager = new SessionTimeoutManager({
-            timeoutMinutes: 5 // 5 minuti timeout
+            inactivitySeconds: warningSeconds,
+            countdownSeconds: countdownSeconds
         });
     });
 } else {
     // DOM già caricato
+    const totalInactivitySeconds = parseInt(document.querySelector('meta[name="cnx-session-inactivity-seconds"]')?.getAttribute('content') || '300', 10) || 300;
+    const countdownSeconds = parseInt(document.querySelector('meta[name="cnx-session-countdown-seconds"]')?.getAttribute('content') || '30', 10) || 30;
+    const warningSeconds = Math.max(0, totalInactivitySeconds - countdownSeconds);
     window.sessionTimeoutManager = new SessionTimeoutManager({
-        timeoutMinutes: 5 // 5 minuti timeout
+        inactivitySeconds: warningSeconds,
+        countdownSeconds: countdownSeconds
     });
 }
 
 console.log('[SessionTimeout] Script caricato');
+})();

@@ -95,7 +95,15 @@ function verifyOnlyOfficeJWT(string $token): array|false {
     }
 
     // Decode payload
-    $payload = json_decode(base64_decode($base64Payload), true);
+    $decoded = base64_decode($base64Payload);
+    if ($decoded === false) {
+        return false;
+    }
+
+    $payload = json_decode($decoded, true);
+    if (!is_array($payload)) {
+        return false;
+    }
 
     // Verify expiration
     if (isset($payload['exp']) && $payload['exp'] < time()) {
@@ -263,14 +271,21 @@ function cleanupExpiredSessions(): int {
     $db = Database::getInstance();
 
     try {
-        $affected = $db->update(
-            'document_editor_sessions',
-            ['closed_at' => date('Y-m-d H:i:s')],
-            [
-                'closed_at' => null,
-                'last_activity <' => date('Y-m-d H:i:s', time() - ONLYOFFICE_IDLE_TIMEOUT)
-            ]
+        // IMPORTANT: Database::update() only supports equality/IS NULL in the WHERE clause.
+        // Use an explicit query for comparisons to avoid schema errors like:
+        // "Errore durante l'aggiornamento del record"
+        $closedAt = date('Y-m-d H:i:s');
+        $threshold = date('Y-m-d H:i:s', time() - ONLYOFFICE_IDLE_TIMEOUT);
+
+        $stmt = $db->query(
+            "UPDATE document_editor_sessions
+             SET closed_at = ?
+             WHERE closed_at IS NULL
+             AND last_activity < ?",
+            [$closedAt, $threshold]
         );
+
+        $affected = $stmt->rowCount();
 
         if ($affected > 0) {
             error_log("Cleaned up $affected expired editor sessions");
@@ -433,34 +448,89 @@ function saveFileVersion(int $fileId, string $downloadUrl, int $userId, array $c
 
         $versionPath = $backupPath . '/' . $versionFileName;
 
-        // Copia il file corrente come versione
+        // Copia il file corrente come versione (best-effort)
+        $versionSize = 0;
         $currentPath = UPLOAD_PATH . '/' . $currentFile['tenant_id'] . '/' . $currentFile['file_path'];
         if (file_exists($currentPath)) {
             copy($currentPath, $versionPath);
+            $versionSize = filesize($versionPath) ?: 0;
+        }
 
-            // Registra la versione nel database
-            $db->insert('file_versions', [
-                'file_id' => $fileId,
-                'version_number' => $currentFile['version'] ?? 1,
-                'size_bytes' => filesize($versionPath),
-                'storage_path' => 'versions/' . $currentFile['tenant_id'] . '/' . $versionFileName,
-                'created_by' => $userId,
-                'created_at' => date('Y-m-d H:i:s'),
-                'changes_description' => json_encode($changes)
-            ]);
+        // Registra la versione nel database usando schema dinamico per evitare INSERT failure
+        try {
+            static $fvSchema = null;
+            if ($fvSchema === null) {
+                $cols = $db->fetchAll("SHOW COLUMNS FROM file_versions");
+                $fvSchema = [];
+                foreach ($cols as $col) {
+                    $fvSchema[$col['Field']] = true;
+                }
+            }
+
+            $insertData = [];
+            if (isset($fvSchema['file_id'])) $insertData['file_id'] = $fileId;
+            if (isset($fvSchema['tenant_id'])) $insertData['tenant_id'] = $currentFile['tenant_id'] ?? null;
+
+            // Version column compatibility
+            $nextVersion = ($currentFile['version'] ?? 1);
+            if (isset($fvSchema['version_number'])) $insertData['version_number'] = $nextVersion;
+            if (isset($fvSchema['version'])) $insertData['version'] = $nextVersion;
+
+            // Size column compatibility
+            if (isset($fvSchema['size_bytes'])) $insertData['size_bytes'] = $versionSize;
+            if (isset($fvSchema['size'])) $insertData['size'] = $versionSize;
+            if (isset($fvSchema['file_size'])) $insertData['file_size'] = $versionSize;
+
+            // Path column compatibility
+            $storagePath = 'versions/' . $currentFile['tenant_id'] . '/' . $versionFileName;
+            if (isset($fvSchema['storage_path'])) $insertData['storage_path'] = $storagePath;
+            if (isset($fvSchema['path'])) $insertData['path'] = $storagePath;
+
+            if (isset($fvSchema['mime_type'])) $insertData['mime_type'] = $currentFile['mime_type'] ?? '';
+            if (isset($fvSchema['hash'])) $insertData['hash'] = $currentFile['file_hash'] ?? '';
+
+            if (isset($fvSchema['created_by'])) $insertData['created_by'] = $userId;
+            if (isset($fvSchema['created_at'])) $insertData['created_at'] = date('Y-m-d H:i:s');
+            if (isset($fvSchema['changes_description'])) $insertData['changes_description'] = json_encode($changes);
+
+            if (!empty($insertData)) {
+                $db->insert('file_versions', $insertData);
+            }
+        } catch (Exception $e) {
+            // Non bloccare il salvataggio principale se l'insert nella cronologia fallisce
+            error_log('Error saving file version (fallback to main save): ' . $e->getMessage());
         }
 
         // Salva il nuovo contenuto
         file_put_contents($currentPath, $newContent);
 
-        // Aggiorna il record del file
-        $db->update('files', [
-            'file_size' => strlen($newContent),
-            'last_edited_by' => $userId,
-            'last_edited_at' => date('Y-m-d H:i:s'),
-            'version' => ($currentFile['version'] ?? 1) + 1,
-            'updated_at' => date('Y-m-d H:i:s')
-        ], ['id' => $fileId]);
+        // Aggiorna il record del file (solo colonne esistenti per evitare INSERT/UPDATE failure)
+        static $filesSchema = null;
+        if ($filesSchema === null) {
+            $cols = $db->fetchAll("SHOW COLUMNS FROM files");
+            $filesSchema = [];
+            foreach ($cols as $col) {
+                $filesSchema[$col['Field']] = true;
+            }
+        }
+
+        $fileUpdate = [];
+        $newSize = strlen($newContent);
+        if (isset($filesSchema['file_size'])) $fileUpdate['file_size'] = $newSize;
+        if (isset($filesSchema['size'])) $fileUpdate['size'] = $newSize;
+        if (isset($filesSchema['last_edited_by'])) $fileUpdate['last_edited_by'] = $userId;
+        if (isset($filesSchema['last_edited_at'])) $fileUpdate['last_edited_at'] = date('Y-m-d H:i:s');
+
+        // Gestione versione compatibile con schema
+        $nextVersion = ($currentFile['version'] ?? 1) + 1;
+        if (isset($filesSchema['version'])) $fileUpdate['version'] = $nextVersion;
+        if (isset($filesSchema['version_number'])) $fileUpdate['version_number'] = $nextVersion;
+
+        if (isset($filesSchema['updated_at'])) $fileUpdate['updated_at'] = date('Y-m-d H:i:s');
+
+        if (!empty($fileUpdate)) {
+            $db->update('files', $fileUpdate, ['id' => $fileId]);
+        }
 
         // Log audit
         logDocumentAudit('document_saved', $fileId, $userId, [
@@ -492,18 +562,41 @@ function logDocumentAudit(string $action, int $fileId, int $userId, array $detai
         $file = $db->fetchOne("SELECT tenant_id FROM files WHERE id = ?", [$fileId]);
 
         if ($file) {
+            $tenantId = (int)$file['tenant_id'];
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+            $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+            $now = date('Y-m-d H:i:s');
+
+            // Map custom document_* actions into values allowed by audit_logs CHECK constraints
+            // (e.g. schema enforces a fixed set like create/update/view/submit/approve/reject...)
+            $actionMap = [
+                'document_opened' => 'view',
+                'document_editing' => 'update',
+                'document_saved' => 'update',
+                'document_closed_no_changes' => 'view',
+                'document_save_error' => 'update',
+            ];
+            $auditAction = $actionMap[$action] ?? 'update';
+
+            // entity_type must match allowed set; use 'file' for documents stored in files table
+            $entityType = 'file';
+
+            $severity = ($action === 'document_save_error') ? 'error' : 'info';
+            $status = ($action === 'document_save_error') ? 'failed' : 'success';
+
             $db->insert('audit_logs', [
+                'tenant_id' => $tenantId,
                 'user_id' => $userId,
-                'tenant_id' => $file['tenant_id'],
-                'action' => $action,
-                'entity_type' => 'document',
+                'action' => $auditAction,
+                'entity_type' => $entityType,
                 'entity_id' => $fileId,
+                'metadata' => json_encode($details),
                 'description' => json_encode($details),
-                'ip_address' => $_SERVER['REMOTE_ADDR'] ?? '',
-                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
-                'severity' => 'info',
-                'status' => 'success',
-                'created_at' => date('Y-m-d H:i:s')
+                'ip_address' => $ip,
+                'user_agent' => $ua,
+                'severity' => $severity,
+                'status' => $status,
+                'created_at' => $now
             ]);
         }
     } catch (Exception $e) {
@@ -616,7 +709,7 @@ function checkOnlyOfficeConnectivity(): array {
         $startTime = microtime(true);
 
         // Prova a raggiungere l'health check endpoint di OnlyOffice
-        $healthUrl = ONLYOFFICE_SERVER_URL . '/healthcheck';
+        $healthUrl = (defined('ONLYOFFICE_INTERNAL_URL') ? ONLYOFFICE_INTERNAL_URL : ONLYOFFICE_SERVER_URL) . '/healthcheck';
 
         $context = stream_context_create([
             'http' => [

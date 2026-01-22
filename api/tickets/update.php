@@ -21,9 +21,6 @@ verifyApiAuthentication();
 // Verify CSRF token for POST request
 verifyApiCsrfToken();
 
-// Require admin+ role
-requireApiRole('admin');
-
 // Get user context
 $userInfo = getApiUserInfo();
 $db = Database::getInstance();
@@ -43,11 +40,26 @@ try {
 
     $ticketId = (int)$data['ticket_id'];
 
-    // Fetch existing ticket with tenant isolation
-    $ticket = $db->fetchOne(
-        'SELECT * FROM tickets WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL',
-        [$ticketId, $userInfo['tenant_id']]
-    );
+    // Fetch ticket with RBAC:
+    // - super_admin: any tenant
+    // - others: only if assigned_to == me (in my tenant)
+    if (($userInfo['role'] ?? '') === 'super_admin') {
+        $ticket = $db->fetchOne(
+            'SELECT * FROM tickets WHERE id = ? AND deleted_at IS NULL',
+            [$ticketId]
+        );
+    } else {
+        $ticket = $db->fetchOne(
+            'SELECT * FROM tickets WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL',
+            [$ticketId, $userInfo['tenant_id']]
+        );
+        if ($ticket) {
+            $isAssignee = (!empty($ticket['assigned_to']) && (int)$ticket['assigned_to'] === (int)$userInfo['user_id']);
+            if (!$isAssignee) {
+                api_error('Solo il Super User o l’utente assegnato può modificare il ticket', 403);
+            }
+        }
+    }
 
     if (!$ticket) {
         api_error('Ticket non trovato o non accessibile', 404);
@@ -88,15 +100,18 @@ try {
         }
     }
 
-    // Assignment change
+    // Assignment change (super_admin only)
     if (isset($data['assigned_to'])) {
+        if (($userInfo['role'] ?? '') !== 'super_admin') {
+            api_error('Solo i Super User possono assegnare/prendere in carico i ticket', 403);
+        }
         $assignedTo = $data['assigned_to'] ? (int)$data['assigned_to'] : null;
 
         if ($assignedTo && $assignedTo !== $ticket['assigned_to']) {
             // Validate user exists
             $assignedUser = $db->fetchOne(
-                'SELECT id FROM users WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL',
-                [$assignedTo, $userInfo['tenant_id']]
+                'SELECT id FROM users WHERE id = ? AND deleted_at IS NULL',
+                [$assignedTo]
             );
 
             if (!$assignedUser) {
@@ -115,17 +130,19 @@ try {
                 $updateData['first_response_at'] = date('Y-m-d H:i:s');
 
                 // Calculate first response time in minutes
+                // BUG-147c FIX: Column is 'first_response_time_minutes' not 'first_response_time'
                 $createdTime = strtotime($ticket['created_at']);
                 $responseTime = time();
                 $responseMinutes = round(($responseTime - $createdTime) / 60, 2);
-                $updateData['first_response_time'] = $responseMinutes;
+                $updateData['first_response_time_minutes'] = $responseMinutes;
             }
         }
     }
 
     // Urgency change
+    // BUG-145b FIX: Database ENUM uses 'medium' not 'normal' - align with DB schema
     if (isset($data['urgency']) && $data['urgency'] !== $ticket['urgency']) {
-        $validUrgencies = ['low', 'normal', 'high', 'critical'];
+        $validUrgencies = ['low', 'medium', 'high', 'critical'];
         if (!in_array($data['urgency'], $validUrgencies)) {
             api_error('Urgenza non valida', 400);
         }
@@ -165,8 +182,7 @@ try {
     try {
         // Update ticket
         $updated = $db->update('tickets', $updateData, [
-            'id' => $ticketId,
-            'tenant_id' => $userInfo['tenant_id']
+            'id' => $ticketId
         ]);
 
         if (!$updated) {
@@ -176,7 +192,7 @@ try {
         // Log each change to ticket_history
         foreach ($changes as $change) {
             $db->insert('ticket_history', [
-                'tenant_id' => $userInfo['tenant_id'],
+                'tenant_id' => $ticket['tenant_id'],
                 'ticket_id' => $ticketId,
                 'user_id' => $userInfo['user_id'],
                 'action' => 'updated',
@@ -190,7 +206,7 @@ try {
         // If assignment changed, log to ticket_assignments
         if (isset($changes['assigned_to'])) {
             $db->insert('ticket_assignments', [
-                'tenant_id' => $userInfo['tenant_id'],
+                'tenant_id' => $ticket['tenant_id'],
                 'ticket_id' => $ticketId,
                 'assigned_to' => $changes['assigned_to']['new'],
                 'assigned_by' => $userInfo['user_id'],
@@ -251,11 +267,14 @@ try {
             }
 
             // Notify on status change
+            // BUG-154 FIX: Use sendTicketStatusChangedNotification instead of legacy method
+            // New method notifies BOTH creator AND assigned user, includes next steps
             if (isset($changes['status'])) {
-                $notifier->sendStatusChangedNotification(
+                $notifier->sendTicketStatusChangedNotification(
                     $ticketId,
                     $changes['status']['old'],
-                    $changes['status']['new']
+                    $changes['status']['new'],
+                    (int)($userInfo['user_id'] ?? 0)
                 );
             }
         } catch (Exception $e) {

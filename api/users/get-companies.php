@@ -21,9 +21,9 @@ try {
         die(json_encode(['error' => 'Non autorizzato']));
     }
 
-    // Tenant isolation
-    $tenant_id = $_SESSION['tenant_id'];
-    $current_user_role = $_SESSION['role'];
+    // Current session context
+    $tenant_id = $_SESSION['tenant_id'] ?? null;
+    $current_user_role = $_SESSION['role'] ?? 'user';
 
     // Check permissions - only super_admin and admin can manage users
     if (!in_array($current_user_role, ['super_admin', 'admin'])) {
@@ -65,6 +65,38 @@ try {
         die(json_encode(['error' => 'Utente non trovato o eliminato']));
     }
 
+    // Helper: detect optional deleted_at column on user_tenant_access
+    $utaHasDeletedAt = false;
+    try {
+        $col = $db->fetchOne(
+            "SELECT 1 AS ok
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = 'user_tenant_access'
+               AND COLUMN_NAME = 'deleted_at'
+             LIMIT 1"
+        );
+        $utaHasDeletedAt = (bool)($col['ok'] ?? false);
+    } catch (Exception $e) {
+        $utaHasDeletedAt = false;
+    }
+    $utaNotDeletedSql = $utaHasDeletedAt ? " AND uta.deleted_at IS NULL" : "";
+
+    // Determine if user_tenant_access exists (multi-tenant mapping table)
+    $utaExists = false;
+    try {
+        $existsRow = $db->fetchOne(
+            "SELECT 1 AS ok
+             FROM information_schema.tables
+             WHERE table_schema = DATABASE()
+               AND table_name = 'user_tenant_access'
+             LIMIT 1"
+        );
+        $utaExists = (bool)($existsRow['ok'] ?? false);
+    } catch (Exception $e) {
+        $utaExists = false;
+    }
+
     // If current user is admin, verify they have permission to view this user
     if ($current_user_role === 'admin') {
         // Admin cannot view super_admin users
@@ -74,29 +106,50 @@ try {
             die(json_encode(['error' => 'Non puoi visualizzare i dati di un super admin']));
         }
 
-        // If the target user is an admin, check if they share at least one company
+        // Build admin allowed tenant list (primary tenant_id + user_tenant_access)
+        $adminAllowedTenantIds = [];
+        if (!empty($_SESSION['tenant_id'])) {
+            $adminAllowedTenantIds[] = (int)$_SESSION['tenant_id'];
+        }
+        if ($utaExists) {
+            $rows = $db->fetchAll(
+                "SELECT DISTINCT uta.tenant_id
+                 FROM user_tenant_access uta
+                 WHERE uta.user_id = :uid{$utaNotDeletedSql}",
+                [':uid' => (int)$_SESSION['user_id']]
+            );
+            foreach ((array)$rows as $r) {
+                if (isset($r['tenant_id'])) $adminAllowedTenantIds[] = (int)$r['tenant_id'];
+            }
+        }
+        $adminAllowedTenantIds = array_values(array_unique(array_filter($adminAllowedTenantIds)));
+
+        // If target is admin: must share at least one tenant assignment (via user_tenant_access or primary tenant)
         if ($user['role'] === 'admin') {
-            $shared_companies = $db->fetchOne(
-                "SELECT COUNT(*) as count FROM user_companies uc1
-                INNER JOIN user_companies uc2 ON uc1.company_id = uc2.company_id
-                WHERE uc1.user_id = :current_user AND uc2.user_id = :target_user",
-                [':current_user' => $_SESSION['user_id'], ':target_user' => $user_id]
-            );
+            $targetTenantIds = [];
+            if (!empty($user['tenant_id'])) $targetTenantIds[] = (int)$user['tenant_id'];
+            if ($utaExists) {
+                $rows = $db->fetchAll(
+                    "SELECT DISTINCT uta.tenant_id
+                     FROM user_tenant_access uta
+                     WHERE uta.user_id = :uid{$utaNotDeletedSql}",
+                    [':uid' => $user_id]
+                );
+                foreach ((array)$rows as $r) {
+                    if (isset($r['tenant_id'])) $targetTenantIds[] = (int)$r['tenant_id'];
+                }
+            }
+            $targetTenantIds = array_values(array_unique(array_filter($targetTenantIds)));
 
-            if ($shared_companies['count'] == 0) {
+            $shared = array_intersect($adminAllowedTenantIds, $targetTenantIds);
+            if (empty($shared)) {
                 ob_clean();
                 http_response_code(403);
                 die(json_encode(['error' => 'Non hai accesso a questo utente']));
             }
-        }
-        // If the target user is not an admin, check if admin has access to their tenant
-        else if ($user['tenant_id'] !== null) {
-            $has_access = $db->fetchOne(
-                "SELECT 1 FROM user_companies WHERE user_id = :admin_id AND company_id = :tenant_id",
-                [':admin_id' => $_SESSION['user_id'], ':tenant_id' => $user['tenant_id']]
-            );
-
-            if (!$has_access) {
+        } else {
+            // Target is manager/user: must have access to their tenant_id
+            if (!empty($user['tenant_id']) && !in_array((int)$user['tenant_id'], $adminAllowedTenantIds, true)) {
                 ob_clean();
                 http_response_code(403);
                 die(json_encode(['error' => 'Non hai accesso a questo utente']));
@@ -104,103 +157,82 @@ try {
         }
     }
 
-    // Create user_companies table if it doesn't exist
-    $create_table = "CREATE TABLE IF NOT EXISTS user_companies (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        company_id INT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_user_company (user_id, company_id),
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (company_id) REFERENCES tenants(id) ON DELETE CASCADE
-    )";
-    $db->query($create_table);
+    // Build companies list (IDs) expected by utenti.php loadUserCompanies()
+    // NOTE: The legacy table user_companies does not exist in this project.
+    // Use user_tenant_access for admin/super_admin multi-tenant assignments.
+    $companies = []; // array of tenant IDs
 
-    // Get user companies from junction table
-    // Only admin users should have entries in user_companies table
-    $companies = [];
-
+    // For admin: return tenants assigned via user_tenant_access (+ primary tenant_id for safety)
     if ($user['role'] === 'admin') {
-        $company_list = $db->fetchAll(
-            "SELECT uc.company_id, t.name as company_name, t.status
-            FROM user_companies uc
-            INNER JOIN tenants t ON uc.company_id = t.id
-            WHERE uc.user_id = :user_id
-            ORDER BY t.name",
-            [':user_id' => $user_id]
-        );
-
-        foreach ($company_list as $company) {
-            $companies[] = [
-                'id' => $company['company_id'],
-                'name' => $company['company_name'],
-                'status' => $company['status']
-            ];
+        if (!empty($user['tenant_id'])) {
+            $companies[] = (int)$user['tenant_id'];
         }
+        if ($utaExists) {
+            $rows = $db->fetchAll(
+                "SELECT DISTINCT uta.tenant_id
+                 FROM user_tenant_access uta
+                 WHERE uta.user_id = :uid{$utaNotDeletedSql}",
+                [':uid' => $user_id]
+            );
+            foreach ((array)$rows as $r) {
+                if (isset($r['tenant_id'])) $companies[] = (int)$r['tenant_id'];
+            }
+        }
+        $companies = array_values(array_unique(array_filter($companies)));
     }
 
-    // For super_admin, return all companies (they have access to all)
+    // For super_admin: return all tenants as IDs (they have access to all)
     if ($user['role'] === 'super_admin') {
-        $all_companies = $db->fetchAll(
-            "SELECT id, name, status FROM tenants ORDER BY name"
-        );
-
-        foreach ($all_companies as $company) {
-            $companies[] = [
-                'id' => $company['id'],
-                'name' => $company['name'],
-                'status' => $company['status'],
-                'access_type' => 'super_admin_all'
-            ];
+        $allIds = $db->fetchAll("SELECT id FROM tenants ORDER BY name");
+        foreach ((array)$allIds as $row) {
+            if (isset($row['id'])) $companies[] = (int)$row['id'];
         }
     }
 
-    // For manager/user roles, return their assigned tenant
-    if (in_array($user['role'], ['manager', 'user']) && $user['tenant_id']) {
-        $tenant = $db->fetchOne(
-            "SELECT id, name, status FROM tenants WHERE id = :id",
-            [':id' => $user['tenant_id']]
-        );
-
-        if ($tenant) {
-            $companies[] = [
-                'id' => $tenant['id'],
-                'name' => $tenant['name'],
-                'status' => $tenant['status'],
-                'access_type' => 'single_tenant'
-            ];
-        }
+    // For manager/user roles, return their assigned tenant ID
+    if (in_array($user['role'], ['manager', 'user'], true) && !empty($user['tenant_id'])) {
+        $companies = [(int)$user['tenant_id']];
     }
 
     // If current user is admin, filter to only show companies they have access to
     if ($current_user_role === 'admin' && !empty($companies)) {
-        $admin_companies = $db->fetchAll(
-            "SELECT company_id FROM user_companies WHERE user_id = :user_id",
-            [':user_id' => $_SESSION['user_id']]
-        );
+        $adminAllowedTenantIds = [];
+        if (!empty($_SESSION['tenant_id'])) $adminAllowedTenantIds[] = (int)$_SESSION['tenant_id'];
+        if ($utaExists) {
+            $rows = $db->fetchAll(
+                "SELECT DISTINCT uta.tenant_id
+                 FROM user_tenant_access uta
+                 WHERE uta.user_id = :uid{$utaNotDeletedSql}",
+                [':uid' => (int)$_SESSION['user_id']]
+            );
+            foreach ((array)$rows as $r) {
+                if (isset($r['tenant_id'])) $adminAllowedTenantIds[] = (int)$r['tenant_id'];
+            }
+        }
+        $adminAllowedTenantIds = array_values(array_unique(array_filter($adminAllowedTenantIds)));
 
-        $admin_company_ids = array_column($admin_companies, 'company_id');
-
-        // Filter companies to only those the admin has access to
-        $companies = array_filter($companies, function($company) use ($admin_company_ids) {
-            return in_array($company['id'], $admin_company_ids);
-        });
-
-        // Reset array keys after filtering
-        $companies = array_values($companies);
+        $companies = array_values(array_filter($companies, function ($tid) use ($adminAllowedTenantIds) {
+            return in_array((int)$tid, $adminAllowedTenantIds, true);
+        }));
     }
 
     ob_clean();
-    echo json_encode([
+    // Response shape expected by utenti.php:
+    // { success: true, companies: [ids...] }
+    $response = [
         'success' => true,
+        'companies' => array_values(array_unique(array_map('intval', (array)$companies))),
         'data' => [
             'user_id' => $user_id,
             'user_email' => $user['email'],
             'user_role' => $user['role'],
-            'companies' => $companies,
             'total' => count($companies)
         ]
-    ]);
+    ];
+    if (!$utaExists) {
+        $response['warning'] = 'Tabella user_tenant_access non disponibile: impossibile leggere assegnazioni multi-azienda.';
+    }
+    echo json_encode($response);
 
 } catch (Exception $e) {
     ob_clean();

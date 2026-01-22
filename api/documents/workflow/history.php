@@ -30,9 +30,26 @@ header('Expires: 0');
 verifyApiAuthentication();  // IMMEDIATELY after init
 
 $userInfo = getApiUserInfo();
-$tenantId = $userInfo['tenant_id'];
-$userId = $userInfo['user_id'];
+$requestedTenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : 0;
+// BUG-144 FIX: Tenant resolution (removed active_tenant_id fallback - column does not exist)
+// Priority: explicit tenant_id param > company_filter_id > tenant_id
+$tenantFromSession = (int)($_SESSION['company_filter_id'] ?? 0);
+$tenantFromTenant = (int)($userInfo['tenant_id'] ?? 0);
+
+$tenantId = 0;
+if ($requestedTenantId > 0) {
+    $tenantId = $requestedTenantId;
+} elseif ($tenantFromSession > 0) {
+    $tenantId = $tenantFromSession;
+} elseif ($tenantFromTenant > 0) {
+    $tenantId = $tenantFromTenant;
+}
+$userId = (int)($userInfo['user_id'] ?? $userInfo['id'] ?? 0);
 $userRole = $userInfo['role'];
+
+if ($tenantId <= 0 && $userRole !== 'super_admin') {
+    api_error('Tenant non valido o non selezionato.', 400);
+}
 
 verifyApiCsrfToken();
 
@@ -70,18 +87,37 @@ if (!$fileId || $fileId <= 0) {
 // ============================================
 
 try {
-    // Get file details
-    $file = $db->fetchOne(
-        "SELECT id, file_name, uploaded_by, folder_id
-         FROM files
-         WHERE id = ?
-           AND tenant_id = ?
-           AND deleted_at IS NULL",
-        [$fileId, $tenantId]
-    );
+    // Get file details (super_admin can auto-discover tenant)
+    // BUG-146c FIX: Column is 'name' not 'file_name' in files table
+    if ($userRole === 'super_admin' && $tenantId <= 0) {
+        $file = $db->fetchOne(
+            "SELECT id, name, uploaded_by, folder_id, tenant_id
+             FROM files
+             WHERE id = ?
+               AND deleted_at IS NULL",
+            [$fileId]
+        );
+        if ($file === false) {
+            api_error('File non trovato.', 404);
+        }
+        $tenantId = (int)($file['tenant_id'] ?? 0);
+    } else {
+        $file = $db->fetchOne(
+            "SELECT id, name, uploaded_by, folder_id, tenant_id
+             FROM files
+             WHERE id = ?
+               AND tenant_id = ?
+               AND deleted_at IS NULL",
+            [$fileId, $tenantId]
+        );
+        if ($file === false) {
+            api_error('File non trovato nel tenant corrente.', 404);
+        }
+    }
 
-    if ($file === false) {
-        api_error('File non trovato nel tenant corrente.', 404);
+    // If not super_admin, tenant must match file tenant
+    if ($userRole !== 'super_admin' && (int)$file['tenant_id'] !== $tenantId) {
+        api_error('Non hai accesso a questo tenant.', 403);
     }
 
     // Check if user has access to the file
@@ -93,18 +129,14 @@ try {
     // GET WORKFLOW HISTORY
     // ============================================
 
+    // NOTE: Avoid window functions (LAG/OVER) for compatibility with older MySQL/MariaDB installs.
+    // We compute durations in PHP.
     $historyQuery = "SELECT
         dwh.*,
         dwh.user_role_at_time as performed_by_role,
         u_performed.name as performed_by_name,
         u_performed.email as performed_by_email,
-        u_performed.profile_image as performed_by_avatar,
-
-        -- Calculate duration between transitions
-        TIMESTAMPDIFF(SECOND,
-            LAG(dwh.created_at) OVER (ORDER BY dwh.created_at),
-            dwh.created_at
-        ) as duration_seconds,
+        NULL as performed_by_avatar,
 
         -- Get workflow state labels
         CASE dwh.from_state
@@ -131,7 +163,7 @@ try {
     LEFT JOIN users u_performed ON dwh.performed_by_user_id = u_performed.id
     WHERE dwh.file_id = ?
       AND dwh.tenant_id = ?
-    ORDER BY dwh.created_at DESC";
+    ORDER BY dwh.created_at ASC";
 
     $history = $db->fetchAll($historyQuery, [$fileId, $tenantId]);
 
@@ -160,7 +192,17 @@ try {
     $formattedHistory = [];
     $timeline = [];
 
+    $prevTs = null;
     foreach ($history as $entry) {
+        $createdTs = isset($entry['created_at']) ? strtotime((string)$entry['created_at']) : null;
+        $durationSeconds = null;
+        if (is_int($createdTs) && $prevTs !== null) {
+            $durationSeconds = max(0, $createdTs - $prevTs);
+        }
+        if (is_int($createdTs)) {
+            $prevTs = $createdTs;
+        }
+
         // Parse metadata
         $metadata = parseWorkflowMetadata($entry['metadata']);
 
@@ -209,9 +251,9 @@ try {
         }
 
         // Format duration
-        if ($entry['duration_seconds'] !== null) {
-            $hours = floor($entry['duration_seconds'] / 3600);
-            $minutes = floor(($entry['duration_seconds'] % 3600) / 60);
+        if ($durationSeconds !== null) {
+            $hours = floor($durationSeconds / 3600);
+            $minutes = floor(($durationSeconds % 3600) / 60);
 
             if ($hours > 24) {
                 $days = floor($hours / 24);
@@ -221,7 +263,7 @@ try {
             } else {
                 $formattedEntry['duration'] = sprintf('%d minuti', $minutes);
             }
-            $formattedEntry['duration_seconds'] = (int)$entry['duration_seconds'];
+            $formattedEntry['duration_seconds'] = (int)$durationSeconds;
         }
 
         $formattedHistory[] = $formattedEntry;
@@ -302,24 +344,48 @@ try {
     // ============================================
 
     $response = [
-        'history' => array_reverse($formattedHistory), // Chronological order
-        'timeline' => array_reverse($timeline),
+        'history' => $formattedHistory, // Chronological order
+        'timeline' => $timeline,
         'statistics' => $statistics,
         'file' => [
             'id' => $fileId,
-            'name' => $file['file_name']
+            // BUG-150b FIX: Use 'name' not 'file_name' - SELECT uses 'name' column directly
+            'name' => $file['name'] ?? ''
         ]
     ];
 
     // Add current workflow info if exists
     if ($currentWorkflow) {
+        // BUG-150b FIX: Get validator/approver names from document_workflow_participants table
+        // The document_workflow table doesn't have validator_name/approver_name columns
+        $validatorName = null;
+        $approverName = null;
+
+        $selected = getSelectedWorkflowParticipants((int)$tenantId, (int)$fileId);
+
+        if (!empty($selected['validator_id'])) {
+            $validator = $db->fetchOne(
+                "SELECT name FROM users WHERE id = ? AND deleted_at IS NULL",
+                [(int)$selected['validator_id']]
+            );
+            $validatorName = $validator ? $validator['name'] : null;
+        }
+
+        if (!empty($selected['approver_id'])) {
+            $approver = $db->fetchOne(
+                "SELECT name FROM users WHERE id = ? AND deleted_at IS NULL",
+                [(int)$selected['approver_id']]
+            );
+            $approverName = $approver ? $approver['name'] : null;
+        }
+
         $response['current_workflow'] = [
             'id' => (int)$currentWorkflow['id'],
             'state' => $currentWorkflow['current_state'],
             'state_label' => getWorkflowStateLabel($currentWorkflow['current_state']),
             'state_color' => getWorkflowStateColor($currentWorkflow['current_state']),
-            'validator' => $currentWorkflow['validator_name'],
-            'approver' => $currentWorkflow['approver_name'],
+            'validator' => $validatorName,
+            'approver' => $approverName,
             'creator' => $currentWorkflow['creator_name'],
             'submitted_at' => $currentWorkflow['submitted_at'],
             'validated_at' => $currentWorkflow['validated_at'],

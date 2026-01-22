@@ -13,12 +13,15 @@
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/mailer.php';
+require_once __DIR__ . '/email_layout.php';
+require_once __DIR__ . '/email_template_renderer.php';
 
 class TaskNotification {
 
     private $db;
     private $baseUrl;
     private $templateDir;
+    private array $tenantNameCache = [];
 
     /**
      * Constructor
@@ -27,6 +30,20 @@ class TaskNotification {
         $this->db = Database::getInstance();
         $this->baseUrl = defined('BASE_URL') ? BASE_URL : 'http://localhost:8888/CollaboraNexio';
         $this->templateDir = __DIR__ . '/email_templates/tasks/';
+    }
+
+    private function getTenantName(?int $tenantId): string {
+        if (!$tenantId) return '';
+        if (isset($this->tenantNameCache[$tenantId])) return $this->tenantNameCache[$tenantId];
+        try {
+            $row = $this->db->fetchOne('SELECT name FROM tenants WHERE id = ? LIMIT 1', [$tenantId]);
+            $name = is_array($row) ? (string)($row['name'] ?? '') : '';
+            $this->tenantNameCache[$tenantId] = $name;
+            return $name;
+        } catch (Exception $e) {
+            $this->tenantNameCache[$tenantId] = '';
+            return '';
+        }
     }
 
     /**
@@ -52,6 +69,7 @@ class TaskNotification {
 
             // Get creator info
             $creator = $this->getUserInfo($createdBy);
+            $tenantName = $this->getTenantName((int)($task['tenant_id'] ?? ($creator['tenant_id'] ?? 0)));
 
             // Get all assignees info
             $assignees = [];
@@ -72,6 +90,7 @@ class TaskNotification {
 
                 // Prepare template data
                 $templateData = [
+                    'EMAIL_TITLE' => 'Nuovo task',
                     'USER_NAME' => $assignee['name'],
                     'TASK_TITLE' => $task['title'],
                     'TASK_DESCRIPTION' => $task['description'] ?? '',
@@ -84,6 +103,7 @@ class TaskNotification {
                     'TASK_URL' => $this->baseUrl . '/tasks.php?task_id=' . $taskId,
                     'TASK_LIST_URL' => $this->baseUrl . '/tasks.php',
                     'BASE_URL' => $this->baseUrl,
+                    'TENANT_NAME' => $tenantName,
                     'YEAR' => date('Y')
                 ];
 
@@ -170,9 +190,11 @@ class TaskNotification {
 
             // Get assigner info
             $assigner = $this->getUserInfo($assignedBy);
+            $tenantName = $this->getTenantName((int)($task['tenant_id'] ?? ($user['tenant_id'] ?? 0)));
 
             // Prepare template data
             $templateData = [
+                'EMAIL_TITLE' => 'Task assegnato',
                 'USER_NAME' => $user['name'],
                 'TASK_TITLE' => $task['title'],
                 'TASK_DESCRIPTION' => $task['description'] ?? '',
@@ -183,6 +205,7 @@ class TaskNotification {
                 'ASSIGNED_BY_NAME' => $assigner['name'] ?? 'Sistema',
                 'TASK_URL' => $this->baseUrl . '/tasks.php?task_id=' . $taskId,
                 'BASE_URL' => $this->baseUrl,
+                'TENANT_NAME' => $tenantName,
                 'YEAR' => date('Y')
             ];
 
@@ -226,6 +249,182 @@ class TaskNotification {
     }
 
     /**
+     * Confirmation email to task creator when an assignee updates progress.
+     */
+    public function sendTaskProgressUpdatedConfirmation(int $taskId, int $actorId, int $newProgress): bool {
+        try {
+            $task = $this->getTaskDetails($taskId);
+            if (!$task) return false;
+
+            $creator = $this->getUserInfo((int)$task['created_by']);
+            if (!$creator || empty($creator['email'])) return false;
+
+            $actor = $this->getUserInfo($actorId);
+            $tenantName = $this->getTenantName((int)($task['tenant_id'] ?? ($creator['tenant_id'] ?? 0)));
+
+            $templateData = [
+                'EMAIL_TITLE' => 'Avanzamento aggiornato',
+                'USER_NAME' => $creator['name'] ?? 'Utente',
+                'TASK_TITLE' => $task['title'],
+                'ACTOR_NAME' => $actor['name'] ?? 'Utente',
+                'NEW_PROGRESS' => $newProgress,
+                'TASK_URL' => $this->baseUrl . '/tasks.php?task_id=' . $taskId,
+                'BASE_URL' => $this->baseUrl,
+                'TENANT_NAME' => $tenantName,
+                'YEAR' => date('Y')
+            ];
+
+            $subject = "Aggiornamento avanzamento task: {$task['title']}";
+            $html = $this->renderTemplate('task_generic_notice.html', array_merge($templateData, [
+                'TITLE' => 'Avanzamento aggiornato',
+                'MESSAGE' => ($actor['name'] ?? 'Un utente') . " ha aggiornato l'avanzamento al {$newProgress}%."
+            ]));
+
+            return (bool)sendEmail($creator['email'], $subject, $html, '', [
+                'context' => [
+                    'tenant_id' => $task['tenant_id'],
+                    'user_id' => $creator['id'],
+                    'action' => 'task_progress_confirmation'
+                ]
+            ]);
+        } catch (Exception $e) {
+            error_log("TaskNotification Error (sendTaskProgressUpdatedConfirmation): " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Confirmation email to task creator when an assignee adds a comment.
+     */
+    public function sendTaskCommentedConfirmation(int $taskId, int $actorId, string $comment): bool {
+        try {
+            $task = $this->getTaskDetails($taskId);
+            if (!$task) return false;
+
+            $creator = $this->getUserInfo((int)$task['created_by']);
+            if (!$creator || empty($creator['email'])) return false;
+
+            $actor = $this->getUserInfo($actorId);
+            $tenantName = $this->getTenantName((int)($task['tenant_id'] ?? ($creator['tenant_id'] ?? 0)));
+
+            $templateData = [
+                'EMAIL_TITLE' => 'Nuovo commento',
+                'USER_NAME' => $creator['name'] ?? 'Utente',
+                'TASK_TITLE' => $task['title'],
+                'ACTOR_NAME' => $actor['name'] ?? 'Utente',
+                'COMMENT' => $comment,
+                'TASK_URL' => $this->baseUrl . '/tasks.php?task_id=' . $taskId,
+                'BASE_URL' => $this->baseUrl,
+                'TENANT_NAME' => $tenantName,
+                'YEAR' => date('Y')
+            ];
+
+            $subject = "Nuovo commento sul task: {$task['title']}";
+            $html = $this->renderTemplate('task_generic_notice.html', array_merge($templateData, [
+                'TITLE' => 'Nuovo commento',
+                'MESSAGE' => ($actor['name'] ?? 'Un utente') . " ha aggiunto un commento:\n\n" . $comment
+            ]));
+
+            return (bool)sendEmail($creator['email'], $subject, $html, '', [
+                'context' => [
+                    'tenant_id' => $task['tenant_id'],
+                    'user_id' => $creator['id'],
+                    'action' => 'task_comment_confirmation'
+                ]
+            ]);
+        } catch (Exception $e) {
+            error_log("TaskNotification Error (sendTaskCommentedConfirmation): " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Confirmation email to task creator when an assignee requests due date change.
+     */
+    public function sendTaskDueDateChangeRequestedConfirmation(int $taskId, int $actorId, string $requestedDueDate, string $reason = ''): bool {
+        try {
+            $task = $this->getTaskDetails($taskId);
+            if (!$task) return false;
+
+            $creator = $this->getUserInfo((int)$task['created_by']);
+            if (!$creator || empty($creator['email'])) return false;
+
+            $actor = $this->getUserInfo($actorId);
+            $tenantName = $this->getTenantName((int)($task['tenant_id'] ?? ($creator['tenant_id'] ?? 0)));
+
+            $subject = "Richiesta cambio scadenza: {$task['title']}";
+            $msg = ($actor['name'] ?? 'Un utente') . " ha richiesto di modificare la scadenza.\n";
+            $msg .= "Scadenza richiesta: {$requestedDueDate}\n";
+            if (!empty($reason)) $msg .= "Motivo: {$reason}\n";
+
+            $html = $this->renderTemplate('task_generic_notice.html', [
+                'EMAIL_TITLE' => 'Richiesta cambio scadenza',
+                'TITLE' => 'Richiesta cambio scadenza',
+                'MESSAGE' => $msg,
+                'USER_NAME' => $creator['name'] ?? 'Utente',
+                'TASK_TITLE' => $task['title'],
+                'TASK_URL' => $this->baseUrl . '/tasks.php?task_id=' . $taskId,
+                'BASE_URL' => $this->baseUrl,
+                'TENANT_NAME' => $tenantName,
+                'YEAR' => date('Y')
+            ]);
+
+            return (bool)sendEmail($creator['email'], $subject, $html, '', [
+                'context' => [
+                    'tenant_id' => $task['tenant_id'],
+                    'user_id' => $creator['id'],
+                    'action' => 'task_due_request_confirmation'
+                ]
+            ]);
+        } catch (Exception $e) {
+            error_log("TaskNotification Error (sendTaskDueDateChangeRequestedConfirmation): " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Confirmation email to task creator when an assignee reopens a completed task.
+     */
+    public function sendTaskReopenedConfirmation(int $taskId, int $actorId, string $reason): bool {
+        try {
+            $task = $this->getTaskDetails($taskId);
+            if (!$task) return false;
+
+            $creator = $this->getUserInfo((int)$task['created_by']);
+            if (!$creator || empty($creator['email'])) return false;
+
+            $actor = $this->getUserInfo($actorId);
+            $tenantName = $this->getTenantName((int)($task['tenant_id'] ?? ($creator['tenant_id'] ?? 0)));
+
+            $subject = "Task riaperto: {$task['title']}";
+            $msg = ($actor['name'] ?? 'Un utente') . " ha riaperto il task.\n";
+            $msg .= "Motivazione: {$reason}\n";
+
+            $html = $this->renderTemplate('task_generic_notice.html', [
+                'TITLE' => 'Task riaperto',
+                'MESSAGE' => $msg,
+                'USER_NAME' => $creator['name'] ?? 'Utente',
+                'TASK_TITLE' => $task['title'],
+                'TASK_URL' => $this->baseUrl . '/tasks.php?task_id=' . $taskId,
+                'BASE_URL' => $this->baseUrl,
+                'TENANT_NAME' => $tenantName,
+                'YEAR' => date('Y')
+            ]);
+
+            return (bool)sendEmail($creator['email'], $subject, $html, '', [
+                'context' => [
+                    'tenant_id' => $task['tenant_id'],
+                    'user_id' => $creator['id'],
+                    'action' => 'task_reopened_confirmation'
+                ]
+            ]);
+        } catch (Exception $e) {
+            error_log("TaskNotification Error (sendTaskReopenedConfirmation): " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Send notification when user is removed from task
      *
      * @param int $taskId Task ID
@@ -254,15 +453,18 @@ class TaskNotification {
 
             // Get remover info
             $remover = $this->getUserInfo($removedBy);
+            $tenantName = $this->getTenantName((int)($task['tenant_id'] ?? ($user['tenant_id'] ?? 0)));
 
             // Prepare template data
             $templateData = [
+                'EMAIL_TITLE' => 'Rimosso dal task',
                 'USER_NAME' => $user['name'],
                 'TASK_TITLE' => $task['title'],
                 'TASK_DESCRIPTION' => $task['description'] ?? '',
                 'REMOVED_BY_NAME' => $remover['name'] ?? 'Sistema',
                 'TASK_LIST_URL' => $this->baseUrl . '/tasks.php',
                 'BASE_URL' => $this->baseUrl,
+                'TENANT_NAME' => $tenantName,
                 'YEAR' => date('Y')
             ];
 
@@ -333,6 +535,7 @@ class TaskNotification {
 
             // Get updater info
             $updater = $this->getUserInfo($updatedBy);
+            $tenantName = $this->getTenantName((int)($task['tenant_id'] ?? 0));
 
             $successCount = 0;
 
@@ -349,6 +552,7 @@ class TaskNotification {
 
                 // Prepare template data
                 $templateData = [
+                    'EMAIL_TITLE' => 'Task aggiornato',
                     'USER_NAME' => $assignee['name'],
                     'TASK_TITLE' => $task['title'],
                     'HAS_CHANGES' => true,
@@ -356,6 +560,7 @@ class TaskNotification {
                     'UPDATE_TIME' => date('d/m/Y H:i'),
                     'TASK_URL' => $this->baseUrl . '/tasks.php?task_id=' . $taskId,
                     'BASE_URL' => $this->baseUrl,
+                    'TENANT_NAME' => $tenantName,
                     'YEAR' => date('Y')
                 ];
 
@@ -563,33 +768,22 @@ class TaskNotification {
             throw new Exception("Template not found: $templatePath");
         }
 
-        $template = file_get_contents($templatePath);
+        $html = cnx_render_email_template_file($templatePath, (array)$data, [
+            'remove_unknown_placeholders' => true
+        ]);
 
-        // Simple Mustache-like template rendering
-        foreach ($data as $key => $value) {
-            if (is_array($value)) {
-                // Handle arrays (for {{#ARRAY}}...{{/ARRAY}} blocks)
-                $blockPattern = '/{{#' . $key . '}}(.*?){{\\/' . $key . '}}/s';
-                if (preg_match($blockPattern, $template, $matches)) {
-                    $template = preg_replace($blockPattern, $matches[1], $template);
-                }
-            } elseif ($value === null || $value === '') {
-                // Remove conditional blocks if value is null/empty
-                $blockPattern = '/{{#' . $key . '}}.*?{{\\/' . $key . '}}/s';
-                $template = preg_replace($blockPattern, '', $template);
-            } else {
-                // Simple value replacement
-                $template = str_replace('{{' . $key . '}}', htmlspecialchars($value, ENT_QUOTES, 'UTF-8'), $template);
-            }
+        // If the template is content-only, wrap it with the shared Nexio email layout.
+        if ($html !== '' && !cnx_email_is_full_document($html)) {
+            $title = (string)($data['EMAIL_TITLE'] ?? 'Notifica');
+            $layoutVars = [
+                'BASE_URL' => $this->baseUrl,
+                'TENANT_NAME' => (string)($data['TENANT_NAME'] ?? ''),
+                'YEAR' => (string)($data['YEAR'] ?? date('Y'))
+            ];
+            $html = renderEmailLayout($title, $html, $layoutVars, ['brandColor' => '#1a2332']);
         }
 
-        // Remove any remaining conditional blocks (for false conditions)
-        $template = preg_replace('/{{#\w+}}.*?{{\/\w+}}/s', '', $template);
-
-        // Remove any remaining placeholders
-        $template = preg_replace('/{{[^}]+}}/', '', $template);
-
-        return $template;
+        return $html;
     }
 
     /**

@@ -58,27 +58,26 @@ try {
     }
 
     // ========================================
-    // RBAC: Only admin+ can change status
-    // ========================================
-    if (!in_array($userInfo['role'], ['admin', 'super_admin'])) {
-        api_error('Solo gli amministratori possono modificare lo stato dei ticket', 403);
-    }
-
-    // ========================================
-    // RBAC: Check ticket access
+    // RBAC: Change status allowed for:
+    // - super_admin
+    // - current assignee (even if non-admin)
     // ========================================
     if ($userInfo['role'] === 'super_admin') {
-        // Super admin can update ANY ticket across all tenants
         $ticket = $db->fetchOne(
             "SELECT * FROM tickets WHERE id = ? AND deleted_at IS NULL",
             [$ticketId]
         );
     } else {
-        // Admin can only update tickets in their tenant
         $ticket = $db->fetchOne(
             "SELECT * FROM tickets WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL",
             [$ticketId, $userInfo['tenant_id']]
         );
+        if ($ticket) {
+            $isAssignee = (!empty($ticket['assigned_to']) && (int)$ticket['assigned_to'] === (int)$userInfo['user_id']);
+            if (!$isAssignee) {
+                api_error('Solo il Super User o l’utente assegnato può modificare lo stato del ticket', 403);
+            }
+        }
     }
 
     if (!$ticket) {
@@ -87,7 +86,12 @@ try {
 
     // Check if status is actually changing
     if ($ticket['status'] === $newStatus) {
-        api_error('Il ticket ha già questo stato', 400);
+        // Idempotent: avoid failing on duplicate client submissions
+        api_success([
+            'ticket' => $ticket,
+            'old_status' => $ticket['status'],
+            'new_status' => $newStatus
+        ], 'Il ticket è già in questo stato');
     }
 
     $oldStatus = $ticket['status'];
@@ -156,26 +160,35 @@ try {
         // EMAIL NOTIFICATIONS (NON-BLOCKING)
         // UPDATED: 2025-10-26 - Now uses comprehensive sendTicketStatusChangedNotification
         // ========================================
+        $emailNotificationSent = null;
         try {
             require_once __DIR__ . '/../../includes/ticket_notification_helper.php';
             $notifier = new TicketNotification();
 
-            // Send comprehensive status change notification
-            // This sends email to:
-            // 1. Ticket creator (ALWAYS)
-            // 2. Assigned user (if assigned_to IS NOT NULL)
-            // Includes next steps based on new status
-            $notifier->sendTicketStatusChangedNotification($ticketId, $oldStatus, $newStatus);
+            // Send status change notification (strict recipients policy):
+            // - ticket opener (creator)
+            // - actor (current user)
+            // - asamodeo@fortibyte.it (always unless already included)
+            $emailNotificationSent = (bool)$notifier->sendTicketStatusChangedNotification(
+                $ticketId,
+                $oldStatus,
+                $newStatus,
+                (int)($userInfo['user_id'] ?? 0)
+            );
 
         } catch (Exception $e) {
             // Log error but don't fail the request
             error_log("Ticket notification error (update_status): " . $e->getMessage());
+            $emailNotificationSent = false;
         }
 
         api_success([
             'ticket' => $updatedTicket,
             'old_status' => $oldStatus,
-            'new_status' => $newStatus
+            'new_status' => $newStatus,
+            'email_notification' => [
+                'sent' => $emailNotificationSent
+            ]
         ], 'Stato aggiornato con successo');
 
     } catch (Exception $e) {

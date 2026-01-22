@@ -78,11 +78,12 @@ try {
     }
 
     // Average response time (in minutes)
+    // BUG-147c FIX: Column is 'first_response_time_minutes' not 'first_response_time'
     $avgResponseSql = "
-        SELECT AVG(first_response_time) as avg_time
+        SELECT AVG(first_response_time_minutes) as avg_time
         FROM tickets
         WHERE $whereClause
-          AND first_response_time IS NOT NULL
+          AND first_response_time_minutes IS NOT NULL
     ";
     $avgResponseResult = $db->fetchOne($avgResponseSql, $params);
     $avgResponseTime = $avgResponseResult['avg_time'] ? round((float)$avgResponseResult['avg_time'], 2) : 0;

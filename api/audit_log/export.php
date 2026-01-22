@@ -14,7 +14,11 @@
 // BUG-043 Pattern: ALWAYS include CSRF token in ALL fetch() calls
 // This endpoint handles file downloads with proper security
 
+require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/api_auth.php';
+require_once __DIR__ . '/../../includes/audit_integrity.php';
+require_once __DIR__ . '/../../includes/page_visibility_helper.php';
 
 // Initialize API environment
 initializeApiEnvironment();
@@ -31,9 +35,15 @@ verifyApiAuthentication();
 $userInfo = getApiUserInfo();
 verifyApiCsrfToken();
 
-// Verify authorization (admin or super_admin only - BUG-044 pattern)
-if (!in_array($userInfo['role'], ['admin', 'super_admin'])) {
-    api_error('Accesso negato. Solo amministratori possono esportare i log.', 403);
+// Verify authorization (super_admin + manager only)
+if (!in_array($userInfo['role'], ['super_admin', 'manager'], true)) {
+    api_error('Accesso negato.', 403);
+}
+
+// Enforce Page Visibility setting (configurazioni.php -> Visibilità Pagine)
+$tenantId = isset($userInfo['tenant_id']) ? (int)$userInfo['tenant_id'] : null;
+if (!isPageVisibleForRole('audit_log', (string)($userInfo['role'] ?? 'user'), $tenantId)) {
+    api_error('Accesso negato (pagina non abilitata per il tuo ruolo).', 403);
 }
 
 // Get database instance
@@ -50,7 +60,7 @@ try {
     }
 
     // Get filters (same as list.php - consistent filtering)
-    $tenant_id = $userInfo['role'] === 'super_admin' ? ($_GET['tenant_id'] ?? null) : $userInfo['tenant_id'];
+    $tenant_id = ($userInfo['role'] === 'super_admin') ? ($_GET['tenant_id'] ?? null) : ($userInfo['tenant_id'] ?? null);
     $date_from = $_GET['date_from'] ?? null;
     $date_to = $_GET['date_to'] ?? null;
     $user_id = $_GET['user'] ?? null;
@@ -60,10 +70,15 @@ try {
 
     // Build query (NO pagination for export - get ALL matching records)
     $query = "SELECT
+                a.tenant_id,
                 a.id,
                 a.created_at,
-                u.nome as user_name,
+                a.user_id,
+                u.name as user_name,
                 u.email as user_email,
+                u.role as user_role,
+                t.name as tenant_name,
+                t.denominazione as tenant_denominazione,
                 a.action,
                 a.entity_type,
                 a.entity_id,
@@ -76,9 +91,17 @@ try {
                 a.session_id,
                 a.request_method,
                 a.request_url,
+                a.request_data,
+                a.response_code,
+                a.execution_time_ms,
+                a.memory_usage_kb,
                 a.severity,
                 a.status,
-                t.nome as tenant_name
+                a.integrity_algo,
+                a.integrity_key_id,
+                a.integrity_prev_hash,
+                a.integrity_hash,
+                a.integrity_signed_at
               FROM audit_logs a
               LEFT JOIN users u ON a.user_id = u.id
               LEFT JOIN tenants t ON a.tenant_id = t.id
@@ -108,10 +131,27 @@ try {
         $params[] = $user_id;
     }
 
-    // Action filter
+    // Action filter (supports comma-separated list)
     if ($action) {
-        $query .= " AND a.action = ?";
-        $params[] = $action;
+        $rawActions = array_values(array_filter(array_map('trim', explode(',', (string)$action))));
+        if (count($rawActions) <= 1) {
+            $query .= " AND a.action = ?";
+            $params[] = (string)$action;
+        } else {
+            $valid = [];
+            foreach ($rawActions as $a) {
+                if ($a === '') continue;
+                if (strlen($a) > 64) continue;
+                if (!preg_match('/^[a-zA-Z0-9_]+$/', $a)) continue;
+                $valid[] = $a;
+            }
+            if (empty($valid)) {
+                api_error('Filtro action non valido', 400);
+            }
+            $in = implode(',', array_fill(0, count($valid), '?'));
+            $query .= " AND a.action IN ($in)";
+            $params = array_merge($params, $valid);
+        }
     }
 
     // Severity filter
@@ -128,7 +168,7 @@ try {
         $params[] = $searchTerm;
     }
 
-    $query .= " ORDER BY a.created_at DESC";
+    $query .= " ORDER BY a.tenant_id ASC, a.created_at ASC, a.id ASC";
 
     // Execute query
     $logs = $db->fetchAll($query, $params);
@@ -136,6 +176,21 @@ try {
     if (empty($logs)) {
         api_error('Nessun log trovato per i filtri selezionati', 404);
     }
+
+    // Compute integrity verification for export (best-effort).
+    // Note: for large exports this may be expensive; we keep it simple and consistent with detail view.
+    $pdo = $db->getConnection();
+    foreach ($logs as &$log) {
+        try {
+            $ver = audit_integrity_verifyLog($pdo, $log);
+            $log['integrity_verification_status'] = $ver['status'] ?? '';
+            $log['integrity_verification_errors'] = isset($ver['errors']) && is_array($ver['errors']) ? implode(',', $ver['errors']) : '';
+        } catch (Throwable $e) {
+            $log['integrity_verification_status'] = 'verify_error';
+            $log['integrity_verification_errors'] = 'verify_exception';
+        }
+    }
+    unset($log);
 
     // Generate filename with timestamp
     $timestamp = date('Y-m-d_His');
@@ -183,22 +238,41 @@ function exportCSV($logs, $filename) {
     // Add BOM for Excel UTF-8 support
     fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
 
-    // CSV Headers
+    // CSV Headers (legal/forensic detail)
     $headers = [
+        'Tenant ID',
+        'Tenant',
         'ID',
         'Data/Ora',
+        'User ID',
         'Utente',
         'Email',
+        'Ruolo',
         'Azione',
         'Tipo Entità',
         'ID Entità',
         'Descrizione',
         'Indirizzo IP',
+        'User Agent',
+        'Session ID',
         'Severità',
         'Stato',
-        'Tenant',
         'Metodo HTTP',
-        'URL Richiesta'
+        'URL Richiesta',
+        'Request Data',
+        'Response Code',
+        'Execution Time (ms)',
+        'Memory (KB)',
+        'Old Values',
+        'New Values',
+        'Metadata',
+        'Integrity Algo',
+        'Integrity Key ID',
+        'Integrity Prev Hash',
+        'Integrity Hash',
+        'Integrity Signed At',
+        'Integrity Verification',
+        'Integrity Errors'
     ];
 
     fputcsv($output, $headers);
@@ -206,20 +280,39 @@ function exportCSV($logs, $filename) {
     // Data rows
     foreach ($logs as $log) {
         $row = [
+            $log['tenant_id'] ?? '',
+            $log['tenant_denominazione'] ?? ($log['tenant_name'] ?? 'N/A'),
             $log['id'],
             $log['created_at'],
+            $log['user_id'] ?? '',
             $log['user_name'] ?? 'Sistema',
             $log['user_email'] ?? 'N/A',
+            $log['user_role'] ?? 'N/A',
             translateAction($log['action']),
             translateEntityType($log['entity_type']),
             $log['entity_id'] ?? 'N/A',
             $log['description'] ?? '',
             $log['ip_address'] ?? 'N/A',
+            $log['user_agent'] ?? 'N/A',
+            $log['session_id'] ?? 'N/A',
             translateSeverity($log['severity']),
             translateStatus($log['status']),
-            $log['tenant_name'] ?? 'N/A',
             $log['request_method'] ?? 'N/A',
-            $log['request_url'] ?? 'N/A'
+            $log['request_url'] ?? 'N/A',
+            $log['request_data'] ?? null,
+            $log['response_code'] ?? null,
+            $log['execution_time_ms'] ?? null,
+            $log['memory_usage_kb'] ?? null,
+            $log['old_values'] ?? null,
+            $log['new_values'] ?? null,
+            $log['metadata'] ?? null,
+            $log['integrity_algo'] ?? null,
+            $log['integrity_key_id'] ?? null,
+            $log['integrity_prev_hash'] ?? null,
+            $log['integrity_hash'] ?? null,
+            $log['integrity_signed_at'] ?? null,
+            $log['integrity_verification_status'] ?? null,
+            $log['integrity_verification_errors'] ?? null
         ];
 
         fputcsv($output, $row);
@@ -252,8 +345,11 @@ function exportExcel($logs, $filename) {
     // Header row (bold)
     echo '<Row ss:StyleID="Header">' . "\n";
     $headers = [
-        'ID', 'Data/Ora', 'Utente', 'Email', 'Azione', 'Tipo Entità', 'ID Entità',
-        'Descrizione', 'Indirizzo IP', 'Severità', 'Stato', 'Tenant', 'Metodo HTTP', 'URL Richiesta'
+        'Tenant ID','Tenant','ID','Data/Ora','User ID','Utente','Email','Ruolo','Azione','Tipo Entità','ID Entità',
+        'Descrizione','Indirizzo IP','User Agent','Session ID','Severità','Stato','Metodo HTTP','URL Richiesta',
+        'Request Data','Response Code','Execution Time (ms)','Memory (KB)','Old Values','New Values','Metadata',
+        'Integrity Algo','Integrity Key ID','Integrity Prev Hash','Integrity Hash','Integrity Signed At',
+        'Integrity Verification','Integrity Errors'
     ];
     foreach ($headers as $header) {
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($header) . '</Data></Cell>' . "\n";
@@ -263,20 +359,39 @@ function exportExcel($logs, $filename) {
     // Data rows
     foreach ($logs as $log) {
         echo '<Row>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['tenant_id'] ?? '') . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['tenant_denominazione'] ?? ($log['tenant_name'] ?? 'N/A')) . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="Number">' . $log['id'] . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['created_at']) . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['user_id'] ?? '') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['user_name'] ?? 'Sistema') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['user_email'] ?? 'N/A') . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['user_role'] ?? 'N/A') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars(translateAction($log['action'])) . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars(translateEntityType($log['entity_type'])) . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['entity_id'] ?? 'N/A') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['description'] ?? '') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['ip_address'] ?? 'N/A') . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['user_agent'] ?? 'N/A') . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['session_id'] ?? 'N/A') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars(translateSeverity($log['severity'])) . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars(translateStatus($log['status'])) . '</Data></Cell>' . "\n";
-        echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['tenant_name'] ?? 'N/A') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['request_method'] ?? 'N/A') . '</Data></Cell>' . "\n";
         echo '<Cell><Data ss:Type="String">' . htmlspecialchars($log['request_url'] ?? 'N/A') . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars((string)($log['request_data'] ?? '')) . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars((string)($log['response_code'] ?? '')) . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars((string)($log['execution_time_ms'] ?? '')) . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars((string)($log['memory_usage_kb'] ?? '')) . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars((string)($log['old_values'] ?? '')) . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars((string)($log['new_values'] ?? '')) . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars((string)($log['metadata'] ?? '')) . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars((string)($log['integrity_algo'] ?? '')) . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars((string)($log['integrity_key_id'] ?? '')) . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars((string)($log['integrity_prev_hash'] ?? '')) . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars((string)($log['integrity_hash'] ?? '')) . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars((string)($log['integrity_signed_at'] ?? '')) . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars((string)($log['integrity_verification_status'] ?? '')) . '</Data></Cell>' . "\n";
+        echo '<Cell><Data ss:Type="String">' . htmlspecialchars((string)($log['integrity_verification_errors'] ?? '')) . '</Data></Cell>' . "\n";
         echo '</Row>' . "\n";
     }
 
@@ -293,9 +408,9 @@ function exportExcel($logs, $filename) {
  * @param string $filename Base filename (without extension)
  */
 function exportPDF($logs, $filename) {
-    // Set headers for PDF download
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="' . $filename . '.pdf"');
+    // NOTE: No PDF renderer bundled. We ship a print-friendly HTML (user can "Stampa > Salva in PDF").
+    header('Content-Type: text/html; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '.pdf.html"');
     header('Pragma: no-cache');
     header('Expires: 0');
 
@@ -309,6 +424,7 @@ function exportPDF($logs, $filename) {
         <meta charset="UTF-8">
         <title>Audit Logs Export</title>
         <style>
+            @media print { @page { size: A4 landscape; margin: 10mm; } }
             body { font-family: Arial, sans-serif; font-size: 10px; }
             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
             th { background-color: #4a5568; color: white; padding: 8px; text-align: left; font-weight: bold; }
@@ -316,12 +432,14 @@ function exportPDF($logs, $filename) {
             tr:nth-child(even) { background-color: #f7fafc; }
             h1 { color: #2d3748; font-size: 18px; margin-bottom: 10px; }
             .footer { margin-top: 20px; font-size: 8px; color: #718096; text-align: center; }
+            .note { font-size: 10px; color: #111827; background: #FEF3C7; padding: 10px; border-radius: 8px; }
         </style>
     </head>
     <body>
         <h1>CollaboraNexio - Audit Logs Export</h1>
         <p><strong>Generato:</strong> ' . date('d/m/Y H:i:s') . '</p>
         <p><strong>Totale Record:</strong> ' . count($logs) . '</p>
+        <div class="note"><strong>Nota:</strong> Questo file è HTML stampabile. Apri e usa “Stampa” per generare un PDF firmabile/archiviabile.</div>
 
         <table>
             <thead>
@@ -333,7 +451,11 @@ function exportPDF($logs, $filename) {
                     <th>Entità</th>
                     <th>Descrizione</th>
                     <th>IP</th>
+                    <th>Metodo</th>
+                    <th>URL</th>
                     <th>Severità</th>
+                    <th>Esito</th>
+                    <th>Hash</th>
                 </tr>
             </thead>
             <tbody>';
@@ -348,7 +470,11 @@ function exportPDF($logs, $filename) {
                     <td>' . htmlspecialchars(translateEntityType($log['entity_type'])) . '</td>
                     <td>' . htmlspecialchars(substr($log['description'] ?? '', 0, 50)) . '</td>
                     <td>' . htmlspecialchars($log['ip_address'] ?? 'N/A') . '</td>
+                    <td>' . htmlspecialchars($log['request_method'] ?? 'N/A') . '</td>
+                    <td>' . htmlspecialchars(substr($log['request_url'] ?? 'N/A', 0, 60)) . '</td>
                     <td>' . htmlspecialchars(translateSeverity($log['severity'])) . '</td>
+                    <td>' . htmlspecialchars(translateStatus($log['status'])) . '</td>
+                    <td>' . htmlspecialchars($log['integrity_hash'] ?? 'N/A') . '</td>
                 </tr>';
     }
 
@@ -362,8 +488,7 @@ function exportPDF($logs, $filename) {
     </body>
     </html>';
 
-    // For basic PDF, we'll send HTML with PDF mime type
-    // Browser will handle rendering or download
+    // Print-friendly HTML
     echo $html;
     exit;
 }

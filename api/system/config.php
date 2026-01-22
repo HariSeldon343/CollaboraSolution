@@ -119,6 +119,15 @@ try {
 
                 $conn->commit();
 
+                // Apply some settings immediately to current session (best-effort)
+                // This avoids “save but does not apply” surprises for security/session-related values.
+                if (isset($input['settings']['security_session_minutes'])) {
+                    $m = (int)$input['settings']['security_session_minutes'];
+                    if ($m > 0) {
+                        $_SESSION['security_inactivity_timeout_seconds'] = $m * 60;
+                    }
+                }
+
                 echo json_encode([
                     'success' => true,
                     'message' => 'Configurazioni salvate con successo'

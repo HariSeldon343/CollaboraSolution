@@ -36,6 +36,7 @@ class DashboardManager {
         };
 
         this.refreshTimer = null;
+        this.clockTimer = null;
         this.init();
     }
 
@@ -45,8 +46,29 @@ class DashboardManager {
     init() {
         console.log('[DashboardManager] Initializing dashboard');
         this.bindEvents();
+        this.startClock();
         this.loadAllData();
         this.startAutoRefresh();
+    }
+
+    startClock() {
+        const timeEl = document.getElementById('dashboardClockTime');
+        const dateEl = document.getElementById('dashboardClockDate');
+        if (!timeEl || !dateEl) return;
+
+        const pad2 = (n) => String(n).padStart(2, '0');
+        const months = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+        const days = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+
+        const tick = () => {
+            const now = new Date();
+            timeEl.textContent = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+            dateEl.textContent = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+        };
+
+        tick();
+        if (this.clockTimer) clearInterval(this.clockTimer);
+        this.clockTimer = setInterval(tick, 1000);
     }
 
     /**
@@ -63,6 +85,13 @@ class DashboardManager {
      * @returns {number|null} Tenant ID
      */
     getCurrentTenantId() {
+        // New Company Filter (checkbox dropdown) exposes tenant via hidden inputs (dashboard.php/calendar.php pattern)
+        const hiddenTenantId = document.getElementById('currentTenantId')?.value;
+        if (hiddenTenantId) {
+            const t = parseInt(String(hiddenTenantId), 10);
+            if (Number.isFinite(t) && t > 0) return t;
+        }
+
         // Check if company filter dropdown exists
         const companyFilter = document.getElementById('companyFilter');
         if (companyFilter && companyFilter.value) {
@@ -127,31 +156,34 @@ class DashboardManager {
 
         try {
             // Load all data in parallel for better performance
-            const [stats, activities, projects, documents, events, tickets] = await Promise.all([
+            const [stats, activities, documents, events, tickets, myShifts, myTasks] = await Promise.all([
                 this.loadStats(),
                 this.loadActivities(),
-                this.loadProjects(),
-                this.loadDocuments(),  // NEW
-                this.loadEvents(),     // NEW
-                this.loadTickets()     // NEW
+                this.loadDocuments(),
+                this.loadEvents(),
+                this.loadTickets(),
+                this.loadMyShiftsPreview(),
+                this.loadMyTasksProgress()
             ]);
 
             // Update state
             this.state.stats = stats;
             this.state.activities = activities;
-            this.state.projects = projects;
             this.state.documents = documents;  // NEW
             this.state.events = events;        // NEW
             this.state.tickets = tickets;      // NEW
+            this.state.myShifts = myShifts;
+            this.state.myTasks = myTasks;
             this.state.lastUpdate = new Date();
 
             // Render all sections
             this.renderStats(stats);
             this.renderActivities(activities);
-            this.renderProjects(projects);
             this.renderDocuments(documents);  // NEW
             this.renderEvents(events);        // NEW
             this.renderTickets(tickets);      // NEW
+            this.renderMyShiftsPreview(myShifts);
+            this.renderMyTasksProgress(myTasks);
 
             console.log('[DashboardManager] All data loaded successfully');
         } catch (error) {
@@ -161,6 +193,168 @@ class DashboardManager {
             this.state.loading = false;
             this.hideLoadingState();
         }
+    }
+
+    /**
+     * Load next shifts for current user (preview)
+     */
+    async loadMyShiftsPreview() {
+        try {
+            const now = new Date();
+            const end = new Date();
+            end.setDate(end.getDate() + 30);
+
+            const fmt = (d) => {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${dd}`;
+            };
+
+            const params = new URLSearchParams();
+            params.append('start_date', fmt(now));
+            params.append('end_date', fmt(end));
+            // Force "only my shifts" (server-side enforced)
+            params.append('mine', '1');
+
+            // When company filter is set to a single tenant, pass it along.
+            const tenantId = this.getCurrentTenantId();
+            if (tenantId) params.append('tenant_id', String(tenantId));
+
+            const url = `/CollaboraNexio/api/shifts/list.php?${params.toString()}`;
+            const response = await fetch(url, {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: { 'X-CSRF-Token': this.getCsrfToken() }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.message || 'Errore sconosciuto');
+            }
+
+            const shifts = (data.data && Array.isArray(data.data.shifts)) ? data.data.shifts : [];
+            return shifts.slice(0, 5);
+        } catch (e) {
+            console.warn('[DashboardManager] loadMyShiftsPreview failed:', e?.message || e);
+            return [];
+        }
+    }
+
+    renderMyShiftsPreview(shifts) {
+        const countEl = document.getElementById('dashboardMyShiftsCount');
+        const listEl = document.getElementById('dashboardMyShiftsList');
+        if (!countEl || !listEl) return;
+
+        const items = Array.isArray(shifts) ? shifts : [];
+        countEl.textContent = String(items.length);
+
+        if (items.length === 0) {
+            listEl.innerHTML = `<li class="dash-mini-item"><div class="text-muted">Nessun turno nei prossimi 30 giorni</div></li>`;
+            return;
+        }
+
+        const fmtDate = (iso) => {
+            try {
+                const d = new Date(iso + 'T00:00:00');
+                return d.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: 'short' });
+            } catch (_) {
+                return iso;
+            }
+        };
+
+        const fmtTime = (t) => (t || '').toString().slice(0, 5);
+
+        listEl.innerHTML = items.map(s => {
+            const title = `${this.escapeHtml(s.shift_name || s.shift_code || 'Turno')}`;
+            const sub = `${this.escapeHtml(fmtDate(s.shift_date))} · ${this.escapeHtml(fmtTime(s.start_time))}-${this.escapeHtml(fmtTime(s.end_time))}`;
+            const right = this.escapeHtml((s.status_label || s.status || '').toString());
+            return `
+                <li class="dash-mini-item">
+                    <div class="dash-mini-left">
+                        <div class="dash-mini-title">${title}</div>
+                        <div class="dash-mini-sub">${sub}</div>
+                    </div>
+                    <div class="dash-mini-right">${right}</div>
+                </li>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Load task progress for tasks assigned to current user
+     */
+    async loadMyTasksProgress() {
+        try {
+            const myId = parseInt(document.getElementById('currentUserId')?.value || '0', 10);
+            if (!myId) return { total: 0, done: 0, overdue: 0 };
+
+            const params = new URLSearchParams();
+            params.append('assigned_to', String(myId));
+            params.append('limit', '200');
+            params.append('page', '1');
+            params.append('sort_by', 'due_date');
+            params.append('sort_order', 'ASC');
+
+            const tenantId = this.getCurrentTenantId();
+            if (tenantId) params.append('tenant_id', String(tenantId));
+
+            const url = `/CollaboraNexio/api/tasks/list.php?${params.toString()}`;
+            const response = await fetch(url, {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: { 'X-CSRF-Token': this.getCsrfToken() }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.message || 'Errore sconosciuto');
+            }
+
+            const tasks = (data.data && Array.isArray(data.data.tasks)) ? data.data.tasks : [];
+            const active = tasks.filter(t => !['cancelled'].includes((t.status || '').toString()));
+            const done = active.filter(t => (t.status || '') === 'done').length;
+            const overdue = active.filter(t => (t.is_overdue === 1 || t.is_overdue === true)).length;
+            return { total: active.length, done, overdue };
+        } catch (e) {
+            console.warn('[DashboardManager] loadMyTasksProgress failed:', e?.message || e);
+            return { total: 0, done: 0, overdue: 0, error: true };
+        }
+    }
+
+    renderMyTasksProgress(summary) {
+        const countEl = document.getElementById('dashboardTasksAssignedCount');
+        const fillEl = document.getElementById('dashboardTasksProgressFill');
+        const textEl = document.getElementById('dashboardTasksProgressText');
+        const overduePill = document.getElementById('dashboardTasksOverduePill');
+        if (!countEl || !fillEl || !textEl || !overduePill) return;
+
+        const total = parseInt(summary?.total || 0, 10) || 0;
+        const done = parseInt(summary?.done || 0, 10) || 0;
+        const overdue = parseInt(summary?.overdue || 0, 10) || 0;
+
+        countEl.textContent = String(total);
+
+        if (total <= 0) {
+            fillEl.style.width = '0%';
+            textEl.textContent = 'Nessun task assegnato';
+            overduePill.style.display = 'none';
+            return;
+        }
+
+        const pct = Math.max(0, Math.min(100, Math.round((done / total) * 100)));
+        fillEl.style.width = `${pct}%`;
+        textEl.textContent = `${done}/${total} completati (${pct}%)`;
+
+        overduePill.textContent = `⏰ ${overdue} scaduti`;
+        overduePill.className = `dash-pill ${overdue > 0 ? 'danger' : 'warn'}`;
+        overduePill.style.display = 'inline-flex';
     }
 
     /**
@@ -251,37 +445,10 @@ class DashboardManager {
      */
     async loadProjects() {
         try {
-            const params = new URLSearchParams();
-            const tenantId = this.getCurrentTenantId();
-            if (tenantId) {
-                params.append('tenant_id', tenantId);
-            }
-            params.append('limit', '5');
-
-            const url = `${this.config.apiBase}active_projects.php${params.toString() ? '?' + params.toString() : ''}`;
-
-            const response = await fetch(url, {
-                method: 'GET',
-                credentials: 'same-origin',
-                headers: {
-                    'X-CSRF-Token': this.getCsrfToken() // CRITICAL: Include CSRF token
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (!data.success) {
-                throw new Error(data.message || 'Errore sconosciuto');
-            }
-
-            return data.data;
+            return { projects: [] }; // Projects disabled
         } catch (error) {
             console.error('[DashboardManager] Error loading projects:', error);
-            throw error;
+            return { projects: [] };
         }
     }
 
@@ -332,35 +499,204 @@ class DashboardManager {
      */
     async loadEvents() {
         try {
-            const params = new URLSearchParams();
-            const tenantId = this.getCurrentTenantId();
-            if (tenantId) {
-                params.append('tenant_id', tenantId);
+            // IMPORTANT: Dashboard mini calendar must match calendar.php events 1:1.
+            // calendar.php loads via api/events.php with month view bounds + tenant filtering (including multi-tenant selection).
+
+            const normalizeDateTime = (value) => {
+                if (!value) return '';
+                let s = String(value);
+                if (s.includes(' ') && !s.includes('T')) s = s.replace(' ', 'T');
+                return s;
+            };
+
+            const localDateKey = (value) => {
+                const d = value instanceof Date ? value : new Date(value);
+                if (Number.isNaN(d.getTime())) return '';
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${dd}`;
+            };
+
+            const daysUntil = (dateValue) => {
+                const d = dateValue instanceof Date ? dateValue : new Date(dateValue);
+                if (Number.isNaN(d.getTime())) return 0;
+                const eventDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                const today = new Date();
+                const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                return Math.floor((eventDay.getTime() - todayDay.getTime()) / 86400000);
+            };
+
+            const badgeClassFromDays = (du) => {
+                if (du < 0) return 'badge-secondary';
+                if (du === 0) return 'badge-danger';
+                if (du <= 2) return 'badge-warning';
+                return 'badge-info';
+            };
+
+            const iconFromTitle = (title) => {
+                const t = String(title || '').toLowerCase();
+                if (t.includes('riunione') || t.includes('meeting')) return 'meeting';
+                if (t.includes('deadline') || t.includes('scadenza')) return 'deadline';
+                if (t.includes('workshop') || t.includes('formazione')) return 'workshop';
+                if (t.includes('chiamata') || t.includes('call')) return 'call';
+                return 'calendar';
+            };
+
+            const fmtDateLabel = (start, allDay) => {
+                try {
+                    const d = start instanceof Date ? start : new Date(start);
+                    if (Number.isNaN(d.getTime())) return '';
+                    const datePart = d.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+                    if (allDay) return datePart;
+                    const timePart = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+                    return `${datePart} • ${timePart}`;
+                } catch (_) {
+                    return '';
+                }
+            };
+
+            const toDashboardEvent = (ev) => {
+                const title = String(ev?.title ?? ev?.name ?? '');
+                const startStr = normalizeDateTime(ev?.start_datetime ?? ev?.start_date ?? ev?.start ?? ev?.startDate ?? '');
+                if (!startStr) return null;
+                const endStr = normalizeDateTime(ev?.end_datetime ?? ev?.end_date ?? ev?.end ?? ev?.endDate ?? startStr);
+                const allDay = (ev?.all_day === 1 || ev?.all_day === true || ev?.allDay === true);
+
+                const start = new Date(startStr);
+                if (Number.isNaN(start.getTime())) return null;
+
+                const du = daysUntil(start);
+                return {
+                    title,
+                    start_date: startStr,
+                    end_date: endStr || null,
+                    all_day: allDay,
+                    days_until: du,
+                    date_label: fmtDateLabel(start, allDay),
+                    urgency_badge: badgeClassFromDays(du),
+                    icon: iconFromTitle(title),
+                    _date_key: localDateKey(start)
+                };
+            };
+
+            // Same month view bounds logic as CalendarApp.getViewBounds() (calendar.js)
+            const now = new Date();
+            const start = new Date(now);
+            const end = new Date(now);
+            const firstDayOfWeek = 1; // calendar.js default
+            start.setDate(1);
+            start.setDate(start.getDate() - start.getDay() + firstDayOfWeek);
+            end.setDate(1);
+            end.setMonth(end.getMonth() + 1);
+            end.setDate(end.getDate() + (6 - end.getDay() + firstDayOfWeek));
+            start.setHours(0, 0, 0, 0);
+            end.setHours(23, 59, 59, 999);
+
+            // Selected tenant IDs (same as calendar.php hidden inputs)
+            const currentTenantIdsRaw = document.getElementById('currentTenantIds')?.value || '';
+            let tenantIds = [];
+            try {
+                const parsed = JSON.parse(currentTenantIdsRaw || '[]');
+                if (Array.isArray(parsed)) tenantIds = parsed.map(x => parseInt(String(x), 10)).filter(n => n > 0);
+            } catch (_) {
+                tenantIds = [];
+            }
+            if (tenantIds.length === 0) {
+                const tRaw = document.getElementById('currentTenantId')?.value || '';
+                const t = parseInt(String(tRaw || '0'), 10) || 0;
+                if (t > 0) tenantIds = [t];
             }
 
-            const url = `${this.config.apiBase}${this.config.eventsApi}${params.toString() ? '?' + params.toString() : ''}`;
+            const currentUserRole = (document.getElementById('currentUserRole')?.value || window.userRole || 'user').toString();
+            const isPrivileged = (currentUserRole === 'super_admin' || currentUserRole === 'admin');
 
-            const response = await fetch(url, {
-                method: 'GET',
-                credentials: 'same-origin',
-                headers: {
-                    'X-CSRF-Token': this.getCsrfToken() // CRITICAL: Include CSRF token
+            const fetchForTenant = async (tenantId, { planningClientTenantId = null, asTenantId = null } = {}) => {
+                const p = new URLSearchParams({
+                    start: start.toISOString(),
+                    end: end.toISOString(),
+                    tenant_id: String(tenantId)
+                });
+                if (planningClientTenantId && Number.isFinite(planningClientTenantId) && planningClientTenantId > 0) {
+                    p.set('planning_client_tenant_id', String(planningClientTenantId));
                 }
+
+                const url = `/CollaboraNexio/api/events.php?${p.toString()}`;
+                const response = await fetch(url, {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: { 'X-CSRF-Token': this.getCsrfToken() }
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const result = await response.json();
+                const payload = result?.data?.events ?? result?.data ?? [];
+                if (!Array.isArray(payload)) return [];
+
+                const forcedTenantId = (asTenantId && Number.isFinite(asTenantId) && asTenantId > 0) ? asTenantId : null;
+                return payload.map(ev => {
+                    const sourceTenantId = parseInt(String(ev?.tenant_id ?? tenantId ?? 0), 10) || 0;
+                    return {
+                        ...ev,
+                        source_tenant_id: sourceTenantId,
+                        tenant_id: forcedTenantId ?? ev?.tenant_id ?? tenantId
+                    };
+                });
+            };
+
+            let mergedRaw = [];
+            if (tenantIds.length <= 1) {
+                const mainTid = tenantIds[0];
+                mergedRaw = await fetchForTenant(mainTid);
+
+                // Planning cross-tenant view (match calendar.js)
+                const vendorTenantId = 28;
+                if (isPrivileged && mainTid && mainTid > 0 && mainTid !== vendorTenantId) {
+                    const extra = await fetchForTenant(vendorTenantId, { planningClientTenantId: mainTid, asTenantId: mainTid }).catch(() => []);
+                    mergedRaw = mergedRaw.concat(extra);
+                }
+            } else {
+                const limit = 5;
+                const results = [];
+                for (let i = 0; i < tenantIds.length; i += limit) {
+                    const chunk = tenantIds.slice(i, i + limit);
+                    // eslint-disable-next-line no-await-in-loop
+                    const chunkRes = await Promise.all(chunk.map(tid => fetchForTenant(tid).catch(() => [])));
+                    results.push(...chunkRes);
+                }
+                mergedRaw = results.flat();
+
+                // Planning cross-tenant view for multi-company selection (match calendar.js)
+                const vendorTenantId = 28;
+                if (isPrivileged && !tenantIds.includes(vendorTenantId)) {
+                    const extraLimit = 5;
+                    const extraAll = [];
+                    for (let i = 0; i < tenantIds.length; i += extraLimit) {
+                        const chunk = tenantIds.slice(i, i + extraLimit);
+                        // eslint-disable-next-line no-await-in-loop
+                        const chunkRes = await Promise.all(
+                            chunk.map(ctid => fetchForTenant(vendorTenantId, { planningClientTenantId: ctid, asTenantId: ctid }).catch(() => []))
+                        );
+                        extraAll.push(...chunkRes);
+                    }
+                    mergedRaw = mergedRaw.concat(extraAll.flat());
+                }
+            }
+
+            const normalized = mergedRaw
+                .map(toDashboardEvent)
+                .filter(Boolean);
+
+            // Stable ordering for rendering/dedup
+            normalized.sort((a, b) => {
+                const ad = new Date(a.start_date);
+                const bd = new Date(b.start_date);
+                return ad.getTime() - bd.getTime();
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (result.success && result.data) {
-                const events = result.data.events || [];
-                console.log('[DashboardManager] Events loaded:', events.length);
-                return events;
-            }
-
-            return [];
+            console.log('[DashboardManager] Calendar-synced events loaded:', normalized.length);
+            return normalized;
         } catch (error) {
             console.error('[DashboardManager] Error loading events:', error);
             return [];
@@ -417,68 +753,8 @@ class DashboardManager {
             console.warn('[DashboardManager] No stats data to render');
             return;
         }
-
-        const stats = data.stats;
-
-        // Update stat cards
-        const statCards = document.querySelectorAll('.stat-card');
-
-        // Card 1: Active Projects
-        if (statCards[0]) {
-            const valueElem = statCards[0].querySelector('.stat-value');
-            const changeElem = statCards[0].querySelector('.stat-change');
-            if (valueElem) {
-                valueElem.textContent = this.formatNumber(stats.active_projects);
-            }
-            // Calculate change percentage (mock for now, could be from API)
-            if (changeElem) {
-                const previousValue = this.state.stats?.stats?.active_projects || stats.active_projects;
-                const change = ((stats.active_projects - previousValue) / (previousValue || 1)) * 100;
-                changeElem.textContent = change >= 0 ? `+${change.toFixed(1)}% dal mese scorso` : `${change.toFixed(1)}% dal mese scorso`;
-                changeElem.className = `stat-change ${change >= 0 ? 'positive' : 'negative'}`;
-            }
-        }
-
-        // Card 2: Completed Tasks
-        if (statCards[1]) {
-            const valueElem = statCards[1].querySelector('.stat-value');
-            const changeElem = statCards[1].querySelector('.stat-change');
-            if (valueElem) {
-                valueElem.textContent = this.formatNumber(stats.completed_tasks);
-            }
-            if (changeElem && data.metadata) {
-                changeElem.textContent = `${data.metadata.period_label}`;
-                changeElem.className = 'stat-change positive';
-            }
-        }
-
-        // Card 3: Upcoming Deadlines
-        if (statCards[2]) {
-            const valueElem = statCards[2].querySelector('.stat-value');
-            const changeElem = statCards[2].querySelector('.stat-change');
-            if (valueElem) {
-                valueElem.textContent = this.formatNumber(stats.upcoming_deadlines);
-            }
-            if (changeElem && stats.upcoming_deadlines_detail) {
-                const urgent = stats.upcoming_deadlines_detail.overdue;
-                changeElem.textContent = urgent > 0 ? `${urgent} urgenti` : 'Nessuna urgenza';
-                changeElem.className = `stat-change ${urgent > 0 ? 'negative' : ''}`;
-            }
-        }
-
-        // Card 4: Team Members
-        if (statCards[3]) {
-            const valueElem = statCards[3].querySelector('.stat-value');
-            const changeElem = statCards[3].querySelector('.stat-change');
-            if (valueElem) {
-                valueElem.textContent = this.formatNumber(stats.active_members);
-            }
-            // Could show online count if available from API
-            if (changeElem) {
-                changeElem.textContent = 'Membri attivi';
-                changeElem.className = 'stat-change';
-            }
-        }
+        // Dashboard stat cards were replaced with widgets (clock/shifts/tasks).
+        // Keep this function for backward compatibility with other dashboard sections.
     }
 
     /**
@@ -503,6 +779,8 @@ class DashboardManager {
             return;
         }
 
+        const isSuperAdmin = (window.userRole || '').toLowerCase() === 'super_admin';
+
         // Render each activity
         groupedActivities.forEach(activity => {
             const listItem = document.createElement('li');
@@ -516,10 +794,14 @@ class DashboardManager {
                 ? `<span class="activity-dup">+${activity._count - 1} eventi simili</span>`
                 : '';
 
+            const tenantLabel = isSuperAdmin && activity.tenant_name
+                ? `<span class="badge badge-blue" style="margin-left:6px;">${this.escapeHtml(activity.tenant_name)}</span>`
+                : '';
+
             listItem.innerHTML = `
                 <div class="list-icon ${iconClass}"></div>
                 <div class="list-content">
-                    <div class="list-title">${this.escapeHtml(title)}</div>
+                    <div class="list-title">${this.escapeHtml(title)}${tenantLabel}</div>
                     <div class="list-description">
                         ${this.escapeHtml(description)}
                         ${duplicateLabel}
@@ -539,49 +821,9 @@ class DashboardManager {
     renderProjects(data) {
         const projectsContainer = document.querySelector('.projects-list');
         if (!projectsContainer) {
-            console.warn('[DashboardManager] Projects container not found');
             return;
         }
-
-        // Clear existing content
-        projectsContainer.innerHTML = '';
-
-        const projects = data.projects || [];
-
-        if (projects.length === 0) {
-            projectsContainer.innerHTML = '<div class="text-muted">Nessun progetto attivo</div>';
-            return;
-        }
-
-        // Render each project
-        projects.forEach(project => {
-            const projectItem = document.createElement('div');
-            projectItem.className = 'progress-item';
-
-            const statusLabel = project.status_badge?.label || project.status_label || this.toTitleCase(project.status || 'Attivo');
-            const badgeClass = this.normalizeBadgeClass(project.status_badge?.class);
-            const progressValue = typeof project.progress_percentage === 'number'
-                ? Math.min(100, Math.max(0, project.progress_percentage))
-                : 0;
-            const completedTasks = project.tasks?.completed ?? 0;
-            const totalTasks = project.tasks?.total ?? 0;
-            const tasksLabel = totalTasks > 0
-                ? `${completedTasks}/${totalTasks} task`
-                : 'Nessun task pianificato';
-
-            projectItem.innerHTML = `
-                <div class="progress-header">
-                    <span class="progress-title">${this.escapeHtml(project.name)}</span>
-                    <span class="badge ${badgeClass}">${this.escapeHtml(statusLabel)}</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${progressValue}%;"></div>
-                </div>
-                <div class="text-xs text-muted mt-2">${progressValue}% Completo - ${tasksLabel}</div>
-            `;
-
-            projectsContainer.appendChild(projectItem);
-        });
+        projectsContainer.innerHTML = '<div class="text-muted">Progetti disabilitati</div>';
     }
 
     /**
@@ -613,6 +855,8 @@ class DashboardManager {
             return;
         }
 
+        const isSuperAdmin = (window.userRole || '').toLowerCase() === 'super_admin';
+
         // Render each document
         documents.forEach(doc => {
             const listItem = document.createElement('li');
@@ -630,13 +874,21 @@ class DashboardManager {
                 else if (doc.file_icon.includes('archive')) icon = '📦';
             }
 
+            const tenantLabel = isSuperAdmin && doc.tenant_name
+                ? `<span class="badge badge-blue" style="margin-left:6px;">${this.escapeHtml(doc.tenant_name)}</span>`
+                : '';
+
+            const uploader = this.escapeHtml(doc.uploaded_by || '');
+            const sizeLabel = this.escapeHtml(doc.size_formatted || '');
+            const dateLabel = this.escapeHtml(doc.uploaded_at || '');
+
             listItem.innerHTML = `
                 <div class="list-icon bg-primary">${icon}</div>
                 <div class="list-content">
-                    <div class="list-title">${this.escapeHtml(doc.name)}</div>
-                    <div class="list-description">${this.escapeHtml(doc.size_formatted)} - ${this.escapeHtml(doc.uploaded_by)}</div>
+                    <div class="list-title">${this.escapeHtml(doc.name)}${tenantLabel}</div>
+                    <div class="list-description">${sizeLabel}${uploader ? ' - ' + uploader : ''}</div>
                 </div>
-                <div class="list-time text-xs text-muted">${this.escapeHtml(doc.uploaded_at)}</div>
+                <div class="list-time text-xs text-muted">${dateLabel}</div>
             `;
 
             listContainer.appendChild(listItem);
@@ -649,65 +901,188 @@ class DashboardManager {
      */
     renderEvents(events) {
         const listContainer = document.getElementById('events-list');
-        if (!listContainer) {
-            console.warn('[DashboardManager] Events list container not found');
-            return;
-        }
+        const miniContainer = document.getElementById('events-list-mini');
+        const miniCalendarEl = document.getElementById('miniCalendar');
 
-        // Clear existing content
-        listContainer.innerHTML = '';
+        const allEvents = Array.isArray(events) ? events : [];
+        const upcomingEvents = allEvents
+            .filter(e => typeof e.days_until === 'number' ? e.days_until >= 0 : true)
+            .sort((a, b) => {
+                const ad = new Date(a.start_date);
+                const bd = new Date(b.start_date);
+                return ad.getTime() - bd.getTime();
+            });
 
-        const uniqueEvents = this.deduplicateByKey(events || [], event =>
-            `${event.title}|${event.date_label}|${event.days_until}`
-        );
+        // Helper to render into a target UL
+        const renderInto = (container) => {
+            if (!container) return;
+            container.innerHTML = '';
 
-        if (uniqueEvents.length === 0) {
-            listContainer.innerHTML = '<li class="list-item"><div class="text-muted">Nessun evento in programma</div></li>';
-            return;
-        }
+            const uniqueEvents = this.deduplicateByKey(upcomingEvents || [], event =>
+                `${event.title}|${event.date_label}|${event.days_until}`
+            );
 
-        // Render each event
-        uniqueEvents.forEach(event => {
-            const listItem = document.createElement('li');
-            listItem.className = 'list-item';
-
-            // Urgency color based on badge class
-            let iconClass = 'bg-primary';
-            if (event.urgency_badge === 'badge-danger') {
-                iconClass = 'bg-error';
-            } else if (event.urgency_badge === 'badge-warning') {
-                iconClass = 'bg-warning';
+            if (uniqueEvents.length === 0) {
+                container.innerHTML = '<li class="list-item"><div class="text-muted">Nessun evento in programma</div></li>';
+                return;
             }
 
-            // Event icon based on type
-            let icon = '📅'; // Default calendar icon
-            if (event.icon) {
-                // Use icon from API if provided
-                if (event.icon.includes('meeting')) icon = '🤝';
-                else if (event.icon.includes('deadline')) icon = '⏰';
-                else if (event.icon.includes('workshop')) icon = '🎯';
-                else if (event.icon.includes('call')) icon = '📞';
+            uniqueEvents.slice(0, container === miniContainer ? 3 : uniqueEvents.length).forEach(event => {
+                const listItem = document.createElement('li');
+                listItem.className = 'list-item';
+
+                // Urgency color based on badge class
+                let iconClass = 'bg-primary';
+                if (event.urgency_badge === 'badge-danger') {
+                    iconClass = 'bg-error';
+                } else if (event.urgency_badge === 'badge-warning') {
+                    iconClass = 'bg-warning';
+                }
+
+                // Event icon based on type
+                let icon = '📅'; // Default calendar icon
+                if (event.icon) {
+                    if (event.icon.includes('meeting')) icon = '🤝';
+                    else if (event.icon.includes('deadline')) icon = '⏰';
+                    else if (event.icon.includes('workshop')) icon = '🎯';
+                    else if (event.icon.includes('call')) icon = '📞';
+                }
+
+                // Days until label
+                let daysLabel = `${event.days_until} gg`;
+                if (event.days_until === 0) {
+                    daysLabel = 'Oggi';
+                } else if (event.days_until === 1) {
+                    daysLabel = 'Domani';
+                }
+
+                listItem.innerHTML = `
+                    <div class="list-icon ${iconClass}">${icon}</div>
+                    <div class="list-content">
+                        <div class="list-title">${this.escapeHtml(event.title)}</div>
+                        <div class="list-description">${this.escapeHtml(event.date_label)}</div>
+                    </div>
+                    <div class="list-time text-xs text-muted">${daysLabel}</div>
+                `;
+
+                container.appendChild(listItem);
+            });
+        };
+
+        renderInto(listContainer);
+        renderInto(miniContainer);
+        // Mini calendar must reflect the full month grid (not just "upcoming" subset)
+        this.renderMiniCalendar(allEvents, miniCalendarEl);
+    }
+
+    /**
+     * Render mini calendar with dots on days having events
+     * @param {Array} events
+     * @param {HTMLElement} container
+     */
+    renderMiniCalendar(events, container) {
+        if (!container) return;
+
+        // Clear
+        container.innerHTML = '';
+
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth(); // 0-based
+
+        const normalizeDateTime = (value) => {
+            if (!value) return '';
+            let s = String(value);
+            if (s.includes(' ') && !s.includes('T')) s = s.replace(' ', 'T');
+            return s;
+        };
+
+        const localDateKey = (value) => {
+            const d = value instanceof Date ? value : new Date(value);
+            if (Number.isNaN(d.getTime())) return '';
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${dd}`;
+        };
+
+        // Build a set of date keys (YYYY-MM-DD) that have at least one event.
+        // Mark all days spanned by multi-day events (clamped to a safe max).
+        const dotKeys = new Set();
+        (Array.isArray(events) ? events : []).forEach((ev) => {
+            const startStr = normalizeDateTime(ev?.start_date ?? ev?.start_datetime ?? ev?.start ?? '');
+            if (!startStr) return;
+            const endStr = normalizeDateTime(ev?.end_date ?? ev?.end_datetime ?? ev?.end ?? startStr);
+            const start = new Date(startStr);
+            const end = new Date(endStr || startStr);
+            if (Number.isNaN(start.getTime())) return;
+
+            const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+            const e = (Number.isNaN(end.getTime()) ? s : new Date(end.getFullYear(), end.getMonth(), end.getDate()));
+            const endSafe = (e.getTime() >= s.getTime()) ? e : s;
+
+            const maxDays = 120;
+            let cur = s;
+            for (let i = 0; i < maxDays; i++) {
+                dotKeys.add(localDateKey(cur));
+                if (cur.getTime() >= endSafe.getTime()) break;
+                cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1);
             }
-
-            // Days until label
-            let daysLabel = `${event.days_until} gg`;
-            if (event.days_until === 0) {
-                daysLabel = 'Oggi';
-            } else if (event.days_until === 1) {
-                daysLabel = 'Domani';
-            }
-
-            listItem.innerHTML = `
-                <div class="list-icon ${iconClass}">${icon}</div>
-                <div class="list-content">
-                    <div class="list-title">${this.escapeHtml(event.title)}</div>
-                    <div class="list-description">${this.escapeHtml(event.date_label)}</div>
-                </div>
-                <div class="list-time text-xs text-muted">${daysLabel}</div>
-            `;
-
-            listContainer.appendChild(listItem);
         });
+
+        // Build calendar grid
+        const firstDay = new Date(year, month, 1);
+        const startWeekday = firstDay.getDay(); // 0=Sun
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+        const weekdays = ['DOM', 'LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB'];
+
+        let html = '<table>';
+        html += '<thead><tr>';
+        weekdays.forEach(w => { html += `<th>${w}</th>`; });
+        html += '</tr></thead><tbody>';
+
+        let dayCounter = 1;
+        let nextMonthDay = 1;
+        let started = false;
+        const todayKey = localDateKey(today);
+
+        for (let week = 0; week < 6; week++) {
+            html += '<tr>';
+            for (let dow = 0; dow < 7; dow++) {
+                let content = '';
+                let cls = '';
+                let cellDate = null;
+                if (!started && dow < startWeekday) {
+                    const day = daysInPrevMonth - (startWeekday - dow - 1);
+                    content = `<span class="day-number">${day}</span>`;
+                    cls = 'is-other-month';
+                    cellDate = new Date(year, month - 1, day);
+                } else if (dayCounter > daysInMonth) {
+                    content = `<span class="day-number">${nextMonthDay}</span>`;
+                    cls = 'is-other-month';
+                    cellDate = new Date(year, month + 1, nextMonthDay);
+                    nextMonthDay++;
+                } else {
+                    started = true;
+                    cellDate = new Date(year, month, dayCounter);
+                    const isToday = (localDateKey(cellDate) === todayKey);
+                    cls = isToday ? 'is-today' : '';
+                    content = `<span class="day-number">${dayCounter}</span>`;
+                    if (dotKeys.has(localDateKey(cellDate))) {
+                        content += '<div class="dot"></div>';
+                    }
+                    dayCounter++;
+                }
+                html += `<td class="${cls}">${content}</td>`;
+            }
+            html += '</tr>';
+            if (dayCounter > daysInMonth && nextMonthDay > 7) break;
+        }
+        html += '</tbody></table>';
+
+        container.innerHTML = html;
     }
 
     /**

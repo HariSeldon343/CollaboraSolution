@@ -144,6 +144,7 @@ try {
     $startsWithPattern = $query . '%';
 
     // Build SQL with optional province filter
+    // IMPORTANT: use accent-insensitive collation so "Cefalu" matches "Cefalù".
     $sql = "
         SELECT
             m.id,
@@ -155,18 +156,18 @@ try {
             p.name as province_name,
             p.region,
             CASE
-                WHEN LOWER(m.name) = LOWER(?) THEN 'exact'
-                WHEN LOWER(m.name) LIKE LOWER(?) THEN 'prefix'
+                WHEN m.name COLLATE utf8mb4_general_ci = ? THEN 'exact'
+                WHEN m.name COLLATE utf8mb4_general_ci LIKE ? THEN 'prefix'
                 ELSE 'contains'
             END as match_type,
             CASE
-                WHEN LOWER(m.name) = LOWER(?) THEN 1
-                WHEN LOWER(m.name) LIKE LOWER(?) THEN 2
+                WHEN m.name COLLATE utf8mb4_general_ci = ? THEN 1
+                WHEN m.name COLLATE utf8mb4_general_ci LIKE ? THEN 2
                 ELSE 3
             END as sort_order
         FROM italian_municipalities m
         JOIN italian_provinces p ON m.province_code = p.code
-        WHERE LOWER(m.name) LIKE LOWER(?)
+        WHERE m.name COLLATE utf8mb4_general_ci LIKE ?
     ";
 
     $params = [
@@ -184,7 +185,7 @@ try {
     }
 
     $sql .= "
-        ORDER BY sort_order ASC, m.name ASC
+        ORDER BY sort_order ASC, m.name COLLATE utf8mb4_general_ci ASC
         LIMIT ?
     ";
     $params[] = $limit;

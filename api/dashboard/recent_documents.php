@@ -55,7 +55,7 @@ $requestedTenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : null;
 
 if ($requestedTenantId !== null) {
     if ($userRole === 'super_admin') {
-        $tenantId = $requestedTenantId;
+        $tenantId = $requestedTenantId; // explicit selection
     } else {
         // Validate via user_tenant_access
         $accessCheck = $db->fetchOne(
@@ -71,7 +71,8 @@ if ($requestedTenantId !== null) {
         }
     }
 } else {
-    $tenantId = $userInfo['tenant_id'];
+    // No tenant specified: super_admin sees all tenants, others see their own
+    $tenantId = ($userRole === 'super_admin') ? null : ($userInfo['tenant_id'] ?? null);
 }
 
 // Limit parameter (optional)
@@ -242,17 +243,30 @@ try {
             f.mime_type,
             f.file_size as size,
             f.created_at,
+            f.updated_at,
+            f.tenant_id,
+            t.name AS tenant_name,
             u.name as uploaded_by_name,
             u.avatar as uploaded_by_avatar
         FROM files f
         LEFT JOIN users u ON f.uploaded_by = u.id
-        WHERE f.tenant_id = ?
-          AND (f.deleted_at IS NULL OR f.deleted_at = '')
-        ORDER BY f.created_at DESC
+        LEFT JOIN tenants t ON f.tenant_id = t.id
+        WHERE (f.deleted_at IS NULL OR f.deleted_at = '')
+        /**TENANT_FILTER**/
+        ORDER BY COALESCE(f.updated_at, f.created_at) DESC
         LIMIT ?
     ";
 
-    $documents = $db->fetchAll($recentDocumentsSql, [$tenantId, $limit]);
+    $tenantFilter = '';
+    $params = [];
+    if ($tenantId !== null) {
+        $tenantFilter = "AND f.tenant_id = ?";
+        $params[] = $tenantId;
+    }
+    $recentDocumentsSql = str_replace('/**TENANT_FILTER**/', $tenantFilter, $recentDocumentsSql);
+    $params[] = $limit;
+
+    $documents = $db->fetchAll($recentDocumentsSql, $params);
 
     // Format documents for frontend
     $formattedDocuments = [];
@@ -268,8 +282,9 @@ try {
             'uploaded_by' => $doc['uploaded_by_name'] ?? 'N/A',
             'uploaded_by_avatar' => $doc['uploaded_by_avatar'] ?? null,
             'created_at' => $doc['created_at'],
-            'uploaded_at' => formatRelativeTime($doc['created_at']),
-            'formatted_date' => date('d/m/Y H:i', strtotime($doc['created_at']))
+            'uploaded_at' => formatRelativeTime($doc['updated_at'] ?: $doc['created_at']),
+            'formatted_date' => date('d/m/Y H:i', strtotime($doc['updated_at'] ?: $doc['created_at'])),
+            'tenant_name' => $doc['tenant_name'] ?? null
         ];
     }
 

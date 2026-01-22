@@ -1,0 +1,528 @@
+:root {
+  --compliance-card-bg: #ffffff;
+  --compliance-border: var(--color-gray-200, #e5e7eb);
+  --compliance-muted: var(--color-gray-600, #4b5563);
+}
+
+.compliance-wrap {
+  padding: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.compliance-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+@media (min-width: 1000px) {
+  .compliance-grid {
+    grid-template-columns: 1.2fr 0.8fr;
+  }
+}
+
+.compliance-card {
+  background: var(--compliance-card-bg);
+  border: 1px solid var(--compliance-border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.compliance-card-title {
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.compliance-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.compliance-field label {
+  display: block;
+  font-size: 12px;
+  color: var(--compliance-muted);
+  margin-bottom: 6px;
+}
+
+.compliance-select {
+  width: 360px;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--compliance-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.compliance-kpis {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.compliance-kpi {
+  border: 1px solid var(--compliance-border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  min-width: 140px;
+}
+
+/* AI Onboarding */
+.compliance-ai-layout {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 14px;
+}
+
+@media (max-width: 1000px) {
+  .compliance-ai-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.compliance-ai-chat {
+  border: 1px solid var(--compliance-border);
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  min-height: 340px;
+}
+
+.compliance-ai-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  background: #f9fafb;
+  border: 1px solid var(--compliance-border);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.compliance-ai-chat-input {
+  margin-top: 10px;
+}
+
+.compliance-ai-chat-bubble {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--compliance-border);
+  background: #fff;
+  font-size: 13px;
+}
+
+.compliance-ai-chat-bubble.assistant {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.compliance-ai-checklist {
+  min-width: 0;
+}
+
+.kpi-label {
+  font-size: 12px;
+  color: var(--compliance-muted);
+}
+
+.kpi-value {
+  margin-top: 4px;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.compliance-warning {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--compliance-border);
+  border-radius: 10px;
+  background: var(--color-gray-50, #f9fafb);
+  color: var(--compliance-muted);
+}
+
+.compliance-muted {
+  color: var(--compliance-muted);
+}
+
+.compliance-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.compliance-table th,
+.compliance-table td {
+  border-top: 1px solid var(--compliance-border);
+  padding: 10px 8px;
+  vertical-align: top;
+}
+
+.compliance-table thead th {
+  border-top: none;
+  text-align: left;
+  font-size: 12px;
+  color: var(--compliance-muted);
+  font-weight: 700;
+}
+
+/* Striped rows and hover effect */
+.compliance-table tbody tr:nth-child(even) {
+  background: var(--color-gray-50, #f9fafb);
+}
+
+.compliance-table tbody tr:hover {
+  background: rgba(37, 99, 235, 0.06);
+}
+
+.compliance-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--compliance-border);
+  font-size: 12px;
+  color: var(--compliance-muted);
+  background: var(--color-gray-50, #f9fafb);
+}
+
+.compliance-link {
+  color: var(--color-primary, #2563eb);
+  text-decoration: none;
+}
+
+.compliance-link:hover {
+  text-decoration: underline;
+}
+
+/* Simple modal system (no new deps) */
+.compliance-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(4px);
+}
+
+.compliance-modal-content {
+  background: #fff;
+  border-radius: 12px;
+  width: 92%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+/* Wizard modal: 75vw on desktop, fallback for mobile */
+.compliance-wizard-modal {
+  width: 75vw;
+  max-width: 75vw;
+}
+
+@media (max-width: 980px) {
+  .compliance-wizard-modal {
+    width: 96vw;
+    max-width: 96vw;
+  }
+}
+
+/* Wizard modal: Uniform header/body/footer styling */
+.compliance-wizard-modal .compliance-modal-header {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 10;
+  border-bottom: 1px solid var(--compliance-border);
+}
+
+.compliance-wizard-modal .compliance-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  max-height: calc(90vh - 130px); /* account for header + footer */
+  padding: 18px 20px;
+}
+
+.compliance-wizard-modal .compliance-modal-footer {
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  z-index: 10;
+  border-top: 1px solid var(--compliance-border);
+  padding: 14px 20px;
+}
+
+.compliance-modal-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--compliance-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.compliance-modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.compliance-modal-close {
+  border: none;
+  background: transparent;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--compliance-muted);
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.compliance-modal-close:hover {
+  background: var(--color-gray-50, #f9fafb);
+  color: #111827;
+}
+
+.compliance-modal-body {
+  padding: 16px 18px;
+  overflow: auto;
+}
+
+.compliance-modal-footer {
+  padding: 12px 18px;
+  border-top: 1px solid var(--compliance-border);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.compliance-form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 920px) {
+  .compliance-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.compliance-form-group label {
+  display: block;
+  font-size: 12px;
+  color: var(--compliance-muted);
+  margin-bottom: 6px;
+}
+
+.compliance-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--compliance-border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.compliance-input:focus {
+  outline: none;
+  border-color: var(--color-primary, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+textarea.compliance-input {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.compliance-field-row {
+  border: 1px solid var(--compliance-border);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: var(--color-gray-50, #f9fafb);
+}
+
+.compliance-field-row-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.compliance-field-title {
+  font-weight: 700;
+}
+
+.compliance-field-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.compliance-small {
+  font-size: 12px;
+  color: var(--compliance-muted);
+}
+
+/* Wizard chat (split side panel, non-blocking) */
+.compliance-wizard-split {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.compliance-wizard-split-main {
+  flex: 1 1 auto;
+  min-width: 0; /* allow inner overflow */
+  overflow-y: auto;
+  max-height: calc(90vh - 200px);
+  padding-right: 8px;
+}
+
+.compliance-wizard-split-chat {
+  flex: 0 0 380px;
+  width: 380px;
+  max-width: 44%;
+  display: none;
+  min-width: 320px;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  max-height: calc(90vh - 200px);
+  overflow-y: auto;
+}
+
+.compliance-wizard-split-chat.open {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 980px) {
+  .compliance-wizard-split {
+    flex-direction: column;
+  }
+  .compliance-wizard-split-main {
+    max-height: none;
+    padding-right: 0;
+  }
+  .compliance-wizard-split-chat {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    position: relative;
+    max-height: 400px;
+  }
+}
+
+.compliance-wizard-chat {
+  border: 1px solid var(--compliance-border);
+  border-radius: 12px;
+  background: var(--color-gray-50, #f9fafb);
+  padding: 14px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.compliance-wizard-chat-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--compliance-border);
+}
+
+.compliance-wizard-chat-title {
+  font-weight: 800;
+  font-size: 15px;
+  color: #111827;
+}
+
+.compliance-wizard-chat-messages {
+  background: #fff;
+  border: 1px solid var(--compliance-border);
+  border-radius: 10px;
+  padding: 10px;
+  flex: 1 1 auto;
+  min-height: 180px;
+  max-height: 320px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.compliance-wizard-chat-msg {
+  border: 1px solid var(--compliance-border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: #fff;
+}
+
+.compliance-wizard-chat-msg-user {
+  background: #f3f4f6;
+}
+
+.compliance-wizard-chat-msg-role {
+  font-size: 12px;
+  color: var(--compliance-muted);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.compliance-wizard-chat-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+
+.compliance-wizard-chat-inputrow {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+
+.compliance-wizard-chat-inputrow input {
+  flex: 1 1 auto;
+}
+
+.compliance-wizard-chat-sources {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--compliance-muted);
+  flex-shrink: 0;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.compliance-wizard-chat-sources ul {
+  margin: 6px 0 0 16px;
+}

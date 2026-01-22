@@ -160,16 +160,24 @@ try {
 
         // Se admin, aggiungi le aziende
         if ($role === 'admin' && !empty($tenant_ids)) {
-            // Crea tabella se non esiste (per sicurezza)
-            $db->query("CREATE TABLE IF NOT EXISTS user_companies (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                company_id INT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY unique_user_company (user_id, company_id),
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (company_id) REFERENCES tenants(id) ON DELETE CASCADE
-            )");
+            // IMPORTANT: Do not CREATE tables at runtime from an API endpoint.
+            // Production DB users often lack CREATE privilege. Migrations must create this table.
+            $userCompaniesTableExists = false;
+            try {
+                $existsRow = $db->fetchOne(
+                    "SELECT 1 AS ok
+                     FROM information_schema.tables
+                     WHERE table_schema = DATABASE()
+                       AND table_name = 'user_companies'
+                     LIMIT 1"
+                );
+                $userCompaniesTableExists = (bool)($existsRow['ok'] ?? false);
+            } catch (Exception $e) {
+                $userCompaniesTableExists = false;
+            }
+            if (!$userCompaniesTableExists) {
+                throw new Exception('Tabella user_companies non disponibile: manca migrazione per assegnazioni multi-azienda (admin).');
+            }
 
             foreach ($tenant_ids as $company_id) {
                 $company_id = intval($company_id);

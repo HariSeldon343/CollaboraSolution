@@ -50,12 +50,12 @@ function output($message, $type = 'info') {
 
 // Start output
 if (!$isCLI) {
-    echo "<!DOCTYPE html><html><head><title>CollaboraNexio - Database Setup</title></head><body style='background: #f5f5f5; padding: 20px;'>";
-    echo "<h1>CollaboraNexio Database Initialization</h1>";
+    echo "<!DOCTYPE html><html><head><title>Nexio - Database Setup</title></head><body style='background: #f5f5f5; padding: 20px;'>";
+    echo "<h1>Nexio Database Initialization</h1>";
 }
 
 output("=========================================", 'info');
-output("CollaboraNexio Database Initialization", 'info');
+output("Nexio Database Initialization", 'info');
 output("=========================================", 'info');
 
 try {

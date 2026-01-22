@@ -1,0 +1,320 @@
+{
+    "apply": false,
+    "file": "c:\\Users\\aoedo\\Desktop\\Aziende_Planning_FINALE.CSV",
+    "created": 30,
+    "skipped_duplicate": 1,
+    "skipped_invalid": 0,
+    "failed": 0,
+    "rows": [
+        {
+            "row": 2,
+            "ragione_sociale": "ADI S.C.A.R.L.",
+            "partita_iva": "07081900826",
+            "settore_raw": "Sanità - Assistenza Domiciliare",
+            "settore_mapped": "sanita",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 3,
+            "ragione_sociale": "GRUTTADAURIA & CONSIGLIO AGRO DISTRIBUZIONI S.R.L.",
+            "partita_iva": "02004970857",
+            "settore_raw": "Agroalimentare",
+            "settore_mapped": "alimentare",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 4,
+            "ragione_sociale": "AGRUMI-GEL S.R.L.",
+            "partita_iva": "01549800835",
+            "settore_raw": "Agroalimentare",
+            "settore_mapped": "alimentare",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 5,
+            "ragione_sociale": "ANALISI CLINICHE AMENTA S.R.L.",
+            "partita_iva": "02231080819",
+            "settore_raw": "Sanità - Analisi Cliniche",
+            "settore_mapped": "sanita",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 6,
+            "ragione_sociale": "Università degli Studi di Catania - APSEMA",
+            "partita_iva": "02772010878",
+            "settore_raw": "Progettazione\/Manutenzione",
+            "settore_mapped": "consulenza",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 7,
+            "ragione_sociale": "ARA DI MASCAGNI ROSA",
+            "partita_iva": "02342250871",
+            "settore_raw": "Servizi - Disinfestazione",
+            "settore_mapped": "servizi",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 8,
+            "ragione_sociale": "Associazione Santantonese per la Lotta ai Tumori ONLUS",
+            "partita_iva": "90007190870",
+            "settore_raw": "Associazione Sanitaria",
+            "settore_mapped": "sanita",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 9,
+            "ragione_sociale": "Bioalmondsicilia S.r.l.",
+            "partita_iva": "05627680878",
+            "settore_raw": "Agroalimentare",
+            "settore_mapped": "alimentare",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 10,
+            "ragione_sociale": "CASA ANNUNZIATA - Comunità Papa Giovanni XXIII",
+            "partita_iva": "01433850409",
+            "settore_raw": "Servizi Sociali",
+            "settore_mapped": "servizi",
+            "result": "skipped_duplicate",
+            "tenant_id": 29,
+            "message": "Tenant già presente (Partita IVA)"
+        },
+        {
+            "row": 11,
+            "ragione_sociale": "CONAL FOOD S.R.L.",
+            "partita_iva": "03731020792",
+            "settore_raw": "Agroalimentare",
+            "settore_mapped": "alimentare",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 12,
+            "ragione_sociale": "Consorzio Stabile Socio-Sanitario Aretuseo (Con.So.Sar) - Società Cooperativa Sociale",
+            "partita_iva": "01799990898",
+            "settore_raw": "Servizi Socio-Sanitari",
+            "settore_mapped": "sanita",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 13,
+            "ragione_sociale": "DNV BUSINESS ASSURANCE ITALY S.R.L.",
+            "partita_iva": "00820340966",
+            "settore_raw": "Ente Certificazione",
+            "settore_mapped": "altro",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 14,
+            "ragione_sociale": "EUCI EUROPEAN CERTIFICATION INSTITUTE LTD",
+            "partita_iva": "01726450933",
+            "settore_raw": "Ente Certificazione",
+            "settore_mapped": "altro",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 15,
+            "ragione_sociale": "THE GUARDIAN S.R.L.",
+            "partita_iva": "04664030873",
+            "settore_raw": "Vigilanza",
+            "settore_mapped": "servizi",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 16,
+            "ragione_sociale": "Laboratorio Analisi \"Il Nucleo\" della dr.ssa Marianna Signore & C. s.a.s.",
+            "partita_iva": "01158460863",
+            "settore_raw": "Sanità - Laboratorio Analisi",
+            "settore_mapped": "sanita",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 17,
+            "ragione_sociale": "LABORATORIO DI ANALISI MONTEPERGOLA S.R.L.",
+            "partita_iva": "01999650649",
+            "settore_raw": "Sanità - Laboratorio Analisi",
+            "settore_mapped": "sanita",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 18,
+            "ragione_sociale": "MEDTEC S.R.L.",
+            "partita_iva": "04914270873",
+            "settore_raw": "Sanità - Articoli Medicali",
+            "settore_mapped": "sanita",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 19,
+            "ragione_sociale": "MILLESERVIZI S.R.L.",
+            "partita_iva": "03800200796",
+            "settore_raw": "Multiservizi",
+            "settore_mapped": "servizi",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 20,
+            "ragione_sociale": "CENTRO CLINICO E DIAGNOSTICO G.B. MORGAGNI S.R.L. (Policlinico Morgagni)",
+            "partita_iva": "00248620874",
+            "settore_raw": "Sanità - Policlinico\/Diagnostica",
+            "settore_mapped": "sanita",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 21,
+            "ragione_sociale": "Ortogel S.p.A.",
+            "partita_iva": "00678650870",
+            "settore_raw": "Agroalimentare",
+            "settore_mapped": "alimentare",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 22,
+            "ragione_sociale": "AZIENDA OSPEDALIERA PAPARDO",
+            "partita_iva": "03051880833",
+            "settore_raw": "Sanità - Ospedale",
+            "settore_mapped": "sanita",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 23,
+            "ragione_sociale": "PL3 & PARTNERS S.R.L.",
+            "partita_iva": "04618690962",
+            "settore_raw": "Consulenza IT",
+            "settore_mapped": "consulenza",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 24,
+            "ragione_sociale": "Riabilia di Luigi Barillaro & C. S.r.l.",
+            "partita_iva": "01374620803",
+            "settore_raw": "Sanità - Riabilitazione",
+            "settore_mapped": "sanita",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 25,
+            "ragione_sociale": "RINA S.p.A.",
+            "partita_iva": "03794120109",
+            "settore_raw": "Ente Certificazione",
+            "settore_mapped": "altro",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 26,
+            "ragione_sociale": "ROMOLO HOSPITAL S.R.L.",
+            "partita_iva": "02056980796",
+            "settore_raw": "Sanità - Ospedale",
+            "settore_mapped": "sanita",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 27,
+            "ragione_sociale": "Salus Mangialavori S.r.l.",
+            "partita_iva": "02010240790",
+            "settore_raw": "Sanità - Analisi Cliniche",
+            "settore_mapped": "sanita",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 28,
+            "ragione_sociale": "SOLVING ENGINEERING S.R.L.",
+            "partita_iva": "03193640806",
+            "settore_raw": "Ingegneria",
+            "settore_mapped": "consulenza",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 29,
+            "ragione_sociale": "STIMA S.R.L.",
+            "partita_iva": "03695410872",
+            "settore_raw": "Vending - Distributori automatici",
+            "settore_mapped": "altro",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 30,
+            "ragione_sociale": "SUPER LAP S.R.L.S.",
+            "partita_iva": "05973000879",
+            "settore_raw": "Commercio Autoveicoli",
+            "settore_mapped": "commercio",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 31,
+            "ragione_sociale": "VENUSLAB s.a.s. di Curinga Giuseppe & C.",
+            "partita_iva": "02610700805",
+            "settore_raw": "Servizi",
+            "settore_mapped": "servizi",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        },
+        {
+            "row": 32,
+            "ragione_sociale": "Comunità Terapeutica Assistita Villa Chiara S.r.l.",
+            "partita_iva": "02228000879",
+            "settore_raw": "Sanità - Riabilitazione Psichiatrica",
+            "settore_mapped": "sanita",
+            "result": "dry_run_would_create",
+            "tenant_id": null,
+            "message": "OK (dry-run)"
+        }
+    ]
+}

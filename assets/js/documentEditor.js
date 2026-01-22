@@ -36,15 +36,27 @@ class DocumentEditor {
             return pathParts.length > 0 ? `/${pathParts[0]}` : '';
         };
 
+        const basePath = detectBasePath();
+        const metaOnlyOfficeApiUrl = document.querySelector('meta[name="onlyoffice-api-url"]')?.content || '';
+        // Same-origin reverse-proxy path for OnlyOffice (preserves /web-apps/... paths)
+        // This avoids mixed-content and prevents 404s caused by loading api.js from non-standard locations.
+        const onlyOfficeProxyApiUrl = `${window.location.origin}${basePath}/onlyoffice/web-apps/apps/api/documents/api.js`;
+
         this.options = {
             // Use explicit base to avoid path detection issues
             apiBaseUrl: options.apiBaseUrl || '/CollaboraNexio/api/documents',
-            onlyOfficeApiUrl: options.onlyOfficeApiUrl || 'http://localhost:8083/web-apps/apps/api/documents/api.js',
+            // Prefer server-provided URL (meta tag), fallback to legacy default
+            onlyOfficeApiUrl: options.onlyOfficeApiUrl || metaOnlyOfficeApiUrl || 'http://localhost:8083/web-apps/apps/api/documents/api.js',
+            // Used as fallback if direct API load fails
+            onlyOfficeProxyApiUrl: options.onlyOfficeProxyApiUrl || onlyOfficeProxyApiUrl,
             autoSaveInterval: options.autoSaveInterval || 30000, // 30 seconds
             csrfToken: options.csrfToken || document.getElementById('csrfToken')?.value || '',
             userRole: options.userRole || document.getElementById('userRole')?.value || 'user',
             ...options
         };
+
+        // Shared promise to avoid duplicated script injections / hanging calls
+        this._apiLoadPromise = null;
 
         // State management
         this.state = {
@@ -57,7 +69,10 @@ class DocumentEditor {
             isSaving: false,
             lastSavedAt: null,
             hasUnsavedChanges: false,
-            activeCollaborators: []
+            activeCollaborators: [],
+            // BUG-134: Track OnlyOffice API availability
+            onlyOfficeAvailable: null,  // null = unknown, true = available, false = unavailable
+            isLoadingApi: false
         };
 
         // Bind methods
@@ -75,13 +90,22 @@ class DocumentEditor {
 
     /**
      * Initialize the editor module
+     * BUG-134: Proper promise error handling
      */
     init() {
         console.log('[DocumentEditor] Initializing document editor module');
 
         // Load OnlyOffice API script if not already loaded
+        // Note: We intentionally don't await here - the API will be loaded
+        // when user tries to open a document. We catch errors silently
+        // during initialization to allow the file manager to work without OnlyOffice.
         if (!window.DocsAPI) {
-            this.loadOnlyOfficeAPI();
+            this.loadOnlyOfficeAPI().catch((error) => {
+                // Silent catch during init - OnlyOffice server may not be running
+                // User will see proper error when they try to edit a document
+                console.warn('[DocumentEditor] OnlyOffice API not available during init:', error.message);
+                this.state.onlyOfficeAvailable = false;
+            });
         }
 
         // Listen for beforeunload to warn about unsaved changes
@@ -100,30 +124,70 @@ class DocumentEditor {
 
     /**
      * Load OnlyOffice Document Editor API
+     * BUG-134: Improved error handling to prevent unhandled promise rejections
      */
     loadOnlyOfficeAPI() {
-        return new Promise((resolve, reject) => {
-            console.log('[DocumentEditor] Loading OnlyOffice API script');
+        // Already available
+        if (window.DocsAPI) {
+            this.state.onlyOfficeAvailable = true;
+            return Promise.resolve();
+        }
 
-            const script = document.createElement('script');
-            script.src = this.options.onlyOfficeApiUrl;
-            script.type = 'text/javascript';
-            script.async = true;
+        // Reuse inflight load
+        if (this._apiLoadPromise) {
+            return this._apiLoadPromise;
+        }
 
-            script.onload = () => {
-                console.log('[DocumentEditor] OnlyOffice API loaded successfully');
-                resolve();
-            };
+        const primaryUrl = this.options.onlyOfficeApiUrl;
+        const proxyUrl = this.options.onlyOfficeProxyApiUrl;
 
-            script.onerror = () => {
+        const loadScript = (src, label) => {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.type = 'text/javascript';
+                script.async = true;
+                script.dataset.onlyoffice = label;
+
+                script.onload = () => {
+                    console.log(`[DocumentEditor] OnlyOffice API loaded successfully (${label})`);
+                    resolve();
+                };
+                script.onerror = () => {
+                    try { script.remove(); } catch (e) {}
+                    reject(new Error(label));
+                };
+
+                document.head.appendChild(script);
+            });
+        };
+
+        console.log('[DocumentEditor] Loading OnlyOffice API script');
+        console.log('[DocumentEditor] OnlyOffice API primary URL:', primaryUrl);
+
+        this.state.isLoadingApi = true;
+
+        this._apiLoadPromise = loadScript(primaryUrl, 'primary')
+            .catch(() => {
+                console.warn('[DocumentEditor] Primary OnlyOffice API load failed, trying same-origin reverse proxy:', proxyUrl);
+                return loadScript(proxyUrl, 'proxy');
+            })
+            .then(() => {
+                this.state.isLoadingApi = false;
+                this.state.onlyOfficeAvailable = true;
+            })
+            .catch(() => {
                 const error = 'Impossibile caricare l\'API di OnlyOffice. Verifica che il server sia attivo.';
-                console.error('[DocumentEditor] ' + error);
-                this.showToast(error, 'error');
-                reject(new Error(error));
-            };
+                console.warn('[DocumentEditor] ' + error);
+                this.state.isLoadingApi = false;
+                this.state.onlyOfficeAvailable = false;
+                throw new Error(error);
+            })
+            .finally(() => {
+                this._apiLoadPromise = null;
+            });
 
-            document.head.appendChild(script);
-        });
+        return this._apiLoadPromise;
     }
 
     /**
@@ -143,9 +207,47 @@ class DocumentEditor {
             this.state.isLoading = true;
             this.showLoadingOverlay();
 
+            // BUG-134: Check if OnlyOffice is available before proceeding
+            if (!window.DocsAPI && this.state.onlyOfficeAvailable === false) {
+                // OnlyOffice is known to be unavailable, offer download instead
+                this.hideLoadingOverlay();
+                this.state.isLoading = false;
+
+                const useDownload = confirm(
+                    'Il server OnlyOffice non è disponibile.\n\n' +
+                    'Vuoi scaricare il file invece di modificarlo online?'
+                );
+
+                if (useDownload) {
+                    this.downloadFile(fileId);
+                }
+                return;
+            }
+
             // Ensure OnlyOffice API is loaded
             if (!window.DocsAPI) {
-                await this.loadOnlyOfficeAPI();
+                try {
+                    await this.loadOnlyOfficeAPI();
+                } catch (apiError) {
+                    // BUG-134: API failed to load - offer fallback
+                    this.hideLoadingOverlay();
+                    this.state.isLoading = false;
+
+                    this.showToast(
+                        'Server OnlyOffice non disponibile. Puoi comunque scaricare il file.',
+                        'warning'
+                    );
+
+                    const useDownload = confirm(
+                        'Impossibile caricare l\'editor di documenti.\n\n' +
+                        'Vuoi scaricare il file invece?'
+                    );
+
+                    if (useDownload) {
+                        this.downloadFile(fileId);
+                    }
+                    return;
+                }
             }
 
             // Fetch editor configuration from API
@@ -168,8 +270,31 @@ class DocumentEditor {
             const result = await response.json();
 
             if (!result.success) {
-                throw new Error(result.error || 'Errore durante l\'apertura del documento');
+                // BUG-135 v3: Check for specific error about empty files
+                const errorMsg = result.error || 'Errore durante l\'apertura del documento';
+                if (errorMsg.toLowerCase().includes('vuoto') || errorMsg.toLowerCase().includes('empty')) {
+                    // Show specific message for empty files with download option
+                    this.hideLoadingOverlay();
+                    this.state.isLoading = false;
+                    this.showToast(errorMsg, 'warning');
+
+                    const useDownload = confirm(
+                        errorMsg + '\n\n' +
+                        'Vuoi scaricare il file per verificarne il contenuto?'
+                    );
+                    if (useDownload) {
+                        this.downloadFile(fileId);
+                    }
+                    return;
+                }
+                throw new Error(errorMsg);
             }
+
+            // BUG-135 v3 DEBUG: Log complete configuration received
+            console.log('[DocumentEditor] [BUG-135 DEBUG] Configuration received from server:');
+            console.log('[DocumentEditor] [BUG-135 DEBUG] Document URL:', result.data.config?.document?.url);
+            console.log('[DocumentEditor] [BUG-135 DEBUG] Callback URL:', result.data.config?.editorConfig?.callbackUrl);
+            console.log('[DocumentEditor] [BUG-135 DEBUG] Full config:', JSON.stringify(result.data.config, null, 2));
 
             // Store configuration
             this.state.currentFileId = fileId;
@@ -310,6 +435,11 @@ class DocumentEditor {
             this.showErrorWithFallback(error, '-1');
             throw new Error(error);
         }
+
+        // BUG-135 v3 DEBUG: Log config BEFORE passing to DocsAPI
+        console.log('[DocumentEditor] [BUG-135 v3] Config BEFORE DocsAPI initialization:');
+        console.log('[DocumentEditor] [BUG-135 v3] data.config:', JSON.stringify(data.config, null, 2));
+        console.log('[DocumentEditor] [BUG-135 v3] data.token:', data.token ? 'PRESENT (' + data.token.substring(0, 20) + '...)' : 'MISSING');
 
         const config = {
             ...data.config,
@@ -493,6 +623,18 @@ class DocumentEditor {
         }
 
         try {
+            // Best-effort force save before destroying the editor to ensure callbacks run
+            if (this.state.editorInstance && typeof this.state.editorInstance.save === 'function') {
+                try {
+                    console.log('[DocumentEditor] Triggering force save before close');
+                    await this.state.editorInstance.save();
+                    // Give OnlyOffice a short window to hit the callback and persist size/timestamp
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                } catch (error) {
+                    console.warn('[DocumentEditor] Force save before close failed:', error);
+                }
+            }
+
             // Destroy editor instance
             if (this.state.editorInstance) {
                 try {
@@ -532,9 +674,12 @@ class DocumentEditor {
 
             console.log('[DocumentEditor] Editor closed successfully');
 
-            // Reload file list if fileManager is available
+            // Reload file list if fileManager is available (twice: immediate + delayed)
             if (window.fileManager && typeof window.fileManager.loadFiles === 'function') {
                 window.fileManager.loadFiles();
+                setTimeout(() => {
+                    window.fileManager.loadFiles();
+                }, 1200);
             }
 
         } catch (error) {

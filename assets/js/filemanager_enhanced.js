@@ -20,15 +20,19 @@
             this.state = {
                 currentPath: '/',
                 currentFolderId: null,
-                currentView: 'grid',
+                // Default to list view (requested): more compact/ordered
+                currentView: 'list',
                 selectedFiles: new Set(),
                 uploadQueue: [],
                 activeUploads: new Map(),
                 sortBy: 'name',
+                sortDir: 'asc',
                 filterType: 'all',
                 searchQuery: '',
                 isRoot: true,
-                currentTenant: null
+                currentTenant: null,
+                // Cache last payload so switching grid/list doesn't require reload and doesn't appear empty
+                lastFilesPayload: null
             };
 
             this.userRole = document.getElementById('userRole')?.value || 'user';
@@ -40,18 +44,30 @@
 
         init() {
             this.bindEvents();
+            // Ensure DOM reflects the default view before initial rendering
+            this.applyCurrentViewToDom();
             this.loadInitialData();
             this.setupDragAndDrop();
             this.initContextMenu();
             this.initKeyboardShortcuts();
             this.createDocumentModal();
             this.setupUploadUI();
+            // Support deep-links:
+            // - open a folder: files.php?open_folder_id=123
+            // - open a file in OnlyOffice: files.php?open_file_id=123&open_mode=edit|view
+            this.maybeOpenFolderFromQuery();
+            this.maybeOpenFileFromQuery();
         }
 
         bindEvents() {
             // Enhanced upload button - now functional!
             document.getElementById('uploadBtn')?.addEventListener('click', () => {
                 this.showUploadDialog();
+            });
+
+            // Upload folder button (directory upload)
+            document.getElementById('uploadFolderBtn')?.addEventListener('click', () => {
+                this.showUploadFolderDialog();
             });
 
             // New folder button
@@ -68,7 +84,11 @@
                     this.showCreateTenantFolderModal();
                 });
             } else {
-                console.warn('⚠ Create Root Folder button NOT found in DOM');
+                // Avoid warning for roles that don't render this button
+                const role = (window.userRole || document.getElementById('userRole')?.value || '').toString();
+                if (['admin', 'super_admin'].includes(role)) {
+                    console.warn('⚠ Create Root Folder button NOT found in DOM');
+                }
             }
 
             // New document button
@@ -103,6 +123,159 @@
             this.bindFileSelection();
             this.bindBreadcrumb();
             this.bindSidebar();
+            this.bindListHeaderSorting();
+        }
+
+        /**
+         * Enable click-to-sort on list view table headers.
+         * Columns: Nome, Proprietario, Assegnato a, Modificato, Dimensione
+         */
+        bindListHeaderSorting() {
+            if (this._listHeaderSortBound) return;
+            this._listHeaderSortBound = true;
+
+            const table = document.querySelector('#filesList .file-table');
+            if (!table) return;
+
+            const ths = table.querySelectorAll('thead th');
+            if (!ths || ths.length < 6) return;
+
+            // Map header index -> sort key (skip checkbox and actions)
+            const keyByIndex = {
+                1: 'name',
+                2: 'owner',
+                3: 'assigned_to',
+                4: 'modified',
+                5: 'size',
+            };
+
+            ths.forEach((th, idx) => {
+                const key = keyByIndex[idx];
+                if (!key) return;
+
+                th.style.cursor = 'pointer';
+                th.title = 'Clicca per ordinare (ASC/DESC)';
+                th.dataset.sortKey = key;
+
+                // Make header content wrapper so we can append indicator
+                if (!th.querySelector('.cnx-sort-indicator')) {
+                    const wrap = document.createElement('span');
+                    wrap.style.display = 'inline-flex';
+                    wrap.style.alignItems = 'center';
+                    wrap.style.gap = '6px';
+
+                    const text = document.createElement('span');
+                    text.textContent = th.textContent.trim();
+
+                    const indicator = document.createElement('span');
+                    indicator.className = 'cnx-sort-indicator';
+                    indicator.style.fontSize = '11px';
+                    indicator.style.opacity = '0.7';
+                    indicator.textContent = '';
+
+                    th.textContent = '';
+                    wrap.appendChild(text);
+                    wrap.appendChild(indicator);
+                    th.appendChild(wrap);
+                }
+
+                th.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    if (this.state.sortBy === key) {
+                        this.state.sortDir = (this.state.sortDir === 'asc') ? 'desc' : 'asc';
+                    } else {
+                        this.state.sortBy = key;
+                        this.state.sortDir = 'asc';
+                    }
+
+                    // Re-render from cached payload (no refetch needed)
+                    if (this.state.lastFilesPayload) {
+                        this.renderFiles(this.state.lastFilesPayload);
+                    } else {
+                        this.loadFiles();
+                    }
+                });
+            });
+
+            // Initial paint
+            this.updateListHeaderSortIndicators();
+        }
+
+        updateListHeaderSortIndicators() {
+            const table = document.querySelector('#filesList .file-table');
+            if (!table) return;
+            const ths = table.querySelectorAll('thead th');
+            ths.forEach(th => {
+                const indicator = th.querySelector('.cnx-sort-indicator');
+                if (!indicator) return;
+                const key = th.dataset.sortKey || '';
+                if (key && key === this.state.sortBy) {
+                    indicator.textContent = this.state.sortDir === 'asc' ? '▲' : '▼';
+                } else {
+                    indicator.textContent = '';
+                }
+            });
+        }
+
+        /**
+         * Sort items using current state. Always keeps folders first.
+         */
+        getSortedItems(items) {
+            const arr = Array.isArray(items) ? [...items] : [];
+            const key = (this.state.sortBy || 'name').toString();
+            const dir = (this.state.sortDir || 'asc').toString() === 'desc' ? -1 : 1;
+
+            const val = (it) => {
+                if (!it) return '';
+                switch (key) {
+                    case 'owner': {
+                        const u = it.uploaded_by;
+                        const name = (u && typeof u === 'object') ? (u.name || '') : (typeof u === 'string' ? u : '');
+                        return String(name || '').toLowerCase();
+                    }
+                    case 'assigned_to':
+                        return String(it.assignment_label || '').toLowerCase();
+                    case 'modified': {
+                        const d = it.updated_at || it.created_at || '';
+                        const t = Date.parse(d);
+                        return Number.isFinite(t) ? t : 0;
+                    }
+                    case 'size':
+                        return Number(it.size || 0);
+                    case 'name':
+                    default:
+                        return String(it.name || '').toLowerCase();
+                }
+            };
+
+            arr.sort((a, b) => {
+                // folders first
+                const af = (a && (a.is_folder === 1 || a.is_folder === true || a.type === 'folder')) ? 1 : 0;
+                const bf = (b && (b.is_folder === 1 || b.is_folder === true || b.type === 'folder')) ? 1 : 0;
+                if (af !== bf) return bf - af;
+
+                const av = val(a);
+                const bv = val(b);
+
+                // numeric compare
+                if (typeof av === 'number' && typeof bv === 'number') {
+                    if (av !== bv) return (av - bv) * dir;
+                } else {
+                    if (av < bv) return -1 * dir;
+                    if (av > bv) return 1 * dir;
+                }
+
+                // stable tiebreaker
+                const an = String(a?.name || '').toLowerCase();
+                const bn = String(b?.name || '').toLowerCase();
+                if (an < bn) return -1;
+                if (an > bn) return 1;
+                return 0;
+            });
+
+            return arr;
         }
 
         bindSearchEvents() {
@@ -169,6 +342,18 @@
             document.addEventListener('dblclick', (e) => {
                 const fileElement = e.target.closest('.file-card, .file-row');
                 if (fileElement) {
+                    // Ctrl/Cmd + double click: open in a new tab (useful for side-by-side split)
+                    if (e.ctrlKey || e.metaKey) {
+                        const isFolder =
+                            fileElement.dataset.isFolder === 'true' ||
+                            fileElement.dataset.type === 'folder' ||
+                            fileElement.classList.contains('folder');
+                        const fileId = fileElement.dataset.fileId || fileElement.dataset.id || '';
+                        if (!isFolder && fileId) {
+                            this.openFileInNewTab(fileId);
+                            return;
+                        }
+                    }
                     this.openFile(fileElement);
                 }
             });
@@ -197,6 +382,68 @@
             document.getElementById('sidebarToggle')?.addEventListener('click', () => {
                 document.querySelector('.sidebar')?.classList.toggle('collapsed');
             });
+
+            // Sidebar primary download button (Dettagli -> Scarica)
+            // Note: files.php provides the HTML, but EnhancedFileManager must bind the click.
+            document.querySelector('#fileDetailsSidebar .details-actions .btn.btn-primary.btn-block')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                const fileId = this.state?.currentDetailsFileId || null;
+                const fileName = this.state?.currentDetailsFileName || null;
+                const isFolder = !!this.state?.currentDetailsIsFolder;
+                if (!fileId) {
+                    this.showToast('Seleziona un file prima di scaricare', 'error');
+                    return;
+                }
+
+                // Enforce approval workflow for non-privileged users
+                const privileged = ['super_admin', 'admin', 'manager'].includes(this.userRole);
+                if (!privileged) {
+                    if (isFolder) {
+                        this.requestFolderZipDownload(parseInt(fileId, 10), fileName || 'cartella');
+                        return;
+                    }
+                    this.requestFileDownload(parseInt(fileId, 10), fileName || 'download');
+                    return;
+                }
+
+                this.downloadFileById(fileId, fileName || 'download');
+            });
+
+            // Sidebar: ask AI about current selected file
+            document.getElementById('detailsAskAiBtn')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                const fileId = this.state?.currentDetailsFileId || null;
+                const isFolder = !!this.state?.currentDetailsIsFolder;
+                if (!fileId || isFolder) {
+                    this.showToast('Seleziona un file (non una cartella) per chiedere all’AI', 'error');
+                    return;
+                }
+                const tid = document.getElementById('currentTenantId')?.value || '';
+                const url = `ai.php?${tid ? (`tenant_id=${encodeURIComponent(String(tid))}&`) : ''}file_id=${encodeURIComponent(String(fileId))}&context=files`;
+                window.open(url, '_blank', 'noopener');
+            });
+        }
+
+        maybeOpenFolderFromQuery() {
+            try {
+                const url = new URL(window.location.href);
+                // If a file deep-link is present, prefer file open flow
+                const rawFile = url.searchParams.get('open_file_id');
+                if (rawFile && (parseInt(rawFile, 10) || 0) > 0) return;
+
+                const raw = url.searchParams.get('open_folder_id');
+                const folderId = raw ? parseInt(raw, 10) : 0;
+                if (!folderId || folderId <= 0) return;
+
+                // Only attempt once per page load
+                url.searchParams.delete('open_folder_id');
+                window.history.replaceState({}, '', url.toString());
+
+                // Navigate immediately; API will enforce access
+                this.navigateToFolder(folderId, 'Cartella');
+            } catch (e) {
+                // ignore
+            }
         }
 
         setupDragAndDrop() {
@@ -444,10 +691,113 @@
             // Context menu actions
             contextMenu.querySelectorAll('.context-item').forEach(item => {
                 item.addEventListener('click', (e) => {
-                    const action = item.querySelector('span').textContent.toLowerCase();
+                    const action = (item.dataset.action || item.querySelector('span')?.textContent || '').toString().toLowerCase();
                     this.handleContextAction(action);
                 });
             });
+        }
+
+        /**
+         * Open an editable document (OnlyOffice) for a file id.
+         * modeOverride: 'edit' | 'view' | null (auto)
+         */
+        async openDocumentEditorWithMode(fileId, modeOverride = null) {
+            // Check if documentEditor is available
+            if (window.documentEditor && typeof window.documentEditor.openDocument === 'function') {
+                let mode = 'edit';
+
+                // If caller forces view, skip checks
+                if (modeOverride === 'view') {
+                    mode = 'view';
+                } else if (modeOverride === 'edit') {
+                    // best-effort: if workflow indicates non-bozza, downgrade to view
+                    try {
+                        if (window.workflowManager && typeof window.workflowManager.getWorkflowStatus === 'function') {
+                            const wf = await window.workflowManager.getWorkflowStatus(parseInt(fileId));
+                            const state = wf?.state || null;
+                            if (state && state !== 'bozza') {
+                                mode = 'view';
+                            }
+                        }
+                    } catch (e) {
+                        // fallback keep edit
+                    }
+                } else {
+                    // auto mode: decide by workflow
+                    try {
+                        if (window.workflowManager && typeof window.workflowManager.getWorkflowStatus === 'function') {
+                            const wf = await window.workflowManager.getWorkflowStatus(parseInt(fileId));
+                            const state = wf?.state || null;
+                            if (state && state !== 'bozza') {
+                                mode = 'view';
+                            }
+                        }
+                    } catch (e) {
+                        // fallback to edit if check fails
+                    }
+                }
+
+                window.documentEditor.openDocument(fileId, mode);
+            } else {
+                console.log('Document editor not available, opening file details instead');
+                // Fallback: show file details
+                const fileElement = document.querySelector(`[data-file-id="${fileId}"]`);
+                if (fileElement) {
+                    this.showDetailsSidebar(fileElement);
+                }
+            }
+        }
+
+        openFileInNewTab(fileId, openMode = null) {
+            const id = parseInt(fileId, 10);
+            if (!Number.isFinite(id) || id <= 0) return;
+
+            const url = new URL(window.location.href);
+            url.searchParams.set('open_file_id', String(id));
+            if (openMode === 'edit' || openMode === 'view') {
+                url.searchParams.set('open_mode', openMode);
+            } else {
+                url.searchParams.delete('open_mode');
+            }
+
+            window.open(url.toString(), '_blank', 'noopener');
+        }
+
+        maybeOpenFileFromQuery() {
+            try {
+                const url = new URL(window.location.href);
+                const raw = url.searchParams.get('open_file_id');
+                const fileId = raw ? parseInt(raw, 10) : 0;
+                if (!fileId || fileId <= 0) return;
+
+                const openModeRaw = (url.searchParams.get('open_mode') || '').toLowerCase();
+                const openMode = (openModeRaw === 'edit' || openModeRaw === 'view') ? openModeRaw : null;
+
+                // Only attempt once per page load
+                url.searchParams.delete('open_file_id');
+                url.searchParams.delete('open_mode');
+                window.history.replaceState({}, '', url.toString());
+
+                const tryOpen = async () => {
+                    // wait for documentEditor to be ready (it is loaded after this script)
+                    if (!(window.documentEditor && typeof window.documentEditor.openDocument === 'function')) {
+                        return false;
+                    }
+                    await this.openDocumentEditorWithMode(fileId, openMode);
+                    return true;
+                };
+
+                let attempts = 0;
+                const timer = setInterval(async () => {
+                    attempts++;
+                    const ok = await tryOpen();
+                    if (ok || attempts >= 40) { // ~4s
+                        clearInterval(timer);
+                    }
+                }, 100);
+            } catch (e) {
+                // ignore
+            }
         }
 
         initKeyboardShortcuts() {
@@ -505,6 +855,26 @@
             input.type = 'file';
             input.multiple = true;
             input.accept = this.config.allowedExtensions.map(ext => `.${ext}`).join(',');
+            input.onchange = (e) => {
+                this.handleFileUpload(e.target.files);
+            };
+            input.click();
+        }
+
+        showUploadFolderDialog() {
+            if (this.state.isRoot) {
+                this.showToast('Seleziona una cartella prima di caricare file', 'error');
+                return;
+            }
+
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.multiple = true;
+            // Directory upload (Chrome/Edge). Other browsers will just behave like file input.
+            input.setAttribute('webkitdirectory', '');
+            input.setAttribute('directory', '');
+            input.setAttribute('mozdirectory', '');
+            input.setAttribute('msdirectory', '');
             input.onchange = (e) => {
                 this.handleFileUpload(e.target.files);
             };
@@ -580,6 +950,11 @@
                 const formData = new FormData();
                 formData.append('file', file);
                 formData.append('folder_id', this.state.currentFolderId || '');
+                // Preserve folder structure for directory uploads (best-effort)
+                try {
+                    const rel = (file && typeof file.webkitRelativePath === 'string') ? file.webkitRelativePath : '';
+                    if (rel) formData.append('relative_path', rel);
+                } catch (_) {}
                 formData.append('csrf_token', this.csrfToken);
 
                 const xhr = new XMLHttpRequest();
@@ -654,6 +1029,11 @@
                     const formData = new FormData();
                     formData.append('file', chunk, file.name);
                     formData.append('folder_id', this.state.currentFolderId || '');
+                    // Preserve folder structure for directory uploads (best-effort)
+                    try {
+                        const rel = (file && typeof file.webkitRelativePath === 'string') ? file.webkitRelativePath : '';
+                        if (rel) formData.append('relative_path', rel);
+                    } catch (_) {}
                     formData.append('csrf_token', this.csrfToken);
                     formData.append('is_chunked', 'true');
                     formData.append('chunk_index', chunkIndex.toString());
@@ -1045,18 +1425,9 @@
             }
         }
 
-        openDocumentEditor(fileId) {
-            // Check if documentEditor is available
-            if (window.documentEditor && typeof window.documentEditor.openDocument === 'function') {
-                window.documentEditor.openDocument(fileId);
-            } else {
-                console.log('Document editor not available, opening file details instead');
-                // Fallback: show file details
-                const fileElement = document.querySelector(`[data-file-id="${fileId}"]`);
-                if (fileElement) {
-                    this.showDetailsSidebar(fileElement);
-                }
-            }
+        async openDocumentEditor(fileId) {
+            // Backward compatible signature
+            return await this.openDocumentEditorWithMode(fileId, null);
         }
 
         // ========================================
@@ -1068,7 +1439,9 @@
                 const params = new URLSearchParams({
                     action: 'list',
                     folder_id: this.state.currentFolderId || '',
-                    search: this.state.searchQuery || ''
+                    search: this.state.searchQuery || '',
+                    // Cache-buster to avoid stale lists (Cloudflare/browser caches)
+                    _ts: Date.now()
                 });
 
                 const response = await fetch(`${this.config.filesApi}?${params}`, {
@@ -1083,6 +1456,22 @@
                 const result = await response.json();
 
                 if (result.success) {
+                    // UX: auto-enter for single-tenant users (manager/user) and admin with a single tenant folder
+                    if (this.state.isRoot && !this.state.currentFolderId && !this.state.searchQuery) {
+                        const items = (result.data && Array.isArray(result.data.items)) ? result.data.items : [];
+                        const folders = items.filter(it => (it.type === 'folder' || it.is_folder === 1 || it.is_folder === '1'));
+                        const canAutoEnter =
+                            (this.userRole === 'manager' || this.userRole === 'user') ||
+                            (this.userRole === 'admin' && folders.length === 1);
+
+                        if (canAutoEnter && folders.length === 1 && folders[0] && folders[0].id) {
+                            this.state.currentFolderId = folders[0].id;
+                            this.state.isRoot = false;
+                            await this.loadFiles();
+                            return;
+                        }
+                    }
+
                     this.renderFiles(result.data);
                     this.updateUIForCurrentState(result.data);
                     this.updateBreadcrumb(result.data.breadcrumb);
@@ -1111,7 +1500,12 @@
             const filesList = document.getElementById('filesList');
             const emptyState = document.getElementById('emptyState');
 
-            const items = data.items || [];
+            // Cache payload for view switching
+            this.state.lastFilesPayload = data || null;
+
+            const items = this.getSortedItems(data.items || []);
+            // keep indicators in sync (only matters for list view, but harmless)
+            this.updateListHeaderSortIndicators();
 
             // BUG-070 Phase 4: Extract tenant_id from first item to update context
             // This ensures getCurrentTenantId() returns the CURRENT FOLDER's tenant
@@ -1122,6 +1516,34 @@
 
             if (!items || items.length === 0) {
                 if (emptyState) {
+                    // Make empty state explicit when user is inside their tenant folder (auto-enter).
+                    try {
+                        const h3 = emptyState.querySelector('h3');
+                        const p = emptyState.querySelector('p');
+
+                        const currentFolder = data?.current_folder || null;
+                        const crumb = Array.isArray(data?.breadcrumb) ? data.breadcrumb : [];
+                        const inFolder = !!this.state.currentFolderId;
+
+                        // Tenant name preference: current folder tenant_name -> breadcrumb leaf -> fallback
+                        const tenantName =
+                            (currentFolder && (currentFolder.tenant_name || currentFolder.name)) ||
+                            (crumb.length > 0 ? (crumb[crumb.length - 1]?.name || '') : '') ||
+                            '';
+
+                        if (inFolder && this.userRole === 'user') {
+                            if (h3) h3.textContent = 'Cartella del tuo tenant';
+                            if (p) {
+                                const tn = tenantName ? `: ${tenantName}` : '';
+                                p.textContent = `Sei nella cartella del tuo tenant${tn}. Carica il tuo primo file o crea una cartella per iniziare.`;
+                            }
+                        } else {
+                            if (h3) h3.textContent = 'Nessun file trovato';
+                            if (p) p.textContent = 'Carica il tuo primo file o crea una cartella per iniziare';
+                        }
+                    } catch (e) {
+                        // ignore - fall back to default HTML
+                    }
                     emptyState.classList.remove('hidden');
                 }
                 if (filesGrid) filesGrid.innerHTML = '';
@@ -1162,18 +1584,46 @@
             fileCard.dataset.type = isFolder ? 'folder' : (item.type || 'file');
             fileCard.dataset.id = item.id;
             fileCard.dataset.fileId = item.id;
+            fileCard.dataset.isFolder = isFolder ? 'true' : 'false';
+            fileCard.dataset.size = item.size || 0;
+            // Useful for sidebar details when clicking folders
+            fileCard.dataset.subfolderCount = item.subfolder_count || 0;
+            fileCard.dataset.fileCount = item.file_count || 0;
+            fileCard.dataset.createdAt = item.created_at || '';
+            fileCard.dataset.updatedAt = item.updated_at || '';
+            if (item && item.version_of_file_id) {
+                fileCard.dataset.versionOfFileId = item.version_of_file_id;
+            } else {
+                fileCard.dataset.versionOfFileId = '';
+            }
 
             const iconHtml = isFolder ?
                 `<svg viewBox="0 0 24 24" fill="currentColor">
                     <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z" fill="#F59E0B"/>
                 </svg>` :
-                this.getFileIcon(this.getFileTypeFromMime(item.mime_type));
+                (() => {
+                    // Prefer mime_type; fallback to extension when mime_type is missing/unknown (common for created docs)
+                    const byMime = this.getFileTypeFromMime(item.mime_type);
+                    const byExt = this.getFileType(item.name || '');
+                    const type = (byMime && byMime !== 'file') ? byMime : byExt;
+                    return this.getFileIcon(type);
+                })();
 
             const formattedSize = isFolder ?
                 `${(item.subfolder_count || 0) + (item.file_count || 0)} elementi` :
                 this.formatFileSize(item.size);
 
             const modifiedDate = this.formatDate(item.updated_at);
+
+            const openNewTabBtn = (!isFolder) ? `
+                    <button class="action-btn" title="Apri in nuova scheda" data-action="open-new-tab">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 3h7v7"/>
+                            <path d="M10 14L21 3"/>
+                            <path d="M21 14v7H3V3h7"/>
+                        </svg>
+                    </button>
+            ` : '';
 
             fileCard.innerHTML = `
                 <div class="file-card-icon ${item.type}">
@@ -1184,6 +1634,7 @@
                     <span class="file-meta">${formattedSize} · ${modifiedDate}</span>
                 </div>
                 <div class="file-card-actions">
+                    ${openNewTabBtn}
                     <button class="action-btn" title="Download">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -1212,14 +1663,50 @@
             if (!tbody) return;
 
             const row = document.createElement('tr');
-            row.className = file.is_folder ? 'file-row folder' : 'file-row';
+            const isFolder =
+                (file && (file.type === 'folder' || file.is_folder === 1 || file.is_folder === true || file.is_folder === '1'));
+            row.className = isFolder ? 'file-row folder' : 'file-row';
             row.dataset.name = file.name;
-            row.dataset.type = file.is_folder ? 'folder' : file.type;
+            row.dataset.type = isFolder ? 'folder' : (file.type || 'file');
             row.dataset.fileId = file.id;
+            row.dataset.isFolder = (isFolder ? 'true' : 'false');
+            row.dataset.size = file.size || 0;
+            // Useful for sidebar details when clicking folders
+            row.dataset.subfolderCount = file.subfolder_count || 0;
+            row.dataset.fileCount = file.file_count || 0;
+            row.dataset.createdAt = file.created_at || '';
+            row.dataset.updatedAt = file.updated_at || '';
+            if (file && file.version_of_file_id) {
+                row.dataset.versionOfFileId = file.version_of_file_id;
+            } else {
+                row.dataset.versionOfFileId = '';
+            }
 
-            const iconColor = file.is_folder ? '#F59E0B' : this.getFileColor(file.type);
-            const formattedSize = file.is_folder ? '—' : this.formatFileSize(file.size);
+            const fileType = isFolder ? 'folder' : this.getFileType(file.name || '');
+            const iconColor = isFolder ? '#F59E0B' : this.getFileColor(fileType);
+            const folderSubCount = Number(file.subfolder_count || 0) || 0;
+            const folderFileCount = Number(file.file_count || 0) || 0;
+            const fileBytes = Number(file.size);
+            const formattedSize = isFolder
+                ? (((folderSubCount + folderFileCount) > 0)
+                    ? `${folderSubCount + folderFileCount} elementi`
+                    : '0 elementi')
+                : (Number.isFinite(fileBytes) ? this.formatFileSize(fileBytes) : '—');
             const modifiedDate = this.formatDate(file.updated_at);
+
+            const iconHtml = isFolder
+                ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z" fill="#F59E0B"/></svg>'
+                : this.getFileIcon(fileType);
+
+            const openNewTabBtn = (!isFolder) ? `
+                    <button class="action-btn" title="Apri in nuova scheda" data-action="open-new-tab">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 3h7v7"/>
+                            <path d="M10 14L21 3"/>
+                            <path d="M21 14v7H3V3h7"/>
+                        </svg>
+                    </button>
+            ` : '';
 
             row.innerHTML = `
                 <td class="checkbox-col">
@@ -1227,19 +1714,18 @@
                 </td>
                 <td class="name-col">
                     <div class="file-name-wrapper">
-                        <svg class="file-icon" viewBox="0 0 24 24" fill="${iconColor}">
-                            ${file.is_folder ?
-                                '<path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>' :
-                                '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>'
-                            }
-                        </svg>
+                        <span class="file-icon" style="display:inline-flex; width:24px; height:24px; color:${iconColor};">
+                            ${iconHtml}
+                        </span>
                         <span class="file-name">${file.name}</span>
                     </div>
                 </td>
                 <td>${file.uploaded_by?.name || 'Tu'}</td>
+                <td>${file.assignment_label ? String(file.assignment_label) : '—'}</td>
                 <td>${modifiedDate}</td>
                 <td>${formattedSize}</td>
                 <td class="actions-col">
+                    ${openNewTabBtn}
                     <button class="action-btn" title="More">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <circle cx="12" cy="12" r="1"/>
@@ -1307,12 +1793,9 @@
         getFileColor(type) {
             const colors = {
                 pdf: '#EF4444',
-                doc: '#2563EB',
-                docx: '#2563EB',
-                xls: '#10B981',
-                xlsx: '#10B981',
-                ppt: '#F59E0B',
-                pptx: '#F59E0B',
+                word: '#2563EB',
+                excel: '#10B981',
+                powerpoint: '#F59E0B',
                 txt: '#6B7280',
                 default: '#6B7280'
             };
@@ -1420,6 +1903,33 @@
                 grid?.classList.remove('view-active');
                 list?.classList.add('view-active');
             }
+
+            // IMPORTANT: re-render using cached payload so list view is not empty
+            if (this.state.lastFilesPayload) {
+                this.renderFiles(this.state.lastFilesPayload);
+            } else {
+                this.loadFiles();
+            }
+        }
+
+        /**
+         * Apply current view state to DOM (used at startup and for default list view)
+         */
+        applyCurrentViewToDom() {
+            const grid = document.getElementById('filesGrid');
+            const list = document.getElementById('filesList');
+            const view = this.state.currentView || 'grid';
+
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`.view-btn[data-view="${view}"]`)?.classList.add('active');
+
+            if (view === 'grid') {
+                grid?.classList.add('view-active');
+                list?.classList.remove('view-active');
+            } else {
+                grid?.classList.remove('view-active');
+                list?.classList.add('view-active');
+            }
         }
 
         handleFileClick(element, e) {
@@ -1461,9 +1971,9 @@
                     const isEditable = window.documentEditor.isFileEditable(fileName);
 
                     if (isEditable) {
-                        // Open in document editor
+                        // Open in document editor (mode decided by workflow state)
                         console.log(`Opening editable document: ${fileName} (ID: ${itemId})`);
-                        window.documentEditor.openDocument(itemId, 'edit');
+                        this.openDocumentEditor(itemId);
                         return;
                     }
                 }
@@ -1544,12 +2054,16 @@
 
         updateUIForCurrentState(data) {
             const uploadBtn = document.getElementById('uploadBtn');
+            const uploadFolderBtn = document.getElementById('uploadFolderBtn');
             const newFolderBtn = document.getElementById('newFolderBtn');
             const createDocumentBtn = document.getElementById('createDocumentBtn');
             const createRootFolderBtn = document.getElementById('createRootFolderBtn'); // BUG-059: Tenant folder button
 
             if (uploadBtn) {
                 uploadBtn.style.display = 'inline-flex';
+            }
+            if (uploadFolderBtn) {
+                uploadFolderBtn.style.display = 'inline-flex';
             }
 
             if (newFolderBtn) {
@@ -1664,25 +2178,98 @@
             const fileId = parseInt(fileElement.dataset.fileId);
             const isFolder = fileElement.dataset.isFolder === 'true';
 
+            // Store current sidebar selection for the "Scarica" button
+            this.state.currentDetailsFileId = fileId || null;
+            this.state.currentDetailsFileName = fileName || null;
+            this.state.currentDetailsIsFolder = !!isFolder;
+
+            // Show/hide “Chiedi all'AI” for files only
+            try {
+                const aiBtn = document.getElementById('detailsAskAiBtn');
+                if (aiBtn) {
+                    aiBtn.style.display = (!isFolder && fileId) ? '' : 'none';
+                }
+            } catch (_) {}
+
             // Update sidebar content
             const filename = sidebar.querySelector('.details-filename');
             const typeValue = sidebar.querySelector('.meta-item:nth-child(1) .meta-value');
             const sizeValue = sidebar.querySelector('.meta-item:nth-child(2) .meta-value');
             const modifiedValue = sidebar.querySelector('.meta-item:nth-child(3) .meta-value');
             const ownerValue = sidebar.querySelector('.meta-item:nth-child(4) .meta-value');
+            const createdValue = sidebar.querySelector('.meta-item:nth-child(5) .meta-value');
 
             if (filename) filename.textContent = fileName;
             if (typeValue) typeValue.textContent = this.getFileTypeLabel(fileType) || 'File';
-            if (sizeValue) sizeValue.textContent = fileElement.querySelector('.file-meta')?.textContent.split('·')[0]?.trim() || '—';
-            if (modifiedValue) modifiedValue.textContent = fileElement.querySelector('.file-meta')?.textContent.split('·')[1]?.trim() || '—';
+            const sizeFromData = fileElement.dataset.size ? parseInt(fileElement.dataset.size, 10) : null;
+            const updatedAt = fileElement.dataset.updatedAt || '';
+            const createdAt = fileElement.dataset.createdAt || '';
+
+            if (sizeValue) {
+                if (isFolder) {
+                    const sc = fileElement.dataset.subfolderCount ? parseInt(fileElement.dataset.subfolderCount, 10) : 0;
+                    const fc = fileElement.dataset.fileCount ? parseInt(fileElement.dataset.fileCount, 10) : 0;
+                    const total = (Number.isFinite(sc) ? sc : 0) + (Number.isFinite(fc) ? fc : 0);
+                    sizeValue.textContent = `${total} elementi`;
+                } else {
+                    sizeValue.textContent = sizeFromData !== null ? this.formatFileSize(sizeFromData) : (fileElement.querySelector('.file-meta')?.textContent.split('·')[0]?.trim() || '—');
+                }
+            }
+            if (modifiedValue) modifiedValue.textContent = updatedAt ? this.formatDate(updatedAt) : (fileElement.querySelector('.file-meta')?.textContent.split('·')[1]?.trim() || '—');
+            if (createdValue) createdValue.textContent = createdAt ? this.formatDate(createdAt) : '—';
             if (ownerValue) ownerValue.textContent = 'Tu';
 
             this.updateFilePreview(sidebar, fileElement);
 
+            // NEW: Show "Assegnato a" in sidebar details using check-access (non-sensitive; works even for non-assignees)
+            try {
+                const metaContainer = sidebar.querySelector('.details-meta');
+                if (metaContainer) {
+                    let assignmentMeta = metaContainer.querySelector('[data-meta="assignment-target"]');
+                    if (!assignmentMeta) {
+                        assignmentMeta = document.createElement('div');
+                        assignmentMeta.className = 'meta-item';
+                        assignmentMeta.setAttribute('data-meta', 'assignment-target');
+                        assignmentMeta.innerHTML = `
+                            <span class="meta-label">Assegnato a</span>
+                            <span class="meta-value">Caricamento...</span>
+                        `;
+                        metaContainer.appendChild(assignmentMeta);
+                    }
+
+                    const assignmentValue = assignmentMeta.querySelector('.meta-value');
+                    if (assignmentValue) assignmentValue.textContent = 'Caricamento...';
+
+                    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                    const params = new URLSearchParams();
+                    if (fileId) params.append('file_id', String(fileId));
+                    if (!fileId && fileElement.dataset.folderId) params.append('folder_id', String(fileElement.dataset.folderId));
+                    params.append('_ts', String(Date.now()));
+
+                    fetch(`/CollaboraNexio/api/files/check-access.php?${params.toString()}`, {
+                        method: 'GET',
+                        headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+                        credentials: 'same-origin'
+                    })
+                        .then(r => r.json())
+                        .then(j => {
+                            const label = j?.data?.details?.assignment_target_label || 'Non assegnato';
+                            if (assignmentValue) assignmentValue.textContent = label;
+                        })
+                        .catch(() => {
+                            if (assignmentValue) assignmentValue.textContent = 'Non assegnato';
+                        });
+                }
+            } catch (e) {
+                // Non-blocking
+            }
+
             // NEW: Load workflow info for files (not folders)
             if (!isFolder && fileId && window.workflowManager) {
-                // Store current file ID globally for workflow actions
+                // Store current file ID and name globally for workflow actions
+                // BUG-146c FIX: Also store fileName for showHistoryModal
                 window.currentFileId = fileId;
+                window.currentFileName = fileName;
                 this.loadSidebarWorkflowInfo(fileId);
             } else {
                 // Hide workflow section for folders
@@ -1768,12 +2355,14 @@
             const fileId = fileElement.dataset.fileId || fileElement.dataset.id;
             const folderId = isFolder ? (fileElement.dataset.folderId || fileId) : null;
             const fileName = fileElement.dataset.name || fileElement.querySelector('.file-name')?.textContent || 'Unknown';
+            const versionOfFileId = fileElement.dataset.versionOfFileId || '';
 
             // Set dataset on context menu for workflow handlers
             contextMenu.dataset.fileId = fileId || '';
             contextMenu.dataset.folderId = folderId || '';
             contextMenu.dataset.fileName = fileName;
             contextMenu.dataset.isFolder = isFolder ? 'true' : 'false';
+            contextMenu.dataset.versionOfFileId = versionOfFileId;
 
             // Show/hide folder-only menu items
             const folderOnlyItems = contextMenu.querySelectorAll('.context-folder-only');
@@ -1786,6 +2375,19 @@
             fileOnlyItems.forEach(item => {
                 item.style.display = !isFolder ? '' : 'none';
             });
+
+            // Compliance version restore: only for manager/super_admin, only for version files
+            try {
+                const restoreBtn = contextMenu.querySelector('[data-action="restore-compliance-version"]');
+                const role = (window.userRole || document.getElementById('userRole')?.value || '').toString();
+                const can = (role === 'manager' || role === 'super_admin');
+                const isVersion = !!(versionOfFileId && String(versionOfFileId).trim() !== '');
+                if (restoreBtn) {
+                    restoreBtn.style.display = (!isFolder && can && isVersion) ? '' : 'none';
+                }
+            } catch (e) {
+                // ignore
+            }
 
             contextMenu.style.left = `${x}px`;
             contextMenu.style.top = `${y}px`;
@@ -1804,6 +2406,11 @@
             if (!this.contextFile) return;
 
             const fileName = this.contextFile.dataset.name;
+            const fileId = this.contextFile.dataset.fileId || this.contextFile.dataset.id || '';
+            const isFolder =
+                this.contextFile.dataset.isFolder === 'true' ||
+                this.contextFile.dataset.type === 'folder' ||
+                this.contextFile.classList.contains('folder');
 
             switch (action) {
                 case 'rename':
@@ -1815,15 +2422,73 @@
                 case 'download':
                     this.downloadFile(fileName);
                     break;
-                case 'share':
-                    this.shareFile(fileName);
+                case 'open-new-tab':
+                case 'apri in nuova scheda':
+                    if (!isFolder && fileId) {
+                        this.openFileInNewTab(fileId);
+                    }
+                    break;
+                case 'ask-ai':
+                case "chiedi all'ai":
+                    if (!isFolder && fileId) {
+                        const tid = document.getElementById('currentTenantId')?.value || '';
+                        const url = `ai.php?${tid ? (`tenant_id=${encodeURIComponent(String(tid))}&`) : ''}file_id=${encodeURIComponent(String(fileId))}&context=files`;
+                        window.open(url, '_blank', 'noopener');
+                    }
                     break;
                 case 'delete':
                     this.deleteFile(fileName);
                     break;
+                case 'restore-compliance-version':
+                case 'ripristina versione':
+                    if (!isFolder && fileId) {
+                        const versionOf = this.contextFile.dataset.versionOfFileId || '';
+                        const parentFileId = parseInt(String(versionOf || '0'), 10) || 0;
+                        const versionFileId = parseInt(String(fileId || '0'), 10) || 0;
+                        if (parentFileId > 0 && versionFileId > 0) {
+                            this.restoreComplianceVersion(parentFileId, versionFileId);
+                        } else {
+                            this.showToast('Versione non valida', 'error');
+                        }
+                    }
+                    break;
             }
 
             this.contextFile = null;
+        }
+
+        async restoreComplianceVersion(parentFileId, versionFileId) {
+            try {
+                const role = (window.userRole || '').toString();
+                if (!(role === 'manager' || role === 'super_admin')) {
+                    this.showToast('Accesso negato', 'error');
+                    return;
+                }
+                const ok = confirm('Confermi il ripristino di questa versione? Il documento corrente verrà sovrascritto (verrà creata una nuova snapshot).');
+                if (!ok) return;
+
+                const res = await fetch('/CollaboraNexio/api/compliance/artifact_apply.php?action=restore_version', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': this.csrfToken
+                    },
+                    body: JSON.stringify({ file_id: parentFileId, version_file_id: versionFileId })
+                });
+                const text = await res.text();
+                let json = null;
+                try { json = JSON.parse(text); } catch (e) {}
+                if (!res.ok || !json || json.success === false) {
+                    const msg = (json && (json.error || json.message)) ? (json.error || json.message) : (`HTTP ${res.status}`);
+                    throw new Error(msg);
+                }
+                const warnings = Array.isArray(json.data?.warnings) ? json.data.warnings : [];
+                this.showToast(warnings.length ? 'Ripristinato (con avvisi)' : 'Versione ripristinata', warnings.length ? 'warning' : 'success');
+                // Reload current folder contents
+                await this.loadFiles(this.state.currentFolderId || null);
+            } catch (e) {
+                this.showToast((e?.message || 'Errore ripristino'), 'error');
+            }
         }
 
         // File operations
@@ -1840,6 +2505,7 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'X-CSRF-Token': this.csrfToken
                         },
                         body: JSON.stringify({
                             name: folderName.trim(),
@@ -1882,10 +2548,125 @@
             const fileElement = document.querySelector(`[data-name="${fileName}"]`);
             const fileId = fileElement?.dataset.fileId || fileElement?.dataset.id;
 
-            if (fileId) {
+            if (fileId && fileElement) {
+                const isFolder =
+                    fileElement.dataset.isFolder === 'true' ||
+                    fileElement.dataset.type === 'folder' ||
+                    fileElement.classList.contains('folder');
+
+                // Folder ZIP download requires approval for non-privileged users
+                if (isFolder && !['super_admin', 'admin', 'manager'].includes(this.userRole)) {
+                    this.requestFolderZipDownload(parseInt(fileId, 10), fileName);
+                    return;
+                }
+
+                // File download requires approval for non-privileged users (one-time)
+                if (!isFolder && !['super_admin', 'admin', 'manager'].includes(this.userRole)) {
+                    this.requestFileDownload(parseInt(fileId, 10), fileName);
+                    return;
+                }
+
                 this.downloadFileById(fileId, fileName);
             } else {
                 this.showToast('Errore: ID file non trovato', 'error');
+            }
+        }
+
+        async requestFolderZipDownload(folderId, folderName) {
+            try {
+                const response = await fetch(this.config.filesApi + '?action=request_folder_zip_download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': this.csrfToken
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        folder_id: folderId,
+                        csrf_token: this.csrfToken
+                    })
+                });
+
+                const result = await response.json().catch(() => null);
+                if (!response.ok || !result) {
+                    if (response.status === 503) {
+                        this.showToast('Sistema approvazioni non configurato (migrazione DB mancante)', 'error');
+                        return;
+                    }
+                    this.showToast('Errore durante la richiesta di download ZIP', 'error');
+                    return;
+                }
+
+                if (result.success && result.data?.approved && result.data?.download_url) {
+                    // Already approved -> start download (one-time)
+                    const link = document.createElement('a');
+                    link.href = result.data.download_url;
+                    link.download = (folderName || 'cartella') + '.zip';
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    this.showToast('Download ZIP avviato', 'success');
+                    return;
+                }
+
+                if (result.success) {
+                    this.showToast(result.message || 'Richiesta inviata al manager del tenant', 'success');
+                } else {
+                    this.showToast(result.error || 'Impossibile inviare la richiesta', 'error');
+                }
+            } catch (error) {
+                console.error('Error requesting folder zip download:', error);
+                this.showToast('Errore di rete durante la richiesta', 'error');
+            }
+        }
+
+        async requestFileDownload(fileId, fileName) {
+            try {
+                const response = await fetch(this.config.filesApi + '?action=request_file_download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': this.csrfToken
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        file_id: fileId,
+                        csrf_token: this.csrfToken
+                    })
+                });
+
+                const result = await response.json().catch(() => null);
+                if (!response.ok || !result) {
+                    if (response.status === 503) {
+                        this.showToast('Sistema approvazioni non configurato (migrazione DB mancante)', 'error');
+                        return;
+                    }
+                    this.showToast('Errore durante la richiesta di download', 'error');
+                    return;
+                }
+
+                if (result.success && result.data?.approved && result.data?.download_url) {
+                    // Already approved -> start download (one-time)
+                    const link = document.createElement('a');
+                    link.href = result.data.download_url;
+                    link.download = fileName || 'download';
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    this.showToast('Download avviato', 'success');
+                    return;
+                }
+
+                if (result.success) {
+                    this.showToast(result.message || 'Richiesta inviata al manager del tenant', 'success');
+                } else {
+                    this.showToast(result.error || 'Impossibile inviare la richiesta', 'error');
+                }
+            } catch (error) {
+                console.error('Error requesting file download:', error);
+                this.showToast('Errore di rete durante la richiesta', 'error');
             }
         }
 
@@ -1907,29 +2688,16 @@
         }
 
         shareFile(fileName) {
-            const shareUrl = `${window.location.origin}/files/${encodeURIComponent(fileName)}`;
-
-            if (navigator.share) {
-                navigator.share({
-                    title: fileName,
-                    text: `Check out ${fileName}`,
-                    url: shareUrl
-                }).then(() => {
-                    this.showToast('File condiviso con successo', 'success');
-                }).catch((error) => {
-                    console.log('Error sharing:', error);
-                });
-            } else if (navigator.clipboard) {
-                navigator.clipboard.writeText(shareUrl).then(() => {
-                    this.showToast('Link di condivisione copiato negli appunti', 'success');
-                });
-            }
+            // Sharing disabled by design (security/permissions)
+            this.showToast('Condivisione disabilitata', 'error');
         }
 
         async deleteFile(fileName) {
             if (confirm(`Sei sicuro di voler eliminare "${fileName}"?`)) {
                 const element = document.querySelector(`[data-name="${fileName}"]`);
                 const fileId = element?.dataset.fileId;
+                const isFolder = (element?.dataset.isFolder === 'true' || element?.dataset.type === 'folder');
+                const isPrivileged = ['super_admin', 'admin', 'manager'].includes(this.userRole);
 
                 if (!fileId) {
                     this.showToast('Errore: ID file non trovato', 'error');
@@ -1937,7 +2705,9 @@
                 }
 
                 try {
-                    const response = await fetch(`${this.config.filesApi}?action=delete&id=${fileId}`, {
+                    // For folders: privileged users can delete recursively (folder + all contents)
+                    const recursiveParam = (isFolder && isPrivileged) ? '&recursive=1' : '';
+                    const response = await fetch(`${this.config.filesApi}?action=delete&id=${fileId}${recursiveParam}`, {
                         method: 'DELETE',
                         headers: {
                             'X-CSRF-Token': this.csrfToken
@@ -1956,6 +2726,32 @@
                             }, 300);
                         }
                     } else {
+                        // If folder is not empty and server asks confirmation, retry with recursive=1
+                        if (response.status === 409 && isFolder && isPrivileged && result?.data?.can_recursive_delete) {
+                            const cnt = parseInt(result.data.children_count || '0', 10) || 0;
+                            const ok = confirm(`La cartella contiene ${cnt} elementi. Eliminare comunque la cartella e tutto il contenuto?`);
+                            if (ok) {
+                                const retry = await fetch(`${this.config.filesApi}?action=delete&id=${fileId}&recursive=1`, {
+                                    method: 'DELETE',
+                                    headers: { 'X-CSRF-Token': this.csrfToken },
+                                    credentials: 'same-origin'
+                                });
+                                const retryResult = await retry.json();
+                                if (retryResult.success) {
+                                    if (element) {
+                                        element.style.animation = 'fadeOut 0.3s';
+                                        setTimeout(() => {
+                                            element.remove();
+                                            this.showToast(`${fileName} eliminato`, 'success');
+                                        }, 300);
+                                    }
+                                    return;
+                                }
+                                this.showToast(retryResult.error || 'Errore durante l\'eliminazione', 'error');
+                                return;
+                            }
+                            return;
+                        }
                         this.showToast(result.error || 'Errore durante l\'eliminazione', 'error');
                     }
                 } catch (error) {
@@ -1975,10 +2771,13 @@
                 for (const fileName of this.state.selectedFiles) {
                     const element = document.querySelector(`[data-name="${fileName}"]`);
                     const fileId = element?.dataset.fileId;
+                    const isFolder = (element?.dataset.isFolder === 'true' || element?.dataset.type === 'folder');
+                    const isPrivileged = ['super_admin', 'admin', 'manager'].includes(this.userRole);
 
                     if (fileId) {
                         try {
-                            const response = await fetch(`${this.config.filesApi}?action=delete&id=${fileId}`, {
+                            const recursiveParam = (isFolder && isPrivileged) ? '&recursive=1' : '';
+                            const response = await fetch(`${this.config.filesApi}?action=delete&id=${fileId}${recursiveParam}`, {
                                 method: 'DELETE',
                                 headers: {
                                     'X-CSRF-Token': this.csrfToken
@@ -2117,15 +2916,24 @@
         }
 
         handleFileAction(btn, fileElement) {
-            const action = btn.title.toLowerCase();
+            const action = ((btn.dataset && btn.dataset.action) ? btn.dataset.action : btn.title).toLowerCase();
             const fileName = fileElement.dataset.name;
+            const fileId = fileElement.dataset.fileId || fileElement.dataset.id || '';
+            const isFolder =
+                fileElement.dataset.isFolder === 'true' ||
+                fileElement.dataset.type === 'folder' ||
+                fileElement.classList.contains('folder');
 
             switch (action) {
                 case 'download':
                     this.downloadFile(fileName);
                     break;
-                case 'share':
-                    this.shareFile(fileName);
+                case 'open-new-tab':
+                case 'apri in nuova scheda':
+                case 'new tab':
+                    if (!isFolder && fileId) {
+                        this.openFileInNewTab(fileId);
+                    }
                     break;
                 case 'more':
                     this.showFileMenu(btn, fileElement);
@@ -2155,7 +2963,6 @@
             const menuOptions = [
                 { label: 'Apri', icon: '📂', action: 'open' },
                 { label: 'Scarica', icon: '⬇', action: 'download' },
-                { label: 'Condividi', icon: '🔗', action: 'share' },
                 { divider: true },
                 { label: 'Rinomina', icon: '✏', action: 'rename' },
                 { label: 'Copia', icon: '📋', action: 'copy' },
@@ -2164,14 +2971,21 @@
                 { label: 'Dettagli', icon: 'ℹ', action: 'details' }
             ];
 
-            // Add workflow options for Manager/Admin on files only
+            // Add workflow / assignment options for Manager/Admin (files only for workflow)
             const userRole = window.userRole;
-            const isFolder = fileElement.dataset.isFolder === 'true';
-            if (['manager', 'admin', 'super_admin'].includes(userRole) && !isFolder) {
+            const isFolder =
+                fileElement.dataset.isFolder === 'true' ||
+                fileElement.dataset.type === 'folder' ||
+                fileElement.classList.contains('folder');
+
+            // Assignment allowed for both files and folders (no workflow on folders)
+            if (['manager', 'admin', 'super_admin'].includes(userRole)) {
                 menuOptions.push({ divider: true });
                 menuOptions.push({ label: 'Assegna a Utente', icon: '👤', action: 'assign-file' });
-                menuOptions.push({ label: 'Gestisci Ruoli Workflow', icon: '⚙️', action: 'workflow-roles' });
-                menuOptions.push({ label: 'Stato Workflow', icon: '📊', action: 'workflow-status' });
+                if (!isFolder) {
+                    menuOptions.push({ label: 'Gestisci Ruoli Workflow', icon: '⚙️', action: 'workflow-roles' });
+                    menuOptions.push({ label: 'Stato Workflow', icon: '📊', action: 'workflow-status' });
+                }
             }
 
             menuOptions.push({ divider: true });
@@ -2261,9 +3075,6 @@
                 case 'download':
                     this.downloadFile(fileName);
                     break;
-                case 'share':
-                    this.shareFile(fileName);
-                    break;
                 case 'rename':
                     this.renameFile(fileName);
                     break;
@@ -2281,8 +3092,16 @@
                 case 'assign-file':
                     // Call file assignment manager
                     if (window.fileAssignmentManager) {
-                        const fileId = fileElement.dataset.fileId || fileElement.dataset.id;
-                        window.fileAssignmentManager.showAssignmentModal(fileId, null, fileName);
+                        const isFolder =
+                            fileElement.dataset.isFolder === 'true' ||
+                            fileElement.dataset.type === 'folder' ||
+                            fileElement.classList.contains('folder');
+                        const itemId = fileElement.dataset.fileId || fileElement.dataset.id;
+                        if (isFolder) {
+                            window.fileAssignmentManager.showAssignmentModal(null, itemId, fileName);
+                        } else {
+                            window.fileAssignmentManager.showAssignmentModal(itemId, null, fileName);
+                        }
                     }
                     break;
                 case 'workflow-roles':
@@ -2412,19 +3231,7 @@
             }
         }
 
-        createNewFolder() {
-            if (this.state.isRoot) {
-                this.showToast('Seleziona prima una cartella tenant', 'error');
-                return;
-            }
-
-            const folderName = prompt('Inserisci il nome della nuova cartella:');
-            if (folderName && folderName.trim()) {
-                // Implement folder creation logic
-                this.showToast(`Creazione cartella "${folderName}"...`, 'info');
-                // TODO: Call API to create folder
-            }
-        }
+        // NOTE: createNewFolder implemented above (async). Do not re-declare it here (BUG: override).
 
         // NEW METHODS FOR WORKFLOW SIDEBAR
         async loadSidebarWorkflowInfo(fileId) {
@@ -2432,42 +3239,77 @@
             if (!workflowSection) return;
 
             try {
-                const status = await window.workflowManager.getWorkflowStatus(fileId);
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                const resp = await fetch(`/CollaboraNexio/api/documents/workflow/status.php?file_id=${fileId}`, {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: csrf ? { 'X-CSRF-Token': csrf } : {}
+                });
 
-                if (status && status.state) {
-                    // Show workflow section
-                    workflowSection.style.display = 'block';
-
-                    // Populate state badge
-                    const badge = window.workflowManager.renderWorkflowBadge(status.state);
-                    const badgeContainer = document.getElementById('sidebarWorkflowBadge');
-                    if (badgeContainer) {
-                        badgeContainer.innerHTML = badge;
-                    }
-
-                    // Populate people (validator/approver)
-                    const peopleSection = document.getElementById('workflowPeople');
-                    if (status.validator_name || status.approver_name) {
-                        peopleSection.style.display = 'block';
-
-                        const validatorEl = document.getElementById('workflowValidator');
-                        const approverEl = document.getElementById('workflowApprover');
-
-                        if (validatorEl) validatorEl.textContent = status.validator_name || '—';
-                        if (approverEl) approverEl.textContent = status.approver_name || '—';
-                    } else {
-                        peopleSection.style.display = 'none';
-                    }
-
-                    // Render action buttons based on available_actions
-                    this.renderSidebarWorkflowActions(fileId, status.available_actions || []);
-
-                    // Render approval stamp if document is approved
-                    this.renderApprovalStamp(status);
-
-                } else {
-                    // Workflow not enabled or 404
+                if (resp.status === 404) {
                     workflowSection.style.display = 'none';
+                    return;
+                }
+
+                const payload = await resp.json();
+                if (!payload?.success) {
+                    workflowSection.style.display = 'none';
+                    return;
+                }
+
+                const data = payload.data || {};
+                const workflow = data.workflow || null;
+
+                // Always show workflow section for files: if workflow doesn't exist, treat as "Bozza"
+                workflowSection.style.display = 'block';
+
+                const state = workflow?.state || 'bozza';
+                const stateLabel = workflow?.state_label || (state === 'bozza' ? 'Bozza' : state);
+
+                // Populate state badge
+                const badgeContainer = document.getElementById('sidebarWorkflowBadge');
+                if (badgeContainer && window.workflowManager && typeof window.workflowManager.renderWorkflowBadge === 'function') {
+                    badgeContainer.innerHTML = window.workflowManager.renderWorkflowBadge(state);
+                } else if (badgeContainer) {
+                    badgeContainer.textContent = stateLabel;
+                }
+
+                // Populate people (validator/approver)
+                const peopleSection = document.getElementById('workflowPeople');
+                const validatorName = workflow?.participants?.validator?.name || null;
+                const approverName = workflow?.participants?.approver?.name || null;
+
+                if (validatorName || approverName) {
+                    if (peopleSection) peopleSection.style.display = 'block';
+                    const validatorEl = document.getElementById('workflowValidator');
+                    const approverEl = document.getElementById('workflowApprover');
+                    if (validatorEl) validatorEl.textContent = validatorName || '—';
+                    if (approverEl) approverEl.textContent = approverName || '—';
+                } else {
+                    if (peopleSection) peopleSection.style.display = 'none';
+                }
+
+                // Render action buttons based on available_actions (from top-level response, not inside workflow)
+                this.renderSidebarWorkflowActions(fileId, data.available_actions || []);
+
+                // Render approval stamp if document is approved
+                this.renderApprovalStamp(workflow || { state });
+
+                // Also ensure badge shows on the clicked file card (minimal requirement)
+                try {
+                    const card = document.querySelector(`[data-file-id="${fileId}"]`);
+                    if (card && !card.querySelector('.workflow-badge-injected')) {
+                        const nameEl = card.querySelector('.file-name, .file-card-info h4, .file-name-wrapper');
+                        if (nameEl) {
+                            const badge = document.createElement('span');
+                            badge.className = 'workflow-badge-injected';
+                            badge.style.cssText = 'display:inline-block;padding:4px 10px;background:#3498db;color:#fff;border-radius:4px;font-size:11px;font-weight:600;margin-left:8px;white-space:nowrap;vertical-align:middle;';
+                            badge.textContent = stateLabel;
+                            nameEl.appendChild(badge);
+                        }
+                    }
+                } catch (e) {
+                    // ignore
                 }
             } catch (err) {
                 // Silent fail: 404 = workflow not enabled
@@ -2492,7 +3334,14 @@
                         <line x1="9" y1="15" x2="15" y2="15"/>
                     </svg>`,
                     class: 'btn-workflow-submit',
-                    handler: () => window.workflowManager.submitForValidation(fileId)
+                    handler: () => {
+                        // Ensure we always pass a filename to avoid UI showing "undefined"
+                        const fileName =
+                            document.querySelector(`[data-file-id="${fileId}"] .file-name`)?.textContent ||
+                            document.querySelector('.file-name')?.textContent ||
+                            'Documento';
+                        window.workflowManager.submitForValidation(fileId, fileName);
+                    }
                 },
                 'validate': {
                     label: 'Valida Documento',

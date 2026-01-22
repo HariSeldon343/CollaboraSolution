@@ -1,1362 +1,1203 @@
 <?php
 /**
- * RESTful Task Management API for CollaboraNexio
+ * BUG-140: Unified Tasks API Endpoint
  *
- * Comprehensive task management system with Kanban board support
+ * SOLUZIONE: Endpoint unico per TUTTE le operazioni Tasks
+ * Bypassa problemi di routing/CORS/Cloudflare che causavano 404 dal browser
  *
- * Endpoint: /api/tasks.php
+ * PROBLEM:
+ * - curl funzionava (HEAD/GET requests)
+ * - Browser POST falliva con 404 nonostante file esistesse
+ * - Cloudflare/WAF potrebbe bloccare POST a .php con certi pattern
+ * - CORS preflight potrebbe fallire su file diretti
  *
- * Core Endpoints:
- * - GET    ?list_id=X&filters     - Get filtered tasks
- * - GET    ?id=X                   - Get single task details
- * - POST   (body)                  - Create new task
- * - PUT    ?id=X                   - Full update of task
- * - PATCH  ?id=X                   - Partial update of task
- * - DELETE ?id=X                   - Delete task
+ * SOLUTION:
+ * - Singolo endpoint che accetta TUTTE le richieste
+ * - Action passata via JSON body o query string
+ * - Processa internamente senza delegare a file esterni
+ * - Stesso comportamento su localhost:8888 e app.nexiosolution.it
  *
- * Action Endpoints:
- * - POST   ?id=X&action=comment    - Add comment
- * - POST   ?id=X&action=watch      - Start watching task
- * - POST   ?id=X&action=unwatch    - Stop watching task
- * - POST   ?id=X&action=assign     - Assign users
- * - POST   ?id=X&action=unassign   - Remove assignees
- * - POST   ?id=X&action=move       - Move task to different column/list
- * - POST   ?id=X&action=clone      - Duplicate task
- * - POST   ?id=X&action=complete   - Mark as complete
- * - POST   ?id=X&action=reopen     - Reopen completed task
- * - POST   ?id=X&action=log_time   - Log time entry
- * - GET    ?action=my_tasks        - Get current user's tasks
- * - GET    ?action=overdue         - Get overdue tasks
- * - GET    ?id=X&action=activity   - Get task activity feed
- * - POST   ?action=bulk_update     - Update multiple tasks
- * - GET    ?action=export          - Export tasks
+ * USAGE:
+ * POST /api/tasks.php
+ * Body: { "action": "create", "title": "...", ... }
  *
- * @version 1.0.0
- * @since PHP 8.0
+ * Or: GET /api/tasks.php?action=list
+ *
+ * @version 1.0.0 - BUG-140
  */
 
-declare(strict_types=1);
+// Prevent any output before headers
+ob_start();
 
-// PRIMA COSA: Includi session_init.php per configurare sessione correttamente
-require_once __DIR__ . '/../includes/session_init.php';
-
-// Error reporting configuration
-error_reporting(E_ALL);
-ini_set('display_errors', '0');
-ini_set('log_errors', '1');
-
-// Required security headers
-header('Content-Type: application/json; charset=UTF-8');
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: DENY');
-header('X-XSS-Protection: 1; mode=block');
-header('Cache-Control: no-store, no-cache, must-revalidate, private');
-header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
-header('Referrer-Policy: strict-origin-when-cross-origin');
-
-// CORS headers for cross-origin requests
-if (isset($_SERVER['HTTP_ORIGIN'])) {
-    header('Access-Control-Allow-Origin: ' . $_SERVER['HTTP_ORIGIN']);
-    header('Access-Control-Allow-Credentials: true');
-    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
-    header('Access-Control-Max-Age: 86400');
-}
-
-// Handle CORS preflight requests
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
-
-// Include required files
+// Required includes
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/db.php';
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/taskmanager.php';
+require_once __DIR__ . '/../includes/api_auth.php';
+require_once __DIR__ . '/../includes/task_notification_helper.php';
 
-// Initialize connections
+// Initialize API environment
+initializeApiEnvironment();
+
+// BUG-140: Enhanced CORS headers for browser compatibility
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token, Authorization, X-Requested-With');
+header('Access-Control-Max-Age: 86400');
+header('Content-Type: application/json; charset=UTF-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+
+// Handle CORS preflight
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    ob_end_clean();
+    exit;
+}
+
+// BUG-140: Verify authentication
+verifyApiAuthentication();
+
+// Get user context
+$userInfo = getApiUserInfo();
+$db = Database::getInstance();
+
+// Effective role (BUG-146): treat user as super_admin if either session role key says so
+$effectiveRole = $userInfo['role'] ?? 'user';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+if (($_SESSION['role'] ?? '') === 'super_admin' || ($_SESSION['user_role'] ?? '') === 'super_admin') {
+    $effectiveRole = 'super_admin';
+}
+
+// BUG-140: Get request data
+$requestBody = file_get_contents('php://input');
+$data = json_decode($requestBody, true) ?: [];
+
+// Priority: POST body > GET query > default
+$action = $data['action']
+    ?? $_GET['action']
+    ?? $_POST['action']
+    ?? 'list';
+
+// Normalize action
+$action = preg_replace('/\.php$/', '', $action);
+$action = strtolower(trim($action));
+
+// Log for debugging
+if (defined('DEBUG_MODE') && DEBUG_MODE) {
+    error_log("[BUG-140] tasks.php - action: '$action', method: {$_SERVER['REQUEST_METHOD']}");
+}
+
+// Valid actions
+$validActions = ['list', 'create', 'update', 'delete', 'assign', 'orphaned'];
+
+if (!in_array($action, $validActions)) {
+    ob_end_clean();
+    api_error("Azione non valida: $action. Azioni disponibili: " . implode(', ', $validActions), 400);
+}
+
+// BUG-140: Verify CSRF for write operations
+if (!in_array($action, ['list', 'orphaned'])) {
+    verifyApiCsrfToken();
+}
+
+ob_end_clean();
+
+// ============================================
+// ACTION HANDLERS
+// ============================================
+
 try {
-    $auth = new Auth();
-    $db = Database::getInstance()->getConnection();
-} catch (Exception $e) {
-    error_log('API initialization error: ' . $e->getMessage());
-    sendErrorResponse(500, 'Server configuration error');
-}
-
-// Check authentication
-if (!$auth->isLoggedIn()) {
-    sendErrorResponse(401, 'Authentication required');
-}
-
-// Get current user and tenant information
-$userId = $_SESSION['user_id'] ?? 0;
-$tenantId = $_SESSION['tenant_id'] ?? 0;
-
-if (!$userId || !$tenantId) {
-    sendErrorResponse(401, 'Invalid session');
-}
-
-// Initialize TaskManager
-try {
-    $taskManager = new TaskManager($db, $tenantId, $userId);
-} catch (Exception $e) {
-    error_log('TaskManager initialization error: ' . $e->getMessage());
-    sendErrorResponse(500, 'Task manager initialization failed');
-}
-
-// Get request method and parameters
-$method = $_SERVER['REQUEST_METHOD'];
-$taskId = isset($_GET['id']) ? (int)$_GET['id'] : null;
-$action = $_GET['action'] ?? null;
-
-// Get request body for POST/PUT/PATCH
-$inputData = [];
-if (in_array($method, ['POST', 'PUT', 'PATCH'])) {
-    $rawInput = file_get_contents('php://input');
-    if ($rawInput) {
-        $inputData = json_decode($rawInput, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            sendErrorResponse(400, 'Invalid JSON in request body');
-        }
-    }
-}
-
-/**
- * Send standardized JSON response
- */
-function sendResponse(
-    bool $success,
-    $data,
-    string $message,
-    int $httpCode = 200,
-    array $metadata = []
-): void {
-    http_response_code($httpCode);
-
-    $response = [
-        'success' => $success,
-        'data' => $data,
-        'message' => $message,
-        'metadata' => array_merge([
-            'timestamp' => date('c')
-        ], $metadata)
-    ];
-
-    echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
-    exit();
-}
-
-/**
- * Send error response
- */
-function sendErrorResponse(int $httpCode, string $message, $data = null): void {
-    sendResponse(false, $data, $message, $httpCode);
-}
-
-/**
- * Validate required fields
- */
-function validateRequired(array $data, array $required): ?string {
-    foreach ($required as $field) {
-        if (!isset($data[$field]) || $data[$field] === '') {
-            return "Field '$field' is required";
-        }
-    }
-    return null;
-}
-
-/**
- * Convert task data for API response
- */
-function formatTaskForResponse(array $task, PDO $db, int $tenantId): array {
-    // Get assignees
-    $assignees = [];
-    $stmt = $db->prepare("
-        SELECT u.id as user_id, u.name, u.avatar
-        FROM task_assignees ta
-        JOIN users u ON ta.user_id = u.id
-        WHERE ta.task_id = :task_id AND ta.tenant_id = :tenant_id
-    ");
-    $stmt->execute([':task_id' => $task['id'], ':tenant_id' => $tenantId]);
-    $assignees = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // Get watchers
-    $watchers = [];
-    $stmt = $db->prepare("
-        SELECT u.id as user_id, u.name
-        FROM task_watchers tw
-        JOIN users u ON tw.user_id = u.id
-        WHERE tw.task_id = :task_id AND tw.tenant_id = :tenant_id
-    ");
-    $stmt->execute([':task_id' => $task['id'], ':tenant_id' => $tenantId]);
-    $watchers = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // Get tags
-    $tags = [];
-    $stmt = $db->prepare("
-        SELECT tg.name
-        FROM task_tags tt
-        JOIN tags tg ON tt.tag_id = tg.id
-        WHERE tt.task_id = :task_id AND tt.tenant_id = :tenant_id
-    ");
-    $stmt->execute([':task_id' => $task['id'], ':tenant_id' => $tenantId]);
-    $tags = $stmt->fetchColumn();
-
-    // Get dependencies
-    $dependencies = [];
-    $stmt = $db->prepare("
-        SELECT depends_on_id as depends_on, dependency_type as type
-        FROM task_dependencies
-        WHERE task_id = :task_id AND tenant_id = :tenant_id
-    ");
-    $stmt->execute([':task_id' => $task['id'], ':tenant_id' => $tenantId]);
-    $dependencies = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // Count attachments and comments
-    $stmt = $db->prepare("
-        SELECT
-            (SELECT COUNT(*) FROM task_attachments WHERE task_id = :task_id1 AND tenant_id = :tenant_id1) as attachments_count,
-            (SELECT COUNT(*) FROM task_comments WHERE task_id = :task_id2 AND tenant_id = :tenant_id2) as comments_count
-    ");
-    $stmt->execute([
-        ':task_id1' => $task['id'], ':tenant_id1' => $tenantId,
-        ':task_id2' => $task['id'], ':tenant_id2' => $tenantId
-    ]);
-    $counts = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    // Get creator info
-    $creator = null;
-    if ($task['created_by']) {
-        $stmt = $db->prepare("SELECT id as user_id, name FROM users WHERE id = :id");
-        $stmt->execute([':id' => $task['created_by']]);
-        $creator = $stmt->fetch(PDO::FETCH_ASSOC);
-    }
-
-    // Calculate permissions
-    global $userId;
-    $canEdit = ($task['created_by'] == $userId) || in_array($userId, array_column($assignees, 'user_id'));
-    $canDelete = ($task['created_by'] == $userId);
-
-    return [
-        'id' => (int)$task['id'],
-        'title' => $task['title'],
-        'description' => $task['description'],
-        'list_id' => (int)($task['board_id'] ?? 0),
-        'column_id' => (int)($task['column_id'] ?? 0),
-        'position' => (int)($task['position'] ?? 0),
-        'status' => $task['status'] ?? 'pending',
-        'priority' => (int)($task['priority'] ?? 2),
-        'due_date' => $task['due_date'] ? date('c', strtotime($task['due_date'])) : null,
-        'start_date' => $task['start_date'] ?? null,
-        'estimated_hours' => (float)($task['estimated_hours'] ?? 0),
-        'actual_hours' => (float)($task['actual_hours'] ?? 0),
-        'progress' => (int)($task['progress_percentage'] ?? 0),
-        'assignees' => $assignees,
-        'watchers' => $watchers,
-        'parent_id' => $task['parent_task_id'] ? (int)$task['parent_task_id'] : null,
-        'subtasks' => [], // Would need recursive query
-        'dependencies' => $dependencies,
-        'tags' => $tags,
-        'attachments_count' => (int)($counts['attachments_count'] ?? 0),
-        'comments_count' => (int)($counts['comments_count'] ?? 0),
-        'is_recurring' => (bool)($task['recurring_task_id'] ?? false),
-        'created_by' => $creator,
-        'created_at' => $task['created_at'] ? date('c', strtotime($task['created_at'])) : null,
-        'updated_at' => $task['updated_at'] ? date('c', strtotime($task['updated_at'])) : null,
-        'can_edit' => $canEdit,
-        'can_delete' => $canDelete
-    ];
-}
-
-// Route the request based on method and parameters
-try {
-    switch ($method) {
-        case 'GET':
-            if ($taskId) {
-                // GET /api/tasks.php?id=X - Get single task
-                handleGetTask($taskId);
-            } elseif ($action) {
-                // Handle special GET actions
-                switch ($action) {
-                    case 'my_tasks':
-                        handleGetMyTasks();
-                        break;
-                    case 'overdue':
-                        handleGetOverdueTasks();
-                        break;
-                    case 'activity':
-                        if (!$taskId) {
-                            sendErrorResponse(400, 'Task ID required for activity');
-                        }
-                        handleGetTaskActivity($taskId);
-                        break;
-                    case 'export':
-                        handleExportTasks();
-                        break;
-                    default:
-                        sendErrorResponse(400, 'Unknown action: ' . $action);
-                }
-            } else {
-                // GET /api/tasks.php?filters - Get filtered tasks
-                handleGetTasks();
-            }
+    switch ($action) {
+        case 'list':
+            handleList($db, $userInfo);
             break;
 
-        case 'POST':
-            if ($taskId && $action) {
-                // Handle task actions
-                switch ($action) {
-                    case 'comment':
-                        handleAddComment($taskId, $inputData);
-                        break;
-                    case 'watch':
-                        handleWatchTask($taskId, $inputData);
-                        break;
-                    case 'unwatch':
-                        handleUnwatchTask($taskId);
-                        break;
-                    case 'assign':
-                        handleAssignUsers($taskId, $inputData);
-                        break;
-                    case 'unassign':
-                        handleUnassignUsers($taskId, $inputData);
-                        break;
-                    case 'move':
-                        handleMoveTask($taskId, $inputData);
-                        break;
-                    case 'clone':
-                        handleCloneTask($taskId, $inputData);
-                        break;
-                    case 'complete':
-                        handleCompleteTask($taskId);
-                        break;
-                    case 'reopen':
-                        handleReopenTask($taskId);
-                        break;
-                    case 'log_time':
-                        handleLogTime($taskId, $inputData);
-                        break;
-                    default:
-                        sendErrorResponse(400, 'Unknown action: ' . $action);
-                }
-            } elseif ($action === 'bulk_update') {
-                handleBulkUpdate($inputData);
-            } else {
-                // POST /api/tasks.php - Create new task
-                handleCreateTask($inputData);
-            }
+        case 'create':
+            handleCreate($db, $userInfo, $data);
             break;
 
-        case 'PUT':
-            if (!$taskId) {
-                sendErrorResponse(400, 'Task ID required for update');
-            }
-            handleFullUpdateTask($taskId, $inputData);
+        case 'update':
+            handleUpdate($db, $userInfo, $data);
             break;
 
-        case 'PATCH':
-            if (!$taskId) {
-                sendErrorResponse(400, 'Task ID required for partial update');
-            }
-            handlePartialUpdateTask($taskId, $inputData);
+        case 'delete':
+            handleDelete($db, $userInfo, $data);
             break;
 
-        case 'DELETE':
-            if (!$taskId) {
-                sendErrorResponse(400, 'Task ID required for deletion');
-            }
-            handleDeleteTask($taskId);
+        case 'assign':
+            handleAssign($db, $userInfo, $data);
+            break;
+
+        case 'orphaned':
+            handleOrphaned($db, $userInfo);
             break;
 
         default:
-            sendErrorResponse(405, 'Method not allowed');
+            api_error("Azione non implementata: $action", 501);
     }
 } catch (Exception $e) {
-    error_log('Task API error: ' . $e->getMessage());
-    sendErrorResponse(500, 'An error occurred: ' . $e->getMessage());
+    error_log("[BUG-140] Task API error: " . $e->getMessage());
+    api_error('Errore: ' . $e->getMessage(), 500);
 }
 
-// ========================================
-// REQUEST HANDLERS
-// ========================================
+// ============================================
+// SCHEMA HELPERS (BUG-144): make API resilient across environments
+// ============================================
+function getTableColumns(Database $db, string $table): array {
+    static $cache = [];
+    if (isset($cache[$table])) return $cache[$table];
 
-/**
- * Handle GET /api/tasks.php - Get filtered tasks
- */
-function handleGetTasks(): void {
-    global $db, $tenantId, $taskManager;
-
-    // Build filter query
-    $where = ["t.tenant_id = :tenant_id", "t.deleted_at IS NULL"];
-    $params = [':tenant_id' => $tenantId];
-    $joins = [];
-
-    // Filter by list_id
-    if (isset($_GET['list_id'])) {
-        $where[] = "t.board_id = :list_id";
-        $params[':list_id'] = (int)$_GET['list_id'];
+    $cols = [];
+    try {
+        $rows = $db->fetchAll("SHOW COLUMNS FROM `$table`");
+        foreach ($rows as $row) {
+            if (!empty($row['Field'])) {
+                $cols[$row['Field']] = true;
+            }
+        }
+    } catch (Exception $e) {
+        // If table doesn't exist or no permission, keep empty map
+        error_log("[BUG-144] SHOW COLUMNS failed for {$table}: " . $e->getMessage());
+        $cols = [];
     }
 
-    // Filter by column_id
-    if (isset($_GET['column_id'])) {
-        $where[] = "t.column_id = :column_id";
-        $params[':column_id'] = (int)$_GET['column_id'];
-    }
+    $cache[$table] = $cols;
+    return $cols;
+}
 
-    // Filter by assignee_id
-    if (isset($_GET['assignee_id'])) {
-        $joins[] = "JOIN task_assignees ta ON ta.task_id = t.id";
-        $where[] = "ta.user_id = :assignee_id";
-        $params[':assignee_id'] = (int)$_GET['assignee_id'];
+function filterByExistingColumns(array $data, array $colMap): array {
+    if (empty($colMap)) return $data; // If unknown schema, don't filter (best effort)
+    $out = [];
+    foreach ($data as $k => $v) {
+        if (isset($colMap[$k])) $out[$k] = $v;
     }
+    return $out;
+}
 
-    // Filter by status
-    if (isset($_GET['status'])) {
-        $statuses = ['todo' => 'pending', 'in_progress' => 'in_progress', 'done' => 'completed', 'blocked' => 'on_hold'];
-        $status = $statuses[$_GET['status']] ?? $_GET['status'];
-        $where[] = "t.status = :status";
-        $params[':status'] = $status;
+function deleteAllAssignmentsForTask(Database $db, int $tenantId, int $taskId, array $taCols): void {
+    // Prefer soft-delete if schema supports it; otherwise hard-delete.
+    if (isset($taCols['deleted_at'])) {
+        $db->update('task_assignments', [
+            'deleted_at' => date('Y-m-d H:i:s')
+        ], [
+            'task_id' => $taskId,
+            'tenant_id' => $tenantId
+        ]);
+        return;
     }
+    $db->query('DELETE FROM task_assignments WHERE task_id = ? AND tenant_id = ?', [$taskId, $tenantId]);
+}
 
-    // Filter by priority
-    if (isset($_GET['priority'])) {
-        $where[] = "t.priority = :priority";
-        $params[':priority'] = (int)$_GET['priority'];
-    }
-
-    // Filter by date range
-    if (isset($_GET['due_date_from'])) {
-        $where[] = "t.due_date >= :due_date_from";
-        $params[':due_date_from'] = $_GET['due_date_from'];
-    }
-    if (isset($_GET['due_date_to'])) {
-        $where[] = "t.due_date <= :due_date_to";
-        $params[':due_date_to'] = $_GET['due_date_to'];
-    }
-
-    // Search filter
-    if (isset($_GET['search']) && $_GET['search']) {
-        $where[] = "(t.title LIKE :search OR t.description LIKE :search)";
-        $params[':search'] = '%' . $_GET['search'] . '%';
-    }
-
-    // Sorting
-    $sortField = $_GET['sort'] ?? 'position';
-    $sortMap = [
-        'position' => 't.position',
-        'priority' => 't.priority DESC',
-        'due_date' => 't.due_date',
-        'created_at' => 't.created_at DESC'
+function insertTaskAssignment(Database $db, int $tenantId, int $taskId, int $userId, int $assignedBy, array $taCols): void {
+    $base = [
+        'tenant_id' => $tenantId,
+        'task_id' => $taskId,
+        'user_id' => $userId,
+        'assigned_by' => $assignedBy,
+        'assigned_at' => date('Y-m-d H:i:s'),
     ];
-    $orderBy = $sortMap[$sortField] ?? 't.position';
 
-    // Pagination
+    // Optional columns across environments
+    if (isset($taCols['role'])) $base['role'] = 'contributor';
+    if (isset($taCols['created_at'])) $base['created_at'] = date('Y-m-d H:i:s');
+    if (isset($taCols['updated_at'])) $base['updated_at'] = date('Y-m-d H:i:s');
+    if (isset($taCols['deleted_at'])) $base['deleted_at'] = null;
+
+    $db->insert('task_assignments', filterByExistingColumns($base, $taCols));
+}
+
+function getAssignmentState(Database $db, int $tenantId, int $taskId, array $taCols): array {
+    $hasTaDeletedAt = isset($taCols['deleted_at']);
+
+    $tasksCols = getTableColumns($db, 'tasks');
+    $taskNotDeleted = isset($tasksCols['deleted_at']) ? " AND (deleted_at IS NULL OR deleted_at = '')" : '';
+    $task = $db->fetchOne("SELECT id, assigned_to FROM tasks WHERE id = ? AND tenant_id = ?{$taskNotDeleted}", [$taskId, $tenantId]);
+    if (!$task) {
+        return [
+            'task_id' => $taskId,
+            'assigned_to' => null,
+            'assignee_ids' => [],
+            'assignees_count' => 0
+        ];
+    }
+
+    $whereTa = $hasTaDeletedAt ? ' AND deleted_at IS NULL' : '';
+    $rows = $db->fetchAll("SELECT user_id FROM task_assignments WHERE task_id = ? AND tenant_id = ?{$whereTa} ORDER BY assigned_at ASC, id ASC", [$taskId, $tenantId]);
+    $ids = [];
+    foreach ($rows as $r) {
+        if (isset($r['user_id'])) $ids[] = (int)$r['user_id'];
+    }
+
+    return [
+        'task_id' => (int)$task['id'],
+        'assigned_to' => isset($task['assigned_to']) ? (int)$task['assigned_to'] : null,
+        'assignee_ids' => $ids,
+        'assignees_count' => count($ids),
+    ];
+}
+
+function insertTaskHistory(Database $db, int $tenantId, int $taskId, int $userId, string $action, ?string $fieldName = null, $oldValue = null, $newValue = null): void {
+    $thCols = getTableColumns($db, 'task_history');
+    if (empty($thCols)) {
+        // If schema unknown, best-effort insert with common fields
+        $thCols = [
+            'tenant_id' => true,
+            'task_id' => true,
+            'user_id' => true,
+            'action' => true,
+            'field_name' => true,
+            'old_value' => true,
+            'new_value' => true,
+            'ip_address' => true,
+            'user_agent' => true,
+            'created_at' => true,
+        ];
+    }
+
+    $data = [
+        'tenant_id' => $tenantId,
+        'task_id' => $taskId,
+        'user_id' => $userId,
+        'action' => $action,
+        // Some schemas require field_name; use '' as safe default
+        'field_name' => $fieldName ?? '',
+        'old_value' => is_string($oldValue) ? $oldValue : ($oldValue !== null ? json_encode($oldValue) : null),
+        'new_value' => is_string($newValue) ? $newValue : ($newValue !== null ? json_encode($newValue) : null),
+        'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+        'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+        'created_at' => date('Y-m-d H:i:s'),
+    ];
+
+    $db->insert('task_history', filterByExistingColumns($data, $thCols));
+}
+
+// ============================================
+// LIST - Get all tasks
+// ============================================
+function handleList($db, $userInfo) {
+    $status = $_GET['status'] ?? null;
+    $priority = $_GET['priority'] ?? null;
+    $assignedTo = isset($_GET['assigned_to']) ? (int)$_GET['assigned_to'] : null;
+    $search = $_GET['search'] ?? null;
+    $sortBy = $_GET['sort_by'] ?? 'created_at';
+    $sortOrder = strtoupper($_GET['sort_order'] ?? 'DESC');
     $page = max(1, (int)($_GET['page'] ?? 1));
     $limit = min(100, max(1, (int)($_GET['limit'] ?? 50)));
     $offset = ($page - 1) * $limit;
 
-    // Count total tasks
-    $countSql = "SELECT COUNT(DISTINCT t.id) as total FROM tasks t " .
-                implode(' ', $joins) .
-                " WHERE " . implode(' AND ', $where);
+    // Validate sort
+    if (!in_array($sortOrder, ['ASC', 'DESC'])) $sortOrder = 'DESC';
+    $validSortFields = ['due_date', 'priority', 'created_at', 'updated_at', 'title', 'status'];
+    if (!in_array($sortBy, $validSortFields)) $sortBy = 'created_at';
 
-    $stmt = $db->prepare($countSql);
-    $stmt->execute($params);
-    $totalCount = $stmt->fetchColumn();
+    // Effective tenant scoping:
+    // - Non super_admin: always restricted to their tenant_id
+    // - Super_admin: can view all tenants; if company_filter_id set, restrict to that tenant
+    $tasksCols = getTableColumns($db, 'tasks');
+    $hasTasksDeletedAt = isset($tasksCols['deleted_at']);
 
-    // Fetch tasks
-    $sql = "SELECT DISTINCT t.* FROM tasks t " .
-           implode(' ', $joins) .
-           " WHERE " . implode(' AND ', $where) .
-           " ORDER BY $orderBy" .
-           " LIMIT :limit OFFSET :offset";
-
-    $stmt = $db->prepare($sql);
-    foreach ($params as $key => $value) {
-        $stmt->bindValue($key, $value);
+    $role = $userInfo['role'] ?? 'user';
+    if (($_SESSION['role'] ?? '') === 'super_admin' || ($_SESSION['user_role'] ?? '') === 'super_admin') {
+        $role = 'super_admin';
     }
-    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-    $stmt->execute();
-
-    $tasks = [];
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $tasks[] = formatTaskForResponse($row, $db, $tenantId);
-    }
-
-    // Include subtasks if requested
-    if (isset($_GET['include_subtasks']) && $_GET['include_subtasks'] === 'true') {
-        foreach ($tasks as &$task) {
-            $subtasks = [];
-            $stmt = $db->prepare("
-                SELECT * FROM tasks
-                WHERE parent_task_id = :parent_id
-                AND tenant_id = :tenant_id
-                AND deleted_at IS NULL
-                ORDER BY position
-            ");
-            $stmt->execute([':parent_id' => $task['id'], ':tenant_id' => $tenantId]);
-            while ($subtask = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $subtasks[] = formatTaskForResponse($subtask, $db, $tenantId);
-            }
-            $task['subtasks'] = $subtasks;
+    $filterTenantId = null;
+    if ($role === 'super_admin') {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        if (isset($_SESSION['company_filter_id']) && $_SESSION['company_filter_id'] !== null) {
+            $filterTenantId = (int)$_SESSION['company_filter_id'];
         }
     }
 
-    sendResponse(true, [
+    // Build WHERE clause
+    $where = [];
+    $params = [];
+    if ($role !== 'super_admin') {
+        $where[] = 't.tenant_id = ?';
+        $params[] = (int)$userInfo['tenant_id'];
+    } elseif ($filterTenantId !== null) {
+        $where[] = 't.tenant_id = ?';
+        $params[] = (int)$filterTenantId;
+    }
+    if ($hasTasksDeletedAt) {
+        $where[] = "(t.deleted_at IS NULL OR t.deleted_at = '')";
+    }
+
+    if ($status) {
+        $where[] = 't.status = ?';
+        $params[] = $status;
+    }
+
+    if ($priority) {
+        $where[] = 't.priority = ?';
+        $params[] = $priority;
+    }
+
+    if ($assignedTo !== null) {
+        if ($assignedTo === 0) {
+            $where[] = 't.assigned_to IS NULL';
+        } else {
+            $where[] = 't.assigned_to = ?';
+            $params[] = $assignedTo;
+        }
+    }
+
+    if ($search) {
+        $where[] = '(t.title LIKE ? OR t.description LIKE ?)';
+        $searchTerm = '%' . $search . '%';
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+    }
+
+    $whereClause = !empty($where) ? implode(' AND ', $where) : '1=1';
+
+    // Count
+    $total = (int)$db->fetchOne("SELECT COUNT(*) as total FROM tasks t WHERE $whereClause", $params)['total'];
+
+    // Schema-sensitive joins (BUG-144)
+    $taCols = getTableColumns($db, 'task_assignments');
+    $uCols = getTableColumns($db, 'users');
+    $hasTaDeletedAt = isset($taCols['deleted_at']);
+    $hasUserDeletedAt = isset($uCols['deleted_at']);
+
+    $taActiveJoin = $hasTaDeletedAt ? ' AND ta.deleted_at IS NULL' : '';
+    // Used after an explicit "AND" in SQL; must NOT start with AND
+    $ta2ActiveWhere = $hasTaDeletedAt ? 'ta2.deleted_at IS NULL' : '1=1';
+    $uActiveJoin = $hasUserDeletedAt ? ' AND u_assigned.deleted_at IS NULL' : '';
+    $u2ActiveJoin = $hasUserDeletedAt ? ' AND u2.deleted_at IS NULL' : '';
+    $uCreatorJoin = $hasUserDeletedAt ? ' AND u_creator.deleted_at IS NULL' : '';
+
+    // Tenants join for super_admin "view all" label (safe join)
+    $tnCols = getTableColumns($db, 'tenants');
+    $tnJoin = '';
+    $tnSelect = '';
+    if (!empty($tnCols)) {
+        $tnJoin = ' LEFT JOIN tenants tn ON tn.id = t.tenant_id ' . (isset($tnCols['deleted_at']) ? 'AND tn.deleted_at IS NULL' : '');
+        $tnSelect = ', tn.name as tenant_name';
+    }
+
+    // Get tasks
+    $sql = "
+        SELECT
+            t.*,
+            -- Prefer explicit assigned_to name, else first valid assignee name
+            COALESCE(
+                u_assigned.name,
+                (
+                    SELECT u2.name
+                    FROM task_assignments ta2
+                    JOIN users u2 ON u2.id = ta2.user_id{$u2ActiveJoin}
+                    WHERE ta2.task_id = t.id
+                      AND {$ta2ActiveWhere}
+                    ORDER BY ta2.assigned_at ASC, ta2.id ASC
+                    LIMIT 1
+                )
+            ) AS assignee_name,
+            u_creator.name as creator_name,
+            GROUP_CONCAT(DISTINCT ta.user_id) as assignee_ids,
+            COUNT(DISTINCT ta.user_id) as assignees_count
+            {$tnSelect}
+        FROM tasks t
+        LEFT JOIN users u_assigned ON t.assigned_to = u_assigned.id{$uActiveJoin}
+        LEFT JOIN users u_creator ON t.created_by = u_creator.id{$uCreatorJoin}
+        LEFT JOIN task_assignments ta ON t.id = ta.task_id{$taActiveJoin}
+        {$tnJoin}
+        WHERE $whereClause
+        GROUP BY t.id
+        ORDER BY t.$sortBy $sortOrder
+        LIMIT ? OFFSET ?
+    ";
+
+    $params[] = $limit;
+    $params[] = $offset;
+
+    $tasks = $db->fetchAll($sql, $params);
+
+    api_success([
         'tasks' => $tasks,
         'pagination' => [
-            'total' => (int)$totalCount,
             'page' => $page,
             'limit' => $limit,
-            'pages' => (int)ceil($totalCount / $limit)
+            'total' => $total,
+            'total_pages' => ceil($total / $limit)
         ]
-    ], 'Tasks retrieved successfully');
+    ], 'Tasks retrieved');
 }
 
-/**
- * Handle GET /api/tasks.php?id=X - Get single task
- */
-function handleGetTask(int $taskId): void {
-    global $taskManager, $db, $tenantId;
+// ============================================
+// CREATE - Create a new task
+// ============================================
+function handleCreate($db, $userInfo, $data) {
+    if (empty($data['title'])) {
+        api_error('Il titolo e obbligatorio', 400);
+    }
+
+    $title = trim($data['title']);
+    if (strlen($title) > 500) {
+        api_error('Il titolo non puo superare 500 caratteri', 400);
+    }
+
+    $description = isset($data['description']) ? trim($data['description']) : null;
+    $status = $data['status'] ?? 'todo';
+    $priority = $data['priority'] ?? 'medium';
+    $dueDate = !empty($data['due_date']) ? $data['due_date'] : null;
+    $assignedTo = !empty($data['assigned_to']) ? (int)$data['assigned_to'] : null;
+    $assignees = $data['assignees'] ?? [];
+    $projectId = !empty($data['project_id']) ? (int)$data['project_id'] : null;
+
+    // BUG-142: Validate assigned_to exists in same tenant before insert
+    if ($assignedTo !== null) {
+        $validUser = $db->fetchOne(
+            'SELECT id FROM users WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL',
+            [$assignedTo, $userInfo['tenant_id']]
+        );
+        if (!$validUser) {
+            $assignedTo = null; // Reset invalid assigned_to
+        }
+    }
+
+    // BUG-141+142: Se non c'e assigned_to ma ci sono assignees, usa il primo VALIDO come primary
+    if (empty($assignedTo) && !empty($assignees) && is_array($assignees)) {
+        foreach ($assignees as $candidateId) {
+            $validUser = $db->fetchOne(
+                'SELECT id FROM users WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL',
+                [$candidateId, $userInfo['tenant_id']]
+            );
+            if ($validUser) {
+                $assignedTo = (int)$candidateId;
+                break; // Use first valid assignee
+            }
+        }
+    }
+
+    // Validate status
+    $validStatuses = ['todo', 'in_progress', 'review', 'done', 'cancelled'];
+    if (!in_array($status, $validStatuses)) {
+        api_error('Status non valido', 400);
+    }
+
+    // Validate priority
+    $validPriorities = ['low', 'medium', 'high', 'critical'];
+    if (!in_array($priority, $validPriorities)) {
+        api_error('Priorita non valida', 400);
+    }
+
+    // Validate due date
+    if ($dueDate) {
+        $dt = DateTime::createFromFormat('Y-m-d H:i:s', $dueDate);
+        if (!$dt) {
+            $dt = DateTime::createFromFormat('Y-m-d', $dueDate);
+            if ($dt) {
+                $dueDate = $dt->format('Y-m-d 23:59:59');
+            } else {
+                api_error('Formato data non valido (Y-m-d)', 400);
+            }
+        }
+    }
+
+    $tasksCols = getTableColumns($db, 'tasks');
+    $taCols = getTableColumns($db, 'task_assignments');
+
+    // Super admin must select an active company filter before creating
+    $role = $userInfo['role'] ?? 'user';
+    if (($_SESSION['role'] ?? '') === 'super_admin' || ($_SESSION['user_role'] ?? '') === 'super_admin') {
+        $role = 'super_admin';
+    }
+    $effectiveTenantId = (int)($userInfo['tenant_id'] ?? 0);
+    if ($role === 'super_admin') {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $cf = $_SESSION['company_filter_id'] ?? null;
+        if ($cf === null) {
+            api_error('Seleziona prima un’azienda per creare un task', 400);
+        }
+        $effectiveTenantId = (int)$cf;
+    }
+
+    $db->beginTransaction();
 
     try {
-        $stmt = $db->prepare("
-            SELECT * FROM tasks
-            WHERE id = :id AND tenant_id = :tenant_id AND deleted_at IS NULL
-        ");
-        $stmt->execute([':id' => $taskId, ':tenant_id' => $tenantId]);
-        $task = $stmt->fetch(PDO::FETCH_ASSOC);
+        $insertTask = [
+            'tenant_id' => (int)$effectiveTenantId,
+            'project_id' => $projectId,
+            'title' => $title,
+            'description' => $description,
+            'status' => $status,
+            'priority' => $priority,
+            'due_date' => $dueDate,
+            'assigned_to' => $assignedTo,
+            'created_by' => (int)$userInfo['user_id'],
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        $taskId = $db->insert('tasks', filterByExistingColumns($insertTask, $tasksCols));
 
-        if (!$task) {
-            sendErrorResponse(404, 'Task not found');
+        if (!$taskId) {
+            throw new Exception('Errore creazione task');
         }
 
-        $formattedTask = formatTaskForResponse($task, $db, $tenantId);
+        // Create assignments
+        // BUG-144: Validate each assignee exists in same tenant before insert (and do not silently succeed with 0 valid)
+        $validAssignees = [];
+        if (!empty($assignees) && is_array($assignees)) {
+            foreach ($assignees as $assigneeId) {
+                // Verify user exists and belongs to same tenant (prevents FK violation)
+                $user = $db->fetchOne(
+                    'SELECT id FROM users WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL',
+                    [$assigneeId, $effectiveTenantId]
+                );
 
-        // Include subtasks
-        $subtasks = [];
-        $stmt = $db->prepare("
-            SELECT * FROM tasks
-            WHERE parent_task_id = :parent_id
-            AND tenant_id = :tenant_id
-            AND deleted_at IS NULL
-            ORDER BY position
-        ");
-        $stmt->execute([':parent_id' => $taskId, ':tenant_id' => $tenantId]);
-        while ($subtask = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $subtasks[] = formatTaskForResponse($subtask, $db, $tenantId);
+                if (!$user) {
+                    continue; // Skip invalid/cross-tenant users
+                }
+
+                $validAssignees[] = (int)$assigneeId;
+                insertTaskAssignment($db, (int)$effectiveTenantId, (int)$taskId, (int)$assigneeId, (int)$userInfo['user_id'], $taCols);
+            }
+
+            // If we have at least one valid assignee, ensure primary assigned_to is set
+            if (!empty($validAssignees)) {
+                $db->update('tasks', filterByExistingColumns([
+                    'assigned_to' => $validAssignees[0],
+                    'updated_at' => date('Y-m-d H:i:s')
+                ], $tasksCols), ['id' => $taskId]);
+            }
         }
-        $formattedTask['subtasks'] = $subtasks;
 
-        sendResponse(true, $formattedTask, 'Task retrieved successfully');
+        // Log history (schema-aware, tenant-correct)
+        insertTaskHistory(
+            $db,
+            (int)$effectiveTenantId,
+            (int)$taskId,
+            (int)$userInfo['user_id'],
+            'created',
+            null,
+            null,
+            ['title' => $title, 'status' => $status]
+        );
+
+        // If user explicitly selected assignees but none are valid, fail loudly (prevents “success but not assigned”)
+        if (!empty($assignees) && is_array($assignees) && empty($validAssignees)) {
+            throw new Exception('Assegnatari non validi per questo tenant (seleziona un utente della stessa azienda)');
+        }
+
+        $db->commit();
+
+        // Post-write verification (BUG-144)
+        $assignmentState = getAssignmentState($db, (int)$effectiveTenantId, (int)$taskId, $taCols);
+
+        // Email notifications must run BEFORE api_success (api_success exits)
+        if (!empty($validAssignees)) {
+            try {
+                $notifier = new TaskNotification();
+                foreach ($validAssignees as $assigneeId) {
+                    $notifier->sendTaskAssignedNotification((int)$taskId, (int)$assigneeId, (int)$userInfo['user_id']);
+                }
+            } catch (Exception $e) {
+                error_log("[BUG-144] Task notification error (create): " . $e->getMessage());
+            }
+        }
+
+        // Fetch created task
+        $task = $db->fetchOne("SELECT * FROM tasks WHERE id = ?", [$taskId]);
+
+        api_success([
+            'task' => $task,
+            'task_id' => $taskId,
+            'assignment_state' => $assignmentState
+        ], 'Task creato con successo');
+
     } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to retrieve task: ' . $e->getMessage());
+        $db->rollback();
+        throw $e;
     }
 }
 
-/**
- * Handle POST /api/tasks.php - Create new task
- */
-function handleCreateTask(array $data): void {
-    global $taskManager;
-
-    // Validate required fields
-    $error = validateRequired($data, ['list_id', 'title']);
-    if ($error) {
-        sendErrorResponse(400, $error);
+// ============================================
+// UPDATE - Update an existing task
+// ============================================
+function handleUpdate($db, $userInfo, $data) {
+    $taskId = $data['id'] ?? null;
+    if (!$taskId) {
+        api_error('ID task richiesto', 400);
     }
 
-    // Map API fields to TaskManager fields
-    $taskData = [
-        'board_id' => $data['list_id'],
-        'column_id' => $data['column_id'] ?? null,
-        'title' => $data['title'],
-        'description' => $data['description'] ?? null,
-        'priority' => $data['priority'] ?? 2,
-        'due_date' => $data['due_date'] ?? null,
-        'start_date' => $data['start_date'] ?? null,
-        'estimated_hours' => $data['estimated_hours'] ?? null,
-        'parent_task_id' => $data['parent_id'] ?? null,
-        'assignees' => $data['assignees'] ?? [],
-        'tags' => $data['tags'] ?? [],
-        'auto_assign' => false
+    // Super admin must select an active company filter before updating
+    $role = $userInfo['role'] ?? 'user';
+    if (($_SESSION['role'] ?? '') === 'super_admin' || ($_SESSION['user_role'] ?? '') === 'super_admin') {
+        $role = 'super_admin';
+    }
+    $effectiveTenantId = (int)($userInfo['tenant_id'] ?? 0);
+    if ($role === 'super_admin') {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $cf = $_SESSION['company_filter_id'] ?? null;
+        if ($cf === null) {
+            api_error('Seleziona prima un’azienda per modificare/assegnare task', 400);
+        }
+        $effectiveTenantId = (int)$cf;
+    }
+
+    // Verify task exists and belongs to tenant (deleted_at can be NULL or empty string depending on env)
+    $tasksCols = getTableColumns($db, 'tasks');
+    $taskNotDeleted = isset($tasksCols['deleted_at']) ? " AND (deleted_at IS NULL OR deleted_at = '')" : '';
+    $task = $db->fetchOne(
+        "SELECT * FROM tasks WHERE id = ? AND tenant_id = ?{$taskNotDeleted}",
+        [$taskId, $effectiveTenantId]
+    );
+
+    if (!$task) {
+        api_error('Task non trovato', 404);
+    }
+
+    // Permission (BUG-148): non-super-admin can update only if creator or assignee
+    // Assignee restriction: assignee (not creator) may only update progress + add comment + request due date change
+    $uid = (int)($userInfo['user_id'] ?? 0);
+    $isCreator = ((int)($task['created_by'] ?? 0) === $uid);
+    $isAssignedTo = ((int)($task['assigned_to'] ?? 0) === $uid);
+
+    $taColsPerm = getTableColumns($db, 'task_assignments');
+    $taWhere = isset($taColsPerm['deleted_at']) ? ' AND deleted_at IS NULL' : '';
+    $assRow = $db->fetchOne("SELECT id FROM task_assignments WHERE task_id = ? AND user_id = ?{$taWhere} LIMIT 1", [(int)$taskId, $uid]);
+    $isAssignee = !empty($assRow);
+
+    if ($role !== 'super_admin') {
+        if (!$isCreator && !$isAssignedTo && !$isAssignee) {
+            api_error('Non autorizzato a modificare questo task', 403);
+        }
+    }
+
+    $isLimitedAssignee = ($role !== 'super_admin') && !$isCreator && ($isAssignedTo || $isAssignee);
+
+    // Allowed fields for limited assignee
+    if ($isLimitedAssignee) {
+        $allowedKeys = ['id', 'action', 'progress', 'progress_percentage', 'comment', 'requested_due_date', 'request_reason', 'reopen_reason'];
+        foreach ($data as $k => $_v) {
+            if (!in_array($k, $allowedKeys, true)) {
+                api_error('Permesso negato: puoi aggiornare solo avanzamento, aggiungere commenti o richiedere cambio scadenza', 403);
+            }
+        }
+    }
+
+    $tasksCols = getTableColumns($db, 'tasks');
+    $taCols = getTableColumns($db, 'task_assignments');
+
+    // Build update data
+    $updateData = ['updated_at' => date('Y-m-d H:i:s')];
+    $changes = [];
+    $assigneeEmailOps = [
+        'progress' => null,
+        'comment' => null,
+        'requested_due_date' => null,
+        'request_reason' => null,
+        'reopen_reason' => null,
+        'reopened' => false
     ];
 
-    try {
-        $taskId = $taskManager->createTask($taskData);
-
-        // Handle additional fields
-        if (isset($data['watchers'])) {
-            foreach ($data['watchers'] as $watcherId) {
-                $taskManager->addWatcher($taskId, $watcherId);
-            }
-        }
-
-        if (isset($data['dependencies'])) {
-            foreach ($data['dependencies'] as $dep) {
-                $taskManager->addDependency($taskId, $dep['depends_on'], $dep['type'] ?? 'FS');
-            }
-        }
-
-        // Retrieve and return the created task
-        global $db, $tenantId;
-        $stmt = $db->prepare("SELECT * FROM tasks WHERE id = :id AND tenant_id = :tenant_id");
-        $stmt->execute([':id' => $taskId, ':tenant_id' => $tenantId]);
-        $task = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        sendResponse(true, formatTaskForResponse($task, $db, $tenantId), 'Task created successfully', 201);
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to create task: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle PUT /api/tasks.php?id=X - Full update
- */
-function handleFullUpdateTask(int $taskId, array $data): void {
-    global $taskManager;
-
-    // Validate required fields for full update
-    $error = validateRequired($data, ['title']);
-    if ($error) {
-        sendErrorResponse(400, $error);
+    if (!$isLimitedAssignee && isset($data['title'])) {
+        $updateData['title'] = trim($data['title']);
+        $changes['title'] = ['old' => $task['title'], 'new' => $updateData['title']];
     }
 
+    if (!$isLimitedAssignee && isset($data['description'])) {
+        $updateData['description'] = trim($data['description']);
+    }
+
+    if (!$isLimitedAssignee && isset($data['status'])) {
+        $validStatuses = ['todo', 'in_progress', 'review', 'done', 'cancelled'];
+        if (!in_array($data['status'], $validStatuses)) {
+            api_error('Status non valido', 400);
+        }
+        $updateData['status'] = $data['status'];
+        $changes['status'] = ['old' => $task['status'], 'new' => $updateData['status']];
+    }
+
+    if (!$isLimitedAssignee && isset($data['priority'])) {
+        $validPriorities = ['low', 'medium', 'high', 'critical'];
+        if (!in_array($data['priority'], $validPriorities)) {
+            api_error('Priorita non valida', 400);
+        }
+        $updateData['priority'] = $data['priority'];
+        $changes['priority'] = ['old' => $task['priority'], 'new' => $updateData['priority']];
+    }
+
+    if (!$isLimitedAssignee && array_key_exists('due_date', $data)) {
+        $updateData['due_date'] = !empty($data['due_date']) ? $data['due_date'] : null;
+    }
+
+    if (!$isLimitedAssignee && array_key_exists('assigned_to', $data)) {
+        $updateData['assigned_to'] = !empty($data['assigned_to']) ? (int)$data['assigned_to'] : null;
+    }
+
+    // BUG-143: Fix column name - table has 'progress_percentage' not 'progress'
+    if (isset($data['progress'])) {
+        $progress = max(0, min(100, (int)$data['progress']));
+        if ($isLimitedAssignee) {
+            $progress = (int)(round($progress / 25) * 25);
+            $progress = max(0, min(100, $progress));
+        }
+        $updateData['progress_percentage'] = $progress;
+        $changes['progress_percentage'] = ['old' => (int)($task['progress_percentage'] ?? 0), 'new' => $progress];
+        $assigneeEmailOps['progress'] = $progress;
+    }
+    if (isset($data['progress_percentage'])) {
+        $progress = max(0, min(100, (int)$data['progress_percentage']));
+        if ($isLimitedAssignee) {
+            $progress = (int)(round($progress / 25) * 25);
+            $progress = max(0, min(100, $progress));
+        }
+        $updateData['progress_percentage'] = $progress;
+        $changes['progress_percentage'] = ['old' => (int)($task['progress_percentage'] ?? 0), 'new' => $progress];
+        $assigneeEmailOps['progress'] = $progress;
+    }
+
+    // Progress -> status rules for limited assignee
+    if ($isLimitedAssignee && array_key_exists('progress_percentage', $updateData)) {
+        $oldProgress = (int)($task['progress_percentage'] ?? 0);
+        $newProgress = (int)$updateData['progress_percentage'];
+        $oldStatus = strtolower((string)($task['status'] ?? 'todo'));
+
+        if ($newProgress >= 100) {
+            if (($task['status'] ?? null) !== 'done') {
+                $updateData['status'] = 'done';
+                $changes['status'] = ['old' => ($task['status'] ?? null), 'new' => 'done'];
+            }
+        } else {
+            // Reopen: if dropping below 100 from a completed task/progress
+            if (($oldProgress >= 100 || $oldStatus === 'done') && $newProgress < 100) {
+                $reason = trim((string)($data['reopen_reason'] ?? ''));
+                if ($reason === '') {
+                    api_error('Motivazione riapertura obbligatoria', 400);
+                }
+                $updateData['status'] = 'in_progress';
+                $changes['status'] = ['old' => ($task['status'] ?? null), 'new' => 'in_progress'];
+                $assigneeEmailOps['reopen_reason'] = $reason;
+                $assigneeEmailOps['reopened'] = true;
+            }
+        }
+    }
+
+    $db->beginTransaction();
+
     try {
-        $updateData = [
-            'title' => $data['title'],
-            'description' => $data['description'] ?? null,
-            'priority' => $data['priority'] ?? 2,
-            'due_date' => $data['due_date'] ?? null,
-            'estimated_hours' => $data['estimated_hours'] ?? null,
-            'status' => mapApiStatusToInternal($data['status'] ?? 'pending'),
-            'progress_percentage' => $data['progress'] ?? 0
-        ];
+        $db->update('tasks', filterByExistingColumns($updateData, $tasksCols), ['id' => $taskId]);
 
-        $success = $taskManager->updateTask($taskId, $updateData);
+        // Limited assignee: comment insertion (task_comments) + due date change request (task_history only)
+        if ($isLimitedAssignee) {
+            // Comment
+            if (!empty($data['comment'])) {
+                $tcCols = getTableColumns($db, 'task_comments');
+                $insert = [
+                    'tenant_id' => (int)$effectiveTenantId,
+                    'task_id' => (int)$taskId,
+                    'user_id' => (int)$uid,
+                    'parent_comment_id' => null,
+                    'content' => trim((string)$data['comment']),
+                    'attachments' => null,
+                    'is_edited' => 0,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                    'deleted_at' => null
+                ];
+                $db->insert('task_comments', filterByExistingColumns($insert, $tcCols));
+                $assigneeEmailOps['comment'] = $insert['content'];
 
-        if (!$success) {
-            sendErrorResponse(500, 'Failed to update task');
+                insertTaskHistory(
+                    $db,
+                    (int)$effectiveTenantId,
+                    (int)$taskId,
+                    (int)$uid,
+                    'commented',
+                    'comment',
+                    null,
+                    ['len' => strlen($insert['content'])]
+                );
+            }
+
+            // Due date request (does not change due_date)
+            if (!empty($data['requested_due_date'])) {
+                $assigneeEmailOps['requested_due_date'] = (string)$data['requested_due_date'];
+                $assigneeEmailOps['request_reason'] = (string)($data['request_reason'] ?? '');
+                insertTaskHistory(
+                    $db,
+                    (int)$effectiveTenantId,
+                    (int)$taskId,
+                    (int)$uid,
+                    'due_date_change_requested',
+                    'due_date',
+                    $task['due_date'] ?? null,
+                    [
+                        'requested_due_date' => (string)$data['requested_due_date'],
+                        'reason' => (string)($data['request_reason'] ?? '')
+                    ]
+                );
+            }
+
+            // Reopen history entry (explicit)
+            if (!empty($assigneeEmailOps['reopened'])) {
+                insertTaskHistory(
+                    $db,
+                    (int)$effectiveTenantId,
+                    (int)$taskId,
+                    (int)$uid,
+                    'reopened',
+                    'status',
+                    ($task['status'] ?? null),
+                    [
+                        'status' => 'in_progress',
+                        'reason' => (string)$assigneeEmailOps['reopen_reason'],
+                        'progress' => (int)($updateData['progress_percentage'] ?? 0)
+                    ]
+                );
+            }
         }
 
         // Update assignees if provided
-        if (isset($data['assignees'])) {
-            $taskManager->assignToUsers($taskId, $data['assignees']);
-        }
+        $validAssignees = [];
+        if (isset($data['assignees']) && is_array($data['assignees'])) {
+            // Remove old assignments (schema-aware)
+            deleteAllAssignmentsForTask($db, (int)$effectiveTenantId, (int)$taskId, $taCols);
 
-        // Retrieve and return updated task
-        global $db, $tenantId;
-        $stmt = $db->prepare("SELECT * FROM tasks WHERE id = :id AND tenant_id = :tenant_id");
-        $stmt->execute([':id' => $taskId, ':tenant_id' => $tenantId]);
-        $task = $stmt->fetch(PDO::FETCH_ASSOC);
+            // Add new assignments
+            // BUG-142: Validate each assignee exists in same tenant before insert
+            foreach ($data['assignees'] as $assigneeId) {
+                // Verify user exists and belongs to same tenant (prevents FK violation)
+                $user = $db->fetchOne(
+                    'SELECT id FROM users WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL',
+                    [$assigneeId, $effectiveTenantId]
+                );
 
-        sendResponse(true, formatTaskForResponse($task, $db, $tenantId), 'Task fully updated');
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to update task: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle PATCH /api/tasks.php?id=X - Partial update
- */
-function handlePartialUpdateTask(int $taskId, array $data): void {
-    global $taskManager;
-
-    if (empty($data)) {
-        sendErrorResponse(400, 'No data provided for update');
-    }
-
-    try {
-        $updateData = [];
-
-        // Map only provided fields
-        if (isset($data['title'])) $updateData['title'] = $data['title'];
-        if (isset($data['description'])) $updateData['description'] = $data['description'];
-        if (isset($data['priority'])) $updateData['priority'] = $data['priority'];
-        if (isset($data['due_date'])) $updateData['due_date'] = $data['due_date'];
-        if (isset($data['status'])) $updateData['status'] = mapApiStatusToInternal($data['status']);
-        if (isset($data['progress'])) $updateData['progress_percentage'] = $data['progress'];
-
-        // Handle position/column updates
-        if (isset($data['position']) || isset($data['column_id'])) {
-            global $db, $tenantId;
-
-            if (isset($data['column_id'])) {
-                $taskManager->moveTaskToColumn($taskId, $data['column_id']);
-            }
-
-            if (isset($data['position'])) {
-                $stmt = $db->prepare("
-                    UPDATE tasks SET position = :position
-                    WHERE id = :id AND tenant_id = :tenant_id
-                ");
-                $stmt->execute([
-                    ':position' => $data['position'],
-                    ':id' => $taskId,
-                    ':tenant_id' => $tenantId
-                ]);
-            }
-        }
-
-        if (!empty($updateData)) {
-            $taskManager->updateTask($taskId, $updateData);
-        }
-
-        sendResponse(true, ['updated_fields' => array_keys($data)], 'Task updated');
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to update task: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle DELETE /api/tasks.php?id=X
- */
-function handleDeleteTask(int $taskId): void {
-    global $taskManager, $db, $tenantId;
-
-    try {
-        $deleteSubtasks = isset($_GET['delete_subtasks']) && $_GET['delete_subtasks'] === 'true';
-
-        if ($deleteSubtasks) {
-            // Delete all subtasks recursively
-            $stmt = $db->prepare("
-                UPDATE tasks SET deleted_at = NOW()
-                WHERE parent_task_id = :parent_id AND tenant_id = :tenant_id
-            ");
-            $stmt->execute([':parent_id' => $taskId, ':tenant_id' => $tenantId]);
-        }
-
-        $success = $taskManager->deleteTask($taskId);
-
-        if (!$success) {
-            sendErrorResponse(500, 'Failed to delete task');
-        }
-
-        sendResponse(true, null, 'Task deleted successfully');
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to delete task: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle POST /api/tasks.php?id=X&action=comment
- */
-function handleAddComment(int $taskId, array $data): void {
-    global $taskManager, $db, $tenantId, $userId;
-
-    $error = validateRequired($data, ['content']);
-    if ($error) {
-        sendErrorResponse(400, $error);
-    }
-
-    try {
-        $commentId = $taskManager->addComment(
-            $taskId,
-            $data['content'],
-            $data['mentions'] ?? []
-        );
-
-        // Handle attachments if provided
-        if (isset($data['attachments']) && is_array($data['attachments'])) {
-            foreach ($data['attachments'] as $attachmentId) {
-                $stmt = $db->prepare("
-                    INSERT INTO comment_attachments (comment_id, attachment_id, tenant_id)
-                    VALUES (:comment_id, :attachment_id, :tenant_id)
-                ");
-                $stmt->execute([
-                    ':comment_id' => $commentId,
-                    ':attachment_id' => $attachmentId,
-                    ':tenant_id' => $tenantId
-                ]);
-            }
-        }
-
-        // Get user info for response
-        $stmt = $db->prepare("SELECT name FROM users WHERE id = :id");
-        $stmt->execute([':id' => $userId]);
-        $userName = $stmt->fetchColumn();
-
-        // Get mention details
-        $mentions = [];
-        if (isset($data['mentions']) && is_array($data['mentions'])) {
-            foreach ($data['mentions'] as $mentionId) {
-                $stmt = $db->prepare("SELECT id as user_id, name FROM users WHERE id = :id");
-                $stmt->execute([':id' => $mentionId]);
-                $mention = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($mention) {
-                    $mention['notified'] = true;
-                    $mentions[] = $mention;
+                if (!$user) {
+                    continue; // Skip invalid/cross-tenant users
                 }
+
+                $validAssignees[] = (int)$assigneeId;
+                insertTaskAssignment($db, (int)$effectiveTenantId, (int)$taskId, (int)$assigneeId, (int)$userInfo['user_id'], $taCols);
+            }
+
+            // BUG-142: Update assigned_to only if we have valid assignees
+            if (!empty($validAssignees)) {
+                $db->update('tasks', filterByExistingColumns([
+                    'assigned_to' => $validAssignees[0],
+                    'updated_at' => date('Y-m-d H:i:s')
+                ], $tasksCols), ['id' => $taskId]);
+            }
+
+            // If user explicitly selected assignees but none are valid, fail loudly
+            if (!empty($data['assignees']) && empty($validAssignees)) {
+                throw new Exception('Assegnatari non validi per questo tenant (seleziona un utente della stessa azienda)');
             }
         }
 
-        sendResponse(true, [
-            'comment_id' => $commentId,
-            'content' => $data['content'],
-            'mentions' => $mentions,
-            'created_at' => date('c')
-        ], 'Comment added successfully', 201);
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to add comment: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle POST /api/tasks.php?id=X&action=watch
- */
-function handleWatchTask(int $taskId, array $data): void {
-    global $taskManager, $userId, $db, $tenantId;
-
-    try {
-        $success = $taskManager->addWatcher($taskId, $userId, $data['reason'] ?? '');
-
-        // Store notification preferences if provided
-        if (isset($data['notification_preferences']) && is_array($data['notification_preferences'])) {
-            $stmt = $db->prepare("
-                UPDATE task_watchers
-                SET notification_preferences = :prefs
-                WHERE task_id = :task_id AND user_id = :user_id AND tenant_id = :tenant_id
-            ");
-            $stmt->execute([
-                ':prefs' => json_encode($data['notification_preferences']),
-                ':task_id' => $taskId,
-                ':user_id' => $userId,
-                ':tenant_id' => $tenantId
-            ]);
+        // Log history (schema-aware, tenant-correct)
+        if (!empty($changes)) {
+            insertTaskHistory(
+                $db,
+                (int)$effectiveTenantId,
+                (int)$taskId,
+                (int)$userInfo['user_id'],
+                'updated',
+                null,
+                array_column($changes, 'old'),
+                array_column($changes, 'new')
+            );
         }
 
-        if (!$success) {
-            sendErrorResponse(500, 'Failed to add watcher');
-        }
+        $db->commit();
 
-        sendResponse(true, null, 'You are now watching this task');
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to watch task: ' . $e->getMessage());
-    }
-}
+        // Post-write verification (BUG-144)
+        $assignmentState = getAssignmentState($db, (int)$effectiveTenantId, (int)$taskId, $taCols);
 
-/**
- * Handle POST /api/tasks.php?id=X&action=unwatch
- */
-function handleUnwatchTask(int $taskId): void {
-    global $db, $tenantId, $userId;
-
-    try {
-        $stmt = $db->prepare("
-            DELETE FROM task_watchers
-            WHERE task_id = :task_id AND user_id = :user_id AND tenant_id = :tenant_id
-        ");
-        $success = $stmt->execute([
-            ':task_id' => $taskId,
-            ':user_id' => $userId,
-            ':tenant_id' => $tenantId
-        ]);
-
-        if (!$success) {
-            sendErrorResponse(500, 'Failed to remove watcher');
-        }
-
-        sendResponse(true, null, 'You are no longer watching this task');
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to unwatch task: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle POST /api/tasks.php?id=X&action=assign
- */
-function handleAssignUsers(int $taskId, array $data): void {
-    global $taskManager;
-
-    $error = validateRequired($data, ['user_ids']);
-    if ($error) {
-        sendErrorResponse(400, $error);
-    }
-
-    if (!is_array($data['user_ids'])) {
-        sendErrorResponse(400, 'user_ids must be an array');
-    }
-
-    try {
-        $success = $taskManager->assignToUsers($taskId, $data['user_ids']);
-
-        if (!$success) {
-            sendErrorResponse(500, 'Failed to assign users');
-        }
-
-        // Send notifications if requested
-        if (isset($data['notify']) && $data['notify'] === true) {
-            // Notification logic would go here
-        }
-
-        sendResponse(true, null, 'Users assigned successfully');
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to assign users: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle POST /api/tasks.php?id=X&action=unassign
- */
-function handleUnassignUsers(int $taskId, array $data): void {
-    global $taskManager;
-
-    $error = validateRequired($data, ['user_ids']);
-    if ($error) {
-        sendErrorResponse(400, $error);
-    }
-
-    try {
-        foreach ($data['user_ids'] as $userId) {
-            $taskManager->removeAssignee($taskId, $userId);
-        }
-
-        sendResponse(true, null, 'Users unassigned successfully');
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to unassign users: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle POST /api/tasks.php?id=X&action=move
- */
-function handleMoveTask(int $taskId, array $data): void {
-    global $taskManager, $db, $tenantId;
-
-    try {
-        // Move to different column
-        if (isset($data['target_column_id'])) {
-            $taskManager->moveTaskToColumn($taskId, $data['target_column_id']);
-        }
-
-        // Move to different list/board
-        if (isset($data['target_list_id'])) {
-            $stmt = $db->prepare("
-                UPDATE tasks
-                SET board_id = :board_id
-                WHERE id = :id AND tenant_id = :tenant_id
-            ");
-            $stmt->execute([
-                ':board_id' => $data['target_list_id'],
-                ':id' => $taskId,
-                ':tenant_id' => $tenantId
-            ]);
-        }
-
-        // Update position
-        if (isset($data['position'])) {
-            $stmt = $db->prepare("
-                UPDATE tasks
-                SET position = :position
-                WHERE id = :id AND tenant_id = :tenant_id
-            ");
-            $stmt->execute([
-                ':position' => $data['position'],
-                ':id' => $taskId,
-                ':tenant_id' => $tenantId
-            ]);
-        }
-
-        sendResponse(true, null, 'Task moved successfully');
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to move task: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle POST /api/tasks.php?id=X&action=clone
- */
-function handleCloneTask(int $taskId, array $data): void {
-    global $db, $tenantId, $taskManager;
-
-    try {
-        // Get original task
-        $stmt = $db->prepare("
-            SELECT * FROM tasks
-            WHERE id = :id AND tenant_id = :tenant_id AND deleted_at IS NULL
-        ");
-        $stmt->execute([':id' => $taskId, ':tenant_id' => $tenantId]);
-        $originalTask = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$originalTask) {
-            sendErrorResponse(404, 'Task not found');
-        }
-
-        // Create clone
-        $cloneData = [
-            'board_id' => $data['target_list_id'] ?? $originalTask['board_id'],
-            'column_id' => $originalTask['column_id'],
-            'title' => '[Clone] ' . $originalTask['title'],
-            'description' => $originalTask['description'],
-            'priority' => $originalTask['priority'],
-            'due_date' => $originalTask['due_date'],
-            'estimated_hours' => $originalTask['estimated_hours']
-        ];
-
-        $clonedId = $taskManager->createTask($cloneData);
-
-        // Clone subtasks if requested
-        if (isset($data['include_subtasks']) && $data['include_subtasks'] === true) {
-            $stmt = $db->prepare("
-                SELECT * FROM tasks
-                WHERE parent_task_id = :parent_id AND tenant_id = :tenant_id
-            ");
-            $stmt->execute([':parent_id' => $taskId, ':tenant_id' => $tenantId]);
-
-            while ($subtask = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $subtaskData = [
-                    'board_id' => $cloneData['board_id'],
-                    'column_id' => $subtask['column_id'],
-                    'title' => $subtask['title'],
-                    'description' => $subtask['description'],
-                    'priority' => $subtask['priority'],
-                    'parent_task_id' => $clonedId
-                ];
-                $taskManager->createTask($subtaskData);
-            }
-        }
-
-        // Clone attachments if requested
-        if (isset($data['include_attachments']) && $data['include_attachments'] === true) {
-            $stmt = $db->prepare("
-                INSERT INTO task_attachments (task_id, file_id, tenant_id)
-                SELECT :new_task_id, file_id, tenant_id
-                FROM task_attachments
-                WHERE task_id = :old_task_id AND tenant_id = :tenant_id
-            ");
-            $stmt->execute([
-                ':new_task_id' => $clonedId,
-                ':old_task_id' => $taskId,
-                ':tenant_id' => $tenantId
-            ]);
-        }
-
-        // Get and return cloned task
-        $stmt = $db->prepare("SELECT * FROM tasks WHERE id = :id AND tenant_id = :tenant_id");
-        $stmt->execute([':id' => $clonedId, ':tenant_id' => $tenantId]);
-        $clonedTask = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        sendResponse(true, formatTaskForResponse($clonedTask, $db, $tenantId), 'Task cloned successfully', 201);
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to clone task: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle POST /api/tasks.php?id=X&action=complete
- */
-function handleCompleteTask(int $taskId): void {
-    global $taskManager;
-
-    try {
-        $success = $taskManager->markAsComplete($taskId);
-
-        if (!$success) {
-            sendErrorResponse(500, 'Failed to complete task');
-        }
-
-        sendResponse(true, null, 'Task marked as complete');
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to complete task: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle POST /api/tasks.php?id=X&action=reopen
- */
-function handleReopenTask(int $taskId): void {
-    global $taskManager;
-
-    try {
-        $success = $taskManager->reopenTask($taskId);
-
-        if (!$success) {
-            sendErrorResponse(500, 'Failed to reopen task');
-        }
-
-        sendResponse(true, null, 'Task reopened successfully');
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to reopen task: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle POST /api/tasks.php?id=X&action=log_time
- */
-function handleLogTime(int $taskId, array $data): void {
-    global $taskManager;
-
-    $error = validateRequired($data, ['hours']);
-    if ($error) {
-        sendErrorResponse(400, $error);
-    }
-
-    try {
-        $success = $taskManager->logTime(
-            $taskId,
-            (float)$data['hours'],
-            $data['description'] ?? ''
-        );
-
-        if (!$success) {
-            sendErrorResponse(500, 'Failed to log time');
-        }
-
-        // Store additional fields if provided
-        if (isset($data['date']) || isset($data['billable'])) {
-            global $db, $tenantId, $userId;
-
-            $stmt = $db->prepare("
-                UPDATE time_entries
-                SET date = COALESCE(:date, date),
-                    billable = COALESCE(:billable, billable)
-                WHERE task_id = :task_id
-                AND user_id = :user_id
-                AND tenant_id = :tenant_id
-                ORDER BY id DESC
-                LIMIT 1
-            ");
-            $stmt->execute([
-                ':date' => $data['date'] ?? null,
-                ':billable' => isset($data['billable']) ? (int)$data['billable'] : null,
-                ':task_id' => $taskId,
-                ':user_id' => $userId,
-                ':tenant_id' => $tenantId
-            ]);
-        }
-
-        sendResponse(true, null, 'Time logged successfully');
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to log time: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle GET /api/tasks.php?action=my_tasks
- */
-function handleGetMyTasks(): void {
-    global $taskManager, $userId, $db, $tenantId;
-
-    try {
-        $tasks = $taskManager->getMyTasks($userId);
-
-        $formattedTasks = [];
-        foreach ($tasks as $task) {
-            $formattedTasks[] = formatTaskForResponse($task, $db, $tenantId);
-        }
-
-        sendResponse(true, ['tasks' => $formattedTasks], 'My tasks retrieved successfully');
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to retrieve tasks: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle GET /api/tasks.php?action=overdue
- */
-function handleGetOverdueTasks(): void {
-    global $taskManager, $db, $tenantId;
-
-    try {
-        $tasks = $taskManager->getOverdueTasks();
-
-        $formattedTasks = [];
-        foreach ($tasks as $task) {
-            $formattedTasks[] = formatTaskForResponse($task, $db, $tenantId);
-        }
-
-        sendResponse(true, ['tasks' => $formattedTasks], 'Overdue tasks retrieved successfully');
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to retrieve overdue tasks: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle GET /api/tasks.php?id=X&action=activity
- */
-function handleGetTaskActivity(int $taskId): void {
-    global $db, $tenantId;
-
-    try {
-        $stmt = $db->prepare("
-            SELECT
-                al.action,
-                al.data,
-                al.created_at,
-                u.name as user_name,
-                u.avatar as user_avatar
-            FROM activity_logs al
-            JOIN users u ON al.user_id = u.id
-            WHERE al.entity_type = 'task'
-            AND al.entity_id = :task_id
-            AND al.tenant_id = :tenant_id
-            ORDER BY al.created_at DESC
-            LIMIT 50
-        ");
-        $stmt->execute([':task_id' => $taskId, ':tenant_id' => $tenantId]);
-
-        $activities = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $activities[] = [
-                'action' => $row['action'],
-                'data' => json_decode($row['data'], true),
-                'created_at' => date('c', strtotime($row['created_at'])),
-                'user' => [
-                    'name' => $row['user_name'],
-                    'avatar' => $row['user_avatar']
-                ]
-            ];
-        }
-
-        sendResponse(true, ['activities' => $activities], 'Activity feed retrieved successfully');
-    } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to retrieve activity: ' . $e->getMessage());
-    }
-}
-
-/**
- * Handle POST /api/tasks.php?action=bulk_update
- */
-function handleBulkUpdate(array $data): void {
-    global $taskManager, $db, $tenantId;
-
-    $error = validateRequired($data, ['task_ids', 'updates']);
-    if ($error) {
-        sendErrorResponse(400, $error);
-    }
-
-    if (!is_array($data['task_ids']) || empty($data['task_ids'])) {
-        sendErrorResponse(400, 'task_ids must be a non-empty array');
-    }
-
-    try {
-        $successCount = 0;
-        $failedTasks = [];
-
-        foreach ($data['task_ids'] as $taskId) {
+        // Email notifications must run BEFORE api_success (api_success exits)
+        if (!empty($validAssignees)) {
             try {
-                // Apply updates
-                if (isset($data['updates']['status'])) {
-                    $data['updates']['status'] = mapApiStatusToInternal($data['updates']['status']);
+                $notifier = new TaskNotification();
+                foreach ($validAssignees as $assigneeId) {
+                    $notifier->sendTaskAssignedNotification((int)$taskId, (int)$assigneeId, (int)$userInfo['user_id']);
                 }
-
-                if (isset($data['updates']['assignees'])) {
-                    $taskManager->assignToUsers($taskId, $data['updates']['assignees']);
-                    unset($data['updates']['assignees']);
-                }
-
-                if (!empty($data['updates'])) {
-                    $taskManager->updateTask($taskId, $data['updates']);
-                }
-
-                $successCount++;
             } catch (Exception $e) {
-                $failedTasks[] = ['task_id' => $taskId, 'error' => $e->getMessage()];
+                error_log("[BUG-144] Task notification error (update): " . $e->getMessage());
             }
         }
 
-        sendResponse(true, [
-            'updated' => $successCount,
-            'failed' => $failedTasks
-        ], "Bulk update completed: $successCount tasks updated");
+        // Confirmation emails to creator for limited assignee actions (best-effort)
+        if ($isLimitedAssignee) {
+            try {
+                $notifier = new TaskNotification();
+                if ($assigneeEmailOps['progress'] !== null) {
+                    $notifier->sendTaskProgressUpdatedConfirmation((int)$taskId, (int)$uid, (int)$assigneeEmailOps['progress']);
+                }
+                if (!empty($assigneeEmailOps['comment'])) {
+                    $notifier->sendTaskCommentedConfirmation((int)$taskId, (int)$uid, (string)$assigneeEmailOps['comment']);
+                }
+                if (!empty($assigneeEmailOps['requested_due_date'])) {
+                    $notifier->sendTaskDueDateChangeRequestedConfirmation(
+                        (int)$taskId,
+                        (int)$uid,
+                        (string)$assigneeEmailOps['requested_due_date'],
+                        (string)($assigneeEmailOps['request_reason'] ?? '')
+                    );
+                }
+                if (!empty($assigneeEmailOps['reopened'])) {
+                    $notifier->sendTaskReopenedConfirmation(
+                        (int)$taskId,
+                        (int)$uid,
+                        (string)$assigneeEmailOps['reopen_reason']
+                    );
+                }
+            } catch (Exception $e) {
+                error_log("[BUG-148] Task confirmation email error (update): " . $e->getMessage());
+            }
+        }
+
+        // Fetch updated task
+        $task = $db->fetchOne("SELECT * FROM tasks WHERE id = ?", [$taskId]);
+
+        api_success([
+            'task' => $task,
+            'assignment_state' => $assignmentState
+        ], 'Task aggiornato con successo');
+
     } catch (Exception $e) {
-        sendErrorResponse(500, 'Bulk update failed: ' . $e->getMessage());
+        $db->rollback();
+        throw $e;
     }
 }
 
-/**
- * Handle GET /api/tasks.php?action=export
- */
-function handleExportTasks(): void {
-    global $db, $tenantId;
-
-    $format = $_GET['format'] ?? 'json';
-
-    if (!in_array($format, ['json', 'csv'])) {
-        sendErrorResponse(400, 'Invalid export format. Use json or csv');
+// ============================================
+// DELETE - Soft delete a task
+// ============================================
+function handleDelete($db, $userInfo, $data) {
+    $taskId = $data['id'] ?? null;
+    if (!$taskId) {
+        api_error('ID task richiesto', 400);
     }
+
+    // Super admin must select an active company filter before deleting
+    $role = $userInfo['role'] ?? 'user';
+    if (($_SESSION['role'] ?? '') === 'super_admin' || ($_SESSION['user_role'] ?? '') === 'super_admin') {
+        $role = 'super_admin';
+    }
+    $effectiveTenantId = (int)($userInfo['tenant_id'] ?? 0);
+    if ($role === 'super_admin') {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $cf = $_SESSION['company_filter_id'] ?? null;
+        if ($cf === null) {
+            api_error('Seleziona prima un’azienda per eliminare task', 400);
+        }
+        $effectiveTenantId = (int)$cf;
+    }
+
+    // Verify task exists and belongs to tenant
+    $tasksCols = getTableColumns($db, 'tasks');
+    $taskNotDeleted = isset($tasksCols['deleted_at']) ? " AND (deleted_at IS NULL OR deleted_at = '')" : '';
+    $task = $db->fetchOne(
+        "SELECT * FROM tasks WHERE id = ? AND tenant_id = ?{$taskNotDeleted}",
+        [$taskId, $effectiveTenantId]
+    );
+
+    if (!$task) {
+        api_error('Task non trovato', 404);
+    }
+
+    $db->beginTransaction();
 
     try {
-        // Build query with same filters as handleGetTasks
-        $where = ["t.tenant_id = :tenant_id", "t.deleted_at IS NULL"];
-        $params = [':tenant_id' => $tenantId];
+        // Soft delete task
+        $db->update('tasks', [
+            'deleted_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ], ['id' => $taskId]);
 
-        if (isset($_GET['list_id'])) {
-            $where[] = "t.board_id = :list_id";
-            $params[':list_id'] = (int)$_GET['list_id'];
-        }
+        // Soft delete assignments
+        // Soft-delete or hard-delete assignments (schema-aware)
+        $taCols = getTableColumns($db, 'task_assignments');
+        deleteAllAssignmentsForTask($db, (int)$effectiveTenantId, (int)$taskId, $taCols);
 
-        $sql = "SELECT t.*,
-                GROUP_CONCAT(DISTINCT u.name) as assignees
-                FROM tasks t
-                LEFT JOIN task_assignees ta ON ta.task_id = t.id
-                LEFT JOIN users u ON ta.user_id = u.id
-                WHERE " . implode(' AND ', $where) . "
-                GROUP BY t.id
-                ORDER BY t.position";
+        // Log history (schema-aware, tenant-correct)
+        insertTaskHistory(
+            $db,
+            (int)$effectiveTenantId,
+            (int)$taskId,
+            (int)$userInfo['user_id'],
+            'deleted',
+            null,
+            ['title' => $task['title']],
+            null
+        );
 
-        $stmt = $db->prepare($sql);
-        $stmt->execute($params);
+        $db->commit();
 
-        $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        api_success([
+            'task_id' => $taskId
+        ], 'Task eliminato con successo');
 
-        if ($format === 'csv') {
-            // Set CSV headers
-            header('Content-Type: text/csv');
-            header('Content-Disposition: attachment; filename="tasks_export_' . date('Y-m-d') . '.csv"');
-
-            // Output CSV
-            $output = fopen('php://output', 'w');
-
-            // Header row
-            fputcsv($output, [
-                'ID', 'Title', 'Description', 'Status', 'Priority',
-                'Due Date', 'Assignees', 'Progress', 'Created At'
-            ]);
-
-            // Data rows
-            foreach ($tasks as $task) {
-                fputcsv($output, [
-                    $task['id'],
-                    $task['title'],
-                    $task['description'] ?? '',
-                    $task['status'],
-                    $task['priority'],
-                    $task['due_date'] ?? '',
-                    $task['assignees'] ?? '',
-                    $task['progress_percentage'] ?? 0,
-                    $task['created_at']
-                ]);
-            }
-
-            fclose($output);
-            exit;
-        } else {
-            // JSON export
-            $formattedTasks = [];
-            foreach ($tasks as $task) {
-                $formattedTasks[] = formatTaskForResponse($task, $db, $tenantId);
-            }
-
-            sendResponse(true, ['tasks' => $formattedTasks], 'Tasks exported successfully');
-        }
     } catch (Exception $e) {
-        sendErrorResponse(500, 'Failed to export tasks: ' . $e->getMessage());
+        $db->rollback();
+        throw $e;
     }
 }
 
-/**
- * Map API status to internal status
- */
-function mapApiStatusToInternal(string $apiStatus): string {
-    $statusMap = [
-        'todo' => 'pending',
-        'in_progress' => 'in_progress',
-        'done' => 'completed',
-        'blocked' => 'on_hold'
-    ];
+// ============================================
+// ASSIGN - Assign users to a task
+// ============================================
+function handleAssign($db, $userInfo, $data) {
+    $taskId = $data['task_id'] ?? $data['id'] ?? null;
+    $assignees = $data['assignees'] ?? $data['user_ids'] ?? [];
 
-    return $statusMap[$apiStatus] ?? $apiStatus;
+    if (!$taskId) {
+        api_error('ID task richiesto', 400);
+    }
+
+    if (empty($assignees) || !is_array($assignees)) {
+        api_error('Lista assegnatari richiesta', 400);
+    }
+
+    // Super admin must select an active company filter before assigning
+    $role = $userInfo['role'] ?? 'user';
+    if (($_SESSION['role'] ?? '') === 'super_admin' || ($_SESSION['user_role'] ?? '') === 'super_admin') {
+        $role = 'super_admin';
+    }
+    $effectiveTenantId = (int)($userInfo['tenant_id'] ?? 0);
+    if ($role === 'super_admin') {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $cf = $_SESSION['company_filter_id'] ?? null;
+        if ($cf === null) {
+            api_error('Seleziona prima un’azienda per assegnare task', 400);
+        }
+        $effectiveTenantId = (int)$cf;
+    }
+
+    // Verify task exists
+    $tasksCols = getTableColumns($db, 'tasks');
+    $taskNotDeleted = isset($tasksCols['deleted_at']) ? " AND (deleted_at IS NULL OR deleted_at = '')" : '';
+    $task = $db->fetchOne(
+        "SELECT * FROM tasks WHERE id = ? AND tenant_id = ?{$taskNotDeleted}",
+        [$taskId, $effectiveTenantId]
+    );
+
+    if (!$task) {
+        api_error('Task non trovato', 404);
+    }
+
+    $taCols = getTableColumns($db, 'task_assignments');
+    $tasksCols = getTableColumns($db, 'tasks');
+
+    $db->beginTransaction();
+
+    try {
+        // Remove old assignments (schema-aware)
+        deleteAllAssignmentsForTask($db, (int)$effectiveTenantId, (int)$taskId, $taCols);
+
+        // Add new assignments
+        $validAssignees = [];
+        foreach ($assignees as $assigneeId) {
+            // Verify user exists
+            $user = $db->fetchOne(
+                'SELECT id FROM users WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL',
+                [$assigneeId, $effectiveTenantId]
+            );
+
+            if (!$user) {
+                continue; // Skip invalid users
+            }
+
+            $validAssignees[] = (int)$assigneeId;
+            insertTaskAssignment($db, (int)$effectiveTenantId, (int)$taskId, (int)$assigneeId, (int)$userInfo['user_id'], $taCols);
+        }
+
+        // Update primary assignee using first valid assignee (if any)
+        if (!empty($validAssignees)) {
+            $db->update('tasks', filterByExistingColumns([
+                'assigned_to' => (int)$validAssignees[0],
+                'updated_at' => date('Y-m-d H:i:s')
+            ], $tasksCols), ['id' => $taskId]);
+        }
+
+        // If user explicitly selected assignees but none are valid, fail loudly
+        if (!empty($assignees) && empty($validAssignees)) {
+            throw new Exception('Assegnatari non validi per questo tenant (seleziona un utente della stessa azienda)');
+        }
+
+        $db->commit();
+
+        // Post-write verification (BUG-144)
+        $assignmentState = getAssignmentState($db, (int)$effectiveTenantId, (int)$taskId, $taCols);
+
+        // Email notifications must run BEFORE api_success (api_success exits)
+        if (!empty($validAssignees)) {
+            try {
+                $notifier = new TaskNotification();
+                foreach ($validAssignees as $assigneeId) {
+                    $notifier->sendTaskAssignedNotification((int)$taskId, (int)$assigneeId, (int)$userInfo['user_id']);
+                }
+            } catch (Exception $e) {
+                error_log("[BUG-144] Task notification error (assign): " . $e->getMessage());
+            }
+        }
+
+        api_success([
+            'task_id' => $taskId,
+            'assignees' => $assignees,
+            'assignment_state' => $assignmentState
+        ], 'Assegnazioni aggiornate');
+
+    } catch (Exception $e) {
+        $db->rollback();
+        throw $e;
+    }
+}
+
+// ============================================
+// ORPHANED - Get tasks with deleted assignees
+// ============================================
+function handleOrphaned($db, $userInfo) {
+    $role = $userInfo['role'] ?? 'user';
+    if (($_SESSION['role'] ?? '') === 'super_admin' || ($_SESSION['user_role'] ?? '') === 'super_admin') {
+        $role = 'super_admin';
+    }
+    $filterTenantId = null;
+    if ($role === 'super_admin') {
+        if (session_status() === PHP_SESSION_NONE) session_start();
+        if (isset($_SESSION['company_filter_id']) && $_SESSION['company_filter_id'] !== null) {
+            $filterTenantId = (int)$_SESSION['company_filter_id'];
+        }
+    }
+
+    $where = [];
+    $params = [];
+    if ($role !== 'super_admin') {
+        $where[] = 't.tenant_id = ?';
+        $params[] = (int)$userInfo['tenant_id'];
+    } elseif ($filterTenantId !== null) {
+        $where[] = 't.tenant_id = ?';
+        $params[] = (int)$filterTenantId;
+    }
+    $tasksCols = getTableColumns($db, 'tasks');
+    if (isset($tasksCols['deleted_at'])) {
+        $where[] = "(t.deleted_at IS NULL OR t.deleted_at = '')";
+    }
+    $where[] = 't.assigned_to IS NOT NULL';
+
+    $tasks = $db->fetchAll("
+        SELECT t.*, u.name as assignee_name
+        FROM tasks t
+        LEFT JOIN users u ON t.assigned_to = u.id AND u.deleted_at IS NULL
+        WHERE " . implode(' AND ', $where) . "
+          AND u.id IS NULL
+        ORDER BY t.created_at DESC
+    ", $params);
+
+    api_success([
+        'tasks' => $tasks,
+        'count' => count($tasks)
+    ], 'Orphaned tasks retrieved');
 }

@@ -1,0 +1,429 @@
+{
+    "meta": {
+        "apply": true,
+        "file": "C:\\xampp\\tmp\\phpE97B.tmp",
+        "generated_at": "2026-01-03T10:27:03+01:00",
+        "locations_storage_available": true
+    },
+    "counts": {
+        "total_rows": 41,
+        "created": 0,
+        "skipped_duplicate": 32,
+        "skipped_missing_piva": 3,
+        "failed_address_parse": 6,
+        "failed_validation": 0,
+        "failed_db": 0
+    },
+    "rows": [
+        {
+            "row": 2,
+            "denominazione": "STIMA SRL",
+            "partita_iva": "03695410872",
+            "status": "active",
+            "settore": "alimentare",
+            "result": "skipped_duplicate",
+            "tenant_id": 30,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 3,
+            "denominazione": "AGRUMIGEL SRL",
+            "partita_iva": "01549800835",
+            "status": "active",
+            "settore": "alimentare",
+            "result": "skipped_duplicate",
+            "tenant_id": 31,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 4,
+            "denominazione": "THE GUARDIAN SRL",
+            "partita_iva": "04664030873",
+            "status": "active",
+            "settore": "altro",
+            "result": "skipped_duplicate",
+            "tenant_id": 32,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 5,
+            "denominazione": "APSEMA (Università di Catania)",
+            "partita_iva": "02772010878",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 33,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 6,
+            "denominazione": "ORTOGEL SRL",
+            "partita_iva": "00678650870",
+            "status": "active",
+            "settore": "alimentare",
+            "result": "skipped_duplicate",
+            "tenant_id": 34,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 7,
+            "denominazione": "ANALISI CLINICHE AMENTA SRL",
+            "partita_iva": "02231080819",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 35,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 8,
+            "denominazione": "GRUTTADAURIA & CONSIGLIO AGRO DISTRIBUZIONI SRL",
+            "partita_iva": "02004970857",
+            "status": "active",
+            "settore": "alimentare",
+            "result": "skipped_duplicate",
+            "tenant_id": 36,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 9,
+            "denominazione": "ARA SOCIETÀ COOPERATIVA SOCIALE",
+            "partita_iva": "05461910878",
+            "status": "active",
+            "settore": "altro",
+            "result": "skipped_duplicate",
+            "tenant_id": 37,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 10,
+            "denominazione": "BIOALMONDSICILIA SRL",
+            "partita_iva": "05627680878",
+            "status": "active",
+            "settore": "alimentare",
+            "result": "skipped_duplicate",
+            "tenant_id": 38,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 11,
+            "denominazione": "CONAL FOOD SRL",
+            "partita_iva": "03731020792",
+            "status": "active",
+            "settore": "alimentare",
+            "result": "skipped_duplicate",
+            "tenant_id": 39,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 12,
+            "denominazione": "CENTRO CLINICO E DIAGNOSTICO G.B. MORGAGNI SRL",
+            "partita_iva": "00248620874",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 40,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 13,
+            "denominazione": "PL3 & PARTNERS SRL",
+            "partita_iva": "04618690962",
+            "status": "active",
+            "settore": "altro",
+            "result": "skipped_duplicate",
+            "tenant_id": 41,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 14,
+            "denominazione": "SALUS MANGIALAVORI SRL",
+            "partita_iva": "02010240790",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 42,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 15,
+            "denominazione": "ROMOLO HOSPITAL SRL",
+            "partita_iva": "02056980796",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 43,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 16,
+            "denominazione": "LABOGEST SRL",
+            "partita_iva": "01976890796",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 44,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 17,
+            "denominazione": "FONDAZIONE ISTITUTO G. GIGLIO DI CEFALÙ",
+            "partita_iva": "05205490823",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 45,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 18,
+            "denominazione": "DIAGNOSTICA MEDICA RESTIVO SCARL",
+            "partita_iva": "02541500845",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 46,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 19,
+            "denominazione": "BT ITALIA SPA",
+            "partita_iva": "04952121004",
+            "status": "active",
+            "settore": "altro",
+            "result": "skipped_duplicate",
+            "tenant_id": 47,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 20,
+            "denominazione": "CIEFFE DI VASQUEZ GIUSEPPE E MAUROVIC BRANCA SNC",
+            "partita_iva": "00704910322",
+            "status": "active",
+            "settore": "altro",
+            "result": "failed_address_parse",
+            "tenant_id": null,
+            "message": "Sede legale troppo corta"
+        },
+        {
+            "row": 21,
+            "denominazione": "COOPERATIVA SOCIALE PROMETEO ONLUS",
+            "partita_iva": "06260900821",
+            "status": "active",
+            "settore": "sanita",
+            "result": "failed_address_parse",
+            "tenant_id": null,
+            "message": "CAP non trovato"
+        },
+        {
+            "row": 22,
+            "denominazione": "AZIENDA OSPEDALIERA PAPARDO",
+            "partita_iva": "03051880833",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 48,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 23,
+            "denominazione": "VILLA CHIARA SRL",
+            "partita_iva": "02228000879",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 49,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 24,
+            "denominazione": "LABORATORIO ANALISI FORNAROTTO",
+            "partita_iva": "01166750867",
+            "status": "active",
+            "settore": "sanita",
+            "result": "failed_address_parse",
+            "tenant_id": null,
+            "message": "CAP non trovato"
+        },
+        {
+            "row": 25,
+            "denominazione": "SICULA COMPOST SRL",
+            "partita_iva": "05472300879",
+            "status": "active",
+            "settore": "altro",
+            "result": "skipped_duplicate",
+            "tenant_id": 50,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 26,
+            "denominazione": "DIGITAL UNIFORMS SRL",
+            "partita_iva": "12439371001",
+            "status": "active",
+            "settore": "altro",
+            "result": "skipped_duplicate",
+            "tenant_id": 51,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 27,
+            "denominazione": "XENIA SALUS SRL",
+            "partita_iva": "06363880821",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 52,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 28,
+            "denominazione": "LILT ASSOCIAZIONE METROPOLITANA DI CATANIA",
+            "partita_iva": "03994720872",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 53,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 29,
+            "denominazione": "SENTIERO PER LA VITA SRL",
+            "partita_iva": "04779150822",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 54,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 30,
+            "denominazione": "LABORATORIO ANALISI IL NUCLEO SAS",
+            "partita_iva": "01158460863",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 55,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 31,
+            "denominazione": "CASA DI CURA MUSUMECI GECAS",
+            "partita_iva": "03381600877",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 56,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 32,
+            "denominazione": "SOMERCOM SRL",
+            "partita_iva": "03400520874",
+            "status": "active",
+            "settore": "altro",
+            "result": "failed_address_parse",
+            "tenant_id": null,
+            "message": "CAP non trovato"
+        },
+        {
+            "row": 33,
+            "denominazione": "TEO SRL",
+            "partita_iva": "02096570805",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 57,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 34,
+            "denominazione": "SUD MARMI SRL",
+            "partita_iva": "00594340812",
+            "status": "active",
+            "settore": "altro",
+            "result": "failed_address_parse",
+            "tenant_id": null,
+            "message": "Sede legale troppo corta"
+        },
+        {
+            "row": 35,
+            "denominazione": "PERLA MARMI SRL",
+            "partita_iva": "02107900819",
+            "status": "active",
+            "settore": "altro",
+            "result": "skipped_duplicate",
+            "tenant_id": 58,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 36,
+            "denominazione": "CHECK-UP LABORATORIO FRANZONE SAS",
+            "partita_iva": "01050080868",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_duplicate",
+            "tenant_id": 59,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 37,
+            "denominazione": "SALVIA FARMACEUTICI SRL",
+            "partita_iva": "02851930871",
+            "status": "active",
+            "settore": "altro",
+            "result": "failed_address_parse",
+            "tenant_id": null,
+            "message": "CAP non trovato"
+        },
+        {
+            "row": 38,
+            "denominazione": "TERME DI GALATRO SRL",
+            "partita_iva": "03089980803",
+            "status": "active",
+            "settore": "altro",
+            "result": "skipped_duplicate",
+            "tenant_id": 60,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 39,
+            "denominazione": "INTERMEDICA DI G. LO GIUDICE E C SAS",
+            "partita_iva": "03761410822",
+            "status": "active",
+            "settore": "altro",
+            "result": "skipped_duplicate",
+            "tenant_id": 61,
+            "message": "Duplicato: tenant già presente (PIVA)"
+        },
+        {
+            "row": 40,
+            "denominazione": "NEW LIFE",
+            "partita_iva": "DA_CERCARE",
+            "status": "active",
+            "settore": "altro",
+            "result": "skipped_missing_piva",
+            "tenant_id": null,
+            "message": "Partita IVA mancante\/DA_CERCARE"
+        },
+        {
+            "row": 41,
+            "denominazione": "CASA ANNUNZIATA",
+            "partita_iva": "DA_CERCARE",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_missing_piva",
+            "tenant_id": null,
+            "message": "Partita IVA mancante\/DA_CERCARE"
+        },
+        {
+            "row": 42,
+            "denominazione": "ANNUNZIATA",
+            "partita_iva": "DA_CERCARE",
+            "status": "active",
+            "settore": "sanita",
+            "result": "skipped_missing_piva",
+            "tenant_id": null,
+            "message": "Partita IVA mancante\/DA_CERCARE"
+        }
+    ]
+}

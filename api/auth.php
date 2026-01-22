@@ -2,9 +2,8 @@
 // Initialize session with proper configuration
 require_once dirname(__DIR__) . '/includes/session_init.php';
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+// IMPORTANT: do not enable permissive CORS on auth endpoints.
+// This API is same-origin and uses session cookies.
 
 // Handle OPTIONS request for CORS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -32,11 +31,23 @@ if (empty($action)) {
 }
 
 if ($action === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Leggi il JSON dal body
-    $input = json_decode(file_get_contents('php://input'), true);
+    // Read JSON body (primary) or fall back to form-encoded (for compatibility)
+    $rawBody = file_get_contents('php://input');
+    $input = json_decode($rawBody, true);
 
-    $email = $input['email'] ?? '';
-    $password = $input['password'] ?? '';
+    // Fallback: form-urlencoded / multipart
+    if (!is_array($input)) {
+        if (!empty($_POST)) {
+            $input = $_POST;
+        } else {
+            $form = [];
+            parse_str((string)$rawBody, $form);
+            $input = $form;
+        }
+    }
+
+    $email = (string)($input['email'] ?? '');
+    $password = (string)($input['password'] ?? '');
 
     // Validazione base
     if (empty($email) || empty($password)) {
@@ -85,40 +96,25 @@ if ($action === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     $user['password_expiry_warning'] = "La tua password scadrà tra $daysUntilExpiry giorni";
                 }
             }
-            // Check if user can login based on role and tenant assignment
+            // Check if user can login based on role and tenant assignment.
+            //
+            // NOTE: We intentionally DO NOT call any stored procedure (e.g. CheckUserLoginAccess) here.
+            // In some deployments that procedure can be missing/broken/slow and can cause the login request
+            // to hang, freezing the UI on index.php. Keep the logic here deterministic and fast.
             $canLogin = true;
             $loginMessage = '';
 
-            // Check if stored procedure exists for validation
-            $checkProcedure = $pdo->prepare("SELECT COUNT(*) as count FROM information_schema.ROUTINES
-                                            WHERE ROUTINE_SCHEMA = 'collaboranexio'
-                                            AND ROUTINE_NAME = 'CheckUserLoginAccess'");
-            $checkProcedure->execute();
-            $procedureExists = $checkProcedure->fetch(PDO::FETCH_ASSOC)['count'] > 0;
-
-            if ($procedureExists) {
-                // Use stored procedure to check login access
-                $stmt = $pdo->prepare("CALL CheckUserLoginAccess(:user_id, @can_login, @message)");
-                $stmt->bindParam(':user_id', $user['id'], PDO::PARAM_INT);
-                $stmt->execute();
-
-                $result = $pdo->query("SELECT @can_login as can_login, @message as message")->fetch(PDO::FETCH_ASSOC);
-                $canLogin = (bool)$result['can_login'];
-                $loginMessage = $result['message'];
-            } else {
-                // Manual validation if stored procedure doesn't exist
-                if (in_array($user['role'], ['super_admin', 'admin'])) {
-                    // Admin and Super Admin can always login
-                    $canLogin = true;
-                } elseif (empty($user['tenant_id'])) {
-                    // Regular users and managers need a tenant
-                    $canLogin = false;
-                    $loginMessage = 'Il tuo account non è associato a nessuna azienda. Contatta l\'amministratore.';
-                } elseif ($user['tenant_status'] !== 'active') {
-                    // Check if tenant is active
-                    $canLogin = false;
-                    $loginMessage = 'L\'azienda associata al tuo account non è attiva.';
-                }
+            if (in_array($user['role'], ['super_admin', 'admin'], true)) {
+                // Admin and Super Admin can always login (even without tenant_id)
+                $canLogin = true;
+            } elseif (empty($user['tenant_id'])) {
+                // Regular users and managers need a tenant
+                $canLogin = false;
+                $loginMessage = 'Il tuo account non è associato a nessuna azienda. Contatta l\'amministratore.';
+            } elseif (($user['tenant_status'] ?? null) !== 'active') {
+                // Tenant must be active
+                $canLogin = false;
+                $loginMessage = 'L\'azienda associata al tuo account non è attiva.';
             }
 
             if (!$canLogin) {
@@ -134,9 +130,13 @@ if ($action === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_name'] = $user['name'];
             $_SESSION['user_email'] = $user['email'];
+            // Keep both keys in sync (some parts of the app read role, others user_role)
             $_SESSION['user_role'] = $user['role'];
+            $_SESSION['role'] = $user['role'];
             $_SESSION['tenant_id'] = $user['tenant_id'];
             $_SESSION['tenant_name'] = $user['tenant_name'] ?? 'No Company';
+            // Keep session activity fresh after a successful login (avoid immediate timeout edge-cases)
+            $_SESSION['last_activity'] = time();
 
             // For admin/super_admin with multiple tenant access, get accessible tenants
             if (in_array($user['role'], ['admin', 'super_admin'])) {
@@ -159,6 +159,7 @@ if ($action === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $response = [
                 'success' => true,
                 'message' => 'Login effettuato con successo',
+                'redirect' => 'dashboard.php',
                 'user' => [
                     'id' => $user['id'],
                     'name' => $user['name'],

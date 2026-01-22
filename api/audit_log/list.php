@@ -41,6 +41,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/api_auth.php';
+require_once __DIR__ . '/../../includes/page_visibility_helper.php';
 
 // 1. Initialize API environment
 initializeApiEnvironment();
@@ -51,9 +52,16 @@ verifyApiAuthentication();
 // 3. Get user info
 $userInfo = getApiUserInfo();
 
-// 4. Role-based access control: Only admin and super_admin can view audit logs
-if (!in_array($userInfo['role'], ['admin', 'super_admin'])) {
-    api_error('Accesso negato. Solo admin e super_admin possono visualizzare gli audit log.', 403);
+// 4. Role-based access control: super_admin + manager only
+if (!in_array($userInfo['role'], ['super_admin', 'manager'], true)) {
+    api_error('Accesso negato.', 403);
+}
+
+// 5. Enforce Page Visibility setting (configurazioni.php -> Visibilità Pagine)
+// super_admin always allowed (helper returns true)
+$tenantId = isset($userInfo['tenant_id']) ? (int)$userInfo['tenant_id'] : null;
+if (!isPageVisibleForRole('audit_log', (string)($userInfo['role'] ?? 'user'), $tenantId)) {
+    api_error('Accesso negato (pagina non abilitata per il tuo ruolo).', 403);
 }
 
 // 5. Get database instance
@@ -125,9 +133,28 @@ try {
     }
 
     // Action filter
+    // Supports either a single action or a comma-separated list: action=login,user_login,authentication_success
     if ($action) {
-        $where_conditions[] = 'al.action = ?';
-        $params[] = $action;
+        $rawActions = array_values(array_filter(array_map('trim', explode(',', (string)$action))));
+        if (count($rawActions) <= 1) {
+            $where_conditions[] = 'al.action = ?';
+            $params[] = (string)$action;
+        } else {
+            // Validate each token to avoid SQL injection even though we're using placeholders.
+            $valid = [];
+            foreach ($rawActions as $a) {
+                if ($a === '') continue;
+                if (strlen($a) > 64) continue;
+                if (!preg_match('/^[a-zA-Z0-9_]+$/', $a)) continue;
+                $valid[] = $a;
+            }
+            if (empty($valid)) {
+                api_error('Filtro action non valido', 400);
+            }
+            $in = implode(',', array_fill(0, count($valid), '?'));
+            $where_conditions[] = "al.action IN ($in)";
+            $params = array_merge($params, $valid);
+        }
     }
 
     // Entity type filter

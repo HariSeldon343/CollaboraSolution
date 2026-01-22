@@ -136,6 +136,27 @@ try {
     $user_id = $session['user_id'];
     $tenant_id = $session['tenant_id'];
 
+    // Check workflow state: allow save ONLY if current_state is 'bozza'
+    $workflowState = null;
+    try {
+        $wfRow = $db->fetchOne(
+            "SELECT current_state
+             FROM document_workflow
+             WHERE file_id = ?
+               AND tenant_id = ?
+               AND (deleted_at IS NULL OR deleted_at = '')",
+            [$file_id, $tenant_id]
+        );
+        if ($wfRow && isset($wfRow['current_state'])) {
+            $workflowState = $wfRow['current_state'];
+        }
+    } catch (Exception $e) {
+        // If query fails, default to blocking save to stay safe
+        $workflowState = 'unknown';
+    }
+
+    $allowSave = ($workflowState === null || $workflowState === 'bozza');
+
     // Handle different status codes
     switch ($status) {
         case 0:
@@ -162,6 +183,13 @@ try {
                 error_log("OnlyOffice: No URL provided for saving document");
                 http_response_code(400);
                 die(json_encode(['error' => 1, 'message' => 'No URL provided']));
+            }
+
+            if (!$allowSave) {
+                // Block save in non-draft states (view-only)
+                error_log("OnlyOffice: Save blocked because workflow state is '{$workflowState}' for file $file_id");
+                http_response_code(403);
+                die(json_encode(['error' => 1, 'message' => 'Documento in sola visualizzazione: riportare in bozza per modificare']));
             }
 
             // Save the document

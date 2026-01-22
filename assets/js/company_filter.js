@@ -1,327 +1,184 @@
 /**
- * CollaboraNexio - Company Filter JavaScript Module
- * Gestisce l'interazione con il filtro azienda lato client
- *
- * @version 1.0.0
+ * CollaboraNexio - Company Filter UI (checkbox dropdown, apply-only)
+ * Used by includes/company_filter.php
  */
 
-class CompanyFilterManager {
-    constructor(options = {}) {
-        this.options = {
-            apiBaseUrl: '/CollaboraNexio/api',
-            onFilterChange: null,
-            autoReload: true,
-            ...options
-        };
+(() => {
+    'use strict';
 
-        this.currentFilter = null;
-        this.init();
+    function qs(root, sel) {
+        return root.querySelector(sel);
     }
 
-    /**
-     * Inizializza il gestore del filtro
-     */
-    init() {
-        // Ottieni il form del filtro
-        this.filterForm = document.getElementById('companyFilterForm');
-        this.filterSelect = document.getElementById('company_filter');
-
-        if (this.filterForm && this.filterSelect) {
-            this.attachEventListeners();
-            this.getCurrentFilter();
-        }
+    function qsa(root, sel) {
+        return Array.from(root.querySelectorAll(sel));
     }
 
-    /**
-     * Collega gli event listener
-     */
-    attachEventListeners() {
-        // Previene il submit standard del form
-        this.filterForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleFilterChange();
-        });
-
-        // Gestisce il cambio del select
-        this.filterSelect.addEventListener('change', () => {
-            this.handleFilterChange();
-        });
-    }
-
-    /**
-     * Gestisce il cambio del filtro
-     */
-    async handleFilterChange() {
-        const selectedValue = this.filterSelect.value;
-        const selectedText = this.filterSelect.options[this.filterSelect.selectedIndex].text;
-
-        console.log('Company filter changed:', selectedValue, selectedText);
-
-        // Mostra indicatore di caricamento
-        this.showLoadingIndicator();
-
-        try {
-            // Salva il filtro via AJAX
-            const saved = await this.saveFilter(selectedValue);
-
-            if (saved) {
-                this.currentFilter = {
-                    id: selectedValue === 'all' ? null : parseInt(selectedValue),
-                    name: selectedText
-                };
-
-                // Chiama il callback se definito
-                if (typeof this.options.onFilterChange === 'function') {
-                    this.options.onFilterChange(this.currentFilter);
-                }
-
-                // Ricarica i dati o la pagina se richiesto
-                if (this.options.autoReload) {
-                    this.reloadData();
-                }
-
-                // Mostra notifica di successo
-                this.showNotification('Filtro azienda aggiornato', 'success');
+    function closeAll(except = null) {
+        document.querySelectorAll('[data-cnx-company-filter]').forEach((wrap) => {
+            if (except && wrap === except) return;
+            const pop = qs(wrap, '[data-cnx-company-filter-popover]');
+            const btn = qs(wrap, '[data-cnx-company-filter-trigger]');
+            if (pop && !pop.hidden) {
+                pop.hidden = true;
+                // Belt-and-suspenders: ensure no overlay even if [hidden] is overridden by extensions/CSS
+                pop.style.display = 'none';
             }
-        } catch (error) {
-            console.error('Error changing company filter:', error);
-            this.showNotification('Errore nell\'aggiornamento del filtro', 'error');
-        } finally {
-            this.hideLoadingIndicator();
-        }
+            if (btn) btn.setAttribute('aria-expanded', 'false');
+        });
     }
 
-    /**
-     * Salva il filtro selezionato sul server
-     */
-    async saveFilter(companyFilter) {
-        try {
-            const formData = new FormData();
-            formData.append('company_filter', companyFilter);
+    function initCompanyFilter(wrap) {
+        const form = qs(wrap, 'form');
+        const trigger = qs(wrap, '[data-cnx-company-filter-trigger]');
+        const popover = qs(wrap, '[data-cnx-company-filter-popover]');
+        const closeBtn = qs(wrap, '[data-cnx-company-filter-close]');
+        const applyBtn = qs(wrap, '[data-cnx-company-filter-apply]');
+        const searchInput = qs(wrap, '[data-cnx-company-filter-search]');
+        const emptyEl = qs(wrap, '[data-cnx-company-filter-empty]');
+        const allBox = qs(wrap, 'input[type="checkbox"][value="all"]');
+        const boxes = qsa(wrap, 'input[type="checkbox"][name="company_filter[]"]');
+        const valueEl = qs(wrap, '.company-filter-value');
 
-            const response = await fetch(window.location.pathname, {
-                method: 'POST',
-                body: formData,
-                credentials: 'same-origin'
+        if (!form || !trigger || !popover || !allBox) return;
+
+        function setOpen(open) {
+            if (open) {
+                closeAll(wrap);
+                popover.hidden = false;
+                popover.style.display = '';
+                trigger.setAttribute('aria-expanded', 'true');
+                // Focus search for fast typing
+                if (searchInput) {
+                    // Reset filter on open so user always sees full list first
+                    searchInput.value = '';
+                    applySearchFilter('');
+                    setTimeout(() => searchInput.focus(), 0);
+                }
+            } else {
+                popover.hidden = true;
+                popover.style.display = 'none';
+                trigger.setAttribute('aria-expanded', 'false');
+            }
+        }
+
+        function selectedIds() {
+            return boxes.filter(b => b.checked).map(b => b.value);
+        }
+
+        function normalizeSelection() {
+            const selected = selectedIds();
+            const hasAll = selected.includes('all');
+
+            if (hasAll) {
+                boxes.forEach((b) => {
+                    if (b.value !== 'all') b.checked = false;
+                });
+            } else {
+                // If nothing selected, default back to all
+                const anySpecific = selected.length > 0;
+                if (!anySpecific) {
+                    allBox.checked = true;
+                    boxes.forEach((b) => {
+                        if (b.value !== 'all') b.checked = false;
+                    });
+                }
+            }
+        }
+
+        function updateSummary() {
+            if (!valueEl) return;
+            const selected = selectedIds();
+            if (selected.includes('all')) {
+                valueEl.textContent = 'Tutte le aziende';
+                return;
+            }
+            const companies = boxes.filter(b => b.checked && b.value !== 'all');
+            if (companies.length === 1) {
+                const label = companies[0].closest('label');
+                const text = label ? (label.textContent || '').trim() : '1 azienda';
+                valueEl.textContent = text || '1 azienda';
+            } else {
+                valueEl.textContent = `${companies.length} aziende`;
+            }
+        }
+
+        function applySearchFilter(term) {
+            const t = String(term || '').trim().toLowerCase();
+            const optionLabels = qsa(wrap, '.company-filter-option');
+            let visible = 0;
+
+            optionLabels.forEach((lab) => {
+                const input = qs(lab, 'input[type="checkbox"]');
+                if (!input) return;
+                if (input.value === 'all') {
+                    lab.style.display = '';
+                    return;
+                }
+                if (t === '') {
+                    lab.style.display = '';
+                    visible += 1;
+                    return;
+                }
+                const text = (lab.textContent || '').toLowerCase();
+                const ok = text.includes(t);
+                lab.style.display = ok ? '' : 'none';
+                if (ok) visible += 1;
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to save filter');
-            }
-
-            return true;
-        } catch (error) {
-            console.error('Error saving filter:', error);
-            return false;
-        }
-    }
-
-    /**
-     * Ottiene il filtro corrente
-     */
-    getCurrentFilter() {
-        if (this.filterSelect) {
-            const value = this.filterSelect.value;
-            const text = this.filterSelect.options[this.filterSelect.selectedIndex].text;
-
-            this.currentFilter = {
-                id: value === 'all' ? null : parseInt(value),
-                name: text
-            };
-        }
-
-        return this.currentFilter;
-    }
-
-    /**
-     * Ricarica i dati della pagina
-     */
-    reloadData() {
-        // Se esiste una funzione globale di reload, usala
-        if (typeof window.reloadPageData === 'function') {
-            window.reloadPageData();
-        } else {
-            // Altrimenti ricarica la pagina
-            window.location.reload();
-        }
-    }
-
-    /**
-     * Mostra indicatore di caricamento
-     */
-    showLoadingIndicator() {
-        if (this.filterSelect) {
-            this.filterSelect.disabled = true;
-            this.filterSelect.style.opacity = '0.5';
-        }
-
-        // Aggiungi spinner se esiste un elemento dedicato
-        const spinner = document.querySelector('.company-filter-spinner');
-        if (spinner) {
-            spinner.style.display = 'inline-block';
-        }
-    }
-
-    /**
-     * Nasconde indicatore di caricamento
-     */
-    hideLoadingIndicator() {
-        if (this.filterSelect) {
-            this.filterSelect.disabled = false;
-            this.filterSelect.style.opacity = '1';
-        }
-
-        const spinner = document.querySelector('.company-filter-spinner');
-        if (spinner) {
-            spinner.style.display = 'none';
-        }
-    }
-
-    /**
-     * Mostra notifica
-     */
-    showNotification(message, type = 'info') {
-        // Se esiste un sistema di notifiche globale, usalo
-        if (typeof window.showToast === 'function') {
-            window.showToast(message, type);
-        } else if (typeof window.showNotification === 'function') {
-            window.showNotification(message, type);
-        } else {
-            // Fallback a console log
-            console.log(`[${type.toUpperCase()}] ${message}`);
-        }
-    }
-
-    /**
-     * Applica il filtro ai parametri di una richiesta API
-     */
-    applyFilterToApiParams(params = {}) {
-        if (this.currentFilter && this.currentFilter.id) {
-            params.company_filter_id = this.currentFilter.id;
-        }
-        return params;
-    }
-
-    /**
-     * Ottiene l'URL dell'API con il filtro applicato
-     */
-    getFilteredApiUrl(endpoint, params = {}) {
-        const filteredParams = this.applyFilterToApiParams(params);
-        const queryString = new URLSearchParams(filteredParams).toString();
-        return `${this.options.apiBaseUrl}/${endpoint}${queryString ? '?' + queryString : ''}`;
-    }
-
-    /**
-     * Helper per fare richieste API con il filtro applicato
-     */
-    async fetchWithFilter(endpoint, options = {}) {
-        // Aggiungi il filtro ai parametri GET
-        if (options.params) {
-            options.params = this.applyFilterToApiParams(options.params);
-        }
-
-        // Costruisci l'URL
-        const url = this.getFilteredApiUrl(endpoint, options.params);
-
-        // Prepara le opzioni della fetch
-        const fetchOptions = {
-            method: options.method || 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': this.getCSRFToken(),
-                ...options.headers
-            },
-            credentials: 'same-origin'
-        };
-
-        if (options.body) {
-            fetchOptions.body = JSON.stringify(options.body);
-        }
-
-        try {
-            const response = await fetch(url, fetchOptions);
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('API request failed:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Ottiene il token CSRF dalla pagina
-     */
-    getCSRFToken() {
-        const tokenElement = document.getElementById('csrfToken');
-        return tokenElement ? tokenElement.value : '';
-    }
-
-    /**
-     * Resetta il filtro
-     */
-    async resetFilter() {
-        if (this.filterSelect) {
-            this.filterSelect.value = 'all';
-            await this.handleFilterChange();
-        }
-    }
-
-    /**
-     * Imposta un filtro specifico
-     */
-    async setFilter(companyId) {
-        if (this.filterSelect) {
-            // Verifica che l'opzione esista
-            const option = Array.from(this.filterSelect.options).find(
-                opt => opt.value === companyId.toString()
-            );
-
-            if (option) {
-                this.filterSelect.value = companyId;
-                await this.handleFilterChange();
-                return true;
+            if (emptyEl) {
+                emptyEl.hidden = !(t !== '' && visible === 0);
             }
         }
-        return false;
-    }
-}
 
-// Esporta per uso globale
-window.CompanyFilterManager = CompanyFilterManager;
-
-// Inizializzazione automatica quando il DOM è pronto
-document.addEventListener('DOMContentLoaded', () => {
-    // Inizializza il gestore del filtro se esiste il componente
-    if (document.getElementById('companyFilterForm')) {
-        window.companyFilter = new CompanyFilterManager({
-            onFilterChange: (filter) => {
-                console.log('Filter changed to:', filter);
-
-                // Trigger eventi personalizzati che altre parti dell'app possono ascoltare
-                const event = new CustomEvent('companyFilterChanged', {
-                    detail: filter
-                });
-                document.dispatchEvent(event);
-            }
+        trigger.addEventListener('click', () => {
+            setOpen(popover.hidden);
         });
-    }
-});
 
-// Helper functions globali per retrocompatibilità
-window.getCompanyFilter = function() {
-    if (window.companyFilter) {
-        return window.companyFilter.getCurrentFilter();
-    }
-    return null;
-};
+        if (closeBtn) closeBtn.addEventListener('click', () => setOpen(false));
+        if (applyBtn) applyBtn.addEventListener('click', () => {
+            normalizeSelection();
+            form.submit();
+        });
 
-window.applyCompanyFilter = function(params) {
-    if (window.companyFilter) {
-        return window.companyFilter.applyFilterToApiParams(params);
+        if (searchInput) {
+            searchInput.addEventListener('input', () => applySearchFilter(searchInput.value));
+            searchInput.addEventListener('keydown', (e) => {
+                // Enter should apply immediately (quality of life)
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    normalizeSelection();
+                    form.submit();
+                }
+            });
+        }
+
+        boxes.forEach((b) => {
+            b.addEventListener('change', () => {
+                if (b.value === 'all' && b.checked) {
+                    boxes.forEach(x => { if (x.value !== 'all') x.checked = false; });
+                } else if (b.value !== 'all' && b.checked) {
+                    allBox.checked = false;
+                }
+                normalizeSelection();
+                updateSummary();
+            });
+        });
+
+        normalizeSelection();
+        updateSummary();
     }
-    return params;
-};
+
+    document.addEventListener('click', (e) => {
+        const inside = e.target.closest('[data-cnx-company-filter]');
+        if (!inside) closeAll(null);
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeAll(null);
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('[data-cnx-company-filter]').forEach(initCompanyFilter);
+    });
+})();

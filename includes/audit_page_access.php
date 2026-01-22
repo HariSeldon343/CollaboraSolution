@@ -68,10 +68,12 @@ function trackPageAccess($pageName)
  *
  * @return string Page name without .php extension
  */
-function getCurrentPageName()
-{
-    $scriptName = basename($_SERVER['PHP_SELF'], '.php');
-    return $scriptName;
+if (!function_exists('getCurrentPageName')) {
+    function getCurrentPageName()
+    {
+        $scriptName = basename($_SERVER['PHP_SELF'], '.php');
+        return $scriptName;
+    }
 }
 
 /**
@@ -80,8 +82,10 @@ function getCurrentPageName()
  *
  * @return bool
  */
-function trackCurrentPage()
-{
-    $pageName = getCurrentPageName();
-    return trackPageAccess($pageName);
+if (!function_exists('trackCurrentPage')) {
+    function trackCurrentPage()
+    {
+        $pageName = getCurrentPageName();
+        return trackPageAccess($pageName);
+    }
 }

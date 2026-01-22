@@ -78,8 +78,9 @@ try {
     }
 
     // Verifica esistenza e permessi sull'entità
+    // BUG-146c FIX: Column is 'name' not 'file_name' in files table
     if ($entityType === 'file') {
-        $query = "SELECT id, file_name, folder_id, tenant_id
+        $query = "SELECT id, name, folder_id, tenant_id
                  FROM files
                  WHERE id = ? AND deleted_at IS NULL";
 
@@ -97,7 +98,7 @@ try {
             api_error('File non trovato o non autorizzato', 404);
         }
 
-        $entityName = $entity['file_name'];
+        $entityName = $entity['name'];
 
     } else { // folder
         $query = "SELECT id, folder_name, parent_folder_id, tenant_id
@@ -184,9 +185,10 @@ try {
     // Se è una cartella e apply_to_children è true, disabilita ricorsivamente
     if ($entityType === 'folder' && $applyToChildren) {
         // Funzione ricorsiva per ottenere tutti i figli
+        // BUG-146c FIX: Column is 'name' not 'file_name' in files table
         $processChildren = function($parentId) use ($db, $tenantId, $userInfo, &$childrenCount, &$errors) {
             // Processa file nella cartella
-            $filesQuery = "SELECT id, file_name
+            $filesQuery = "SELECT id, name
                           FROM files
                           WHERE folder_id = ?
                             AND tenant_id = ?
@@ -218,7 +220,7 @@ try {
                             $childrenCount++;
                         }
                     } catch (Exception $e) {
-                        $errors[] = "Errore per file {$file['file_name']}: " . $e->getMessage();
+                        $errors[] = "Errore per file {$file['name']}: " . $e->getMessage(); // BUG-146c FIX
                     }
                 }
             }

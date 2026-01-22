@@ -1,0 +1,89 @@
+{
+  "template_key": "GENERIC_GAP_ASSESSMENT",
+  "title": "Gap Assessment — Generico",
+  "version": "1.0",
+  "standards": [],
+  "intervention_types": ["new_implementation", "recertification", "maintenance", "transition"],
+  "sections": [
+    {
+      "section_key": "context",
+      "title": "Contesto organizzativo",
+      "items": [
+        {
+          "item_key": "context_scope",
+          "title": "Campo di applicazione",
+          "description": "Qual è il perimetro/ambito del sistema?",
+          "required": true,
+          "question_type": "text"
+        },
+        {
+          "item_key": "context_stakeholders",
+          "title": "Parti interessate",
+          "description": "Principali stakeholder interni/esterni.",
+          "required": true,
+          "question_type": "text"
+        }
+      ]
+    },
+    {
+      "section_key": "processes",
+      "title": "Processi e organizzazione",
+      "items": [
+        {
+          "item_key": "process_map",
+          "title": "Mappa processi",
+          "description": "Processi chiave e interazioni.",
+          "required": true,
+          "question_type": "text"
+        },
+        {
+          "item_key": "roles_responsibilities",
+          "title": "Ruoli e responsabilità",
+          "description": "Ruoli principali e responsabilità.",
+          "required": true,
+          "question_type": "text"
+        }
+      ]
+    },
+    {
+      "section_key": "risk",
+      "title": "Rischi e opportunità",
+      "items": [
+        {
+          "item_key": "risk_assessment",
+          "title": "Valutazione rischi",
+          "description": "Metodo e stato della valutazione dei rischi.",
+          "required": true,
+          "question_type": "text"
+        }
+      ]
+    },
+    {
+      "section_key": "documentation",
+      "title": "Documentazione",
+      "items": [
+        {
+          "item_key": "doc_manual",
+          "title": "Manuale/Linee guida",
+          "description": "Presenza documentazione di riferimento.",
+          "required": false,
+          "question_type": "text"
+        },
+        {
+          "item_key": "doc_procedures",
+          "title": "Procedure/istruzioni",
+          "description": "Procedure operative disponibili.",
+          "required": false,
+          "question_type": "text"
+        },
+        {
+          "item_key": "doc_records",
+          "title": "Registrazioni",
+          "description": "Moduli/registri utilizzati.",
+          "required": false,
+          "question_type": "text"
+        }
+      ]
+    }
+  ]
+}

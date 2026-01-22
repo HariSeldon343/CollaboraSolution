@@ -1,232 +1,27 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evento Cancellato</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background-color: #f5f5f5;
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            max-width: 600px;
-            margin: 20px auto;
-            background-color: #ffffff;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .header {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 600;
-        }
-        .header .icon {
-            font-size: 48px;
-            margin-bottom: 10px;
-        }
-        .content {
-            padding: 30px;
-        }
-        .greeting {
-            font-size: 16px;
-            margin-bottom: 20px;
-        }
-        .alert-box {
-            background: #fee2e2;
-            border-left: 4px solid #ef4444;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 4px;
-        }
-        .alert-box strong {
-            color: #991b1b;
-            font-size: 16px;
-        }
-        .alert-box p {
-            margin: 5px 0 0 0;
-            color: #7f1d1d;
-        }
-        .event-card {
-            background: #fef2f2;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 8px;
-            border-left: 4px solid #ef4444;
-            opacity: 0.9;
-        }
-        .event-card h3 {
-            margin: 0 0 15px 0;
-            color: #991b1b;
-            font-size: 20px;
-            text-decoration: line-through;
-        }
-        .event-detail {
-            margin: 10px 0;
-            display: flex;
-            align-items: flex-start;
-        }
-        .event-detail strong {
-            min-width: 100px;
-            color: #991b1b;
-            font-weight: 600;
-        }
-        .event-detail span {
-            color: #7f1d1d;
-            flex: 1;
-        }
-        .description {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #fecaca;
-            color: #991b1b;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-        .cancellation-notice {
-            background: #fef2f2;
-            border: 2px solid #fca5a5;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 6px;
-            text-align: center;
-        }
-        .cancellation-notice .cancel-icon {
-            font-size: 64px;
-            margin-bottom: 10px;
-        }
-        .cancellation-notice h3 {
-            margin: 0 0 10px 0;
-            color: #991b1b;
-            font-size: 18px;
-        }
-        .cancellation-notice p {
-            margin: 0;
-            color: #7f1d1d;
-            font-size: 14px;
-        }
-        .button {
-            display: inline-block;
-            background: #3b82f6;
-            color: white;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-        .button:hover {
-            background: #2563eb;
-        }
-        .action-section {
-            text-align: center;
-            margin: 30px 0;
-        }
-        .organizer-info {
-            background: #fef2f2;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 20px 0;
-            font-size: 14px;
-        }
-        .organizer-info strong {
-            color: #991b1b;
-        }
-        .footer {
-            background: #f3f4f6;
-            padding: 20px;
-            text-align: center;
-            font-size: 12px;
-            color: #6b7280;
-            border-top: 1px solid #e5e7eb;
-        }
-        .footer p {
-            margin: 5px 0;
-        }
-        .footer a {
-            color: #3b82f6;
-            text-decoration: none;
-        }
-        .footer a:hover {
-            text-decoration: underline;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="icon">❌</div>
-            <h1>Evento Cancellato</h1>
-        </div>
+<p style="margin:0 0 12px 0;">Ciao <strong>{{PARTICIPANT_NAME}}</strong>,</p>
+<p style="margin:0 0 14px 0;">L'evento a cui eri invitato è stato cancellato.</p>
 
-        <div class="content">
-            <p class="greeting">Caro <strong>{{PARTICIPANT_NAME}}</strong>,</p>
-
-            <div class="alert-box">
-                <strong>⚠️ Evento Cancellato</strong>
-                <p>L'evento al quale eri iscritto è stato cancellato dall'organizzatore.</p>
-            </div>
-
-            <div class="cancellation-notice">
-                <div class="cancel-icon">🚫</div>
-                <h3>Questo evento non si terrà più</h3>
-                <p>Puoi rimuoverlo dal tuo calendario personale</p>
-            </div>
-
-            <p>Dettagli dell'evento cancellato:</p>
-
-            <div class="event-card">
-                <h3>{{EVENT_TITLE}}</h3>
-
-                <div class="event-detail">
-                    <strong>📆 Data:</strong>
-                    <span>{{EVENT_DATE}}</span>
-                </div>
-
-                <div class="event-detail">
-                    <strong>📍 Luogo:</strong>
-                    <span>{{EVENT_LOCATION}}</span>
-                </div>
-
-                <div class="description">
-                    <strong>Descrizione:</strong><br>
-                    {{EVENT_DESCRIPTION}}
-                </div>
-            </div>
-
-            <div class="organizer-info">
-                <strong>Cancellato da:</strong> {{ORGANIZER_NAME}}
-            </div>
-
-            <div class="action-section">
-                <p style="margin-bottom: 15px; color: #1f2937;">Verifica il tuo calendario per eventuali altri eventi:</p>
-                <a href="{{BASE_URL}}/calendar.php" class="button">Vai al Calendario</a>
-            </div>
-
-            <p style="text-align: center; font-size: 14px; color: #6b7280; margin-top: 20px;">
-                Per ulteriori informazioni sulla cancellazione, contatta l'organizzatore.
-            </p>
-        </div>
-
-        <div class="footer">
-            <p>&copy; 2024 CollaboraNexio - Piattaforma di Collaborazione Enterprise</p>
-            <p>
-                <a href="{{BASE_URL}}">Accedi alla piattaforma</a> |
-                <a href="{{BASE_URL}}/settings.php">Preferenze notifiche</a>
-            </p>
-        </div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:12px 0;background:#fafafa;border:1px solid #eef0f3;border-radius:8px;">
+  <tr><td style="padding:12px 12px;">
+    <div style="margin:0 0 8px 0;font-weight:600;color:#111827;">Dettagli evento</div>
+    <div style="margin:0;color:#374151;">
+      <div><strong>Titolo:</strong> {{EVENT_TITLE}}</div>
+      <div><strong>Data:</strong> {{EVENT_DATE}}</div>
+      <div><strong>Luogo:</strong> {{EVENT_LOCATION}}</div>
+      <div style="margin-top:6px;"><strong>Cancellato da:</strong> {{ORGANIZER_NAME}}</div>
     </div>
-</body>
-</html>
+  </td></tr>
+</table>
+
+<div style="margin:12px 0 0 0;padding:12px;border:1px solid #eef0f3;border-radius:8px;color:#374151;background:#ffffff;">
+  <div style="font-weight:600;margin:0 0 6px 0;color:#111827;">Descrizione</div>
+  <div style="white-space:pre-line;">{{EVENT_DESCRIPTION}}</div>
+</div>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;">
+  <tr>
+    <td>
+      <a href="{{BASE_URL}}/calendar.php" style="display:inline-block;background:#1a2332;color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:600;font-size:14px;line-height:18px;">Vai al calendario</a>
+    </td>
+  </tr>
+</table>

@@ -1,0 +1,373 @@
+{
+  "template_key": "SGQ_ISO9001_BANDO",
+  "version": "v1",
+  "title": "Checklist implementazione SGQ ISO 9001 (Progetto Bando)",
+  "standards": ["ISO9001"],
+  "notes": "Template operativo generico. Non contiene testo ISO/UNI; solo deliverable, domande e TODO.",
+  "sections": [
+    {
+      "section_key": "fase1_avvio",
+      "title": "Fase 1 — Pianificazione e avvio",
+      "items": [
+        {
+          "item_key": "kickoff_verbale",
+          "title": "Verbale Kick-off",
+          "question_type": "file",
+          "required": true,
+          "description": "Collega un documento che descriva obiettivi, perimetro, attori, vincoli e piano di lavoro iniziale.",
+          "autofill_keywords": ["kickoff", "kick-off", "avvio", "verbale", "meeting", "riunione avvio"],
+          "linked_artifacts_hints": ["project_minutes"]
+        },
+        {
+          "item_key": "scope_perimetro",
+          "title": "Perimetro e scopo SGQ",
+          "question_type": "multiline",
+          "required": true,
+          "description": "Sedi incluse, processi inclusi, eventuali esclusioni e motivazioni (senza testo norma).",
+          "autofill_keywords": ["perimetro", "scope", "scopo", "campo applicazione", "sedi", "processi"]
+        },
+        {
+          "item_key": "piano_progetto_gantt",
+          "title": "Piano di progetto / Gantt",
+          "question_type": "file",
+          "required": true,
+          "description": "Cronoprogramma con milestone, risorse e responsabilità (formato libero).",
+          "autofill_keywords": ["gantt", "piano progetto", "cronoprogramma", "milestone", "timeline"],
+          "linked_artifacts_hints": ["project_plan"]
+        },
+        {
+          "item_key": "team_ruoli",
+          "title": "Team di progetto e ruoli",
+          "question_type": "multiline",
+          "required": true,
+          "description": "PM, Responsabile Qualità, referenti di processo, auditor interni (se presenti), ecc.",
+          "autofill_keywords": ["team", "ruoli", "responsabile qualità", "RQ", "auditor", "organigramma qualità"]
+        },
+        {
+          "item_key": "bozza_politica",
+          "title": "Bozza Politica Qualità",
+          "question_type": "file",
+          "required": false,
+          "description": "Bozza politica qualità da validare con la Direzione.",
+          "autofill_keywords": ["politica qualità", "politica", "quality policy"],
+          "linked_artifacts_hints": ["policy"]
+        }
+      ]
+    },
+    {
+      "section_key": "fase2_analisi",
+      "title": "Fase 2 — Raccolta evidenze, interviste e gap analysis",
+      "items": [
+        {
+          "item_key": "raccolta_documenti_esistenti",
+          "title": "Raccolta documenti/evidenze esistenti",
+          "question_type": "multi_file",
+          "required": true,
+          "description": "Collega i documenti già presenti (manuale, procedure, moduli, registri, policy, istruzioni, KPI, ecc.).",
+          "autofill_keywords": ["manuale", "procedura", "procedures", "modulo", "form", "registro", "record", "istruzione", "policy"]
+        },
+        {
+          "item_key": "interviste_processi",
+          "title": "Interviste / raccolta informazioni sui processi",
+          "question_type": "multiline",
+          "required": true,
+          "description": "Sintesi: processi core, interfacce, ruoli, criticità, sistemi IT, fornitori critici.",
+          "autofill_keywords": ["intervista", "interviste", "processi", "mappatura", "as-is"]
+        },
+        {
+          "item_key": "mappa_processi",
+          "title": "Mappa dei processi / diagrammi (AS-IS)",
+          "question_type": "file",
+          "required": true,
+          "description": "Collega un documento/diagramma che rappresenti i processi e le interazioni principali.",
+          "autofill_keywords": ["mappa processi", "process map", "diagramma", "flow", "flusso", "SIPOC"],
+          "linked_artifacts_hints": ["process_map"]
+        },
+        {
+          "item_key": "gap_analysis_report",
+          "title": "Gap analysis / report di assessment",
+          "question_type": "file",
+          "required": true,
+          "description": "Report con aree conformi/non conformi, priorità e raccomandazioni (può includere riferimenti clausole numerici).",
+          "autofill_keywords": ["gap", "gap analysis", "assessment", "analisi gap", "check", "diagnosi"],
+          "linked_artifacts_hints": ["gap_report"]
+        },
+        {
+          "item_key": "registro_rischi_opportunita",
+          "title": "Registro rischi e opportunità (best-effort)",
+          "question_type": "file",
+          "required": false,
+          "description": "Se esiste già, collega un registro rischi/opportunità relativo ai processi o al SGQ.",
+          "autofill_keywords": ["rischi", "opportunità", "risk", "risk register", "matrice rischi"],
+          "linked_artifacts_hints": ["risk_register"]
+        }
+      ]
+    },
+    {
+      "section_key": "fase3_impostazione",
+      "title": "Fase 3 — Impostazione SGQ (politica, obiettivi, struttura)",
+      "items": [
+        {
+          "item_key": "politica_obiettivi_approvazione",
+          "title": "Politica e obiettivi qualità (approvazione Direzione)",
+          "question_type": "file",
+          "required": true,
+          "description": "Documento approvato o evidenza di approvazione (firma/workflow) di politica e obiettivi qualità.",
+          "autofill_keywords": ["politica", "obiettivi qualità", "approvazione", "firma", "direzione"],
+          "linked_artifacts_hints": ["policy", "objectives"]
+        },
+        {
+          "item_key": "obiettivi_misurabili",
+          "title": "Elenco obiettivi misurabili e KPI associati",
+          "question_type": "file",
+          "required": true,
+          "description": "Tabella/registro obiettivi + indicatori (KPI), responsabilità e frequenza di misura.",
+          "autofill_keywords": ["KPI", "indicatori", "obiettivi", "target", "metriche"],
+          "linked_artifacts_hints": ["kpi_catalog"]
+        },
+        {
+          "item_key": "struttura_manual_sgq",
+          "title": "Struttura Manuale SGQ (indice / architettura documentale)",
+          "question_type": "multiline",
+          "required": true,
+          "description": "Indice/struttura: sezioni del manuale, elenco procedure, moduli e registri (solo struttura).",
+          "autofill_keywords": ["manuale", "indice", "struttura documentale", "architettura", "SGQ"]
+        },
+        {
+          "item_key": "matrice_procedure",
+          "title": "Matrice procedure e responsabilità",
+          "question_type": "file",
+          "required": false,
+          "description": "Elenco procedure + owner/responsabile + approvatori + revisione.",
+          "autofill_keywords": ["matrice procedure", "elenco procedure", "responsabile procedura", "owner"],
+          "linked_artifacts_hints": ["procedure_matrix"]
+        },
+        {
+          "item_key": "piano_comunicazione",
+          "title": "Piano comunicazione e sensibilizzazione",
+          "question_type": "file",
+          "required": false,
+          "description": "Come verrà comunicato il SGQ (canali, messaggi, pubblico, frequenza).",
+          "autofill_keywords": ["piano comunicazione", "comunicazione", "sensibilizzazione", "awareness"],
+          "linked_artifacts_hints": ["communication_plan"]
+        }
+      ]
+    },
+    {
+      "section_key": "fase4_documentazione",
+      "title": "Fase 4 — Sviluppo e approvazione documentazione SGQ",
+      "items": [
+        {
+          "item_key": "manuale_qualita",
+          "title": "Manuale Qualità (versione controllata)",
+          "question_type": "file",
+          "required": true,
+          "description": "Collega il manuale qualità (o documento equivalente) in versione controllata.",
+          "autofill_keywords": ["manuale qualità", "manuale", "quality manual", "SGQ manuale"],
+          "linked_artifacts_hints": ["manual"]
+        },
+        {
+          "item_key": "procedure_sgq",
+          "title": "Procedure SGQ (set minimo applicabile)",
+          "question_type": "multi_file",
+          "required": true,
+          "description": "Collega le procedure definite (document control, audit interno, NC/correttive, ecc.).",
+          "autofill_keywords": ["procedura", "procedure", "istruzione", "work instruction", "document control", "controllo documenti"],
+          "linked_artifacts_hints": ["procedure"]
+        },
+        {
+          "item_key": "moduli_registri",
+          "title": "Moduli e registri (template e registrazioni)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Collega moduli (template) e registri/registrazioni già disponibili o predisposti.",
+          "autofill_keywords": ["modulo", "form", "registro", "record", "registrazione"],
+          "linked_artifacts_hints": ["records"]
+        },
+        {
+          "item_key": "evidenza_approvazioni_documenti",
+          "title": "Evidenza approvazione documenti (workflow/firme)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Se applicabile: evidenze di approvazione per manuale/procedure/moduli (firma, workflow, verbale).",
+          "autofill_keywords": ["approvazione", "firma", "workflow", "validazione", "approvato"],
+          "linked_artifacts_hints": ["approvals"]
+        }
+      ]
+    },
+    {
+      "section_key": "fase5_formazione",
+      "title": "Fase 5 — Formazione e sensibilizzazione",
+      "items": [
+        {
+          "item_key": "piano_formazione",
+          "title": "Piano formazione",
+          "question_type": "file",
+          "required": true,
+          "description": "Piano con destinatari, contenuti, calendario, modalità e verifica apprendimento.",
+          "autofill_keywords": ["formazione", "training plan", "piano formazione"],
+          "linked_artifacts_hints": ["training_plan"]
+        },
+        {
+          "item_key": "registri_formazione",
+          "title": "Registri formazione / presenze",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Evidenze di partecipazione e/o registri presenze (se disponibili).",
+          "autofill_keywords": ["registro formazione", "presenze", "attestato", "training record"],
+          "linked_artifacts_hints": ["training_records"]
+        },
+        {
+          "item_key": "matrice_competenze",
+          "title": "Matrice competenze (best-effort)",
+          "question_type": "file",
+          "required": false,
+          "description": "Matrice competenze/ruoli e requisiti minimi (se applicabile).",
+          "autofill_keywords": ["competenze", "matrice competenze", "skill matrix"],
+          "linked_artifacts_hints": ["competence_matrix"]
+        }
+      ]
+    },
+    {
+      "section_key": "fase6_implementazione",
+      "title": "Fase 6 — Implementazione operativa e monitoraggio",
+      "items": [
+        {
+          "item_key": "kpi_monitoraggio",
+          "title": "KPI e monitoraggi (registrazioni)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Evidenze di monitoraggio KPI/processi (report, dashboard, registri).",
+          "autofill_keywords": ["KPI", "monitoraggio", "report", "indicatori", "dashboard"],
+          "linked_artifacts_hints": ["kpi_records"]
+        },
+        {
+          "item_key": "registro_nc",
+          "title": "Registro non conformità (NC)",
+          "question_type": "file",
+          "required": false,
+          "description": "Se già presente: registro NC o log incidenti (senza testo norma).",
+          "autofill_keywords": ["non conformità", "NC", "registro NC", "log NC"],
+          "linked_artifacts_hints": ["nc_register"]
+        },
+        {
+          "item_key": "azioni_correttive",
+          "title": "Azioni correttive (log / piano)",
+          "question_type": "file",
+          "required": false,
+          "description": "Se già presente: log CAPA/azioni correttive, responsabilità e stato.",
+          "autofill_keywords": ["azione correttiva", "azioni correttive", "capa", "piano azioni"],
+          "linked_artifacts_hints": ["corrective_actions"]
+        }
+      ]
+    },
+    {
+      "section_key": "fase7_audit_interno",
+      "title": "Fase 7 — Audit interno e azioni correttive",
+      "items": [
+        {
+          "item_key": "programma_audit",
+          "title": "Programma audit interno",
+          "question_type": "file",
+          "required": true,
+          "description": "Pianificazione audit interno (programma/ambiti/frequenza/criteri).",
+          "autofill_keywords": ["programma audit", "audit interno", "piano audit", "audit plan"],
+          "linked_artifacts_hints": ["internal_audit_program"]
+        },
+        {
+          "item_key": "report_audit_interno",
+          "title": "Report audit interno",
+          "question_type": "file",
+          "required": true,
+          "description": "Rapporto audit interno con rilievi, osservazioni e conclusioni (può includere riferimenti clausole numerici).",
+          "autofill_keywords": ["report audit", "rapporto audit", "audit interno report", "verifica interna"],
+          "linked_artifacts_hints": ["internal_audit_report"]
+        },
+        {
+          "item_key": "piano_azioni_post_audit",
+          "title": "Piano azioni post-audit (NC/correttive) e chiusura",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Evidenze di azioni correttive e chiusura rilievi interni.",
+          "autofill_keywords": ["chiusura", "azioni audit", "piano azioni", "correttive", "follow-up"],
+          "linked_artifacts_hints": ["audit_followup"]
+        }
+      ]
+    },
+    {
+      "section_key": "fase8_riesame",
+      "title": "Fase 8 — Riesame di Direzione",
+      "items": [
+        {
+          "item_key": "input_riesame",
+          "title": "Input riesame (dati e indicatori)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Materiale preparatorio (KPI, audit, NC, feedback, risk/opportunità, ecc.).",
+          "autofill_keywords": ["riesame", "input riesame", "management review input", "indicatori", "audit", "NC"],
+          "linked_artifacts_hints": ["management_review_inputs"]
+        },
+        {
+          "item_key": "verbale_riesame",
+          "title": "Verbale riesame di direzione",
+          "question_type": "file",
+          "required": true,
+          "description": "Verbale con decisioni, azioni, risorse, miglioramenti e responsabilità.",
+          "autofill_keywords": ["verbale riesame", "riesame direzione", "management review", "verbale direzione"],
+          "linked_artifacts_hints": ["management_review_minutes"]
+        },
+        {
+          "item_key": "azioni_riesame",
+          "title": "Azioni e decisioni del riesame (sintesi)",
+          "question_type": "multiline",
+          "required": false,
+          "description": "Elenco azioni, owner e scadenze (anche come TODO).",
+          "autofill_keywords": ["azioni riesame", "decisioni", "miglioramento"]
+        }
+      ]
+    },
+    {
+      "section_key": "fase9_certificazione",
+      "title": "Fase 9 — Audit di certificazione (Stage 1/2) e chiusura NC",
+      "items": [
+        {
+          "item_key": "stage1_report",
+          "title": "Report audit esterno — Stage 1",
+          "question_type": "file",
+          "required": false,
+          "description": "Se disponibile: report Stage 1 o verbale di esito preliminare.",
+          "autofill_keywords": ["stage 1", "stage1", "audit esterno", "certificazione", "ente"],
+          "linked_artifacts_hints": ["external_audit_stage1"]
+        },
+        {
+          "item_key": "stage2_report",
+          "title": "Report audit esterno — Stage 2",
+          "question_type": "file",
+          "required": false,
+          "description": "Se disponibile: report Stage 2 / rapporto finale audit esterno.",
+          "autofill_keywords": ["stage 2", "stage2", "audit esterno", "rapporto finale", "certificazione"],
+          "linked_artifacts_hints": ["external_audit_stage2"]
+        },
+        {
+          "item_key": "nc_esterne_chiusura",
+          "title": "Chiusura non conformità esterne (se presenti)",
+          "question_type": "multi_file",
+          "required": false,
+          "description": "Evidenze di risposta/azioni e chiusura di eventuali rilievi dell’ente.",
+          "autofill_keywords": ["chiusura NC", "rilievi", "non conformità esterna", "azione correttiva", "follow-up ente"],
+          "linked_artifacts_hints": ["external_nc_closure"]
+        },
+        {
+          "item_key": "certificato",
+          "title": "Certificato (se già rilasciato)",
+          "question_type": "file",
+          "required": false,
+          "description": "Collega il certificato o una comunicazione ufficiale (se disponibile).",
+          "autofill_keywords": ["certificato", "certificate", "rilascio", "ISO 9001"],
+          "linked_artifacts_hints": ["certificate"]
+        }
+      ]
+    }
+  ]
+}
+

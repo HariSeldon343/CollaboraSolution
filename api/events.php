@@ -46,8 +46,53 @@ header('Expires: 0');
 verifyApiAuthentication();
 
 $userInfo = getApiUserInfo();
-$tenant_id = (int) $userInfo['tenant_id'];
-$user_id = (int) $userInfo['user_id'];
+$user_role = (string)($userInfo['role'] ?? 'user');
+$tenant_id = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : 0;
+if ($tenant_id <= 0) {
+    $tenant_id = (int)($_SESSION['company_filter_id'] ?? 0);
+}
+if ($tenant_id <= 0) {
+    $tenant_id = (int)($userInfo['tenant_id'] ?? 0);
+}
+
+$user_id = (int)($userInfo['user_id'] ?? $userInfo['id'] ?? 0);
+
+// Calendar is tenant-scoped. For super_admin/admin, require a selected tenant via CompanyFilter.
+if ($tenant_id <= 0) {
+    if (in_array($user_role, ['super_admin', 'admin'], true)) {
+        api_error('Seleziona un’azienda per gestire il calendario', 400);
+    }
+    api_error('Tenant non valido', 400);
+}
+
+// Authorization: admin/manager/user must have access to the requested tenant.
+// (super_admin can access all tenants)
+if ($user_role !== 'super_admin') {
+    $primaryTenantId = (int)($userInfo['tenant_id'] ?? 0);
+    if ($primaryTenantId > 0 && $tenant_id !== $primaryTenantId) {
+        // Check user_tenant_access (deleted_at column may or may not exist)
+        $dbTmp = Database::getInstance();
+        $utaHasDeletedAt = $dbTmp->fetchOne(
+            "SELECT 1 FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME = 'user_tenant_access'
+               AND COLUMN_NAME = 'deleted_at'
+             LIMIT 1"
+        );
+        $utaWhere = $utaHasDeletedAt ? " AND deleted_at IS NULL" : "";
+        $hasAccess = $dbTmp->fetchOne(
+            "SELECT 1
+             FROM user_tenant_access
+             WHERE user_id = ?
+               AND tenant_id = ?" . $utaWhere . "
+             LIMIT 1",
+            [$user_id, $tenant_id]
+        );
+        if (!$hasAccess) {
+            api_error('Accesso negato al tenant richiesto', 403);
+        }
+    }
+}
 
 // Initialize Calendar class
 try {
@@ -103,6 +148,14 @@ function validateDateFormat(string $date): bool {
     if (!$d) {
         $d = DateTime::createFromFormat('Y-m-d\TH:i:s\Z', $date); // Without milliseconds + Z
     }
+    // Accept HTML datetime-local (e.g., 2025-12-14T15:30) used by calendar.js
+    if (!$d) {
+        $d = DateTime::createFromFormat('Y-m-d\TH:i', $date);
+    }
+    // Accept local datetime with seconds (e.g., 2025-12-14T15:30:00)
+    if (!$d) {
+        $d = DateTime::createFromFormat('Y-m-d\TH:i:s', $date);
+    }
     if (!$d) {
         $d = DateTime::createFromFormat('Y-m-d', $date); // Date only
     }
@@ -121,11 +174,56 @@ function parseDate(string $dateStr): DateTime {
     }
 }
 
+/**
+ * Parse event identifier, supporting recurring instance IDs like "11_20251217"
+ *
+ * @param string|int|null $rawId
+ * @return array{id:?int,instance_date:?string}
+ */
+function parseEventIdentifier($rawId): array {
+    if ($rawId === null || $rawId === '') {
+        return ['id' => null, 'instance_date' => null];
+    }
+
+    // Already numeric
+    if (is_numeric($rawId) && strpos((string)$rawId, '_') === false) {
+        return ['id' => intval($rawId), 'instance_date' => null];
+    }
+
+    $raw = (string)$rawId;
+    if (strpos($raw, '_') !== false) {
+        [$idPart, $datePart] = array_pad(explode('_', $raw, 2), 2, null);
+        $id = intval($idPart);
+        $instanceDate = null;
+
+        // Accept YYYYMMDD and YYYY-MM-DD
+        if ($datePart && preg_match('/^(\\d{4})(\\d{2})(\\d{2})$/', $datePart, $m)) {
+            $instanceDate = sprintf('%s-%s-%s', $m[1], $m[2], $m[3]);
+        } elseif ($datePart && preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $datePart)) {
+            $instanceDate = $datePart;
+        }
+
+        return ['id' => $id ?: null, 'instance_date' => $instanceDate];
+    }
+
+    // Fallback: parse int
+    return ['id' => intval($raw), 'instance_date' => null];
+}
+
 // Route request based on method and action
 // BUG-104 FIX: Updated to use api_error()
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? null;
-$id = isset($_GET['id']) ? intval($_GET['id']) : null;
+$parsedId = parseEventIdentifier($_GET['id'] ?? null);
+$id = $parsedId['id'];
+$instanceDateParam = $parsedId['instance_date'];
+// Also accept instance_date from query string (?instance_date=YYYY-MM-DD)
+if (isset($_GET['instance_date']) && is_string($_GET['instance_date'])) {
+    $q = trim($_GET['instance_date']);
+    if (preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $q)) {
+        $instanceDateParam = $q;
+    }
+}
 
 try {
     switch ($method) {
@@ -142,7 +240,7 @@ try {
             break;
 
         case 'DELETE':
-            handleDeleteRequest($calendar, $id);
+            handleDeleteRequest($calendar, $id, $instanceDateParam);
             break;
 
         default:
@@ -158,6 +256,8 @@ try {
  */
 function handleGetRequest(Calendar $calendar, ?string $action, ?int $id): void {
     global $user_id;
+    global $user_role;
+    global $tenant_id;
 
     // Handle special actions
     if ($action) {
@@ -227,12 +327,18 @@ function handleGetRequest(Calendar $calendar, ?string $action, ?int $id): void {
     $filters = [];
 
     // BUG-105 FIX: Support both calendar_ids[] (array) and calendar_id (single)
-    if (isset($_GET['calendar_ids']) && is_array($_GET['calendar_ids'])) {
-        // Multi-calendar filtering (primary use case)
-        $filters['calendar_ids'] = array_map('intval', $_GET['calendar_ids']);
-    } elseif (isset($_GET['calendar_id'])) {
-        // Single calendar filtering (backward compatibility)
-        $filters['calendar_id'] = intval($_GET['calendar_id']);
+    // Apply calendar filters only if schema supports calendar_id
+    if ($calendar->eventsHasColumn('calendar_id')) {
+        if (isset($_GET['calendar_ids']) && is_array($_GET['calendar_ids'])) {
+            // Multi-calendar filtering (primary use case)
+            $filters['calendar_ids'] = array_map('intval', $_GET['calendar_ids']);
+        } elseif (isset($_GET['calendar_id'])) {
+            // Single calendar filtering (backward compatibility)
+            $filters['calendar_id'] = intval($_GET['calendar_id']);
+        }
+    } elseif (isset($_GET['calendar_ids']) || isset($_GET['calendar_id'])) {
+        // Schema lacks calendar_id: ignore filter but log for diagnostics
+        error_log('[EVENTS API] calendar_id filter ignored (column not present in events table)');
     }
 
     if (isset($_GET['participant_id'])) {
@@ -249,6 +355,76 @@ function handleGetRequest(Calendar $calendar, ?string $action, ?int $id): void {
 
     // Get events
     $events = $calendar->getEventsBetween($startDate, $endDate, $filters);
+
+    // Planning (tenant 28) cross-tenant view helper:
+    // When requesting events for tenant 28, optionally filter only those linked to a client tenant via metadata.planning.client_tenant_id.
+    // This supports Calendar UI company filter: seeing S.CO planned events under the client filter without duplicating events.
+    $planningClientTenantId = isset($_GET['planning_client_tenant_id']) ? (int)$_GET['planning_client_tenant_id'] : 0;
+    if ($planningClientTenantId > 0) {
+        // Only allow this filter when we are querying the vendor calendar tenant (28) AND caller is privileged.
+        // (Prevents leaking cross-tenant associations through metadata filtering.)
+        $vendorTenantId = defined('CNX_VENDOR_TENANT_ID') ? (int)CNX_VENDOR_TENANT_ID : 28;
+        if ((int)$tenant_id !== $vendorTenantId) {
+            api_error('Filtro planning_client_tenant_id non consentito per questo tenant', 403);
+        }
+        if (!in_array((string)$user_role, ['super_admin', 'admin'], true)) {
+            api_error('Permessi insufficienti per filtro planning_client_tenant_id', 403);
+        }
+
+        // Require that the user can access the client tenant too (super_admin ok; admin must have access)
+        if ((string)$user_role !== 'super_admin') {
+            $dbTmp = Database::getInstance();
+            $primaryTenantId = (int)($_SESSION['tenant_id'] ?? 0);
+            if ($primaryTenantId > 0 && $primaryTenantId !== $planningClientTenantId) {
+                $utaHasDeletedAt = $dbTmp->fetchOne(
+                    "SELECT 1 FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE()
+                       AND TABLE_NAME = 'user_tenant_access'
+                       AND COLUMN_NAME = 'deleted_at'
+                     LIMIT 1"
+                );
+                $utaWhere = $utaHasDeletedAt ? " AND deleted_at IS NULL" : "";
+                $hasAccess = $dbTmp->fetchOne(
+                    "SELECT 1
+                     FROM user_tenant_access
+                     WHERE user_id = ?
+                       AND tenant_id = ?" . $utaWhere . "
+                     LIMIT 1",
+                    [$user_id, $planningClientTenantId]
+                );
+                if (!$hasAccess) {
+                    api_error('Accesso negato al tenant richiesto (planning_client_tenant_id)', 403);
+                }
+            }
+        }
+
+        $events = array_values(array_filter($events, function($ev) use ($planningClientTenantId) {
+            $meta = $ev['metadata'] ?? null;
+            $arr = null;
+            if (is_array($meta)) {
+                $arr = $meta;
+            } elseif (is_string($meta) && $meta !== '') {
+                $decoded = json_decode($meta, true);
+                if (is_array($decoded)) $arr = $decoded;
+            }
+
+            // Primary match: metadata.planning.client_tenant_id
+            if (is_array($arr)) {
+                $ptid = $arr['planning']['client_tenant_id'] ?? null;
+                if ((int)$ptid === (int)$planningClientTenantId) return true;
+            }
+
+            // Fallback match: description marker (supports DBs without events.metadata column)
+            // schedule_confirm.php writes: "Cliente: <name> (#<tenantId>)\nPiano: #<planId>\n\n[Generato da Pianificazione S.CO]"
+            $desc = (string)($ev['description'] ?? '');
+            if ($desc === '') return false;
+            if (strpos($desc, '[Generato da Pianificazione S.CO]') === false) return false;
+            if (strpos($desc, '(#' . (string)$planningClientTenantId . ')') === false) return false;
+            // extra guard: must mention "Cliente:"
+            if (stripos($desc, 'Cliente:') === false) return false;
+            return true;
+        }));
+    }
 
     // Apply timezone conversion if requested
     if (isset($_GET['timezone'])) {
@@ -326,6 +502,20 @@ function handlePostRequest(Calendar $calendar, ?string $action, ?int $id): void 
     // Create new event
     $data = getRequestBody();
 
+    // Normalize frontend payload BEFORE validation (calendar.js uses start_date/end_date/all_day/recurrence_rule)
+    if (!isset($data['start']) && isset($data['start_date'])) {
+        $data['start'] = $data['start_date'];
+    }
+    if (!isset($data['end']) && isset($data['end_date'])) {
+        $data['end'] = $data['end_date'];
+    }
+    if (!isset($data['is_all_day']) && isset($data['all_day'])) {
+        $data['is_all_day'] = $data['all_day'];
+    }
+    if (!isset($data['recurrence']) && isset($data['recurrence_rule'])) {
+        $data['recurrence'] = $data['recurrence_rule'];
+    }
+
     // Validate required fields
     validateRequiredParams($data, ['title', 'start', 'end']);
 
@@ -341,16 +531,8 @@ function handlePostRequest(Calendar $calendar, ?string $action, ?int $id): void 
         api_error('End date must be after start date', 400);
     }
 
-    // BUG-105B FIX: Map frontend fields to database columns
-    // Frontend may send start/end OR start_date/end_date, map to start_datetime/end_datetime
-    if (isset($data['start_date'])) {
-        $data['start'] = $data['start_date'];
-        unset($data['start_date']);
-    }
-    if (isset($data['end_date'])) {
-        $data['end'] = $data['end_date'];
-        unset($data['end_date']);
-    }
+    // Legacy cleanup (avoid passing unused aliases forward)
+    unset($data['start_date'], $data['end_date'], $data['all_day'], $data['recurrence_rule']);
 
     // Prepare event data for Calendar class
     $eventData = [
@@ -359,7 +541,7 @@ function handlePostRequest(Calendar $calendar, ?string $action, ?int $id): void 
         'start_datetime' => $startDate->format('Y-m-d H:i:s'),
         'end_datetime' => $endDate->format('Y-m-d H:i:s'),
         'timezone' => $data['timezone'] ?? date_default_timezone_get(),
-        'all_day' => $data['is_all_day'] ?? false,
+        'all_day' => (bool)($data['is_all_day'] ?? false),
         'location' => $data['location'] ?? null,
         'calendar_id' => $data['calendar_id'] ?? null,
         'category' => validateCategory($data['category'] ?? 'meeting'),
@@ -389,13 +571,23 @@ function handlePostRequest(Calendar $calendar, ?string $action, ?int $id): void 
     $participants = [];
     if (isset($data['participants']) && is_array($data['participants'])) {
         foreach ($data['participants'] as $participant) {
-            if (isset($participant['user_id'])) {
-                $participants[] = intval($participant['user_id']);
-            } elseif (isset($participant['email'])) {
+            // calendar.js sends participants as an array of user IDs
+            if (is_int($participant) || ctype_digit((string)$participant)) {
+                $participants[] = (int)$participant;
+                continue;
+            }
+
+            // Some clients send objects {user_id} or {email}
+            if (is_array($participant) && isset($participant['user_id'])) {
+                $participants[] = (int)$participant['user_id'];
+                continue;
+            }
+
+            if (is_array($participant) && isset($participant['email'])) {
                 // Handle external participants by email
                 $externalUserId = getOrCreateExternalUser($participant['email']);
                 if ($externalUserId) {
-                    $participants[] = $externalUserId;
+                    $participants[] = (int)$externalUserId;
                 }
             }
         }
@@ -461,6 +653,20 @@ function handlePutRequest(Calendar $calendar, ?int $id): void {
         api_error('No data provided for update', 400);
     }
 
+    // Normalize frontend aliases (same pattern as POST)
+    if (!isset($data['start']) && isset($data['start_date'])) {
+        $data['start'] = $data['start_date'];
+    }
+    if (!isset($data['end']) && isset($data['end_date'])) {
+        $data['end'] = $data['end_date'];
+    }
+    if (!isset($data['is_all_day']) && isset($data['all_day'])) {
+        $data['is_all_day'] = $data['all_day'];
+    }
+    if (!isset($data['recurrence']) && array_key_exists('recurrence_rule', $data)) {
+        $data['recurrence'] = $data['recurrence_rule'];
+    }
+
     // Prepare update data
     $updateData = [];
 
@@ -518,8 +724,14 @@ function handlePutRequest(Calendar $calendar, ?int $id): void {
     if (isset($data['participants'])) {
         $participants = [];
         foreach ($data['participants'] as $participant) {
-            if (isset($participant['user_id'])) {
+            // Accept IDs array (calendar.js) or objects {user_id}
+            if (is_int($participant) || ctype_digit((string)$participant)) {
+                $participants[] = (int)$participant;
+                continue;
+            }
+            if (is_array($participant) && isset($participant['user_id'])) {
                 $participants[] = intval($participant['user_id']);
+                continue;
             }
         }
         $updateData['participants'] = $participants;
@@ -568,7 +780,7 @@ function handlePutRequest(Calendar $calendar, ?int $id): void {
 /**
  * Handle DELETE requests
  */
-function handleDeleteRequest(Calendar $calendar, ?int $id): void {
+function handleDeleteRequest(Calendar $calendar, ?int $id, ?string $instanceDate): void {
     if (!$id) {
         api_error('Event ID required', 400);
     }
@@ -582,6 +794,34 @@ function handleDeleteRequest(Calendar $calendar, ?int $id): void {
     // Check for delete_series parameter for recurring events
     $deleteSeries = filter_var($_GET['delete_series'] ?? false, FILTER_VALIDATE_BOOLEAN);
     $notifyParticipants = filter_var($_GET['notify_participants'] ?? true, FILTER_VALIDATE_BOOLEAN);
+
+    // If an instance_date is provided and the event is recurring, handle single-occurrence removal
+    if ($instanceDate && $event['is_recurring'] && !$deleteSeries) {
+        try {
+            $instanceDateObj = new DateTime($instanceDate);
+        } catch (Exception $e) {
+            api_error('Invalid instance_date format. Expected YYYY-MM-DD', 400);
+        }
+
+        try {
+            $success = $calendar->deleteRecurringInstance($id, $instanceDateObj, $notifyParticipants);
+            if ($success) {
+                $message = 'Occorrenza evento cancellata';
+                if ($notifyParticipants) {
+                    $message .= ' e partecipanti avvisati';
+                }
+                api_success(null, $message);
+            } else {
+                api_error('Failed to delete recurring instance', 500);
+            }
+        } catch (RuntimeException $e) {
+            if (strpos($e->getMessage(), 'Permessi insufficienti') !== false) {
+                api_error('Insufficient permissions to delete event', 403);
+            }
+            throw $e;
+        }
+        return;
+    }
 
     try {
         // Handle recurring series deletion
@@ -1071,17 +1311,24 @@ function handleGetParticipants(Calendar $calendar): void {
     $eventId = (int)$_GET['event_id'];
 
     try {
-        // Get event participants with user details
+        $hasEpDeletedAt = tableHasColumn($db, 'event_participants', 'deleted_at');
+        $hasEpStatus = tableHasColumn($db, 'event_participants', 'status');
+
+        // BUG-144a FIX: Get event participants with user details
+        // Removed u.active_tenant_id (column doesn't exist in users table)
+        // Multi-tenant check via u.tenant_id OR user_tenant_access join
         $sql = "SELECT ep.*, u.name, u.email, u.role
                 FROM event_participants ep
                 LEFT JOIN users u ON ep.user_id = u.id
+                LEFT JOIN user_tenant_access uta ON uta.user_id = u.id AND uta.tenant_id = ?
                 WHERE ep.event_id = ?
-                  AND ep.deleted_at IS NULL
-                  AND u.tenant_id = ?
-                ORDER BY ep.status ASC, u.name ASC";
+                  " . ($hasEpDeletedAt ? "AND ep.deleted_at IS NULL" : "") . "
+                  " . ($hasEpStatus ? "AND (ep.status IS NULL OR ep.status <> 'cancelled')" : "") . "
+                  AND (u.tenant_id = ? OR uta.tenant_id IS NOT NULL)
+                ORDER BY " . ($hasEpStatus ? "ep.status ASC, " : "") . "u.name ASC";
 
         $stmt = $db->prepare($sql);
-        $stmt->execute([$eventId, $tenant_id]);
+        $stmt->execute([$tenant_id, $eventId, $tenant_id]);
 
         $participants = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -1097,6 +1344,39 @@ function handleGetParticipants(Calendar $calendar): void {
 }
 
 // ========== Helper Functions ==========
+
+/**
+ * Check if a table has a given column (cached per-request).
+ */
+function tableHasColumn(PDO $db, string $table, string $column): bool {
+    static $cache = [];
+    $key = $table . '.' . $column;
+
+    if (array_key_exists($key, $cache)) {
+        return (bool)$cache[$key];
+    }
+
+    try {
+        $stmt = $db->prepare("
+            SELECT COUNT(*) AS cnt
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = :table_name
+              AND COLUMN_NAME = :column_name
+        ");
+        $stmt->execute([
+            ':table_name' => $table,
+            ':column_name' => $column
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $cache[$key] = ((int)($row['cnt'] ?? 0)) > 0;
+    } catch (Exception $e) {
+        // If information_schema access is restricted, assume column is missing.
+        $cache[$key] = false;
+    }
+
+    return (bool)$cache[$key];
+}
 
 /**
  * Get event by ID with full details
@@ -1158,7 +1438,7 @@ function getEventById(Calendar $calendar, int $id): ?array {
                 'parent_id' => $event['parent_event_id']
             ] : null,
             'reminders' => getEventReminders($id),
-            'category' => $event['category'],
+            'category' => $event['category'] ?? null,
             'status' => $event['status'],
             // Backward compatibility for any consumer expecting creator field
             'creator' => $organizerInfo,
@@ -1180,16 +1460,25 @@ function getEventParticipants(int $eventId): array {
     global $db, $tenant_id;
 
     try {
+        $hasEpDeletedAt = tableHasColumn($db, 'event_participants', 'deleted_at');
+        $hasEpStatus = tableHasColumn($db, 'event_participants', 'status');
+
+        // BUG-144a FIX: Removed u.active_tenant_id (column doesn't exist)
+        // BUG-148c FIX: Use unique named parameters (PDO doesn't support reusing named params)
         $sql = "SELECT ep.*, u.name, u.email
                 FROM event_participants ep
                 JOIN users u ON ep.user_id = u.id
+                LEFT JOIN user_tenant_access uta ON uta.user_id = u.id AND uta.tenant_id = :tenant_id_join
                 WHERE ep.event_id = :event_id
-                  AND u.tenant_id = :tenant_id";
+                  " . ($hasEpDeletedAt ? "AND ep.deleted_at IS NULL" : "") . "
+                  " . ($hasEpStatus ? "AND (ep.status IS NULL OR ep.status <> 'cancelled')" : "") . "
+                  AND (u.tenant_id = :tenant_id_where OR uta.tenant_id IS NOT NULL)";
 
         $stmt = $db->prepare($sql);
         $stmt->execute([
             ':event_id' => $eventId,
-            ':tenant_id' => $tenant_id
+            ':tenant_id_join' => $tenant_id,
+            ':tenant_id_where' => $tenant_id
         ]);
 
         $participants = [];
@@ -1198,9 +1487,9 @@ function getEventParticipants(int $eventId): array {
                 'user_id' => $row['user_id'],
                 'name' => $row['name'],
                 'email' => $row['email'],
-                'status' => $row['status'],
-                'is_organizer' => (bool)$row['is_organizer'],
-                'responded_at' => $row['responded_at']
+                'status' => $row['status'] ?? null,
+                'is_organizer' => (bool)($row['is_organizer'] ?? false),
+                'responded_at' => $row['responded_at'] ?? null
             ];
         }
 

@@ -15,6 +15,7 @@ require_once __DIR__ . '/../../config.php';  // Config should be loaded first
 require_once __DIR__ . '/../../includes/db.php';  // Load Database class
 require_once __DIR__ . '/../../includes/api_auth.php';
 require_once __DIR__ . '/../../includes/file_helper.php';
+require_once __DIR__ . '/../../includes/file_access.php';
 
 // Initialize API environment but don't send JSON headers yet
 require_once __DIR__ . '/../../includes/session_init.php';
@@ -65,6 +66,18 @@ try {
         http_response_code(400);
         header('Content-Type: application/json');
         die(json_encode(['error' => 'Non è possibile scaricare una cartella', 'success' => false]));
+    }
+
+    // Enforce assignment-aware access rules (block if assigned to others)
+    $access = hasFileOrFolderAccess($db, $fileId, (int)$userId, (string)$userRole, (int)$tenantId);
+    if (!$access['has_access']) {
+        http_response_code(403);
+        header('Content-Type: application/json');
+        die(json_encode([
+            'success' => false,
+            'error' => 'Accesso negato: file assegnato',
+            'data' => DEBUG_MODE ? ['access' => $access] : null
+        ]));
     }
 
     // Determine which file to serve

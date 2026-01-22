@@ -22,28 +22,37 @@ if (!$currentUser) {
 require_once __DIR__ . '/includes/tenant_access_check.php';
 requireTenantAccess($currentUser['id'], $currentUser['role']);
 
+// Enforce Page Visibility access rules (configurazioni.php -> Visibilità Pagine)
+require_once __DIR__ . '/includes/page_access_check.php';
+checkPageAccess('utenti');
+
 // Initialize company filter
 $companyFilter = new CompanyFilter($currentUser);
 
 // Generate CSRF token for any forms
 $csrfToken = $auth->generateCSRFToken();
+
+$currentUserRole = $currentUser['role'] ?? 'user';
+$currentTenantId = (int)($currentUser['tenant_id'] ?? 0);
+
+// Prevent HTML caching (debug/consistency across tunnel/prod)
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+
+// Build marker to verify served version in "View Source"
+$cnxBuildId = 'utenti.php@' . (string)@filemtime(__FILE__);
 ?>
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Gestione Utenti - CollaboraNexio</title>
+<?php
+    $pageTitle = 'Gestione Utenti - Nexio';
+    $pageCss = ['assets/css/dashboard.css'];
+    require __DIR__ . '/includes/layout_head.php';
+?>
 
-    <?php require_once __DIR__ . '/includes/favicon.php'; ?>
-
-    <!-- Main CSS -->
-    <link rel="stylesheet" href="assets/css/styles.css">
-    <!-- Sidebar Responsive Optimization CSS -->
-    <link rel="stylesheet" href="assets/css/sidebar-responsive.css">
-    <!-- Page specific CSS -->
-    <link rel="stylesheet" href="assets/css/dashboard.css">
+    <!-- CNX_BUILD_ID: <?php echo htmlspecialchars($cnxBuildId); ?> -->
 
     <style>
         /* Additional user management specific styles */
@@ -308,6 +317,32 @@ $csrfToken = $auth->generateCSRFToken();
             color: #3730A3;
         }
 
+        .role-badge.manager {
+            background: #F3E8FF;
+            color: #6B21A8;
+        }
+
+        /* Tenant Role Badge (Ruolo Aziendale) */
+        .tenant-role-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            font-size: var(--text-xs);
+            font-weight: var(--font-medium);
+            border-radius: var(--radius-sm);
+            text-transform: none;
+            letter-spacing: 0.02em;
+            margin-left: 4px;
+            /* Keep it visually aligned with .role-badge.user (avoid per-role rainbow colors) */
+            background: #E0E7FF;
+            color: #3730A3;
+        }
+
+        .tenant-role-badge.no-role {
+            background: #F3F4F6;
+            color: #6B7280;
+            font-style: italic;
+        }
+
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -538,217 +573,6 @@ $csrfToken = $auth->generateCSRFToken();
             border-color: var(--color-primary);
         }
 
-        /* Additional sidebar styles (matching dashboard.php) */
-        .nav-section {
-            margin-bottom: var(--space-6);
-        }
-
-        .nav-section-title {
-            padding: var(--space-2) var(--space-4);
-            font-size: var(--text-xs);
-            font-weight: var(--font-semibold);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--color-sidebar-text-muted);
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3) var(--space-4);
-            color: var(--color-sidebar-text);
-            text-decoration: none;
-            transition: all var(--transition-fast);
-            position: relative;
-            font-size: var(--text-sm);
-        }
-
-        .nav-item:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .nav-item.active {
-            background-color: rgba(255, 255, 255, 0.15);
-        }
-
-        .nav-item.active::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            background-color: var(--color-sidebar-active);
-        }
-
-        .icon {
-            width: 20px;
-            height: 20px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-style: normal;
-            color: var(--color-sidebar-text);
-            position: relative;
-        }
-
-        /* White icon styles using CSS */
-        .icon::before {
-            content: '';
-            display: block;
-            width: 18px;
-            height: 18px;
-            background-color: currentColor;
-            mask-size: contain;
-            mask-repeat: no-repeat;
-            mask-position: center;
-            -webkit-mask-size: contain;
-            -webkit-mask-repeat: no-repeat;
-            -webkit-mask-position: center;
-        }
-
-        /* Individual icon masks (matching dashboard.php) */
-        .icon--home::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpolyline points='9 22 9 12 15 12 15 22'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpolyline points='9 22 9 12 15 12 15 22'/%3E%3C/svg%3E");
-        }
-
-        .icon--folder::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
-        }
-
-        .icon--calendar::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
-        }
-
-        .icon--check::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='9 11 12 14 22 4'/%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpolyline points='9 11 12 14 22 4'/%3E%3Cpath d='M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'/%3E%3C/svg%3E");
-        }
-
-        .icon--ticket::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M13 5v2'/%3E%3Cpath d='M13 17v2'/%3E%3Cpath d='M13 11v2'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M13 5v2'/%3E%3Cpath d='M13 17v2'/%3E%3Cpath d='M13 11v2'/%3E%3C/svg%3E");
-        }
-
-        .icon--shield::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E");
-        }
-
-        .icon--cpu::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='4' y='4' width='16' height='16' rx='2'/%3E%3Crect x='9' y='9' width='6' height='6'/%3E%3Cline x1='9' y1='1' x2='9' y2='4'/%3E%3Cline x1='15' y1='1' x2='15' y2='4'/%3E%3Cline x1='9' y1='20' x2='9' y2='23'/%3E%3Cline x1='15' y1='20' x2='15' y2='23'/%3E%3Cline x1='20' y1='9' x2='23' y2='9'/%3E%3Cline x1='20' y1='14' x2='23' y2='14'/%3E%3Cline x1='1' y1='9' x2='4' y2='9'/%3E%3Cline x1='1' y1='14' x2='4' y2='14'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Crect x='4' y='4' width='16' height='16' rx='2'/%3E%3Crect x='9' y='9' width='6' height='6'/%3E%3Cline x1='9' y1='1' x2='9' y2='4'/%3E%3Cline x1='15' y1='1' x2='15' y2='4'/%3E%3Cline x1='9' y1='20' x2='9' y2='23'/%3E%3Cline x1='15' y1='20' x2='15' y2='23'/%3E%3Cline x1='20' y1='9' x2='23' y2='9'/%3E%3Cline x1='20' y1='14' x2='23' y2='14'/%3E%3Cline x1='1' y1='9' x2='4' y2='9'/%3E%3Cline x1='1' y1='14' x2='4' y2='14'/%3E%3C/svg%3E");
-        }
-
-        .icon--building::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z'/%3E%3Cpath d='M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'/%3E%3Cpath d='M10 6h4'/%3E%3Cpath d='M10 10h4'/%3E%3Cpath d='M10 14h4'/%3E%3Cpath d='M10 18h4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z'/%3E%3Cpath d='M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'/%3E%3Cpath d='M10 6h4'/%3E%3Cpath d='M10 10h4'/%3E%3Cpath d='M10 14h4'/%3E%3Cpath d='M10 18h4'/%3E%3C/svg%3E");
-        }
-
-        .icon--users::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
-        }
-
-        .icon--chart::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='m19 9-5 5-4-4-3 3'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='m19 9-5 5-4-4-3 3'/%3E%3C/svg%3E");
-        }
-
-        .icon--settings::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 13.54l4.24 4.24M6.34 6.34L2.1 2.1m13.8 13.8l4.24 4.24'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 13.54l4.24 4.24M6.34 6.34L2.1 2.1m13.8 13.8l4.24 4.24'/%3E%3C/svg%3E");
-        }
-
-        .icon--user::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
-        }
-
-        .icon--logout::before {
-            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E");
-            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E");
-        }
-
-        .logo-icon {
-            font-size: var(--text-2xl);
-            width: 32px;
-            height: 32px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--color-primary);
-            color: var(--color-white);
-            border-radius: var(--radius-md);
-            font-weight: var(--font-bold);
-        }
-
-        .logo-img {
-            width: 32px;
-            height: 32px;
-            object-fit: contain;
-        }
-
-        .logo-text {
-            font-size: var(--text-xl);
-            font-weight: var(--font-bold);
-        }
-
-        .sidebar-subtitle {
-            font-size: var(--text-xs);
-            color: var(--color-sidebar-text-muted);
-            margin-top: var(--space-1);
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3);
-            background-color: rgba(255, 255, 255, 0.05);
-            border-radius: var(--radius-lg);
-        }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            background: var(--color-sidebar-active);
-            color: var(--color-white);
-            border-radius: var(--radius-full);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: var(--text-sm);
-            font-weight: var(--font-semibold);
-        }
-
-        .user-details {
-            flex: 1;
-        }
-
-        .user-name {
-            font-size: var(--text-sm);
-            font-weight: var(--font-medium);
-            color: var(--color-sidebar-text);
-        }
-
-        .user-badge {
-            font-size: 10px;
-            color: var(--color-white);
-            background: var(--color-primary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-top: 4px;
-            padding: 2px 6px;
-            border-radius: var(--radius-sm);
-            display: inline-block;
-            font-weight: var(--font-semibold);
-        }
-
         .toast {
             position: fixed;
             bottom: var(--space-6);
@@ -787,62 +611,7 @@ $csrfToken = $auth->generateCSRFToken();
         }
     </style>
 </head>
-<body>
-    <div class="main-layout">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">
-                    <img src="assets/images/logo.png" alt="CollaboraNexio" class="logo-img">
-                    <span class="logo-text">NEXIO</span>
-                </div>
-                <div class="sidebar-subtitle">Semplifica, Connetti, Cresci Insieme</div>
-            </div>
-
-            <nav class="sidebar-nav">
-                <div class="nav-section">
-                    <div class="nav-section-title">AREA OPERATIVA</div>
-                    <a href="dashboard.php" class="nav-item"><i class="icon icon--home"></i> Dashboard</a>
-                    <a href="files.php" class="nav-item"><i class="icon icon--folder"></i> File Manager</a>
-                    <a href="calendar.php" class="nav-item"><i class="icon icon--calendar"></i> Calendario</a>
-                    <a href="tasks.php" class="nav-item"><i class="icon icon--check"></i> Task</a>
-                    <a href="ticket.php" class="nav-item"><i class="icon icon--ticket"></i> Ticket</a>
-                    <a href="conformita.php" class="nav-item"><i class="icon icon--shield"></i> Conformità</a>
-                    <a href="ai.php" class="nav-item"><i class="icon icon--cpu"></i> AI</a>
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">GESTIONE</div>
-                    <a href="aziende.php" class="nav-item"><i class="icon icon--building"></i> Aziende</a>
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">AMMINISTRAZIONE</div>
-                    <a href="utenti.php" class="nav-item active"><i class="icon icon--users"></i> Utenti</a>
-                    <a href="audit_log.php" class="nav-item"><i class="icon icon--chart"></i> Audit Log</a>
-                    <a href="configurazioni.php" class="nav-item"><i class="icon icon--settings"></i> Configurazioni</a>
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">ACCOUNT</div>
-                    <a href="profilo.php" class="nav-item"><i class="icon icon--user"></i> Il Mio Profilo</a>
-                    <a href="logout.php" class="nav-item"><i class="icon icon--logout"></i> Esci</a>
-                </div>
-            </nav>
-
-            <div class="sidebar-footer">
-                <div class="user-info">
-                    <div class="user-avatar"><?php echo strtoupper(substr($currentUser['name'], 0, 2)); ?></div>
-                    <div class="user-details">
-                        <div class="user-name"><?php echo htmlspecialchars($currentUser['name']); ?></div>
-                        <div class="user-badge">SUPER ADMIN</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="main-content">
+<?php require __DIR__ . '/includes/layout_start.php'; ?>
             <div class="header">
                 <h1 class="page-title">Gestione Utenti</h1>
                 <div class="flex items-center gap-4">
@@ -872,7 +641,8 @@ $csrfToken = $auth->generateCSRFToken();
                             <tr>
                                 <th>Nome</th>
                                 <th>Email</th>
-                                <th>Ruolo</th>
+                                <th>Tipo Utente</th>
+                                <th>Ruolo Aziendale</th>
                                 <th>Azienda</th>
                                 <th>Stato</th>
                                 <th>Data Creazione</th>
@@ -916,13 +686,43 @@ $csrfToken = $auth->generateCSRFToken();
                         <div class="form-help-text">L'utente riceverà un'email con le istruzioni per impostare la password</div>
                     </div>
                     <div class="form-group">
-                        <label for="addRole">Ruolo</label>
+                        <label for="addHomeCity">Città di residenza (opzionale)</label>
+                        <input type="text" id="addHomeCity" name="home_city" placeholder="Es. Milano" />
+                        <div class="form-help-text">Usata come default per “Città di partenza” nei piani (puoi sempre sovrascriverla nel piano).</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="addJobTitle">Titolo / Ruolo (opzionale)</label>
+                        <input type="text" id="addJobTitle" name="job_title" placeholder="Es. Consulente Senior, Lead Auditor" />
+                        <div class="form-help-text">Informazioni opzionali per migliorare l’allocazione dei consulenti nei piani.</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="addSkillsText">Competenze (opzionale)</label>
+                        <textarea id="addSkillsText" name="skills_text" rows="3" placeholder="Es. ISO 9001, audit interni, sanità, formazione..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="addCertificationsText">Titoli / Certificazioni (opzionale)</label>
+                        <textarea id="addCertificationsText" name="certifications_text" rows="3" placeholder="Es. Lead Auditor ISO 9001, Laurea..., ecc."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="addRole">Tipo Utente</label>
                         <select id="addRole" name="role" required>
                             <option value="user">Utente</option>
-                            <option value="manager">Manager</option>
-                            <option value="admin">Admin</option>
-                            <option value="super_admin">Super Admin</option>
+                            <?php if ($currentUserRole === 'manager'): ?>
+                                <option value="manager">Manager</option>
+                            <?php else: ?>
+                                <option value="manager">Manager</option>
+                                <option value="admin">Admin</option>
+                                <option value="super_admin">Super Admin</option>
+                            <?php endif; ?>
                         </select>
+                        <?php if ($currentUserRole === 'manager'): ?>
+                            <div class="form-help-text">I manager possono creare solo utenti o manager nella propria azienda (non admin/super admin).</div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="form-group">
+                        <label for="addPasswordMaxAgeDays">Durata massima password (giorni)</label>
+                        <input type="number" id="addPasswordMaxAgeDays" name="password_max_age_days" min="1" max="3650" value="90" />
+                        <div class="form-help-text">Default 90. L’utente riceverà un avviso 1 giorno prima della scadenza.</div>
                     </div>
                     <div class="form-group" id="addTenantGroup">
                         <label for="addTenant" id="addTenantLabel">Azienda</label>
@@ -930,6 +730,14 @@ $csrfToken = $auth->generateCSRFToken();
                             <!-- Tenant selector will be dynamically generated here -->
                         </div>
                         <div class="form-help-text" id="addTenantHelp"></div>
+                    </div>
+                    <!-- Tenant Role (Ruolo Aziendale) - shown only when tenant has custom roles -->
+                    <div class="form-group" id="addTenantRoleGroup" style="display: none;">
+                        <label for="addTenantRole">Ruolo Aziendale</label>
+                        <select id="addTenantRole" name="tenant_role_ids[]" multiple>
+                            <!-- Options will be dynamically populated -->
+                        </select>
+                        <div class="form-help-text">Seleziona uno o più ruoli aziendali (Ctrl/Cmd per selezione multipla).</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -959,17 +767,41 @@ $csrfToken = $auth->generateCSRFToken();
                         <input type="email" id="editEmail" name="email" required />
                     </div>
                     <div class="form-group">
+                        <label for="editHomeCity">Città di residenza (opzionale)</label>
+                        <input type="text" id="editHomeCity" name="home_city" placeholder="Es. Milano" />
+                        <div class="form-help-text">Usata come default per “Città di partenza” nei piani (puoi sempre sovrascriverla nel piano).</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="editJobTitle">Titolo / Ruolo (opzionale)</label>
+                        <input type="text" id="editJobTitle" name="job_title" placeholder="Es. Consulente Senior, Lead Auditor" />
+                    </div>
+                    <div class="form-group">
+                        <label for="editSkillsText">Competenze (opzionale)</label>
+                        <textarea id="editSkillsText" name="skills_text" rows="3" placeholder="Es. ISO 9001, audit interni, sanità, formazione..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="editCertificationsText">Titoli / Certificazioni (opzionale)</label>
+                        <textarea id="editCertificationsText" name="certifications_text" rows="3" placeholder="Es. Lead Auditor ISO 9001, Laurea..., ecc."></textarea>
+                    </div>
+                    <div class="form-group">
                         <label for="editPassword">Nuova Password (lascia vuoto per non cambiarla)</label>
                         <input type="password" id="editPassword" name="password" />
                     </div>
                     <div class="form-group">
-                        <label for="editRole">Ruolo</label>
-                        <select id="editRole" name="role" required>
+                        <label for="editRole">Tipo Utente</label>
+                        <select id="editRole" name="role" required <?php echo ($currentUserRole === 'manager') ? 'disabled' : ''; ?>>
                             <option value="user">Utente</option>
-                            <option value="manager">Manager</option>
-                            <option value="admin">Admin</option>
-                            <option value="super_admin">Super Admin</option>
+                            <?php if ($currentUserRole !== 'manager'): ?>
+                                <option value="manager">Manager</option>
+                                <option value="admin">Admin</option>
+                                <option value="super_admin">Super Admin</option>
+                            <?php endif; ?>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editPasswordMaxAgeDays">Durata massima password (giorni)</label>
+                        <input type="number" id="editPasswordMaxAgeDays" name="password_max_age_days" min="1" max="3650" value="90" />
+                        <div class="form-help-text">Default 90. Se modifichi questo valore, la nuova scadenza viene ricalcolata.</div>
                     </div>
                     <div class="form-group" id="editTenantGroup">
                         <label for="editTenant" id="editTenantLabel">Azienda</label>
@@ -977,6 +809,14 @@ $csrfToken = $auth->generateCSRFToken();
                             <!-- Tenant selector will be dynamically generated here -->
                         </div>
                         <div class="form-help-text" id="editTenantHelp"></div>
+                    </div>
+                    <!-- Tenant Role (Ruolo Aziendale) - shown only when tenant has custom roles -->
+                    <div class="form-group" id="editTenantRoleGroup" style="display: none;">
+                        <label for="editTenantRole">Ruolo Aziendale</label>
+                        <select id="editTenantRole" name="tenant_role_ids[]" multiple>
+                            <!-- Options will be dynamically populated -->
+                        </select>
+                        <div class="form-help-text">Seleziona uno o più ruoli aziendali (Ctrl/Cmd per selezione multipla).</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1012,6 +852,14 @@ $csrfToken = $auth->generateCSRFToken();
     <input type="hidden" id="csrfToken" value="<?php echo htmlspecialchars($csrfToken); ?>">
 
     <script>
+        // Build marker to confirm which file version is loaded
+        window.CNX_BUILD_ID = <?php echo json_encode($cnxBuildId, JSON_UNESCAPED_UNICODE); ?>;
+
+        // Expose current user role to JS (for super_admin-only actions)
+        window.CNX_CURRENT_USER_ROLE = <?php echo json_encode($currentUser['role'] ?? 'user', JSON_UNESCAPED_UNICODE); ?>;
+        // Expose current tenant id to JS (for manager-safe user creation)
+        window.CNX_CURRENT_TENANT_ID = <?php echo json_encode((int)$currentTenantId, JSON_UNESCAPED_UNICODE); ?>;
+
         class UserManager {
             constructor() {
                 console.log('=== INITIALIZING USER MANAGER ===');
@@ -1021,8 +869,38 @@ $csrfToken = $auth->generateCSRFToken();
                 this.searchQuery = '';
                 this.deleteUserId = null;
                 this.tenantsList = [];
+                this.activeCompanyFilterId = this.getActiveCompanyFilterId();
                 this.init();
                 console.log('UserManager initialized successfully');
+            }
+
+            buildTenantSearchInput(formType, placeholder = 'Cerca azienda...') {
+                const wrap = document.createElement('div');
+                wrap.style.marginBottom = '8px';
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.id = `${formType}TenantSearch`;
+                input.placeholder = placeholder;
+                input.autocomplete = 'off';
+                input.style.width = '100%';
+                input.style.padding = '8px 10px';
+                input.style.border = '1px solid var(--color-gray-300)';
+                input.style.borderRadius = '8px';
+                input.style.fontSize = '14px';
+
+                wrap.appendChild(input);
+                return { wrap, input };
+            }
+
+            getActiveCompanyFilterId() {
+                // CompanyFilter helper renders: <select id="company_filter" value="all|{tenantId}">
+                const el = document.getElementById('company_filter') || document.getElementById('companyFilter');
+                if (!el) return null;
+                const raw = (el.value ?? '').toString();
+                if (!raw || raw === 'all') return null;
+                const v = parseInt(raw, 10);
+                return Number.isFinite(v) && v > 0 ? v : null;
             }
 
             init() {
@@ -1089,9 +967,38 @@ $csrfToken = $auth->generateCSRFToken();
                 document.getElementById('editRole').addEventListener('change', (e) => {
                     this.handleRoleChange(e.target.value, 'edit');
                 });
+
+                // Company filter: when changed, reload users and refresh tenant-role options
+                const companyFilter = document.getElementById('company_filter') || document.getElementById('companyFilter');
+                if (companyFilter) {
+                    companyFilter.addEventListener('change', async () => {
+                        this.activeCompanyFilterId = this.getActiveCompanyFilterId();
+                        await this.loadUsers();
+                        // If modals are open, refresh tenant roles context
+                        if (document.getElementById('addModal')?.classList.contains('show')) {
+                            await this.refreshTenantRoleFromCompanyFilter('add');
+                        }
+                        if (document.getElementById('editModal')?.classList.contains('show')) {
+                            const uid = parseInt(document.getElementById('editUserId')?.value || '0', 10) || 0;
+                            if (uid > 0) {
+                                await this.refreshTenantRoleFromCompanyFilter('edit', uid);
+                            }
+                        }
+                    });
+                }
             }
 
             handleRoleChange(role, formType) {
+                // Manager safety: managers can only create/edit users within their tenant.
+                // Allowed target roles for manager are: user, manager (no admin/super_admin).
+                if (window.CNX_CURRENT_USER_ROLE === 'manager') {
+                    if (role !== 'user' && role !== 'manager') {
+                        role = 'user';
+                        const roleEl = document.getElementById(`${formType}Role`);
+                        if (roleEl) roleEl.value = 'user';
+                    }
+                }
+
                 const tenantGroup = document.getElementById(`${formType}TenantGroup`);
                 const tenantContainer = document.getElementById(`${formType}TenantContainer`);
                 const tenantLabel = document.getElementById(`${formType}TenantLabel`);
@@ -1105,6 +1012,8 @@ $csrfToken = $auth->generateCSRFToken();
                     case 'super_admin':
                         // Hide tenant field for super admins
                         tenantGroup.classList.add('form-group-hidden');
+                        // Tenant Role is assigned per-company via Company Filter (if selected)
+                        this.refreshTenantRoleFromCompanyFilter(formType);
                         break;
 
                     case 'admin':
@@ -1112,10 +1021,16 @@ $csrfToken = $auth->generateCSRFToken();
                         tenantGroup.classList.remove('form-group-hidden');
                         tenantLabel.innerHTML = 'Aziende Assegnate <span id="' + formType + 'SelectedCount" style="color: var(--color-primary); font-weight: normal;"></span>';
                         tenantHelp.textContent = 'Gli admin possono gestire più aziende. Seleziona almeno una azienda.';
+                        // Tenant Role is assigned per-company via Company Filter (if selected)
+                        this.refreshTenantRoleFromCompanyFilter(formType);
 
                         // Create wrapper with counter
                         const wrapperDiv = document.createElement('div');
                         wrapperDiv.style.position = 'relative';
+
+                        // Search input for long tenant lists
+                        const { wrap: searchWrap, input: searchInput } = this.buildTenantSearchInput(formType, 'Cerca azienda (nome / P.IVA / CF)...');
+                        tenantContainer.appendChild(searchWrap);
 
                         // Create checkbox list
                         const checkboxList = document.createElement('div');
@@ -1131,6 +1046,7 @@ $csrfToken = $auth->generateCSRFToken();
                         this.tenantsList.forEach((tenant, index) => {
                             const itemDiv = document.createElement('div');
                             itemDiv.className = 'tenant-checkbox-item';
+                            itemDiv.dataset.searchText = `${tenant.denominazione || tenant.name || ''} ${(tenant.partita_iva || '')} ${(tenant.codice_fiscale || '')}`.toLowerCase();
 
                             const checkbox = document.createElement('input');
                             checkbox.type = 'checkbox';
@@ -1187,6 +1103,18 @@ $csrfToken = $auth->generateCSRFToken();
                         wrapperDiv.appendChild(counterBadge);
                         tenantContainer.appendChild(wrapperDiv);
 
+                        // Filter handler
+                        if (searchInput) {
+                            searchInput.addEventListener('input', () => {
+                                const q = (searchInput.value || '').trim().toLowerCase();
+                                const items = checkboxList.querySelectorAll('.tenant-checkbox-item');
+                                items.forEach(el => {
+                                    const hay = (el.dataset.searchText || '').toLowerCase();
+                                    el.style.display = (!q || hay.includes(q)) ? '' : 'none';
+                                });
+                            });
+                        }
+
                         // Initialize count
                         this.updateTenantSelectionCount(formType);
                         break;
@@ -1206,21 +1134,73 @@ $csrfToken = $auth->generateCSRFToken();
                         select.name = 'tenant_id';
                         select.required = true;
 
+                        // Search input (rebuilds options on the fly)
+                        const { wrap: selectSearchWrap, input: selectSearchInput } = this.buildTenantSearchInput(formType, 'Cerca azienda (nome / P.IVA / CF)...');
+                        tenantContainer.appendChild(selectSearchWrap);
+
                         // Add empty option
                         const emptyOption = document.createElement('option');
                         emptyOption.value = '';
                         emptyOption.textContent = 'Seleziona un\'azienda';
                         select.appendChild(emptyOption);
 
-                        // Add tenant options
-                        this.tenantsList.forEach(tenant => {
-                            const option = document.createElement('option');
-                            option.value = tenant.id;
-                            option.textContent = tenant.name;
-                            select.appendChild(option);
+                        const renderSelectOptions = (query = '') => {
+                            const q = (query || '').trim().toLowerCase();
+                            const current = (select.value || '').toString();
+
+                            // Clear options, keep empty option
+                            select.innerHTML = '';
+                            select.appendChild(emptyOption.cloneNode(true));
+
+                            this.tenantsList.forEach(tenant => {
+                                const hay = `${tenant.denominazione || tenant.name || ''} ${(tenant.partita_iva || '')} ${(tenant.codice_fiscale || '')}`.toLowerCase();
+                                if (q && !hay.includes(q)) return;
+                                const option = document.createElement('option');
+                                option.value = tenant.id;
+                                option.textContent = tenant.denominazione || tenant.name;
+                                select.appendChild(option);
+                            });
+
+                            // restore selection if still present
+                            if (current) {
+                                const exists = [...select.options].some(o => o.value === current);
+                                if (exists) select.value = current;
+                            }
+                        };
+
+                        renderSelectOptions('');
+
+                        if (selectSearchInput) {
+                            selectSearchInput.addEventListener('input', () => {
+                                renderSelectOptions(selectSearchInput.value || '');
+                            });
+                        }
+
+                        // Add change listener to load tenant roles when tenant is selected
+                        select.addEventListener('change', (e) => {
+                            this.loadTenantRoles(e.target.value, formType);
                         });
 
                         tenantContainer.appendChild(select);
+
+                        // Hide tenant role group initially
+                        this.hideTenantRoleGroup(formType);
+
+                        // Manager safety: lock tenant to current tenant (cannot create users in other companies)
+                        if (window.CNX_CURRENT_USER_ROLE === 'manager' && window.CNX_CURRENT_TENANT_ID) {
+                            select.value = String(window.CNX_CURRENT_TENANT_ID);
+                            select.disabled = true;
+                            this.loadTenantRoles(window.CNX_CURRENT_TENANT_ID, formType);
+                            break;
+                        }
+
+                        // If a company is selected in the Company Filter, default the tenant to it
+                        // and load roles for that same tenant.
+                        const cfTenantId = this.getActiveCompanyFilterId();
+                        if (cfTenantId) {
+                            select.value = String(cfTenantId);
+                            this.loadTenantRoles(cfTenantId, formType);
+                        }
                         break;
 
                     default:
@@ -1250,9 +1230,139 @@ $csrfToken = $auth->generateCSRFToken();
                 }
             }
 
+            async refreshTenantRoleFromCompanyFilter(formType, userId = null) {
+                const cfTenantId = this.getActiveCompanyFilterId();
+                const roleEl = document.getElementById(`${formType}Role`);
+                const role = roleEl ? roleEl.value : '';
+
+                // If Company Filter is NOT available/selected (e.g. Manager pages),
+                // fall back to the selected tenant for manager/user.
+                if (!cfTenantId) {
+                    if (role === 'manager' || role === 'user') {
+                        const tenantSelect = document.getElementById(`${formType}Tenant`);
+                        const selectedTenant = tenantSelect && tenantSelect.value ? parseInt(tenantSelect.value, 10) : null;
+                        if (!selectedTenant) {
+                            this.hideTenantRoleGroup(formType);
+                            return;
+                        }
+
+                        await this.loadTenantRoles(selectedTenant, formType);
+
+                        const select = document.getElementById(`${formType}TenantRole`);
+                        if (select) {
+                            [...select.options].forEach(o => { o.selected = false; });
+                        }
+
+                        if (userId) {
+                            const current = await this.getUserTenantRole(userId, selectedTenant);
+                            const ids = (current && Array.isArray(current.tenant_role_ids)) ? current.tenant_role_ids : [];
+                            if (select && ids.length) {
+                                const wanted = ids.map(String);
+                                [...select.options].forEach(o => { o.selected = wanted.includes(String(o.value)); });
+                            }
+                        }
+                        return;
+                    }
+
+                    // For super_admin/admin assignment is per-company via Company Filter only
+                    this.hideTenantRoleGroup(formType);
+                    return;
+                }
+
+                // For manager/user with Company Filter selected: only allow if the selected tenant matches the filter
+                if (role === 'manager' || role === 'user') {
+                    const tenantSelect = document.getElementById(`${formType}Tenant`);
+                    const selectedTenant = tenantSelect && tenantSelect.value ? parseInt(tenantSelect.value, 10) : null;
+                    if (selectedTenant && selectedTenant !== cfTenantId) {
+                        this.hideTenantRoleGroup(formType);
+                        return;
+                    }
+                }
+
+                await this.loadTenantRoles(cfTenantId, formType);
+
+                const select = document.getElementById(`${formType}TenantRole`);
+                if (select) {
+                    [...select.options].forEach(o => { o.selected = false; });
+                }
+
+                if (userId) {
+                    const current = await this.getUserTenantRole(userId, cfTenantId);
+                    const ids = (current && Array.isArray(current.tenant_role_ids)) ? current.tenant_role_ids : [];
+                    if (select && ids.length) {
+                        const wanted = ids.map(String);
+                        [...select.options].forEach(o => { o.selected = wanted.includes(String(o.value)); });
+                    }
+                }
+            }
+
+            async getUserTenantRole(userId, tenantId) {
+                try {
+                    const url = `api/users/tenant_role.php?user_id=${encodeURIComponent(userId)}&tenant_id=${encodeURIComponent(tenantId)}`;
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        headers: {
+                            'X-CSRF-Token': document.getElementById('csrfToken').value
+                        }
+                    });
+                    const data = await response.json();
+                    if (data && data.success) {
+                        return data.data || null;
+                    }
+                    return null;
+                } catch (e) {
+                    console.error('getUserTenantRole error:', e);
+                    return null;
+                }
+            }
+
+            async setUserTenantRole(userId, tenantId, tenantRoleIdsOrNull) {
+                try {
+                    const ids = Array.isArray(tenantRoleIdsOrNull)
+                        ? tenantRoleIdsOrNull.map(v => parseInt(v, 10)).filter(v => Number.isFinite(v) && v > 0)
+                        : [];
+                    const response = await fetch('api/users/tenant_role.php', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': document.getElementById('csrfToken').value
+                        },
+                        body: JSON.stringify({
+                            csrf_token: document.getElementById('csrfToken').value,
+                            user_id: userId,
+                            tenant_id: tenantId,
+                            tenant_role_ids: ids
+                        })
+                    });
+                    const data = await response.json();
+                    if (!data || !data.success) {
+                        const msg = (data && (data.error || data.message)) ? (data.error || data.message) : 'Errore aggiornamento ruolo aziendale';
+                        this.showToast(msg, 'error');
+                        return false;
+                    }
+                    return true;
+                } catch (e) {
+                    console.error('setUserTenantRole error:', e);
+                    this.showToast('Errore di connessione (ruolo aziendale)', 'error');
+                    return false;
+                }
+            }
+
             async loadUsers() {
                 try {
-                    const response = await fetch(`api/users/list.php?page=${this.currentPage}&search=${encodeURIComponent(this.searchQuery)}`, {
+                    // If a company is selected in the Company Filter, scope the list to that tenant.
+                    // This enables per-company business role assignment.
+                    const params = new URLSearchParams();
+                    params.set('page', String(this.currentPage));
+                    params.set('search', this.searchQuery);
+                    if (this.activeCompanyFilterId) {
+                        params.set('scope', 'tenant');
+                    }
+
+                    const response = await fetch(`api/users/list.php?${params.toString()}`, {
+                        credentials: 'same-origin',
                         headers: {
                             'X-CSRF-Token': document.getElementById('csrfToken').value
                         }
@@ -1279,8 +1389,11 @@ $csrfToken = $auth->generateCSRFToken();
 
             async loadTenants() {
                 try {
-                    // First try to get enhanced data from companies API
-                    const response = await fetch('api/companies/list.php?page=1&search=', {
+                    // IMPORTANT:
+                    // Do NOT use api/companies/list.php?page=1 here (it is paginated and would truncate the tenant list).
+                    // For user assignment we need the full allowed tenant list (RBAC applied server-side).
+                    const response = await fetch('api/tenants/list.php', {
+                        credentials: 'same-origin',
                         headers: {
                             'X-CSRF-Token': document.getElementById('csrfToken').value
                         }
@@ -1288,27 +1401,21 @@ $csrfToken = $auth->generateCSRFToken();
 
                     const data = await response.json();
 
-                    if (data.success && data.data && data.data.companies) {
-                        // Use enhanced company data if available
-                        this.tenantsList = data.data.companies.map(company => ({
-                            id: company.id,
-                            name: company.denominazione || company.name || 'Azienda',
-                            denominazione: company.denominazione,
-                            code: company.code,
-                            numero_dipendenti: company.numero_dipendenti,
-                            settore_merceologico: company.settore_merceologico,
-                            codice_fiscale: company.codice_fiscale
-                        }));
-                    } else {
-                        // Fallback to basic tenants API
-                        const fallbackResponse = await fetch('api/users/tenants.php', {
-                            headers: {
-                                'X-CSRF-Token': document.getElementById('csrfToken').value
-                            }
-                        });
-                        const fallbackData = await fallbackResponse.json();
-                        this.tenantsList = fallbackData.data || fallbackData.tenants || [];
-                    }
+                    const tenants = (data && data.success && data.data && Array.isArray(data.data.tenants))
+                        ? data.data.tenants
+                        : [];
+
+                    this.tenantsList = tenants.map(t => ({
+                        id: t.id,
+                        // Keep both keys because handleRoleChange uses tenant.name and tenant.denominazione in different places
+                        name: t.denominazione || t.name || 'Azienda',
+                        denominazione: t.denominazione || t.name || 'Azienda',
+                        numero_dipendenti: t.numero_dipendenti || null,
+                        settore_merceologico: t.settore_merceologico || null,
+                        codice_fiscale: t.codice_fiscale || null,
+                        partita_iva: t.partita_iva || null,
+                        status: t.status || null
+                    }));
 
                     // Initialize tenant fields based on default role values
                     this.handleRoleChange(document.getElementById('addRole').value, 'add');
@@ -1338,6 +1445,42 @@ $csrfToken = $auth->generateCSRFToken();
                     const initials = this.getInitialsFromName(userName);
                     const status = user.is_active ? 'active' : 'inactive';
 
+                    // Get tenant role display (Ruolo Aziendale)
+                    const tenantRoleDisplay = this.getTenantRoleDisplay(user);
+
+                    const isSuperAdmin = (window.CNX_CURRENT_USER_ROLE === 'super_admin');
+                    const isManager = (window.CNX_CURRENT_USER_ROLE === 'manager');
+                    const canResendExpiryCode = isSuperAdmin && user.role !== 'super_admin';
+                    const resendBtn = canResendExpiryCode ? `
+                        <button class="btn-icon" onclick="userManager.sendOneTimePasswordReset(${user.id})" title="Invia password one-time + link reset">
+                            🔑
+                        </button>
+                    ` : '';
+
+                    const docsBtn = isSuperAdmin ? `
+                        <button class="btn-icon" onclick="userManager.sendUserDocs(${user.id})" title="Invia PDF onboarding e documenti (docs/*.pdf)">
+                            📄
+                        </button>
+                    ` : '';
+
+                    // Managers cannot manage admin/super_admin users
+                    const managerBlockedTarget = isManager && (user.role === 'admin' || user.role === 'super_admin');
+                    const editBtn = managerBlockedTarget ? '' : `
+                        <button class="btn-icon edit" onclick="userManager.openEditModal(${user.id})" title="Modifica">
+                            ✏️
+                        </button>
+                    `;
+                    const toggleBtn = managerBlockedTarget ? '' : `
+                        <button class="btn-icon toggle" onclick="userManager.toggleStatus(${user.id})" title="Cambia stato">
+                            ${status === 'active' ? '⏸️' : '▶️'}
+                        </button>
+                    `;
+                    const deleteBtn = managerBlockedTarget ? '' : `
+                        <button class="btn-icon delete" onclick="userManager.openDeleteModal(${user.id})" title="Elimina">
+                            🗑️
+                        </button>
+                    `;
+
                     return `
                     <tr>
                         <td>
@@ -1352,6 +1495,7 @@ $csrfToken = $auth->generateCSRFToken();
                         <td>
                             <span class="role-badge ${user.role.replace('_', '-')}">${this.getRoleLabel(user.role)}</span>
                         </td>
+                        <td>${tenantRoleDisplay}</td>
                         <td>${this.getTenantDisplay(user)}</td>
                         <td>
                             <span class="status-badge ${status}">
@@ -1362,19 +1506,78 @@ $csrfToken = $auth->generateCSRFToken();
                         <td>${user.created_at ? this.formatDate(user.created_at) : '-'}</td>
                         <td>
                             <div class="action-buttons">
-                                <button class="btn-icon edit" onclick="userManager.openEditModal(${user.id})" title="Modifica">
-                                    ✏️
-                                </button>
-                                <button class="btn-icon toggle" onclick="userManager.toggleStatus(${user.id})" title="Cambia stato">
-                                    ${status === 'active' ? '⏸️' : '▶️'}
-                                </button>
-                                <button class="btn-icon delete" onclick="userManager.openDeleteModal(${user.id})" title="Elimina">
-                                    🗑️
-                                </button>
+                                ${editBtn}
+                                ${toggleBtn}
+                                ${resendBtn}
+                                ${docsBtn}
+                                ${deleteBtn}
                             </div>
                         </td>
                     </tr>
                 `}).join('');
+            }
+
+            async sendUserDocs(userId) {
+                if (!confirm('Inviare i PDF (onboarding + docs/*.pdf) via email a questo utente?')) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch('api/users/send_docs.php', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': document.getElementById('csrfToken').value
+                        },
+                        body: JSON.stringify({
+                            csrf_token: document.getElementById('csrfToken').value,
+                            user_id: userId
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (data && data.success) {
+                        const n = data.data?.docs_count ?? 0;
+                        const to = data.data?.to ? String(data.data.to) : '';
+                        this.showToast(`Email inviata${to ? ` a ${to}` : ''} (${n} allegati)`, 'success');
+                    } else {
+                        this.showToast(data?.error || data?.message || 'Errore invio PDF', 'error');
+                    }
+                } catch (e) {
+                    console.error('sendUserDocs error:', e);
+                    this.showToast('Errore di connessione (invio PDF)', 'error');
+                }
+            }
+
+            async sendOneTimePasswordReset(userId) {
+                if (!confirm('Inviare una password one-time e un link per reimpostare la password a questo utente?')) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch('api/users/send_one_time_password_reset.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': document.getElementById('csrfToken').value
+                        },
+                        body: JSON.stringify({
+                            csrf_token: document.getElementById('csrfToken').value,
+                            user_id: userId
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        this.showToast(data.message || 'Password one-time inviata', 'success');
+                    } else {
+                        this.showToast(data.error || data.message || 'Errore invio password one-time', 'error');
+                    }
+                } catch (e) {
+                    console.error('Send one-time password reset error:', e);
+                    this.showToast('Errore di connessione', 'error');
+                }
             }
 
             renderPagination(totalPages) {
@@ -1441,13 +1644,47 @@ $csrfToken = $auth->generateCSRFToken();
                     return;
                 }
 
+                // Optional: validate "Città di residenza" (must exist to allow travel optimization)
+                let homeCity = '';
+                try { homeCity = (document.getElementById('addHomeCity')?.value || '').trim(); } catch (e) {}
+                if (homeCity) {
+                    const res = await this.validateItalianMunicipality(homeCity);
+                    if (res && res.ok && !res.skipped) {
+                        // Normalize input to canonical municipality name
+                        homeCity = String(res?.municipality?.name || this.normalizeCityInput(homeCity) || homeCity).trim();
+                        const el = document.getElementById('addHomeCity');
+                        if (el) el.value = homeCity;
+                    } else if (res && res.ok && res.skipped) {
+                        // Validation unavailable: do not block
+                    } else {
+                        const sugg = (res?.suggestions || []).slice(0, 5).map(s => `${s.name} (${s.province_code})`).join(', ');
+                        this.showToast(`Città di residenza non riconosciuta: "${homeCity}". ${sugg ? 'Suggerimenti: ' + sugg : ''}`, 'error');
+                        document.getElementById('addHomeCity')?.focus();
+                        return;
+                    }
+                }
+
                 const formData = new FormData();
 
                 // Add basic fields
                 formData.append('name', name);
                 formData.append('email', email);
+                if (homeCity) {
+                    formData.append('home_city', homeCity);
+                }
+                // Optional professional profile fields (best-effort; stored only if DB columns exist)
+                const jobTitle = (document.getElementById('addJobTitle')?.value || '').trim();
+                const skillsText = (document.getElementById('addSkillsText')?.value || '').trim();
+                const certText = (document.getElementById('addCertificationsText')?.value || '').trim();
+                if (jobTitle) formData.append('job_title', jobTitle);
+                if (skillsText) formData.append('skills_text', skillsText);
+                if (certText) formData.append('certifications_text', certText);
                 // Password non più necessaria - verrà inviata email all'utente
                 formData.append('role', role);
+                const addMaxAge = document.getElementById('addPasswordMaxAgeDays');
+                if (addMaxAge && addMaxAge.value) {
+                    formData.append('password_max_age_days', addMaxAge.value);
+                }
                 formData.append('csrf_token', document.getElementById('csrfToken').value);
 
                 // Handle tenant assignment based on role
@@ -1466,6 +1703,15 @@ $csrfToken = $auth->generateCSRFToken();
                     const tenantSelect = document.getElementById('addTenant');
                     if (tenantSelect && tenantSelect.value) {
                         formData.append('tenant_id', tenantSelect.value);
+
+                        // Add tenant_role_ids[] if selected (for manager/user roles only)
+                        const tenantRoleSelect = document.getElementById('addTenantRole');
+                        if (tenantRoleSelect) {
+                            const selected = [...tenantRoleSelect.selectedOptions]
+                                .map(o => parseInt(o.value, 10))
+                                .filter(v => Number.isFinite(v) && v > 0);
+                            selected.forEach(v => formData.append('tenant_role_ids[]', String(v)));
+                        }
                     } else if (role === 'manager' || role === 'user') {
                         this.showToast('Seleziona un\'azienda', 'error');
                         return;
@@ -1477,6 +1723,7 @@ $csrfToken = $auth->generateCSRFToken();
                     console.log('Sending user creation request...');
                     response = await fetch('api/users/create_simple.php', {
                         method: 'POST',
+                        credentials: 'same-origin',
                         body: formData
                     });
 
@@ -1522,6 +1769,43 @@ $csrfToken = $auth->generateCSRFToken();
                             }
                         }
                         this.showToast(message, 'success');
+                        // Per-azienda: assegna Ruolo Aziendale per l'azienda selezionata nel Company Filter
+                        try {
+                            const newUserId = parseInt((data.data && (data.data.id || data.data.user_id || data.data.userId)) || '0', 10) || 0;
+                            const cfTenantId = this.getActiveCompanyFilterId();
+                            const tenantRoleSelect = document.getElementById('addTenantRole');
+                            const selectedTenantRoleId = tenantRoleSelect ? (tenantRoleSelect.value || '') : '';
+
+                            // Determine assignment tenant:
+                            // - super_admin/admin: per-company via Company Filter
+                            // - manager/user: via selected tenant (Company Filter may not exist)
+                            let targetTenantId = cfTenantId;
+                            if (!targetTenantId && (role === 'manager' || role === 'user')) {
+                                const tenantSelect = document.getElementById('addTenant');
+                                const selectedTenant = tenantSelect && tenantSelect.value ? parseInt(tenantSelect.value, 10) : null;
+                                targetTenantId = selectedTenant || null;
+                            }
+
+                            // For manager/user, if Company Filter is selected, require selected tenant matches it
+                            if ((role === 'manager' || role === 'user') && cfTenantId) {
+                                const tenantSelect = document.getElementById('addTenant');
+                                const selectedTenant = tenantSelect && tenantSelect.value ? parseInt(tenantSelect.value, 10) : null;
+                                if (!selectedTenant || selectedTenant !== cfTenantId) {
+                                    targetTenantId = null;
+                                }
+                            }
+
+                            if (newUserId > 0 && targetTenantId) {
+                                await this.setUserTenantRole(
+                                    newUserId,
+                                    targetTenantId,
+                                    selectedTenantRoleId === '' ? null : parseInt(selectedTenantRoleId, 10)
+                                );
+                            }
+                        } catch (e) {
+                            console.warn('Tenant role assignment post-create failed (non-blocking):', e);
+                        }
+
                         closeModal('addModal');
                         form.reset();
                         this.loadUsers();
@@ -1558,30 +1842,67 @@ $csrfToken = $auth->generateCSRFToken();
                 const user = this.users.find(u => u.id === userId);
                 if (!user) return;
 
+                // Managers cannot edit admin/super_admin users (prevents forbidden API calls)
+                if (window.CNX_CURRENT_USER_ROLE === 'manager' && (user.role === 'admin' || user.role === 'super_admin')) {
+                    this.showToast('Permessi insufficienti per modificare questo utente', 'error');
+                    return;
+                }
+
                 // Handle both formats: single 'name' field or 'first_name'/'last_name'
                 const userName = user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || '';
 
                 document.getElementById('editUserId').value = user.id;
                 document.getElementById('editName').value = userName;
                 document.getElementById('editEmail').value = user.email;
+                try {
+                    const hc = (user && typeof user === 'object' && user.home_city) ? String(user.home_city) : '';
+                    const el = document.getElementById('editHomeCity');
+                    if (el) el.value = hc;
+                } catch (e) {}
+                try {
+                    const jt = (user && typeof user === 'object' && user.job_title) ? String(user.job_title) : '';
+                    const st = (user && typeof user === 'object' && user.skills_text) ? String(user.skills_text) : '';
+                    const ct = (user && typeof user === 'object' && user.certifications_text) ? String(user.certifications_text) : '';
+                    const el1 = document.getElementById('editJobTitle');
+                    const el2 = document.getElementById('editSkillsText');
+                    const el3 = document.getElementById('editCertificationsText');
+                    if (el1) el1.value = jt;
+                    if (el2) el2.value = st;
+                    if (el3) el3.value = ct;
+                } catch (e) {}
                 document.getElementById('editRole').value = user.role;
                 document.getElementById('editPassword').value = '';
+                const editMaxAgeEl = document.getElementById('editPasswordMaxAgeDays');
+                if (editMaxAgeEl) {
+                    editMaxAgeEl.value = (user.password_max_age_days || 90);
+                }
 
                 // First set the role, which will update the tenant field
                 this.handleRoleChange(user.role, 'edit');
 
                 // Then set the tenant value(s) after a short delay to ensure DOM is updated
-                setTimeout(() => {
+                setTimeout(async () => {
                     if (user.role === 'admin') {
                         // For admins, we need to fetch their assigned companies
+                        // Only admin/super_admin can call this endpoint (managers are blocked above)
                         this.loadUserCompanies(userId, 'edit');
                     } else if (user.role !== 'super_admin') {
                         // For other roles, set single tenant
                         const tenantSelect = document.getElementById('editTenant');
                         if (tenantSelect) {
                             tenantSelect.value = user.tenant_id || '';
+
+                            // Load tenant roles for the selected tenant
+                            if (user.tenant_id) {
+                                await this.loadTenantRoles(user.tenant_id, 'edit');
+
+                                // Multi-role selection is loaded via api/users/tenant_role.php (refreshTenantRoleFromCompanyFilter)
+                            }
                         }
                     }
+
+                    // Apply tenant-role context based on Company Filter (per-azienda)
+                    await this.refreshTenantRoleFromCompanyFilter('edit', userId);
                 }, 100);
 
                 openModal('editModal');
@@ -1590,6 +1911,7 @@ $csrfToken = $auth->generateCSRFToken();
             async loadUserCompanies(userId, formType) {
                 try {
                     const response = await fetch(`api/users/get-companies.php?user_id=${userId}`, {
+                        credentials: 'same-origin',
                         headers: {
                             'X-CSRF-Token': document.getElementById('csrfToken').value
                         }
@@ -1651,6 +1973,52 @@ $csrfToken = $auth->generateCSRFToken();
                 const form = document.getElementById('editUserForm');
                 const role = document.getElementById('editRole').value;
 
+                // Managers: allow ONLY Ruolo Aziendale assignment (per-tenant) via api/users/tenant_role.php
+                // update_v2.php requires admin, so managers must not call it.
+                if (window.CNX_CURRENT_USER_ROLE === 'manager') {
+                    const uid = parseInt(form.user_id.value, 10) || 0;
+                    const tenantSelect = document.getElementById('editTenant');
+                    const targetTenantId = tenantSelect && tenantSelect.value ? parseInt(tenantSelect.value, 10) : 0;
+                    const tenantRoleSelect = document.getElementById('editTenantRole');
+                    const selectedTenantRoleIds = tenantRoleSelect
+                        ? [...tenantRoleSelect.selectedOptions].map(o => parseInt(o.value, 10)).filter(v => Number.isFinite(v) && v > 0)
+                        : [];
+
+                    if (!uid || uid <= 0 || !targetTenantId || targetTenantId <= 0) {
+                        this.showToast('Seleziona un utente e una azienda valida', 'error');
+                        return;
+                    }
+
+                    const ok = await this.setUserTenantRole(
+                        uid,
+                        targetTenantId,
+                        selectedTenantRoleIds
+                    );
+
+                    if (ok) {
+                        // Refresh row immediately (best effort)
+                        try {
+                            const current = await this.getUserTenantRole(uid, targetTenantId);
+                            const idx = this.users.findIndex(u => String(u.id) === String(uid));
+                            if (idx >= 0 && current) {
+                                // Keep backward-compatible single fields for table rendering
+                                const ids = Array.isArray(current.tenant_role_ids) ? current.tenant_role_ids : [];
+                                this.users[idx].tenant_role_id = ids.length ? ids[0] : (current.tenant_role_id ?? null);
+                                this.users[idx].tenant_role_name = current.tenant_role?.name ?? (current.tenant_roles?.[0]?.name ?? null);
+                                this.users[idx].tenant_role_color = current.tenant_role?.color ?? (current.tenant_roles?.[0]?.color ?? null);
+                            }
+                        } catch (e) {
+                            // non-blocking
+                        }
+
+                        this.showToast('Ruolo aziendale aggiornato con successo', 'success');
+                        closeModal('editModal');
+                        this.renderUsers();
+                    }
+
+                    return;
+                }
+
                 // Validazione manuale dei campi required
                 const name = form.name.value.trim();
 
@@ -1666,10 +2034,39 @@ $csrfToken = $auth->generateCSRFToken();
                 formData.append('user_id', form.user_id.value);
                 formData.append('name', name);
                 formData.append('email', form.email.value);
+                // Optional: user default city (used as Planning default home city). Empty => clear.
+                let homeCity = '';
+                try { homeCity = (document.getElementById('editHomeCity')?.value || '').trim(); } catch (e) {}
+                if (homeCity) {
+                    const res = await this.validateItalianMunicipality(homeCity);
+                    if (res && res.ok && !res.skipped) {
+                        homeCity = String(res?.municipality?.name || this.normalizeCityInput(homeCity) || homeCity).trim();
+                        const el = document.getElementById('editHomeCity');
+                        if (el) el.value = homeCity;
+                    } else if (res && res.ok && res.skipped) {
+                        // Validation unavailable: do not block
+                    } else {
+                        const sugg = (res?.suggestions || []).slice(0, 5).map(s => `${s.name} (${s.province_code})`).join(', ');
+                        this.showToast(`Città di residenza non riconosciuta: "${homeCity}". ${sugg ? 'Suggerimenti: ' + sugg : ''}`, 'error');
+                        document.getElementById('editHomeCity')?.focus();
+                        return;
+                    }
+                }
+                formData.append('home_city', homeCity);
+                // Optional professional profile fields (empty string clears when supported)
+                try {
+                    formData.append('job_title', (document.getElementById('editJobTitle')?.value || '').trim());
+                    formData.append('skills_text', (document.getElementById('editSkillsText')?.value || '').trim());
+                    formData.append('certifications_text', (document.getElementById('editCertificationsText')?.value || '').trim());
+                } catch (e) {}
                 if (form.password.value) {
                     formData.append('password', form.password.value);
                 }
                 formData.append('role', role);
+                const editMaxAge = document.getElementById('editPasswordMaxAgeDays');
+                if (editMaxAge && editMaxAge.value) {
+                    formData.append('password_max_age_days', editMaxAge.value);
+                }
                 formData.append('csrf_token', document.getElementById('csrfToken').value);
 
                 // Handle tenant assignment based on role
@@ -1688,6 +2085,15 @@ $csrfToken = $auth->generateCSRFToken();
                     const tenantSelect = document.getElementById('editTenant');
                     if (tenantSelect && tenantSelect.value) {
                         formData.append('tenant_id', tenantSelect.value);
+
+                        // Add tenant_role_ids[] if selected (for manager/user roles only)
+                        const tenantRoleSelect = document.getElementById('editTenantRole');
+                        if (tenantRoleSelect) {
+                            const selected = [...tenantRoleSelect.selectedOptions]
+                                .map(o => parseInt(o.value, 10))
+                                .filter(v => Number.isFinite(v) && v > 0);
+                            selected.forEach(v => formData.append('tenant_role_ids[]', String(v)));
+                        }
                     } else if (role === 'manager' || role === 'user') {
                         this.showToast('Seleziona un\'azienda', 'error');
                         return;
@@ -1699,6 +2105,7 @@ $csrfToken = $auth->generateCSRFToken();
                     console.log('Sending user update request...');
                     response = await fetch('api/users/update_v2.php', {
                         method: 'POST',
+                        credentials: 'same-origin',
                         body: formData
                     });
 
@@ -1726,6 +2133,45 @@ $csrfToken = $auth->generateCSRFToken();
                     if (data.success) {
                         this.showToast('Utente aggiornato con successo', 'success');
                         closeModal('editModal');
+                        // Per-azienda: assegna Ruolo Aziendale per l'azienda selezionata nel Company Filter
+                        try {
+                            const uid = parseInt(form.user_id.value, 10) || 0;
+                            const cfTenantId = this.getActiveCompanyFilterId();
+                            const tenantRoleSelect = document.getElementById('editTenantRole');
+                            const selectedTenantRoleIds = tenantRoleSelect
+                                ? [...tenantRoleSelect.selectedOptions].map(o => parseInt(o.value, 10)).filter(v => Number.isFinite(v) && v > 0)
+                                : [];
+
+                            // Determine assignment tenant:
+                            // - super_admin/admin: per-company via Company Filter
+                            // - manager/user: via selected tenant (Company Filter may not exist)
+                            let targetTenantId = cfTenantId;
+                            if (!targetTenantId && (role === 'manager' || role === 'user')) {
+                                const tenantSelect = document.getElementById('editTenant');
+                                const selectedTenant = tenantSelect && tenantSelect.value ? parseInt(tenantSelect.value, 10) : null;
+                                targetTenantId = selectedTenant || null;
+                            }
+
+                            // For manager/user, if Company Filter is selected, require selected tenant matches it
+                            if ((role === 'manager' || role === 'user') && cfTenantId) {
+                                const tenantSelect = document.getElementById('editTenant');
+                                const selectedTenant = tenantSelect && tenantSelect.value ? parseInt(tenantSelect.value, 10) : null;
+                                if (!selectedTenant || selectedTenant !== cfTenantId) {
+                                    targetTenantId = null;
+                                }
+                            }
+
+                            if (uid > 0 && targetTenantId) {
+                                await this.setUserTenantRole(
+                                    uid,
+                                    targetTenantId,
+                                    selectedTenantRoleIds
+                                );
+                            }
+                        } catch (e) {
+                            console.warn('Tenant role assignment post-update failed (non-blocking):', e);
+                        }
+
                         this.loadUsers();
                     } else {
                         const errorMsg = data.message || data.error || 'Errore nell\'aggiornamento utente';
@@ -1938,6 +2384,107 @@ $csrfToken = $auth->generateCSRFToken();
                 return user.tenant_name || '-';
             }
 
+            // Get tenant role (Ruolo Aziendale) display
+            getTenantRoleDisplay(user) {
+                // Super admin and admin don't have tenant roles
+                if (user.role === 'super_admin' || user.role === 'admin') {
+                    return '<span class="tenant-role-badge no-role">-</span>';
+                }
+
+                // Support both shapes:
+                // - flat fields: tenant_role_name / tenant_role_color (legacy)
+                // - object: tenant_role { name, color } (API default)
+                const roleName = user.tenant_role_name || user.tenant_role?.name || '';
+                if (roleName) {
+                    // Use consistent styling (same palette as role-badge.user) to avoid a “rainbow” UI.
+                    return `<span class="tenant-role-badge">${roleName}</span>`;
+                }
+
+                return '<span class="tenant-role-badge no-role">Nessuno</span>';
+            }
+
+            // Calculate contrasting text color (black or white) for given background
+            getContrastingColor(hexColor) {
+                // Remove # if present
+                const hex = hexColor.replace('#', '');
+
+                // Parse RGB values
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+
+                // Calculate luminance
+                const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+                return luminance > 0.5 ? '#000000' : '#ffffff';
+            }
+
+            // Load tenant roles for a specific tenant
+            async loadTenantRoles(tenantId, formType = 'add') {
+                if (!tenantId) {
+                    this.hideTenantRoleGroup(formType);
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`api/tenant-roles/list.php?tenant_id=${tenantId}`, {
+                        credentials: 'same-origin',
+                        headers: {
+                            'X-CSRF-Token': document.getElementById('csrfToken').value
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success && data.data && data.data.tenant_has_custom_roles && data.data.roles.length > 0) {
+                        // Show dropdown only if current user is allowed to assign for this tenant
+                        if (data.data.can_assign_custom_roles) {
+                            this.showTenantRoleGroup(formType, data.data.roles);
+                        } else {
+                            this.hideTenantRoleGroup(formType);
+                        }
+                    } else {
+                        // No custom roles for this tenant
+                        this.hideTenantRoleGroup(formType);
+                    }
+                } catch (error) {
+                    console.error('Error loading tenant roles:', error);
+                    this.hideTenantRoleGroup(formType);
+                }
+            }
+
+            // Show the tenant role dropdown and populate with options
+            showTenantRoleGroup(formType, roles) {
+                const group = document.getElementById(`${formType}TenantRoleGroup`);
+                const select = document.getElementById(`${formType}TenantRole`);
+
+                if (!group || !select) return;
+
+                // Populate options
+                let optionsHtml = '<option value="">-- Nessun ruolo aziendale --</option>';
+                roles.forEach(role => {
+                    const colorStyle = role.color ? `style="background-color: ${role.color}20;"` : '';
+                    optionsHtml += `<option value="${role.id}" ${colorStyle}>${role.name}</option>`;
+                });
+                select.innerHTML = optionsHtml;
+
+                // Show the group
+                group.style.display = 'block';
+            }
+
+            // Hide the tenant role dropdown
+            hideTenantRoleGroup(formType) {
+                const group = document.getElementById(`${formType}TenantRoleGroup`);
+                const select = document.getElementById(`${formType}TenantRole`);
+
+                if (group) {
+                    group.style.display = 'none';
+                }
+                if (select) {
+                    select.value = '';
+                }
+            }
+
             formatDate(dateString) {
                 const date = new Date(dateString);
                 return date.toLocaleDateString('it-IT', {
@@ -1945,6 +2492,61 @@ $csrfToken = $auth->generateCSRFToken();
                     month: '2-digit',
                     year: 'numeric'
                 });
+            }
+
+            normalizeCityInput(city) {
+                const raw = String(city || '').trim();
+                if (!raw) return '';
+                const m = raw.match(/^(.*)\s*\([A-Z]{2}\)\s*$/);
+                const base = (m && m[1]) ? String(m[1]).trim() : raw;
+                return base.replace(/\s+/g, ' ').trim();
+            }
+
+            async validateItalianMunicipality(city) {
+                const q = this.normalizeCityInput(city);
+                if (!q || q.length < 2) return { ok: true, query: q, skipped: true };
+
+                if (!this._municipalityCache) this._municipalityCache = new Map();
+                const cacheKey = q.toLowerCase();
+                if (this._municipalityCache.has(cacheKey)) return this._municipalityCache.get(cacheKey);
+
+                try {
+                    const url = `api/locations/search_municipalities.php?q=${encodeURIComponent(q)}&limit=8`;
+                    const resp = await fetch(url, { method: 'GET', credentials: 'same-origin' });
+                    if (!resp.ok) {
+                        const out = { ok: true, query: q, skipped: true, warning: 'validation_unavailable' };
+                        this._municipalityCache.set(cacheKey, out);
+                        return out;
+                    }
+                    const data = await resp.json();
+                    const results = Array.isArray(data?.data?.results) ? data.data.results : [];
+                    const exact = results.find(r => String(r?.name || '').toLowerCase() === q.toLowerCase()) || null;
+                    const out = exact ? {
+                        ok: true,
+                        query: q,
+                        municipality: {
+                            name: String(exact.name || ''),
+                            province_code: String(exact.province_code || ''),
+                            province_name: String(exact.province_name || ''),
+                            region: String(exact.region || '')
+                        }
+                    } : {
+                        ok: false,
+                        query: q,
+                        suggestions: results.slice(0, 5).map(r => ({
+                            name: String(r?.name || ''),
+                            province_code: String(r?.province_code || ''),
+                            province_name: String(r?.province_name || ''),
+                            region: String(r?.region || '')
+                        })).filter(x => x.name && x.province_code)
+                    };
+                    this._municipalityCache.set(cacheKey, out);
+                    return out;
+                } catch (e) {
+                    const out = { ok: true, query: q, skipped: true, warning: 'validation_unavailable' };
+                    this._municipalityCache.set(cacheKey, out);
+                    return out;
+                }
             }
 
             showToast(message, type = 'info') {
@@ -1976,6 +2578,10 @@ $csrfToken = $auth->generateCSRFToken();
             document.getElementById('addRole').value = 'user';
             console.log('Triggering role change for: user');
             userManager.handleRoleChange('user', 'add');
+            // Load tenant roles for selected Company Filter (if any)
+            if (userManager && typeof userManager.refreshTenantRoleFromCompanyFilter === 'function') {
+                userManager.refreshTenantRoleFromCompanyFilter('add');
+            }
             openModal('addModal');
             console.log('Modal opened successfully');
         }
@@ -1990,5 +2596,4 @@ $csrfToken = $auth->generateCSRFToken();
             userManager = new UserManager();
         });
     </script>
-</body>
-</html>
+<?php require __DIR__ . '/includes/layout_end.php'; ?>

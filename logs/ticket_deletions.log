@@ -6,3 +6,7 @@
 [2025-11-17 06:58:43] TICKET DELETED - ID: 12 | Numero:  | Tenant: 1 (Demo Company) | Deleted By: Unknown (ID: 19, unknown@example.com) | Reason: Manual deletion after closure | IP: ::1
 [2025-11-17 06:58:55] TICKET DELETED - ID: 8 | Numero:  | Tenant: 1 (Demo Company) | Deleted By: Unknown (ID: 19, unknown@example.com) | Reason: Manual deletion after closure | IP: ::1
 [2025-11-17 06:59:07] TICKET DELETED - ID: 9 | Numero:  | Tenant: 1 (Demo Company) | Deleted By: Unknown (ID: 19, unknown@example.com) | Reason: Manual deletion after closure | IP: ::1
+[2025-12-15 16:12:39] TICKET DELETED - ID: 19 | Numero: TICK-2025-0003 | Tenant: 11 (S.CO Srls) | Deleted By: Unknown (ID: 19, unknown@example.com) | Reason: Manual deletion after closure | IP: 127.0.0.1
+[2025-12-15 16:12:45] TICKET DELETED - ID: 20 | Numero: TICK-2025-0004 | Tenant: 11 (S.CO Srls) | Deleted By: Unknown (ID: 19, unknown@example.com) | Reason: Manual deletion after closure | IP: 127.0.0.1
+[2025-12-28 08:02:35] TICKET DELETED - ID: 21 | Numero: TICK-2025-0005 | Tenant: 28 (S.CO Srls) | Deleted By: Unknown (ID: 19, unknown@example.com) | Reason: Manual deletion after closure | IP: 127.0.0.1
+[2026-01-08 13:19:33] TICKET DELETED - ID: 24 | Numero: TICK-2026-0003 | Tenant: 29 (Casa Dell'Annunziata) | Deleted By: Unknown (ID: 19, unknown@example.com) | Reason: Manual deletion after closure | IP: 127.0.0.1

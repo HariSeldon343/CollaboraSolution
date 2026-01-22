@@ -19,8 +19,8 @@ class AuthSimple {
             require_once __DIR__ . '/session_init.php';
         }
 
-        // Verifica timeout inattivita (10 minuti)
-        $inactivity_timeout = 600; // 10 minuti
+        // Verifica timeout inattivita (global): 300 secondi
+        $inactivity_timeout = 300;
         if (isset($_SESSION['last_activity'])) {
             $elapsed = time() - $_SESSION['last_activity'];
             if ($elapsed > $inactivity_timeout) {

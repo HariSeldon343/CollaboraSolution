@@ -92,9 +92,28 @@ try {
     ]);
     $attempt_id = $conn->lastInsertId();
 
-    // Cerca l'utente
+    // Cerca l'utente (schema-drift safe: alcuni DB hanno solo users.name, senza first_name/last_name)
+    $hasFirstName = false;
+    $hasLastName = false;
+    try {
+        $cols = $conn->query("
+            SELECT COLUMN_NAME
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'users'
+              AND COLUMN_NAME IN ('first_name','last_name')
+        ")->fetchAll(PDO::FETCH_COLUMN);
+        $hasFirstName = in_array('first_name', $cols ?: [], true);
+        $hasLastName = in_array('last_name', $cols ?: [], true);
+    } catch (Throwable $e) {
+        // ignore, fall back to safest query
+    }
+
+    $selectFirst = $hasFirstName ? "first_name" : "'' AS first_name";
+    $selectLast = $hasLastName ? "last_name" : "'' AS last_name";
+
     $user_query = $conn->prepare("
-        SELECT id, name, first_name, last_name, email, tenant_id, role, status
+        SELECT id, name, $selectFirst, $selectLast, email, tenant_id, role, status
         FROM users
         WHERE email = :email
     ");

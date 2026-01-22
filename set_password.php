@@ -19,18 +19,51 @@ if ($token) {
         $db = Database::getInstance();
         $conn = $db->getConnection();
 
-        // Find user with this valid token (not expired)
-        $query = "SELECT id, email, name, password_reset_token, password_reset_expires
+        // Find user with this valid token (not expired).
+        // IMPORTANT: Build SELECT dynamically based on available columns, so we don't silently drop OTP fields.
+        $hasMaxAgeDays = false;
+        $hasOtpCols = false;
+        try {
+            $cols = $db->fetchAll(
+                "SELECT COLUMN_NAME
+                 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'users'
+                   AND COLUMN_NAME IN ('password_max_age_days', 'password_reset_otp_hash', 'password_reset_otp_expires')"
+            );
+            $names = array_map(static fn($r) => (string)($r['COLUMN_NAME'] ?? ''), $cols);
+            $hasMaxAgeDays = in_array('password_max_age_days', $names, true);
+            $hasOtpCols = in_array('password_reset_otp_hash', $names, true) && in_array('password_reset_otp_expires', $names, true);
+        } catch (Throwable $e) {
+            $hasMaxAgeDays = false;
+            $hasOtpCols = false;
+        }
+
+        $selectCols = [
+            'id',
+            'email',
+            'name',
+            'password_reset_token',
+            'password_reset_expires',
+        ];
+        if ($hasMaxAgeDays) {
+            $selectCols[] = 'password_max_age_days';
+        }
+        if ($hasOtpCols) {
+            $selectCols[] = 'password_reset_otp_hash';
+            $selectCols[] = 'password_reset_otp_expires';
+        }
+
+        $query = "SELECT " . implode(', ', $selectCols) . "
                   FROM users
                   WHERE password_reset_token = :token
-                  AND password_reset_expires > NOW()
-                  AND deleted_at IS NULL
-                  AND is_active = 1";
+                    AND password_reset_expires > NOW()
+                    AND deleted_at IS NULL
+                    AND is_active = 1";
 
         $stmt = $conn->prepare($query);
         $stmt->bindParam(':token', $token);
         $stmt->execute();
-
         $userData = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($userData) {
@@ -58,11 +91,26 @@ if ($token) {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tokenValid && $userData) {
+    $oneTimePassword = $_POST['one_time_password'] ?? '';
     $newPassword = $_POST['new_password'] ?? '';
     $confirmPassword = $_POST['confirm_password'] ?? '';
 
     // Validation
     $errors = [];
+
+    // If OTP is present on the user record, require OTP in the form.
+    $otpRequired = !empty($userData['password_reset_otp_hash']);
+    if ($otpRequired) {
+        // Check OTP expiry if available
+        $otpExpiresAt = $userData['password_reset_otp_expires'] ?? null;
+        if (empty($oneTimePassword)) {
+            $errors[] = 'Inserisci la password one-time ricevuta via email';
+        } elseif (!empty($otpExpiresAt) && strtotime((string)$otpExpiresAt) < time()) {
+            $errors[] = 'La password one-time è scaduta. Richiedi un nuovo reset all’amministratore.';
+        } elseif (!password_verify((string)$oneTimePassword, (string)$userData['password_reset_otp_hash'])) {
+            $errors[] = 'Password one-time non valida';
+        }
+    }
 
     if (strlen($newPassword) < 8) {
         $errors[] = 'La password deve contenere almeno 8 caratteri';
@@ -85,22 +133,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tokenValid && $userData) {
             // Hash the new password
             $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
 
-            // Calculate password expiry (90 days from now)
-            $passwordExpiresAt = date('Y-m-d H:i:s', strtotime('+90 days'));
+            // Calculate password expiry (per-user max age; default 90 days)
+            $maxAgeDays = isset($userData['password_max_age_days']) ? (int)$userData['password_max_age_days'] : 90;
+            if ($maxAgeDays <= 0) {
+                $maxAgeDays = 90;
+            }
+            $passwordExpiresAt = date('Y-m-d H:i:s', strtotime('+' . $maxAgeDays . ' days'));
 
-            // Update user password and invalidate token
-            $updateQuery = "UPDATE users
-                           SET password_hash = :password_hash,
-                               password_reset_token = NULL,
-                               password_reset_expires = NULL,
-                               first_login = FALSE,
-                               password_expires_at = :password_expires_at,
-                               updated_at = NOW()
-                           WHERE id = :user_id";
+            // Build update query based on available columns (avoid breaking older DBs)
+            $hasPasswordSetAt = true;
+            $hasPasswordExpiresAt = true;
+            $hasOtpCols = false;
+            try {
+                $cols = $db->fetchAll(
+                    "SELECT COLUMN_NAME
+                     FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE()
+                       AND TABLE_NAME = 'users'
+                       AND COLUMN_NAME IN ('password_set_at', 'password_expires_at', 'password_reset_otp_hash', 'password_reset_otp_expires')"
+                );
+                $names = array_map(static fn($r) => (string)$r['COLUMN_NAME'], $cols);
+                $hasPasswordSetAt = in_array('password_set_at', $names, true);
+                $hasPasswordExpiresAt = in_array('password_expires_at', $names, true);
+                $hasOtpCols = in_array('password_reset_otp_hash', $names, true) && in_array('password_reset_otp_expires', $names, true);
+            } catch (Exception $e) {
+                // default true
+            }
+
+            $setParts = [
+                "password_hash = :password_hash",
+                "password_reset_token = NULL",
+                "password_reset_expires = NULL",
+                "first_login = FALSE",
+                "updated_at = NOW()"
+            ];
+            if ($hasPasswordSetAt) {
+                $setParts[] = "password_set_at = NOW()";
+            }
+            if ($hasPasswordExpiresAt) {
+                $setParts[] = "password_expires_at = :password_expires_at";
+            }
+            if ($hasOtpCols) {
+                $setParts[] = "password_reset_otp_hash = NULL";
+                $setParts[] = "password_reset_otp_expires = NULL";
+            }
+
+            $updateQuery = "UPDATE users SET " . implode(", ", $setParts) . " WHERE id = :user_id";
 
             $updateStmt = $conn->prepare($updateQuery);
             $updateStmt->bindParam(':password_hash', $passwordHash);
-            $updateStmt->bindParam(':password_expires_at', $passwordExpiresAt);
+            // Bind only if column exists in query
+            if (strpos($updateQuery, ':password_expires_at') !== false) {
+                $updateStmt->bindParam(':password_expires_at', $passwordExpiresAt);
+            }
             $updateStmt->bindParam(':user_id', $userData['id']);
 
             if ($updateStmt->execute()) {
@@ -130,7 +215,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tokenValid && $userData) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Imposta Password - CollaboraNexio</title>
+    <title>Imposta Password - Nexio</title>
     <link rel="stylesheet" href="assets/css/styles.css">
     <style>
         body {
@@ -352,6 +437,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tokenValid && $userData) {
                 </div>
 
                 <form method="POST" action="">
+                    <?php if (!empty($userData['password_reset_otp_hash'])): ?>
+                    <div class="form-group">
+                        <label for="one_time_password">Password one-time</label>
+                        <input
+                            type="password"
+                            id="one_time_password"
+                            name="one_time_password"
+                            required
+                            autocomplete="one-time-code"
+                        >
+                        <small style="display:block;margin-top:6px;color:#6b7280;font-size:12px;">
+                            Inserisci la password one-time ricevuta via email (valida 24 ore).
+                        </small>
+                    </div>
+                    <?php endif; ?>
+
                     <div class="form-group">
                         <label for="new_password">Nuova Password</label>
                         <input

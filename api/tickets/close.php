@@ -20,9 +20,6 @@ verifyApiAuthentication();
 // Verify CSRF token for POST request
 verifyApiCsrfToken();
 
-// Require admin+ role
-requireApiRole('admin');
-
 // Get user context
 $userInfo = getApiUserInfo();
 $db = Database::getInstance();
@@ -43,11 +40,26 @@ try {
     $ticketId = (int)$data['ticket_id'];
     $resolutionNotes = isset($data['resolution_notes']) ? trim($data['resolution_notes']) : null;
 
-    // Fetch ticket with tenant isolation
-    $ticket = $db->fetchOne(
-        'SELECT * FROM tickets WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL',
-        [$ticketId, $userInfo['tenant_id']]
-    );
+    // Fetch ticket with RBAC:
+    // - super_admin: any tenant
+    // - others: only if assigned_to == me (in my tenant)
+    if (($userInfo['role'] ?? '') === 'super_admin') {
+        $ticket = $db->fetchOne(
+            'SELECT * FROM tickets WHERE id = ? AND deleted_at IS NULL',
+            [$ticketId]
+        );
+    } else {
+        $ticket = $db->fetchOne(
+            'SELECT * FROM tickets WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL',
+            [$ticketId, $userInfo['tenant_id']]
+        );
+        if ($ticket) {
+            $isAssignee = (!empty($ticket['assigned_to']) && (int)$ticket['assigned_to'] === (int)$userInfo['user_id']);
+            if (!$isAssignee) {
+                api_error('Solo il Super User o l’utente assegnato può chiudere il ticket', 403);
+            }
+        }
+    }
 
     if (!$ticket) {
         api_error('Ticket non trovato o non accessibile', 404);
@@ -87,13 +99,12 @@ try {
         }
 
         $db->update('tickets', $updateData, [
-            'id' => $ticketId,
-            'tenant_id' => $userInfo['tenant_id']
+            'id' => $ticketId
         ]);
 
         // Log to ticket history
         $db->insert('ticket_history', [
-            'tenant_id' => $userInfo['tenant_id'],
+            'tenant_id' => $ticket['tenant_id'],
             'ticket_id' => $ticketId,
             'user_id' => $userInfo['user_id'],
             'action' => 'closed',

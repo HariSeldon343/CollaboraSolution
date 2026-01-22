@@ -41,10 +41,13 @@ try {
         $where[] = 't.tenant_id = ?';
         $params[] = $userInfo['tenant_id'];
     } else {
-        // Regular users can only view their own tickets in their tenant
+        // Regular users can view:
+        // - their own tickets
+        // - tickets assigned to them
         $where[] = 't.tenant_id = ?';
-        $where[] = 't.created_by = ?';
+        $where[] = '(t.created_by = ? OR t.assigned_to = ?)';
         $params[] = $userInfo['tenant_id'];
+        $params[] = $userInfo['user_id'];
         $params[] = $userInfo['user_id'];
     }
 
@@ -119,6 +122,20 @@ try {
         ORDER BY th.created_at DESC",
         [$ticketId]
     );
+
+    // FEATURE: Get ticket attachment if present
+    $attachment = $db->fetchOne(
+        "SELECT id, original_name, stored_name, file_path, file_size, mime_type, file_extension, created_at
+         FROM ticket_attachments
+         WHERE ticket_id = ?
+           AND deleted_at IS NULL
+         ORDER BY created_at ASC
+         LIMIT 1",
+        [$ticketId]
+    );
+
+    // Add attachment to ticket object
+    $ticket['attachment'] = $attachment ?: null;
 
     api_success([
         'ticket' => $ticket,

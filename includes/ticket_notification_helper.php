@@ -19,12 +19,112 @@
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/mailer.php';
+require_once __DIR__ . '/email_layout.php';
+require_once __DIR__ . '/email_template_renderer.php';
 
 class TicketNotification {
 
     private $db;
     private $baseUrl;
     private $templateDir;
+    private array $tenantNameCache = [];
+    private string $supportSuperUserEmail = 'asamodeo@fortibyte.it';
+
+    /**
+     * Resolve user by email (best-effort; may return null if not found)
+     */
+    private function getUserInfoByEmail(string $email): ?array {
+        $email = trim($email);
+        if ($email === '') return null;
+        $row = $this->db->fetchOne(
+            "SELECT id, name, email, tenant_id
+             FROM users
+             WHERE email = ? AND deleted_at IS NULL
+             LIMIT 1",
+            [$email]
+        );
+        return $row ? $row : null;
+    }
+
+    /**
+     * Get distinct assignee user IDs for a ticket (current + assignment history)
+     * @return int[]
+     */
+    private function getTicketAssigneeUserIds(int $ticketId, array $ticketRow): array {
+        $ids = [];
+        if (!empty($ticketRow['assigned_to'])) $ids[] = (int)$ticketRow['assigned_to'];
+
+        try {
+            $has = $this->db->fetchOne("SHOW TABLES LIKE 'ticket_assignments'");
+            if ($has) {
+                $rows = $this->db->fetchAll(
+                    "SELECT DISTINCT assigned_to
+                     FROM ticket_assignments
+                     WHERE ticket_id = ?
+                       AND deleted_at IS NULL
+                       AND assigned_to IS NOT NULL",
+                    [$ticketId]
+                ) ?: [];
+                foreach ($rows as $r) {
+                    $v = (int)($r['assigned_to'] ?? 0);
+                    if ($v > 0) $ids[] = $v;
+                }
+            }
+        } catch (Exception $e) {
+            // ignore
+        }
+
+        $ids = array_values(array_unique(array_filter($ids, static fn($v) => (int)$v > 0)));
+        return $ids;
+    }
+
+    /**
+     * Build recipient list for status/response notifications (STRICT policy):
+     * - ticket creator (opener)
+     * - action actor (who changed status OR wrote the response)
+     * - support super user email (always, unless already included above)
+     *
+     * IMPORTANT:
+     * - We do NOT notify assignees (current + history) anymore.
+     * - Support address MUST always be included unless it is already one of the two above.
+     *
+     * @return array<int,array{id:int|null,name:string,email:string}>
+     */
+    private function buildRecipientsForTicket(int $ticketId, array $ticketRow, ?int $actorUserId = null): array {
+        $recipients = [];
+        $seen = [];
+
+        $add = function (?array $u) use (&$recipients, &$seen) {
+            if (!$u) return;
+            $email = strtolower(trim((string)($u['email'] ?? '')));
+            if ($email === '') return;
+            if (isset($seen[$email])) return;
+            $seen[$email] = true;
+            $recipients[] = [
+                'id' => isset($u['id']) ? (int)$u['id'] : null,
+                'name' => (string)($u['name'] ?? $email),
+                'email' => (string)($u['email'] ?? $email),
+            ];
+        };
+
+        // Ticket opener (creator)
+        $creatorId = (int)($ticketRow['created_by'] ?? 0);
+        if ($creatorId > 0) {
+            $add($this->getUserInfo($creatorId));
+        }
+
+        // Actor (best-effort)
+        $actorUserId = (int)($actorUserId ?? 0);
+        if ($actorUserId > 0 && $actorUserId !== $creatorId) {
+            $add($this->getUserInfo($actorUserId));
+        }
+
+        // Support super user email: ALWAYS include unless already present via opener/actor.
+        // Force id=null so user preferences cannot suppress this recipient.
+        $add(['id' => null, 'name' => 'Super User', 'email' => $this->supportSuperUserEmail]);
+
+        return $recipients;
+    }
 
     /**
      * Constructor
@@ -33,6 +133,20 @@ class TicketNotification {
         $this->db = Database::getInstance();
         $this->baseUrl = defined('BASE_URL') ? BASE_URL : 'http://localhost:8888/CollaboraNexio';
         $this->templateDir = __DIR__ . '/email_templates/tickets/';
+    }
+
+    private function getTenantName(?int $tenantId): string {
+        if (!$tenantId) return '';
+        if (isset($this->tenantNameCache[$tenantId])) return $this->tenantNameCache[$tenantId];
+        try {
+            $row = $this->db->fetchOne('SELECT name FROM tenants WHERE id = ? LIMIT 1', [$tenantId]);
+            $name = is_array($row) ? (string)($row['name'] ?? '') : '';
+            $this->tenantNameCache[$tenantId] = $name;
+            return $name;
+        } catch (Exception $e) {
+            $this->tenantNameCache[$tenantId] = '';
+            return '';
+        }
     }
 
     /**
@@ -51,18 +165,18 @@ class TicketNotification {
                 return false;
             }
 
-            // Get all super_admin users for this tenant
+            // Get ALL super_admin users (regardless of tenant)
+            // BUG-148b FIX: super_admins have their own tenant_id but should receive ALL ticket notifications
             $superAdmins = $this->db->fetchAll(
                 "SELECT id, name, email
                  FROM users
-                 WHERE tenant_id = ?
-                   AND role = 'super_admin'
-                   AND deleted_at IS NULL",
-                [$ticket['tenant_id']]
+                 WHERE role = 'super_admin'
+                   AND is_active = 1
+                   AND deleted_at IS NULL"
             );
 
             if (empty($superAdmins)) {
-                error_log("TicketNotification: No super_admins found for tenant {$ticket['tenant_id']}");
+                error_log("TicketNotification: No super_admins found in system");
                 return false;
             }
 
@@ -75,7 +189,9 @@ class TicketNotification {
                 }
 
                 // Prepare template data
+                $tenantName = $this->getTenantName((int)($ticket['tenant_id'] ?? 0));
                 $templateData = [
+                    'EMAIL_TITLE' => 'Nuovo ticket',
                     'USER_NAME' => $admin['name'],
                     'TICKET_NUMBER' => $ticket['ticket_number'],
                     'TICKET_SUBJECT' => $ticket['subject'],
@@ -84,11 +200,13 @@ class TicketNotification {
                     'TICKET_URGENCY' => $ticket['urgency'],
                     'TICKET_URGENCY_LABEL' => $this->getUrgencyLabel($ticket['urgency']),
                     'TICKET_URGENCY_COLOR' => $this->getUrgencyColor($ticket['urgency']),
+                    'TICKET_STATUS_LABEL' => $this->getStatusLabel($ticket['status'] ?? 'open'),
                     'CREATED_BY_NAME' => $ticket['created_by_name'] ?? 'Utente',
                     'CREATED_BY_EMAIL' => $ticket['created_by_email'] ?? '',
                     'TICKET_URL' => $this->baseUrl . '/ticket.php?id=' . $ticketId,
                     'TICKET_LIST_URL' => $this->baseUrl . '/ticket.php',
                     'BASE_URL' => $this->baseUrl,
+                    'TENANT_NAME' => $tenantName ?: null,
                     'YEAR' => date('Y')
                 ];
 
@@ -159,6 +277,7 @@ class TicketNotification {
 
             // Prepare template variables
             $templateData = [
+                'EMAIL_TITLE' => 'Conferma ticket',
                 'CREATED_BY_NAME' => $creatorInfo['name'],
                 'CREATED_BY_EMAIL' => $creatorInfo['email'],
                 'TICKET_NUMBER' => $ticket['ticket_number'],
@@ -170,9 +289,11 @@ class TicketNotification {
                 'TICKET_STATUS' => $ticket['status'],
                 'TICKET_STATUS_LABEL' => $this->getStatusLabel($ticket['status']),
                 'URGENCY_HIGH' => in_array($ticket['urgency'], ['high', 'critical']),
+                'RESPONSE_TIME' => in_array($ticket['urgency'], ['high', 'critical']) ? 'Entro 4 ore' : 'Entro 24 ore',
                 'TICKET_URL' => $this->baseUrl . '/ticket.php?id=' . $ticketId,
                 'TICKET_LIST_URL' => $this->baseUrl . '/ticket.php',
                 'BASE_URL' => $this->baseUrl,
+                'TENANT_NAME' => ($this->getTenantName((int)($ticket['tenant_id'] ?? 0)) ?: null),
                 'YEAR' => date('Y')
             ];
 
@@ -198,15 +319,17 @@ class TicketNotification {
             );
 
             // Log notification attempt
-            $this->logNotification([
-                'ticket_id' => $ticketId,
-                'user_id' => $creatorInfo['id'],
-                'notification_type' => 'ticket_created_confirmation',
-                'recipient_email' => $creatorInfo['email'],
-                'subject' => $subject,
-                'sent_at' => date('Y-m-d H:i:s'),
-                'status' => $sent ? 'sent' : 'failed'
-            ]);
+            // BUG-148b FIX: logNotification expects individual params, not an array
+            $this->logNotification(
+                $ticket['tenant_id'],
+                $ticketId,
+                $creatorInfo['id'],
+                'ticket_created_confirmation',
+                $creatorInfo['email'],
+                $subject,
+                $sent ? 'sent' : 'failed',
+                $ticket['created_by']
+            );
 
             return $sent;
 
@@ -249,6 +372,7 @@ class TicketNotification {
 
             // Prepare template data
             $templateData = [
+                'EMAIL_TITLE' => 'Ticket assegnato',
                 'USER_NAME' => $assignedUser['name'],
                 'TICKET_NUMBER' => $ticket['ticket_number'],
                 'TICKET_SUBJECT' => $ticket['subject'],
@@ -260,6 +384,7 @@ class TicketNotification {
                 'CREATED_BY_NAME' => $ticket['created_by_name'] ?? 'Utente',
                 'TICKET_URL' => $this->baseUrl . '/ticket.php?id=' . $ticketId,
                 'BASE_URL' => $this->baseUrl,
+                'TENANT_NAME' => ($this->getTenantName((int)($ticket['tenant_id'] ?? 0)) ?: null),
                 'YEAR' => date('Y')
             ];
 
@@ -335,70 +460,201 @@ class TicketNotification {
                 return true;
             }
 
-            // Get ticket creator info
-            $creator = $this->getUserInfo($ticket['created_by']);
-            if (!$creator) {
-                return false;
-            }
+            $actorId = (int)($response['user_id'] ?? 0);
+            $recipients = $this->buildRecipientsForTicket((int)$ticketId, $ticket, $actorId);
+            $successCount = 0;
 
-            // Don't notify if the responder is the creator themselves
-            if ($response['user_id'] == $creator['id']) {
-                return true;
-            }
+            foreach ($recipients as $rcpt) {
+                // Respect preferences only when we have a user_id
+                if (!empty($rcpt['id']) && !$this->shouldNotify((int)$rcpt['id'], 'notify_ticket_response')) {
+                    continue;
+                }
 
-            // Check user preferences
-            if (!$this->shouldNotify($creator['id'], 'notify_ticket_response')) {
-                return true;
-            }
+                $templateData = [
+                    'EMAIL_TITLE' => 'Nuova risposta',
+                    'USER_NAME' => $rcpt['name'],
+                    'TICKET_NUMBER' => $ticket['ticket_number'],
+                    'TICKET_SUBJECT' => $ticket['subject'],
+                    'RESPONSE_TEXT' => $this->truncateText($response['response_text'], 500),
+                    'RESPONSE_TEXT_FULL' => strlen($response['response_text']) > 500,
+                    'RESPONDER_NAME' => $response['user_name'],
+                    'TICKET_URL' => $this->baseUrl . '/ticket.php?id=' . $ticketId,
+                    'BASE_URL' => $this->baseUrl,
+                    'TENANT_NAME' => ($this->getTenantName((int)($ticket['tenant_id'] ?? 0)) ?: null),
+                    'YEAR' => date('Y')
+                ];
 
-            // Prepare template data
-            $templateData = [
-                'USER_NAME' => $creator['name'],
-                'TICKET_NUMBER' => $ticket['ticket_number'],
-                'TICKET_SUBJECT' => $ticket['subject'],
-                'RESPONSE_TEXT' => $this->truncateText($response['response_text'], 500),
-                'RESPONSE_TEXT_FULL' => strlen($response['response_text']) > 500,
-                'RESPONDER_NAME' => $response['user_name'],
-                'TICKET_URL' => $this->baseUrl . '/ticket.php?id=' . $ticketId,
-                'BASE_URL' => $this->baseUrl,
-                'YEAR' => date('Y')
-            ];
+                $html = $this->renderTemplate('ticket_response.html', $templateData);
+                $subject = "[Nuova Risposta] {$ticket['ticket_number']}: {$ticket['subject']}";
 
-            // Render email
-            $html = $this->renderTemplate('ticket_response.html', $templateData);
-            $subject = "[Nuova Risposta] {$ticket['ticket_number']}: {$ticket['subject']}";
-
-            // Send email (non-blocking)
-            $sent = sendEmail(
-                $creator['email'],
-                $subject,
-                $html,
-                '',
-                [
-                    'context' => [
-                        'tenant_id' => $ticket['tenant_id'],
-                        'user_id' => $creator['id'],
-                        'action' => 'ticket_response_notification'
+                $sent = sendEmail(
+                    $rcpt['email'],
+                    $subject,
+                    $html,
+                    '',
+                    [
+                        'context' => [
+                            'tenant_id' => $ticket['tenant_id'],
+                            'user_id' => $rcpt['id'] ?? null,
+                            'action' => 'ticket_response_notification'
+                        ]
                     ]
-                ]
-            );
+                );
 
-            // Log notification
-            $this->logNotification(
-                $ticket['tenant_id'],
-                $ticketId,
-                $creator['id'],
-                'ticket_response',
-                $creator['email'],
-                $subject,
-                $sent ? 'sent' : 'failed',
-                $response['user_id']
-            );
+                if (!empty($rcpt['id'])) {
+                    $this->logNotification(
+                        $ticket['tenant_id'],
+                        $ticketId,
+                        (int)$rcpt['id'],
+                        'ticket_response',
+                        $rcpt['email'],
+                        $subject,
+                        $sent ? 'sent' : 'failed',
+                        (int)$response['user_id'],
+                        $html
+                    );
+                }
 
-            return $sent;
+                if ($sent) $successCount++;
+            }
+
+            return $successCount > 0;
 
         } catch (Exception $e) {
             error_log("TicketNotification Error (sendTicketResponseNotification): " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Send ONE consolidated notification when a reply is added together with other updates
+     * (status change and/or assignment change).
+     *
+     * Recipients:
+     * - ticket creator (always)
+     * - support super user email (always)
+     * - assignees (current + history)
+     *
+     * @return bool
+     */
+    public function sendTicketCombinedUpdateNotification(
+        int $ticketId,
+        int $responseId,
+        ?string $oldStatus,
+        ?string $newStatus,
+        ?int $oldAssignedTo,
+        ?int $newAssignedTo
+    ): bool {
+        try {
+            $ticket = $this->getTicketDetails($ticketId);
+            if (!$ticket) return false;
+
+            $response = $this->db->fetchOne(
+                "SELECT tr.*, u.name as user_name
+                 FROM ticket_responses tr
+                 JOIN users u ON tr.user_id = u.id
+                 WHERE tr.id = ?",
+                [$responseId]
+            );
+            if (!$response) return false;
+
+            // Internal notes must not email the response content (caller should have handled this)
+            if (!empty($response['is_internal_note'])) {
+                return true;
+            }
+
+            $actorId = (int)($response['user_id'] ?? 0);
+            $recipients = $this->buildRecipientsForTicket($ticketId, $ticket, $actorId);
+            $successCount = 0;
+
+            $ticketUrl = $this->baseUrl . '/ticket.php?id=' . $ticketId;
+            $tenantName = ($this->getTenantName((int)($ticket['tenant_id'] ?? 0)) ?: null);
+
+            $statusBlock = '';
+            if ($oldStatus !== null && $newStatus !== null) {
+                $statusBlock = '
+                    <div style="margin: 10px 0; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f9fafb;">
+                        <div style="font-weight:700; margin-bottom:6px;">Stato aggiornato</div>
+                        <div><strong>' . htmlspecialchars($this->getStatusLabel($oldStatus)) . '</strong> → <strong>' . htmlspecialchars($this->getStatusLabel($newStatus)) . '</strong></div>
+                    </div>
+                ';
+            }
+
+            $assignBlock = '';
+            if ($oldAssignedTo !== null || $newAssignedTo !== null) {
+                $oldName = $oldAssignedTo ? (($this->getUserInfo($oldAssignedTo)['name'] ?? null) ?: ('#' . $oldAssignedTo)) : 'Non assegnato';
+                $newName = $newAssignedTo ? (($this->getUserInfo($newAssignedTo)['name'] ?? null) ?: ('#' . $newAssignedTo)) : 'Non assegnato';
+                $assignBlock = '
+                    <div style="margin: 10px 0; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f9fafb;">
+                        <div style="font-weight:700; margin-bottom:6px;">Assegnazione</div>
+                        <div><strong>' . htmlspecialchars($oldName) . '</strong> → <strong>' . htmlspecialchars($newName) . '</strong></div>
+                    </div>
+                ';
+            }
+
+            $replySnippet = $this->truncateText((string)($response['response_text'] ?? ''), 700);
+            $replyBlock = '
+                <div style="margin: 10px 0; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px;">
+                    <div style="font-weight:700; margin-bottom:6px;">Nuova risposta</div>
+                    <div style="color:#6b7280; font-size: 13px; margin-bottom: 8px;">Da: ' . htmlspecialchars((string)($response['user_name'] ?? '')) . '</div>
+                    <div style="white-space: pre-wrap; line-height: 1.5;">' . nl2br(htmlspecialchars($replySnippet)) . '</div>
+                </div>
+            ';
+
+            foreach ($recipients as $rcpt) {
+                if (!empty($rcpt['id']) && !$this->shouldNotify((int)$rcpt['id'], 'notify_ticket_response')) {
+                    continue;
+                }
+
+                $bodyHtml = '
+                    <div style="font-size:14px; color:#111827;">
+                        <div style="font-weight:800; font-size: 18px; margin-bottom: 6px;">Aggiornamento ticket</div>
+                        <div style="color:#6b7280; margin-bottom: 12px;">' . htmlspecialchars((string)($ticket['ticket_number'] ?? '')) . ' — ' . htmlspecialchars((string)($ticket['subject'] ?? '')) . ($tenantName ? (' — ' . htmlspecialchars($tenantName)) : '') . '</div>
+                        ' . $statusBlock . $assignBlock . $replyBlock . '
+                        <div style="margin-top: 14px;">
+                            ' . renderEmailPrimaryButton($ticketUrl, 'Apri ticket') . '
+                        </div>
+                    </div>
+                ';
+
+                // Title handled in body; avoid duplicate layout heading.
+                $html = renderEmailLayout('', $bodyHtml);
+                $subject = "[Aggiornamento Ticket] {$ticket['ticket_number']}: {$ticket['subject']}";
+
+                $sent = sendEmail(
+                    $rcpt['email'],
+                    $subject,
+                    $html,
+                    '',
+                    [
+                        'context' => [
+                            'tenant_id' => $ticket['tenant_id'],
+                            'user_id' => $rcpt['id'] ?? null,
+                            'action' => 'ticket_combined_update_notification'
+                        ]
+                    ]
+                );
+
+                if (!empty($rcpt['id'])) {
+                    $this->logNotification(
+                        $ticket['tenant_id'],
+                        $ticketId,
+                        (int)$rcpt['id'],
+                        'combined_update',
+                        $rcpt['email'],
+                        $subject,
+                        $sent ? 'sent' : 'failed',
+                        (int)($response['user_id'] ?? 0),
+                        $html
+                    );
+                }
+
+                if ($sent) $successCount++;
+            }
+
+            return $successCount > 0;
+        } catch (Exception $e) {
+            error_log("TicketNotification Error (sendTicketCombinedUpdateNotification): " . $e->getMessage());
             return false;
         }
     }
@@ -436,6 +692,7 @@ class TicketNotification {
 
             // Prepare template data
             $templateData = [
+                'EMAIL_TITLE' => 'Stato ticket aggiornato',
                 'USER_NAME' => $creator['name'],
                 'TICKET_NUMBER' => $ticket['ticket_number'],
                 'TICKET_SUBJECT' => $ticket['subject'],
@@ -446,6 +703,7 @@ class TicketNotification {
                 'RESOLUTION_NOTES' => $ticket['resolution_notes'] ?? null,
                 'TICKET_URL' => $this->baseUrl . '/ticket.php?id=' . $ticketId,
                 'BASE_URL' => $this->baseUrl,
+                'TENANT_NAME' => ($this->getTenantName((int)($ticket['tenant_id'] ?? 0)) ?: null),
                 'YEAR' => date('Y')
             ];
 
@@ -519,6 +777,7 @@ class TicketNotification {
 
             // Prepare template data
             $templateData = [
+                'EMAIL_TITLE' => 'Ticket chiuso',
                 'USER_NAME' => $creator['name'],
                 'TICKET_NUMBER' => $ticket['ticket_number'],
                 'TICKET_SUBJECT' => $ticket['subject'],
@@ -646,38 +905,19 @@ class TicketNotification {
             return '';
         }
 
-        $html = file_get_contents($templatePath);
+        $html = cnx_render_email_template_file($templatePath, (array)$data, [
+            'remove_unknown_placeholders' => true
+        ]);
 
-        // Replace placeholders
-        foreach ($data as $key => $value) {
-            if ($value === null || $value === false) {
-                // Handle conditional blocks
-                $html = preg_replace('/<!-- IF_' . $key . ' -->.*?<!-- ENDIF_' . $key . ' -->/s', '', $html);
-                continue;
-            }
-
-            if ($value === true) {
-                // Keep conditional blocks
-                $html = str_replace('<!-- IF_' . $key . ' -->', '', $html);
-                $html = str_replace('<!-- ENDIF_' . $key . ' -->', '', $html);
-                continue;
-            }
-
-            // Handle arrays (for loops)
-            if (is_array($value)) {
-                $loopContent = '';
-                if (preg_match('/<!-- LOOP_' . $key . ' -->(.*?)<!-- ENDLOOP_' . $key . ' -->/s', $html, $matches)) {
-                    $template = $matches[1];
-                    foreach ($value as $item) {
-                        $loopContent .= $item;
-                    }
-                    $html = preg_replace('/<!-- LOOP_' . $key . ' -->.*?<!-- ENDLOOP_' . $key . ' -->/s', $loopContent, $html);
-                }
-                continue;
-            }
-
-            // Simple replacement
-            $html = str_replace('{{' . $key . '}}', htmlspecialchars($value, ENT_QUOTES, 'UTF-8'), $html);
+        // If the template is content-only, wrap it with the shared Nexio email layout.
+        if ($html !== '' && !cnx_email_is_full_document($html)) {
+            $title = (string)($data['EMAIL_TITLE'] ?? 'Notifica');
+            $layoutVars = [
+                'BASE_URL' => $this->baseUrl,
+                'TENANT_NAME' => (string)($data['TENANT_NAME'] ?? ''),
+                'YEAR' => (string)($data['YEAR'] ?? date('Y'))
+            ];
+            $html = renderEmailLayout($title, $html, $layoutVars, ['brandColor' => '#1a2332']);
         }
 
         return $html;
@@ -695,20 +935,64 @@ class TicketNotification {
      * @param string $status Status (sent/failed)
      * @param int|null $triggeredBy User who triggered the notification
      */
-    private function logNotification($tenantId, $ticketId, $userId, $notificationType, $recipientEmail, $subject, $status, $triggeredBy = null) {
+    private function logNotification($tenantId, $ticketId, $userId, $notificationType, $recipientEmail, $subject, $status, $triggeredBy = null, $bodyHtml = '') {
         try {
-            $this->db->insert('ticket_notifications', [
-                'tenant_id' => $tenantId,
-                'ticket_id' => $ticketId,
-                'user_id' => $userId,
-                'notification_type' => $notificationType,
-                'recipient_email' => $recipientEmail,
-                'subject' => $subject,
-                'status' => $status,
-                'sent_at' => $status === 'sent' ? date('Y-m-d H:i:s') : null,
-                'triggered_by' => $triggeredBy,
-                'created_at' => date('Y-m-d H:i:s')
-            ]);
+            // Schema-drift safe insert: support both legacy and current schemas
+            $cols = [];
+            try {
+                $colRows = $this->db->fetchAll("SHOW COLUMNS FROM ticket_notifications") ?: [];
+                foreach ($colRows as $r) $cols[strtolower((string)$r['Field'])] = (string)($r['Type'] ?? '');
+            } catch (Exception $e) {
+                $cols = [];
+            }
+
+            $data = [];
+            $data['tenant_id'] = $tenantId;
+            $data['ticket_id'] = $ticketId;
+            $data['user_id'] = $userId;
+
+            // Normalize notification_type for ENUM schema
+            $type = (string)$notificationType;
+            $allowed = ['ticket_created','ticket_assigned','ticket_response','status_changed','ticket_resolved','ticket_closed','urgency_changed'];
+            if (in_array(strtolower($type), $allowed, true)) {
+                $typeNorm = strtolower($type);
+            } else {
+                // Map legacy names
+                $map = [
+                    'ticket_status_changed' => 'status_changed',
+                    'ticket_status_changed_assigned' => 'status_changed',
+                    'ticket_created_confirmation' => 'ticket_created',
+                ];
+                $typeNorm = $map[$type] ?? 'status_changed';
+            }
+
+            if (isset($cols['notification_type'])) {
+                $data['notification_type'] = $typeNorm;
+            } else {
+                $data['notification_type'] = $type;
+            }
+
+            if (isset($cols['email_to'])) $data['email_to'] = $recipientEmail;
+            if (isset($cols['recipient_email'])) $data['recipient_email'] = $recipientEmail;
+
+            if (isset($cols['email_subject'])) $data['email_subject'] = $subject;
+            if (isset($cols['subject'])) $data['subject'] = $subject;
+
+            $body = is_string($bodyHtml) ? $bodyHtml : '';
+            if (isset($cols['email_body'])) $data['email_body'] = $body;
+
+            if (isset($cols['delivery_status'])) {
+                $data['delivery_status'] = $status === 'sent' ? 'sent' : 'failed';
+            }
+            if (isset($cols['status'])) {
+                $data['status'] = $status;
+            }
+
+            if (isset($cols['sent_at'])) $data['sent_at'] = ($status === 'sent') ? date('Y-m-d H:i:s') : null;
+            if (isset($cols['triggered_by'])) $data['triggered_by'] = $triggeredBy;
+            if (isset($cols['created_at']) && !isset($cols['updated_at'])) $data['created_at'] = date('Y-m-d H:i:s');
+
+            $this->db->insert('ticket_notifications', $data);
         } catch (Exception $e) {
             error_log("Failed to log ticket notification: " . $e->getMessage());
         }
@@ -832,7 +1116,7 @@ class TicketNotification {
      * @param string $newStatus New status
      * @return bool Success status
      */
-    public function sendTicketStatusChangedNotification($ticketId, $oldStatus, $newStatus) {
+    public function sendTicketStatusChangedNotification($ticketId, $oldStatus, $newStatus, ?int $actorUserId = null) {
         try {
             // Get ticket details
             $ticket = $this->getTicketDetails($ticketId);
@@ -844,136 +1128,70 @@ class TicketNotification {
             // Prepare next steps based on new status
             $nextSteps = $this->getNextStepsByStatus($newStatus);
 
-            // Get changer info (current session user or from history)
-            $changerId = $_SESSION['user_id'] ?? null;
-            $changer = $changerId ? $this->getUserInfo($changerId) : null;
+            // Get changer info (explicit actor preferred; fallback to current session)
+            $changerId = $actorUserId !== null ? (int)$actorUserId : (isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0);
+            $changer = $changerId > 0 ? $this->getUserInfo($changerId) : null;
 
             $successCount = 0;
+            $recipients = $this->buildRecipientsForTicket((int)$ticketId, $ticket, $changerId > 0 ? $changerId : null);
 
-            // ========================================
-            // RECIPIENT 1: Ticket Creator (ALWAYS)
-            // ========================================
-            $creator = $this->getUserInfo($ticket['created_by']);
-            if ($creator) {
-                // Check user preferences
-                if ($this->shouldNotify($creator['id'], 'notify_ticket_status')) {
-                    // Prepare template data for creator
-                    $templateData = [
-                        'USER_NAME' => $creator['name'],
-                        'TICKET_NUMBER' => $ticket['ticket_number'],
-                        'TICKET_SUBJECT' => $ticket['subject'],
-                        'OLD_STATUS' => $oldStatus,
-                        'OLD_STATUS_LABEL' => $this->getStatusLabel($oldStatus),
-                        'NEW_STATUS' => $newStatus,
-                        'NEW_STATUS_LABEL' => $this->getStatusLabel($newStatus),
-                        'NEW_STATUS_COLOR' => $this->getStatusColor($newStatus),
-                        'URGENCY' => $ticket['urgency'],
-                        'URGENCY_LABEL' => $this->getUrgencyLabel($ticket['urgency']),
-                        'CHANGED_BY_NAME' => $changer['name'] ?? 'Sistema',
-                        'NEXT_STEPS' => $nextSteps,
-                        'TICKET_URL' => $this->baseUrl . '/ticket.php?id=' . $ticketId,
-                        'BASE_URL' => $this->baseUrl,
-                        'YEAR' => date('Y')
-                    ];
+            foreach ($recipients as $rcpt) {
+                // Respect preferences only when we have a user_id
+                if (!empty($rcpt['id']) && !$this->shouldNotify((int)$rcpt['id'], 'notify_ticket_status')) {
+                    continue;
+                }
 
-                    // Render email
-                    $html = $this->renderTemplate('ticket_status_changed.html', $templateData);
-                    $subject = "Ticket #{$ticket['ticket_number']} - Stato aggiornato a: " . $this->getStatusLabel($newStatus);
+                $templateData = [
+                    'EMAIL_TITLE' => 'Stato ticket aggiornato',
+                    'USER_NAME' => $rcpt['name'],
+                    'TICKET_NUMBER' => $ticket['ticket_number'],
+                    'TICKET_SUBJECT' => $ticket['subject'],
+                    'OLD_STATUS' => $oldStatus,
+                    'OLD_STATUS_LABEL' => $this->getStatusLabel($oldStatus),
+                    'NEW_STATUS' => $newStatus,
+                    'NEW_STATUS_LABEL' => $this->getStatusLabel($newStatus),
+                    'NEW_STATUS_COLOR' => $this->getStatusColor($newStatus),
+                    'URGENCY' => $ticket['urgency'],
+                    'URGENCY_LABEL' => $this->getUrgencyLabel($ticket['urgency']),
+                    'CHANGED_BY_NAME' => $changer['name'] ?? 'Sistema',
+                    'NEXT_STEPS' => $nextSteps,
+                    'TICKET_URL' => $this->baseUrl . '/ticket.php?id=' . $ticketId,
+                    'BASE_URL' => $this->baseUrl,
+                    'YEAR' => date('Y')
+                ];
 
-                    // Send email (non-blocking)
-                    $sent = sendEmail(
-                        $creator['email'],
-                        $subject,
-                        $html,
-                        '',
-                        [
-                            'context' => [
-                                'tenant_id' => $ticket['tenant_id'],
-                                'user_id' => $creator['id'],
-                                'action' => 'ticket_status_changed_notification'
-                            ]
+                $html = $this->renderTemplate('ticket_status_changed.html', $templateData);
+                $subject = "Ticket #{$ticket['ticket_number']} - Stato aggiornato a: " . $this->getStatusLabel($newStatus);
+
+                $sent = sendEmail(
+                    $rcpt['email'],
+                    $subject,
+                    $html,
+                    '',
+                    [
+                        'context' => [
+                            'tenant_id' => $ticket['tenant_id'],
+                            'user_id' => $rcpt['id'] ?? null,
+                            'action' => 'ticket_status_changed_notification'
                         ]
-                    );
+                    ]
+                );
 
-                    // Log notification
+                if (!empty($rcpt['id'])) {
                     $this->logNotification(
                         $ticket['tenant_id'],
                         $ticketId,
-                        $creator['id'],
-                        'ticket_status_changed',
-                        $creator['email'],
+                        (int)$rcpt['id'],
+                        'status_changed',
+                        $rcpt['email'],
                         $subject,
                         $sent ? 'sent' : 'failed',
-                        $changerId
+                        $changerId,
+                        $html
                     );
-
-                    if ($sent) {
-                        $successCount++;
-                    }
                 }
-            }
 
-            // ========================================
-            // RECIPIENT 2: Assigned User (if assigned_to IS NOT NULL)
-            // ========================================
-            if (!empty($ticket['assigned_to']) && $ticket['assigned_to'] != $ticket['created_by']) {
-                $assignedUser = $this->getUserInfo($ticket['assigned_to']);
-
-                if ($assignedUser && $this->shouldNotify($assignedUser['id'], 'notify_ticket_status')) {
-                    // Prepare template data for assigned user
-                    $templateData = [
-                        'USER_NAME' => $assignedUser['name'],
-                        'TICKET_NUMBER' => $ticket['ticket_number'],
-                        'TICKET_SUBJECT' => $ticket['subject'],
-                        'OLD_STATUS' => $oldStatus,
-                        'OLD_STATUS_LABEL' => $this->getStatusLabel($oldStatus),
-                        'NEW_STATUS' => $newStatus,
-                        'NEW_STATUS_LABEL' => $this->getStatusLabel($newStatus),
-                        'NEW_STATUS_COLOR' => $this->getStatusColor($newStatus),
-                        'URGENCY' => $ticket['urgency'],
-                        'URGENCY_LABEL' => $this->getUrgencyLabel($ticket['urgency']),
-                        'CHANGED_BY_NAME' => $changer['name'] ?? 'Sistema',
-                        'NEXT_STEPS' => $nextSteps,
-                        'TICKET_URL' => $this->baseUrl . '/ticket.php?id=' . $ticketId,
-                        'BASE_URL' => $this->baseUrl,
-                        'YEAR' => date('Y')
-                    ];
-
-                    // Render email
-                    $html = $this->renderTemplate('ticket_status_changed.html', $templateData);
-                    $subject = "Ticket #{$ticket['ticket_number']} - Stato aggiornato a: " . $this->getStatusLabel($newStatus);
-
-                    // Send email (non-blocking)
-                    $sent = sendEmail(
-                        $assignedUser['email'],
-                        $subject,
-                        $html,
-                        '',
-                        [
-                            'context' => [
-                                'tenant_id' => $ticket['tenant_id'],
-                                'user_id' => $assignedUser['id'],
-                                'action' => 'ticket_status_changed_notification'
-                            ]
-                        ]
-                    );
-
-                    // Log notification
-                    $this->logNotification(
-                        $ticket['tenant_id'],
-                        $ticketId,
-                        $assignedUser['id'],
-                        'ticket_status_changed_assigned',
-                        $assignedUser['email'],
-                        $subject,
-                        $sent ? 'sent' : 'failed',
-                        $changerId
-                    );
-
-                    if ($sent) {
-                        $successCount++;
-                    }
-                }
+                if ($sent) $successCount++;
             }
 
             return $successCount > 0;

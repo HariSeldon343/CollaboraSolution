@@ -49,6 +49,14 @@ class TicketManager {
             currentTicket: null
         };
 
+        // Pending changes in ticket detail modal (apply with one action)
+        this.pending = {
+            status: null,
+            assigned_to: null,
+            original_status: null,
+            original_assigned_to: null
+        };
+
         this.init();
     }
 
@@ -125,8 +133,177 @@ class TicketManager {
         // Create ticket button
         const createBtn = document.getElementById('create-ticket-btn');
         if (createBtn) {
+            // Hardening: ensure button is visible/enabled for all authenticated users
+            // (ticket creation is allowed server-side for standard users too).
+            createBtn.style.display = '';
+            createBtn.style.visibility = '';
+            createBtn.disabled = false;
             createBtn.addEventListener('click', () => this.showCreateModal());
         }
+
+        // FEATURE: Ticket Attachment - Setup file input listener
+        const attachmentInput = document.getElementById('ticket-attachment');
+        if (attachmentInput) {
+            attachmentInput.addEventListener('change', (e) => this.handleAttachmentChange(e));
+        }
+    }
+
+    /**
+     * FEATURE: Handle attachment file selection
+     * Validates file type and size, shows preview
+     */
+    handleAttachmentChange(event) {
+        const file = event.target.files[0];
+        const previewDiv = document.getElementById('attachment-preview');
+        const filenameSpan = document.getElementById('attachment-filename');
+        const sizeSpan = document.getElementById('attachment-size');
+        const errorDiv = document.getElementById('attachment-error');
+
+        // Reset UI
+        if (previewDiv) previewDiv.style.display = 'none';
+        if (errorDiv) errorDiv.style.display = 'none';
+
+        if (!file) return;
+
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf',
+                              'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                              'text/plain'];
+        const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'txt'];
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+
+        if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+            if (errorDiv) {
+                errorDiv.textContent = 'Tipo di file non consentito. Usa: JPG, PNG, GIF, PDF, DOC, DOCX, TXT';
+                errorDiv.style.display = 'block';
+            }
+            event.target.value = '';
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        const maxSize = 5 * 1024 * 1024;
+        if (file.size > maxSize) {
+            if (errorDiv) {
+                errorDiv.textContent = 'Il file supera la dimensione massima di 5MB';
+                errorDiv.style.display = 'block';
+            }
+            event.target.value = '';
+            return;
+        }
+
+        // Show preview
+        if (previewDiv && filenameSpan && sizeSpan) {
+            filenameSpan.textContent = file.name;
+            sizeSpan.textContent = this.formatFileSize(file.size);
+            previewDiv.style.display = 'block';
+        }
+
+        console.log('[TicketManager] Attachment selected:', file.name, this.formatFileSize(file.size));
+    }
+
+    /**
+     * FEATURE: Clear attachment selection
+     */
+    clearAttachment() {
+        const attachmentInput = document.getElementById('ticket-attachment');
+        const previewDiv = document.getElementById('attachment-preview');
+        const errorDiv = document.getElementById('attachment-error');
+
+        if (attachmentInput) attachmentInput.value = '';
+        if (previewDiv) previewDiv.style.display = 'none';
+        if (errorDiv) errorDiv.style.display = 'none';
+
+        console.log('[TicketManager] Attachment cleared');
+    }
+
+    /**
+     * FEATURE: Format file size for display
+     */
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    /**
+     * FEATURE: Display ticket attachment in detail modal
+     */
+    displayTicketAttachment(attachment) {
+        const attachmentSection = document.getElementById('detail-ticket-attachment-section');
+
+        if (!attachmentSection) {
+            console.warn('[TicketManager] Attachment section element not found');
+            return;
+        }
+
+        // Hide section if no attachment
+        if (!attachment || !attachment.id) {
+            attachmentSection.style.display = 'none';
+            return;
+        }
+
+        // Show section and populate data
+        attachmentSection.style.display = 'block';
+
+        // Set icon based on file type
+        const iconEl = document.getElementById('detail-attachment-icon');
+        const nameEl = document.getElementById('detail-attachment-name');
+        const infoEl = document.getElementById('detail-attachment-info');
+        const downloadEl = document.getElementById('detail-attachment-download');
+
+        if (iconEl) {
+            iconEl.textContent = this.getFileIcon(attachment.file_extension || attachment.mime_type);
+        }
+
+        if (nameEl) {
+            nameEl.textContent = attachment.original_name || 'Allegato';
+        }
+
+        if (infoEl) {
+            const size = this.formatFileSize(attachment.file_size || 0);
+            const ext = (attachment.file_extension || '').toUpperCase();
+            infoEl.textContent = `${ext} - ${size}`;
+        }
+
+        if (downloadEl) {
+            // Build download URL using attachment ID
+            downloadEl.href = `/CollaboraNexio/api/tickets/download_attachment.php?id=${attachment.id}`;
+        }
+
+        console.log('[TicketManager] Displayed attachment:', attachment.original_name);
+    }
+
+    /**
+     * FEATURE: Get file icon emoji based on extension/mime type
+     */
+    getFileIcon(typeOrExt) {
+        const type = (typeOrExt || '').toLowerCase();
+
+        // Images
+        if (type.includes('image') || ['jpg', 'jpeg', 'png', 'gif'].includes(type)) {
+            return '\uD83D\uDDBC\uFE0F'; // framed picture
+        }
+
+        // PDF
+        if (type.includes('pdf') || type === 'pdf') {
+            return '\uD83D\uDCC4'; // page facing up
+        }
+
+        // Word documents
+        if (type.includes('word') || ['doc', 'docx'].includes(type)) {
+            return '\uD83D\uDCC3'; // page with curl
+        }
+
+        // Text
+        if (type.includes('text') || type === 'txt') {
+            return '\uD83D\uDCDD'; // memo
+        }
+
+        // Default
+        return '\uD83D\uDCCE'; // paperclip
     }
 
     /**
@@ -353,6 +530,21 @@ class TicketManager {
             // Hide error
             const error = document.getElementById('create-ticket-error');
             if (error) error.style.display = 'none';
+
+            // Hardening: ensure submit button/footer are visible/enabled.
+            // Some custom CSS/JS in deployments may accidentally hide modal footers.
+            const submitBtn = document.getElementById('create-ticket-submit-btn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                // remove any inline visibility override
+                submitBtn.style.display = '';
+                submitBtn.style.visibility = '';
+            }
+            const footer = submitBtn ? submitBtn.closest('.modal-footer') : null;
+            if (footer) {
+                footer.style.display = 'flex';
+                footer.style.visibility = '';
+            }
         }
     }
 
@@ -368,6 +560,7 @@ class TicketManager {
 
     /**
      * Gestisci submit form creazione ticket
+     * FEATURE: Updated to use FormData for file upload support
      */
     async handleCreateSubmit(event) {
         event.preventDefault();
@@ -384,23 +577,30 @@ class TicketManager {
         // Hide previous errors
         if (errorDiv) errorDiv.style.display = 'none';
 
-        // Get form data
-        const formData = {
-            subject: document.getElementById('ticket-subject')?.value || '',
-            category: document.getElementById('ticket-category')?.value || '',
-            urgency: document.getElementById('ticket-urgency')?.value || 'medium',
-            description: document.getElementById('ticket-description')?.value || ''
-        };
+        // FEATURE: Use FormData for multipart/form-data (file upload support)
+        const formData = new FormData();
+        formData.append('subject', document.getElementById('ticket-subject')?.value || '');
+        formData.append('category', document.getElementById('ticket-category')?.value || '');
+        // BUG-145b FIX: Uses 'medium' to match database ENUM (API fixed to accept 'medium')
+        formData.append('urgency', document.getElementById('ticket-urgency')?.value || 'medium');
+        formData.append('description', document.getElementById('ticket-description')?.value || '');
+
+        // FEATURE: Add attachment if present
+        const attachmentInput = document.getElementById('ticket-attachment');
+        if (attachmentInput && attachmentInput.files.length > 0) {
+            formData.append('attachment', attachmentInput.files[0]);
+            console.log('[TicketManager] Including attachment:', attachmentInput.files[0].name);
+        }
 
         try {
-            const response = await this.apiRequest(this.config.endpoints.create, {
-                method: 'POST',
-                body: JSON.stringify(formData)
-            });
+            // FEATURE: Use apiRequestMultipart for file upload
+            const response = await this.apiRequestMultipart(this.config.endpoints.create, formData);
 
             if (response.success) {
                 this.showSuccess('Ticket creato con successo!');
                 this.closeCreateModal();
+                // Clear attachment preview
+                this.clearAttachment();
                 // Reload tickets and stats
                 this.loadTickets();
                 this.loadStats();
@@ -461,6 +661,9 @@ class TicketManager {
         document.getElementById('detail-ticket-created').textContent = this.formatDate(ticket.created_at);
         document.getElementById('detail-ticket-updated').textContent = this.formatDate(ticket.updated_at);
 
+        // FEATURE: Display ticket attachment if present
+        this.displayTicketAttachment(ticket.attachment);
+
         // Render responses
         this.renderResponses(this.state.currentTicket.responses || []);
 
@@ -468,28 +671,72 @@ class TicketManager {
         const responseCount = (this.state.currentTicket.responses || []).length;
         document.getElementById('detail-response-count').textContent = responseCount;
 
-        // Show/hide admin actions based on role
-        const isAdmin = this.config.userRole === 'admin' || this.config.userRole === 'super_admin';
+        // RBAC (UI):
+        // - Only super_admin can assign/take in charge
+        // - Status changes allowed for super_admin OR current assignee
+        // - Replies allowed for super_admin OR current assignee OR ticket creator
+        const isSuperAdmin = this.config.userRole === 'super_admin';
+        const myUserId = parseInt(this.config.userId || '0', 10) || 0;
+        const assignedToId = parseInt(ticket.assigned_to || '0', 10) || 0;
+        const createdById = parseInt(ticket.created_by || '0', 10) || 0;
+        const canManage = isSuperAdmin || (assignedToId > 0 && assignedToId === myUserId);
+        const canReply = canManage || (createdById > 0 && createdById === myUserId);
+
         const adminActionsSection = document.getElementById('detail-admin-actions');
         const internalNoteSection = document.getElementById('detail-internal-note-section');
+        const assignSelect = document.getElementById('detail-assign-to');
+        const statusSelect = document.getElementById('detail-change-status');
+        const pendingHint = document.getElementById('detail-pending-updates-hint');
+        const applyBtn = document.getElementById('detail-apply-updates-btn');
 
-        if (isAdmin) {
-            adminActionsSection.style.display = 'block';
-            internalNoteSection.style.display = 'block';
+        // Reset pending state for this ticket open
+        this.pending.original_status = ticket.status || null;
+        this.pending.original_assigned_to = ticket.assigned_to ? String(ticket.assigned_to) : '';
+        this.pending.status = null;
+        this.pending.assigned_to = null;
+        if (pendingHint) pendingHint.style.display = 'none';
 
-            // Populate status dropdown (set current status as selected)
-            const statusSelect = document.getElementById('detail-change-status');
-            statusSelect.value = '';  // Reset to placeholder
+        if (adminActionsSection) {
+            adminActionsSection.style.display = canManage ? 'block' : 'none';
+        }
+        if (internalNoteSection) {
+            // Internal notes only for super_admin (server enforces admin+ anyway; this matches policy)
+            internalNoteSection.style.display = isSuperAdmin ? 'block' : 'none';
+        }
+        if (statusSelect) {
+            // Show current status
+            statusSelect.value = String(ticket.status || 'open');
+            statusSelect.disabled = !canManage;
+            statusSelect.onchange = null;
+            statusSelect.addEventListener('change', () => {
+                this.queuePendingUpdatesFromModal();
+            });
+        }
+        if (assignSelect) {
+            // Assignment UI only for super_admin
+            assignSelect.disabled = !isSuperAdmin;
+            if (isSuperAdmin) {
+                this.populateAssignDropdown();
+                // Set current assignment after options are populated
+                try {
+                    assignSelect.value = ticket.assigned_to ? String(ticket.assigned_to) : '';
+                } catch (_) {}
+            } else {
+                // Keep dropdown but prevent interaction; leave current options as-is
+                assignSelect.value = ticket.assigned_to ? String(ticket.assigned_to) : '';
+            }
+            assignSelect.onchange = null;
+            assignSelect.addEventListener('change', () => {
+                this.queuePendingUpdatesFromModal();
+            });
+        }
 
-            // Populate assign dropdown
-            this.populateAssignDropdown();
-        } else {
-            adminActionsSection.style.display = 'none';
-            internalNoteSection.style.display = 'none';
+        if (applyBtn) {
+            applyBtn.onclick = null;
+            applyBtn.addEventListener('click', () => this.applyPendingUpdates());
         }
 
         // Show/hide delete button (super_admin only, closed tickets only)
-        const isSuperAdmin = this.config.userRole === 'super_admin';
         const isTicketClosed = ticket.status === 'closed';
         const deleteSection = document.getElementById('detail-delete-section');
 
@@ -509,10 +756,106 @@ class TicketManager {
             }
         }
 
+        // BUG-153 FIX: Hide reply section when ticket is closed OR user has no reply permission
+        const replySection = document.getElementById('detail-reply-section');
+        if (replySection) {
+            if (isTicketClosed || !canReply) {
+                replySection.style.display = 'none';
+            } else {
+                replySection.style.display = 'block';
+            }
+        }
+
+        // BUG-153 FIX: Show closed notice when ticket is closed
+        const closedNotice = document.getElementById('detail-ticket-closed-notice');
+        if (closedNotice) {
+            closedNotice.style.display = isTicketClosed ? 'block' : 'none';
+        }
+
         // Show modal
         document.getElementById('ticket-detail-modal').style.display = 'flex';
 
         console.log('[TicketManager] Ticket detail modal opened');
+    }
+
+    queuePendingUpdatesFromModal() {
+        const ticket = this.state.currentTicket;
+        if (!ticket) return;
+
+        const pendingHint = document.getElementById('detail-pending-updates-hint');
+        const statusSelect = document.getElementById('detail-change-status');
+        const assignSelect = document.getElementById('detail-assign-to');
+
+        const statusVal = statusSelect ? String(statusSelect.value || '') : '';
+        const assignedVal = assignSelect ? String(assignSelect.value || '') : '';
+
+        this.pending.status = (statusVal && statusVal !== String(this.pending.original_status || '')) ? statusVal : null;
+        this.pending.assigned_to = (assignedVal !== String(this.pending.original_assigned_to || '')) ? assignedVal : null;
+
+        const hasPending = !!(this.pending.status || this.pending.assigned_to);
+        if (pendingHint) pendingHint.style.display = hasPending ? 'block' : 'none';
+
+        // Preview badges/labels immediately (UX)
+        if (this.pending.status) {
+            const statusBadge = document.getElementById('detail-ticket-status-badge');
+            if (statusBadge) {
+                statusBadge.textContent = this.getStatusLabel(this.pending.status);
+                statusBadge.className = `status-badge status-${this.getStatusColor(this.pending.status)}`;
+            }
+        } else {
+            const statusBadge = document.getElementById('detail-ticket-status-badge');
+            if (statusBadge) {
+                statusBadge.textContent = this.getStatusLabel(ticket.status);
+                statusBadge.className = `status-badge status-${this.getStatusColor(ticket.status)}`;
+            }
+        }
+
+        if (this.pending.assigned_to !== null) {
+            const assignedLabel = document.getElementById('detail-ticket-assigned');
+            if (assignedLabel) {
+                if (!this.pending.assigned_to) {
+                    assignedLabel.textContent = 'Non assegnato';
+                } else {
+                    const opt = assignSelect?.options?.[assignSelect.selectedIndex];
+                    assignedLabel.textContent = opt ? opt.text : 'Assegnato';
+                }
+            }
+        } else {
+            const assignedLabel = document.getElementById('detail-ticket-assigned');
+            if (assignedLabel) assignedLabel.textContent = ticket.assigned_to_name || 'Non assegnato';
+        }
+    }
+
+    async applyPendingUpdates() {
+        const ticketId = this.state.currentTicket?.id;
+        if (!ticketId) return this.showError('ID ticket non disponibile');
+
+        // Nothing to do
+        if (!this.pending.status && this.pending.assigned_to === null) {
+            return this.showSuccess('Nessuna modifica da applicare');
+        }
+
+        try {
+            const payload = { ticket_id: ticketId };
+            if (this.pending.status) payload.status = this.pending.status;
+            if (this.pending.assigned_to !== null) payload.assigned_to = this.pending.assigned_to ? parseInt(this.pending.assigned_to, 10) : null;
+
+            const res = await this.apiRequest(this.config.endpoints.update, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.success) {
+                return this.showError(res.message || 'Errore nel salvataggio modifiche');
+            }
+
+            this.showSuccess('Modifiche salvate');
+            await this.viewTicket(ticketId);
+            await this.loadTickets();
+        } catch (e) {
+            console.error('[TicketManager] applyPendingUpdates error:', e);
+            this.showError('Errore di connessione');
+        }
     }
 
     /**
@@ -628,7 +971,10 @@ class TicketManager {
                 body: JSON.stringify({
                     ticket_id: ticketId,
                     message: message,
-                    is_internal_note: isInternalCheckbox?.checked || false
+                    is_internal_note: isInternalCheckbox?.checked || false,
+                    // Optional: apply pending status/assignment together (single consolidated email)
+                    status: this.pending.status || undefined,
+                    assigned_to: (this.pending.assigned_to !== null) ? (this.pending.assigned_to ? parseInt(this.pending.assigned_to, 10) : null) : undefined
                 })
             });
 
@@ -642,8 +988,10 @@ class TicketManager {
                 // Reload ticket to get updated responses
                 await this.viewTicket(ticketId);
 
-                // Show success message
-                alert('Risposta inviata con successo!');
+                const emailSent = response.data?.email_notification?.sent;
+                if (emailSent === true) this.showSuccess('Risposta inviata. Email notifica inviata.');
+                else if (emailSent === false) this.showSuccess('Risposta inviata. Email non inviata (controlla configurazione SMTP / spam).');
+                else this.showSuccess('Risposta inviata.');
             } else {
                 this.showError(response.message || 'Errore nell\'invio della risposta');
             }
@@ -666,6 +1014,16 @@ class TicketManager {
         const ticketId = this.state.currentTicket?.id;
         if (!ticketId) {
             this.showError('ID ticket non disponibile');
+            return;
+        }
+
+        // Defense-in-depth: avoid duplicate status updates (can cause API 400 "già questo stato")
+        const currentStatus = this.state.currentTicket?.status;
+        if (currentStatus && String(currentStatus) === String(newStatus)) {
+            this.showSuccess(`Il ticket è già in stato "${this.getStatusLabel(newStatus)}"`);
+            // Reset dropdown
+            const dd = document.getElementById('detail-change-status');
+            if (dd) dd.value = '';
             return;
         }
 
@@ -693,7 +1051,10 @@ class TicketManager {
                 await this.viewTicket(ticketId);
                 await this.loadTickets();
 
-                alert('Stato del ticket aggiornato con successo!');
+                const emailSent = response.data?.email_notification?.sent;
+                if (emailSent === true) this.showSuccess('Stato aggiornato. Email notifica inviata.');
+                else if (emailSent === false) this.showSuccess('Stato aggiornato. Email non inviata (controlla configurazione SMTP / spam).');
+                else this.showSuccess('Stato aggiornato.');
             } else {
                 this.showError(response.message || 'Errore nell\'aggiornamento dello stato');
             }
@@ -976,14 +1337,40 @@ class TicketManager {
     }
 
     /**
+     * FEATURE: API request helper for multipart/form-data (file uploads)
+     * Does NOT set Content-Type header - browser sets it automatically with boundary
+     */
+    async apiRequestMultipart(endpoint, formData) {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+        const url = `${this.config.apiBase}${endpoint}`;
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    // DO NOT set Content-Type - browser will set multipart/form-data with boundary
+                    'X-CSRF-Token': csrfToken || ''
+                },
+                credentials: 'same-origin',
+                body: formData
+            });
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('[TicketManager] Multipart API request failed:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Utility: Get status color
      */
     getStatusColor(status) {
         const colors = {
             'open': 'primary',
             'in_progress': 'info',
-            'waiting_customer': 'warning',
-            'waiting_staff': 'warning',
+            'waiting_response': 'warning',
             'resolved': 'success',
             'closed': 'secondary'
         };
@@ -997,8 +1384,7 @@ class TicketManager {
         const labels = {
             'open': 'Aperto',
             'in_progress': 'In Lavorazione',
-            'waiting_customer': 'In Attesa Cliente',
-            'waiting_staff': 'In Attesa Staff',
+            'waiting_response': 'In Attesa di Risposta',
             'resolved': 'Risolto',
             'closed': 'Chiuso'
         };
@@ -1071,8 +1457,7 @@ class TicketManager {
      */
     showError(message) {
         console.error('[TicketManager] Error:', message);
-        // TODO: Implement toast notification
-        alert(message);
+        this.showBanner(message, 'error');
     }
 
     /**
@@ -1080,8 +1465,70 @@ class TicketManager {
      */
     showSuccess(message) {
         console.log('[TicketManager] Success:', message);
-        // TODO: Implement toast notification
-        alert(message);
+        this.showBanner(message, 'success');
+    }
+
+    /**
+     * Banner/Toast helper (top-right)
+     * type: 'success' | 'error' | 'info'
+     */
+    showBanner(message, type = 'info', timeoutMs = 4500) {
+        const existing = document.getElementById('cnx-ticket-banner');
+        if (existing) existing.remove();
+
+        const el = document.createElement('div');
+        el.id = 'cnx-ticket-banner';
+        el.setAttribute('role', 'status');
+        el.style.cssText = `
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 20000;
+            max-width: 420px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.18);
+            border: 1px solid rgba(0,0,0,.08);
+            background: ${type === 'success' ? '#ECFDF5' : type === 'error' ? '#FEF2F2' : '#EFF6FF'};
+            color: ${type === 'success' ? '#065F46' : type === 'error' ? '#991B1B' : '#1E3A8A'};
+            font-size: 13px;
+            line-height: 1.35;
+        `;
+
+        const title = document.createElement('div');
+        title.style.cssText = 'font-weight: 700; margin-bottom: 4px;';
+        title.textContent = type === 'success' ? 'Operazione completata' : type === 'error' ? 'Errore' : 'Info';
+
+        const body = document.createElement('div');
+        body.textContent = String(message || '');
+
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = '×';
+        close.setAttribute('aria-label', 'Chiudi');
+        close.style.cssText = `
+            position:absolute;
+            top:8px;
+            right:10px;
+            border:0;
+            background:transparent;
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            color: inherit;
+            opacity: .8;
+        `;
+        close.addEventListener('click', () => el.remove());
+
+        el.style.position = 'fixed';
+        el.appendChild(close);
+        el.appendChild(title);
+        el.appendChild(body);
+        document.body.appendChild(el);
+
+        window.setTimeout(() => {
+            if (document.getElementById('cnx-ticket-banner')) el.remove();
+        }, timeoutMs);
     }
 }
 

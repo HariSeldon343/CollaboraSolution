@@ -1,6 +1,12 @@
 (function() {
     'use strict';
 
+    // Idempotency: allow app.js to be included multiple times (layout + page-specific)
+    if (window.__cnxAppBootstrapped) {
+        return;
+    }
+    window.__cnxAppBootstrapped = true;
+
     /**
      * Main Application Module for CollaboraNexio
      * Core functionality and utilities for all pages
@@ -28,6 +34,8 @@
         this.initializeComponents();
         this.setupAjaxDefaults();
         this.loadUserSession();
+        this.ensureSessionTimeout();
+        this.ensureLegalNotice();
     }
 
     bindEvents() {
@@ -175,10 +183,11 @@
             }
         };
 
-        // Add CSRF token if available
-        const csrfToken = document.getElementById('csrfToken');
+        // Add CSRF token if available (prefer hidden input, fallback to meta tag)
+        const csrfTokenEl = document.getElementById('csrfToken') || document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = csrfTokenEl ? (csrfTokenEl.value || csrfTokenEl.getAttribute('content') || '') : '';
         if (csrfToken) {
-            defaultOptions.headers['X-CSRF-Token'] = csrfToken.value;
+            defaultOptions.headers['X-CSRF-Token'] = csrfToken;
         }
 
         try {
@@ -202,6 +211,201 @@
             this.showToast('Errore di comunicazione con il server', 'error');
             throw error;
         }
+    }
+
+    ensureSessionTimeout() {
+        // Avvia su tutte le pagine dell'app (anche se alcune non espongono CSRF).
+        // Skip su pagine di login (no sidebar, nessuna sessione app).
+        const isLoginPage = (window.location.pathname.split('/').pop() || '').toLowerCase() === 'index.php';
+        const hasSidebar = !!document.querySelector('.sidebar');
+        const hasCsrf = !!(document.getElementById('csrfToken') || document.querySelector('meta[name="csrf-token"]'));
+        if (isLoginPage && !hasSidebar && !hasCsrf) return;
+
+        // Gia' inizializzato
+        if (window.sessionTimeoutManager) return;
+
+        // Gia' caricato
+        if (document.getElementById('cnx-session-timeout-script')) return;
+
+        const script = document.createElement('script');
+        script.id = 'cnx-session-timeout-script';
+        script.src = `/CollaboraNexio/assets/js/session-timeout.js?v=${Date.now()}`;
+        script.defer = true;
+        document.head.appendChild(script);
+    }
+
+    /**
+     * GDPR: cookie (necessari) + privacy notice acknowledgement (best practice).
+     * We don't block the UI, but we show a lightweight banner until the user clicks "Ho capito".
+     */
+    ensureLegalNotice() {
+        // Only on authenticated pages (we accept either sidebar presence OR csrf meta/input)
+        const csrfToken = document.getElementById('csrfToken') || document.querySelector('meta[name="csrf-token"]');
+        const hasSidebar = !!document.querySelector('.sidebar');
+        if (!csrfToken && !hasSidebar) return;
+
+        // Show at most once per login session (not on every page).
+        // Use cookie keyed by login nonce (most robust), localStorage as secondary.
+        const loginNonce = document.querySelector('meta[name="cnx-login-nonce"]')?.getAttribute('content') || '';
+        const cookieName = 'cnx_legal_notice_nonce';
+        const seenNonce = this.getCookie(cookieName) || '';
+        if (loginNonce && seenNonce === loginNonce) {
+            return;
+        }
+        const shownKey = loginNonce ? `cnx_legal_notice_shown_${loginNonce}` : 'cnx_legal_notice_shown_fallback';
+        try {
+            if (window.localStorage && localStorage.getItem(shownKey) === '1') {
+                // If localStorage says it's shown, also align cookie (best-effort)
+                if (loginNonce) this.setCookie(cookieName, loginNonce, { path: '/CollaboraNexio/' });
+                return;
+            }
+        } catch (e) {}
+
+        // Avoid multiple banners per-page
+        if (window.__cnxLegalNoticeInitialized) return;
+        window.__cnxLegalNoticeInitialized = true;
+
+        // Do not show on the legal pages themselves (avoid loop / noisy UX)
+        const page = (window.location.pathname.split('/').pop() || '').toLowerCase();
+        if (page === 'privacy.php' || page === 'cookie-policy.php') return;
+
+        const load = async () => {
+            try {
+                // IMPORTANT: avoid edge/browser caching (Cloudflare tunnel / custom browsers)
+                const ts = Date.now();
+                const data = await this.apiCall(`legal/status.php?_ts=${ts}`, { method: 'GET', cache: 'no-store' });
+                if (!data || !data.success || !data.data) return;
+
+                const d = data.data;
+                if (!d.storage_available) return;
+                if (!d.needs_ack_cookie && !d.needs_ack_privacy) return;
+                if (d.show_notice === false) return;
+
+                this.renderLegalNoticeBanner(d);
+            } catch (e) {
+                // Fail-open: if status fails, do nothing (do not block UX)
+            }
+        };
+
+        // Defer a bit to avoid impacting first paint
+        setTimeout(load, 600);
+    }
+
+    renderLegalNoticeBanner(statusData) {
+        if (document.getElementById('cnx-legal-notice')) return;
+
+        const tenantName = statusData.tenant_name ? String(statusData.tenant_name) : '';
+        const sector = statusData.tenant_sector ? String(statusData.tenant_sector) : '';
+
+        const wrapper = document.createElement('div');
+        wrapper.id = 'cnx-legal-notice';
+        wrapper.setAttribute('role', 'dialog');
+        wrapper.setAttribute('aria-live', 'polite');
+
+        wrapper.innerHTML = `
+            <div class="cnx-legal-notice__inner">
+                <div class="cnx-legal-notice__title">Privacy e cookie (necessari)</div>
+                <div class="cnx-legal-notice__text">
+                    Nexio utilizza solo cookie tecnici necessari al funzionamento (sessione e sicurezza).
+                    Consulta <a href="privacy.php" target="_blank" rel="noopener">Informativa Privacy</a> e
+                    <a href="cookie-policy.php" target="_blank" rel="noopener">Cookie Policy</a>.
+                    ${tenantName ? `<span class="cnx-legal-notice__meta">Tenant: ${this.escapeHtml(tenantName)}${sector ? ` · Settore: ${this.escapeHtml(sector)}` : ''}</span>` : ''}
+                </div>
+                <div class="cnx-legal-notice__actions">
+                    <button type="button" class="btn btn-primary" id="cnxLegalAckBtn">Ho capito</button>
+                    <button type="button" class="btn btn-secondary" id="cnxLegalLaterBtn">Più tardi</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(wrapper);
+
+        // Mark as shown for this login session (so it won't reappear on each page load)
+        try {
+            const loginNonce = document.querySelector('meta[name="cnx-login-nonce"]')?.getAttribute('content') || '';
+            const cookieName = 'cnx_legal_notice_nonce';
+            if (loginNonce) {
+                this.setCookie(cookieName, loginNonce, { path: '/CollaboraNexio/' });
+            }
+            const shownKey = loginNonce ? `cnx_legal_notice_shown_${loginNonce}` : 'cnx_legal_notice_shown_fallback';
+            if (window.localStorage) localStorage.setItem(shownKey, '1');
+        } catch (e) {
+            // ignore storage errors
+        }
+
+        const style = document.createElement('style');
+        style.id = 'cnx-legal-notice-style';
+        style.textContent = `
+            #cnx-legal-notice { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 99999; }
+            .cnx-legal-notice__inner { max-width: 980px; margin: 0 auto; background: #111827; color: #fff; border-radius: 12px; padding: 14px 16px; box-shadow: 0 18px 40px rgba(0,0,0,0.35); }
+            .cnx-legal-notice__title { font-weight: 800; font-size: 13px; letter-spacing: 0.02em; text-transform: uppercase; color: #E5E7EB; }
+            .cnx-legal-notice__text { margin-top: 6px; font-size: 14px; line-height: 1.45; color: #F9FAFB; }
+            .cnx-legal-notice__text a { color: #93C5FD; text-decoration: underline; }
+            .cnx-legal-notice__meta { display: block; margin-top: 6px; color: #D1D5DB; font-size: 12px; }
+            .cnx-legal-notice__actions { margin-top: 10px; display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+            @media (max-width: 480px) { .cnx-legal-notice__actions { justify-content: stretch; } .cnx-legal-notice__actions .btn { width: 100%; } }
+        `;
+        document.head.appendChild(style);
+
+        const ackBtn = document.getElementById('cnxLegalAckBtn');
+        const laterBtn = document.getElementById('cnxLegalLaterBtn');
+
+        const close = () => {
+            wrapper.remove();
+            const s = document.getElementById('cnx-legal-notice-style');
+            if (s) s.remove();
+        };
+
+        if (laterBtn) {
+            laterBtn.addEventListener('click', () => close());
+        }
+
+        if (ackBtn) {
+            ackBtn.addEventListener('click', async () => {
+                ackBtn.disabled = true;
+                try {
+                    const resp = await this.apiCall('legal/ack.php', {
+                        method: 'POST',
+                        body: JSON.stringify({ ack_types: ['privacy', 'cookie'] })
+                    });
+                    if (resp && resp.success) {
+                        close();
+                    } else {
+                        ackBtn.disabled = false;
+                        this.showToast('Errore registrazione presa visione', 'error');
+                    }
+                } catch (e) {
+                    ackBtn.disabled = false;
+                    this.showToast('Errore registrazione presa visione', 'error');
+                }
+            });
+        }
+    }
+
+    escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    // Cookie helpers (simple)
+    getCookie(name) {
+        try {
+            const parts = (`; ${document.cookie}`).split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift() || '';
+        } catch (e) {}
+        return '';
+    }
+
+    setCookie(name, value, opts = {}) {
+        try {
+            const path = opts.path || '/';
+            // Session cookie (no expires) by default
+            document.cookie = `${name}=${encodeURIComponent(String(value))}; path=${path}; samesite=lax`;
+        } catch (e) {}
     }
 
     async apiCallSilent(endpoint, options = {}) {
@@ -496,7 +700,10 @@
     }
 
     initSearchInputs() {
-        document.querySelectorAll('[data-search]').forEach(input => {
+        // Search inputs must be actual form controls. Using a broad selector like
+        // `[data-search]` can accidentally bind to non-input elements (e.g. table rows),
+        // and then bubbled "input" events (checkboxes, etc.) cause runtime errors.
+        document.querySelectorAll('input[data-search], textarea[data-search], select[data-search]').forEach(input => {
             let timeout;
 
             input.addEventListener('input', (e) => {
@@ -509,14 +716,21 @@
     }
 
     handleSearch(input) {
-        const target = input.dataset.search;
-        const query = input.value.toLowerCase();
+        const target = (input?.dataset?.search || '').toString().trim();
+        if (!target) return;
+        const query = String(input?.value || '').toLowerCase();
 
         // Find target elements
-        const elements = document.querySelectorAll(target);
+        let elements;
+        try {
+            elements = document.querySelectorAll(target);
+        } catch (e) {
+            console.warn('[App] Invalid data-search selector:', target, e);
+            return;
+        }
 
         elements.forEach(element => {
-            const text = element.textContent.toLowerCase();
+            const text = String(element.textContent || '').toLowerCase();
             const matches = text.includes(query);
 
             element.style.display = matches ? '' : 'none';
@@ -863,9 +1077,32 @@
 
     setupAjaxDefaults() {
         // Set up global AJAX error handling
+        // BUG-134: Filter expected errors to prevent duplicate toasts
         window.addEventListener('unhandledrejection', event => {
+            // Check if this is an expected error (e.g., OnlyOffice not available)
+            const errorMessage = event.reason?.message || String(event.reason);
+
+            // List of expected errors that should not show generic toast
+            const expectedErrors = [
+                'Impossibile caricare l\'API di OnlyOffice',
+                'OnlyOffice Document Server non disponibile',
+                'OnlyOffice API not available'
+            ];
+
+            const isExpectedError = expectedErrors.some(expected =>
+                errorMessage.includes(expected)
+            );
+
+            if (isExpectedError) {
+                // Log but don't show toast - the specific module handles this
+                console.debug('Expected promise rejection (handled by module):', errorMessage);
+                event.preventDefault(); // Prevent default browser error logging
+                return;
+            }
+
+            // Unexpected error - log and show toast
             console.error('Unhandled promise rejection:', event.reason);
-            this.showToast('An unexpected error occurred', 'error');
+            this.showToast('Si è verificato un errore imprevisto', 'error');
         });
     }
 
@@ -915,6 +1152,7 @@
 
     // Initialize app when DOM is ready
     document.addEventListener('DOMContentLoaded', () => {
+        if (window.app) return;
         window.app = new App();
     });
 

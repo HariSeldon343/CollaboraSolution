@@ -1,0 +1,31 @@
+RewriteEngine On
+RewriteBase /CollaboraNexio/onlyoffice/
+
+# Allow direct access to proxy script itself
+RewriteRule ^proxy\.php$ - [L]
+
+# Forward headers so OnlyOffice builds absolute URLs with the correct prefix/HTTPS.
+<IfModule mod_headers.c>
+  RequestHeader set X-Forwarded-Proto "https"
+  RequestHeader set X-Forwarded-Prefix "/CollaboraNexio/onlyoffice"
+</IfModule>
+
+# --------- Preferred path: native Apache proxy (supports WebSocket) ---------
+# Will run only if the proxy modules are enabled; otherwise falls through.
+<IfModule mod_proxy.c>
+  <IfModule mod_proxy_http.c>
+    # WebSocket upgrade
+    <IfModule mod_proxy_wstunnel.c>
+      RewriteCond %{HTTP:Upgrade} =websocket [NC]
+      RewriteRule ^(.*)$ ws://127.0.0.1:8083/$1 [P,L]
+    </IfModule>
+
+    # HTTP/HTTPS traffic
+    RewriteRule ^(.*)$ http://127.0.0.1:8083/$1 [P,L]
+  </IfModule>
+</IfModule>
+
+# --------- Fallback: PHP proxy (no WebSocket) ---------
+# Keeps platform working even when proxy modules are unavailable.
+RewriteRule ^(.*)$ proxy.php?path=$1 [QSA,L]
+

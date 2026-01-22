@@ -1,0 +1,26 @@
+<p style="margin:0 0 12px 0;">Ciao <strong>{{USER_NAME}}</strong>,</p>
+<p style="margin:0 0 14px 0;">Lo stato del documento è cambiato.</p>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:12px 0;background:#fafafa;border:1px solid #eef0f3;border-radius:8px;">
+  <tr><td style="padding:12px 12px;">
+    <div style="margin:0;color:#374151;">
+      <div><strong>Documento:</strong> {{FILENAME}}</div>
+      <div><strong>Nuovo stato:</strong> {{STATE_LABEL}}</div>
+      <div><strong>Autore:</strong> {{ACTOR_NAME}}</div>
+      <div><strong>Data:</strong> {{CHANGE_DATE}}</div>
+      <div><strong>Azienda:</strong> {{TENANT_NAME}}</div>
+    </div>
+  </td></tr>
+</table>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;">
+  <tr>
+    <td>
+      <a href="{{DOCUMENT_URL}}" style="display:inline-block;background:#1a2332;color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:600;font-size:14px;line-height:18px;">Apri documento</a>
+    </td>
+  </tr>
+</table>
+
+<p style="margin:0;font-size:12px;line-height:18px;color:#6b7280;">
+  Notifica informativa. Link diretto: <a href="{{DOCUMENT_URL}}" style="color:#1a2332;text-decoration:none;word-break:break-all;">{{DOCUMENT_URL}}</a>
+</p>

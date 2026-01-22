@@ -1,7 +1,7 @@
 ---
 name: system-architect
 description: Use this agent when you need to design scalable system architectures, refactor messy codebases into clean structures, evaluate architectural decisions, or transform legacy systems into maintainable solutions. Examples: <example>Context: User has a growing codebase that's becoming difficult to maintain and wants to restructure it for scalability. user: "Our application is getting unwieldy with components scattered everywhere and no clear separation of concerns. Can you help redesign the architecture?" assistant: "I'll use the system-architect agent to analyze your current structure and design a scalable architecture that separates concerns properly."</example> <example>Context: User is planning a new feature that needs to integrate with existing systems. user: "We need to add a payment processing system to our e-commerce platform. How should we architect this to be scalable and maintainable?" assistant: "Let me engage the system-architect agent to design a payment architecture that integrates cleanly with your existing system while maintaining scalability."</example>
-model: claude-sonnet-4-5
+model: opus
 color: blue
 ---
 

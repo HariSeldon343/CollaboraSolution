@@ -39,6 +39,7 @@ verifyApiCsrfToken();
 // Database connection
 require_once __DIR__ . '/../../includes/db.php';
 $db = Database::getInstance();
+require_once __DIR__ . '/../../includes/file_access.php';
 
 // Include workflow constants
 require_once __DIR__ . '/../../includes/workflow_constants.php';
@@ -78,8 +79,8 @@ if ($checkUserId !== $currentUserId) {
     }
 }
 
-// Determine entity type
-$entityType = $fileId !== null ? ENTITY_TYPE_FILE : ENTITY_TYPE_FOLDER;
+// In this codebase folders are rows in `files` with is_folder=1.
+// For backward compatibility, we accept folder_id but treat it as files.id.
 $entityId = $fileId !== null ? $fileId : $folderId;
 
 // ============================================
@@ -87,209 +88,117 @@ $entityId = $fileId !== null ? $fileId : $folderId;
 // ============================================
 
 try {
-    $hasAccess = false;
-    $accessReason = 'Accesso negato';
-    $accessDetails = [];
+    // Align tenant context for privileged users with Company Filter (matches assign.php / assignments.php)
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    $isSuperAdmin = (
+        ($currentUserRole === 'super_admin') ||
+        (($_SESSION['role'] ?? '') === 'super_admin') ||
+        (($_SESSION['user_role'] ?? '') === 'super_admin')
+    );
 
-    // Get user details for check
+    // Resolve entity tenant (needed when Company Filter is "Tutte le aziende")
+    $entityRow = $db->fetchOne(
+        "SELECT id, tenant_id, folder_id, is_folder
+         FROM files
+         WHERE id = ?
+           AND (deleted_at IS NULL OR deleted_at = '')
+         LIMIT 1",
+        [$entityId]
+    );
+    if (!$entityRow) {
+        api_error('File/Cartella non trovato.', 404);
+    }
+    $entityTenantId = (int)($entityRow['tenant_id'] ?? 0);
+
+    // If company filter is set to a specific tenant, use it.
+    // If company filter is NOT set (multi-company "all"), fall back to entity tenant (tenant-aware)
+    if (($isSuperAdmin || $currentUserRole === 'admin') && isset($_SESSION['company_filter_id']) && $_SESSION['company_filter_id'] !== null) {
+        $tenantId = (int)$_SESSION['company_filter_id'];
+    } elseif ($isSuperAdmin) {
+        $tenantId = $entityTenantId;
+    } elseif ($currentUserRole === 'admin') {
+        // Admin must have access to the entity tenant via user_tenant_access OR primary tenant_id
+        $primaryTenantId = (int)($userInfo['tenant_id'] ?? 0);
+        $hasTenantAccess = ($primaryTenantId > 0 && $primaryTenantId === $entityTenantId);
+        if (!$hasTenantAccess && $entityTenantId > 0) {
+            $uta = $db->fetchOne(
+                "SELECT 1
+                 FROM user_tenant_access
+                 WHERE user_id = ?
+                   AND tenant_id = ?
+                 LIMIT 1",
+                [(int)$currentUserId, (int)$entityTenantId]
+            );
+            $hasTenantAccess = (bool)$uta;
+        }
+        if (!$hasTenantAccess) {
+            api_error('Non hai accesso a questo tenant.', 403);
+        }
+        $tenantId = $entityTenantId;
+    }
+
+    // Load checked user details (for response metadata)
     $checkUser = $db->fetchOne(
-        "SELECT u.id, u.name, u.email, uta.role
+        "SELECT u.id, u.name, u.email, u.role
          FROM users u
-         JOIN user_tenant_access uta ON u.id = uta.user_id
          WHERE u.id = ?
-           AND uta.tenant_id = ?
            AND u.deleted_at IS NULL
-           AND uta.deleted_at IS NULL",
-        [$checkUserId, $tenantId]
+         LIMIT 1",
+        [$checkUserId]
     );
 
     if ($checkUser === false) {
-        api_error('Utente non trovato nel tenant corrente.', 404);
+        api_error('Utente non trovato.', 404);
     }
 
-    $checkUserRole = $checkUser['role'];
+    $checkUserRole = (string)($checkUser['role'] ?? 'user');
 
-    // ============================================
-    // REASON 1: Super Admin - Always has access
-    // ============================================
+    // Centralized access decision (assignment-aware)
+    $access = hasFileOrFolderAccess($db, (int)$entityId, (int)$checkUserId, $checkUserRole, (int)$tenantId);
 
-    if ($checkUserRole === 'super_admin') {
-        $hasAccess = true;
-        $accessReason = 'Super Admin ha accesso completo al sistema';
-        $accessDetails['access_type'] = 'super_admin';
-    }
-
-    // ============================================
-    // REASON 2: Manager - Always has access in tenant
-    // ============================================
-
-    elseif (in_array($checkUserRole, ['manager', 'admin'])) {
-        $hasAccess = true;
-        $accessReason = 'Amministratore ha accesso completo nel tenant';
-        $accessDetails['access_type'] = 'admin';
-    }
-
-    // ============================================
-    // CHECK ENTITY EXISTENCE AND OWNERSHIP
-    // ============================================
-
-    else {
-        if ($entityType === ENTITY_TYPE_FILE) {
-            // Get file details
-            $entity = $db->fetchOne(
-                "SELECT id, file_name, uploaded_by, folder_id
-                 FROM files
-                 WHERE id = ?
-                   AND tenant_id = ?
-                   AND deleted_at IS NULL",
-                [$entityId, $tenantId]
-            );
-
-            if ($entity === false) {
-                api_error('File non trovato nel tenant corrente.', 404);
-            }
-
-            $entityName = $entity['file_name'];
-            $entityCreatorId = $entity['uploaded_by'];
-            $parentFolderId = $entity['folder_id'];
-
-        } else {
-            // Get folder details
-            $entity = $db->fetchOne(
-                "SELECT id, folder_name, created_by, parent_id
-                 FROM folders
-                 WHERE id = ?
-                   AND tenant_id = ?
-                   AND deleted_at IS NULL",
-                [$entityId, $tenantId]
-            );
-
-            if ($entity === false) {
-                api_error('Cartella non trovata nel tenant corrente.', 404);
-            }
-
-            $entityName = $entity['folder_name'];
-            $entityCreatorId = $entity['created_by'];
-            $parentFolderId = $entity['parent_id'];
+    // Add non-sensitive assignment target label for UI (works even if user is not assignee)
+    $assignmentTargetLabel = 'Non assegnato';
+    try {
+        $candidateIds = [(int)$entityId];
+        $isFolder = ((int)($entityRow['is_folder'] ?? 0) === 1);
+        $parentFolderId = (!$isFolder && !empty($entityRow['folder_id'])) ? (int)$entityRow['folder_id'] : null;
+        if ($parentFolderId) {
+            $candidateIds[] = $parentFolderId;
         }
 
-        // ============================================
-        // REASON 3: Creator - Always has access to own content
-        // ============================================
+        $placeholders = implode(',', array_fill(0, count($candidateIds), '?'));
+        $row = $db->fetchOne(
+            "SELECT fa.file_id, fa.assigned_to_user_id, fa.assigned_to_tenant_role_id
+             FROM file_assignments fa
+             WHERE fa.tenant_id = ?
+               AND fa.deleted_at IS NULL
+               AND (fa.expires_at IS NULL OR fa.expires_at > NOW())
+               AND fa.file_id IN ($placeholders)
+             ORDER BY CASE WHEN fa.file_id = ? THEN 0 ELSE 1 END, fa.created_at DESC
+             LIMIT 1",
+            array_merge([(int)$tenantId], $candidateIds, [(int)$entityId])
+        );
 
-        if ($entityCreatorId === $checkUserId) {
-            $hasAccess = true;
-            $accessReason = sprintf(
-                'Creatore della %s',
-                $entityType === ENTITY_TYPE_FILE ? 'file' : 'cartella'
-            );
-            $accessDetails['access_type'] = 'creator';
-        }
-
-        // ============================================
-        // REASON 4: Direct Assignment - Explicit permission
-        // ============================================
-
-        if (!$hasAccess) {
-            $assignment = $db->fetchOne(
-                "SELECT id, assignment_reason, expires_at, assigned_by_user_id
-                 FROM file_assignments
-                 WHERE " . ($entityType === ENTITY_TYPE_FILE ? "file_id" : "folder_id") . " = ?
-                   AND assigned_to_user_id = ?
-                   AND tenant_id = ?
-                   AND deleted_at IS NULL
-                   AND (expires_at IS NULL OR expires_at > NOW())",
-                [$entityId, $checkUserId, $tenantId]
-            );
-
-            if ($assignment !== false) {
-                $hasAccess = true;
-                $accessReason = 'Assegnazione diretta';
-                $accessDetails['access_type'] = 'assigned';
-                $accessDetails['assignment'] = [
-                    'id' => (int)$assignment['id'],
-                    'reason' => $assignment['assignment_reason'],
-                    'expires_at' => $assignment['expires_at'],
-                    'assigned_by' => (int)$assignment['assigned_by_user_id']
-                ];
-
-                // Check if expiring soon
-                if ($assignment['expires_at'] !== null) {
-                    $expiresTimestamp = strtotime($assignment['expires_at']);
-                    $daysUntilExpiry = floor(($expiresTimestamp - time()) / 86400);
-
-                    if ($daysUntilExpiry <= ASSIGNMENT_EXPIRATION_WARNING_DAYS) {
-                        $accessDetails['assignment']['expiring_soon'] = true;
-                        $accessDetails['assignment']['days_until_expiry'] = $daysUntilExpiry;
-                    }
-                }
+        if ($row) {
+            if (!empty($row['assigned_to_tenant_role_id'])) {
+                $tr = $db->fetchOne(
+                    "SELECT name
+                     FROM tenant_roles
+                     WHERE id = ?
+                       AND tenant_id = ?
+                     LIMIT 1",
+                    [(int)$row['assigned_to_tenant_role_id'], (int)$tenantId]
+                );
+                $roleName = $tr ? (string)($tr['name'] ?? '') : '';
+                $assignmentTargetLabel = $roleName !== '' ? ('Ruolo: ' . $roleName) : 'Ruolo assegnato';
+            } elseif (!empty($row['assigned_to_user_id'])) {
+                $assignmentTargetLabel = 'Utente assegnato';
             }
         }
-
-        // ============================================
-        // REASON 5: Parent Folder Assignment (for files only)
-        // ============================================
-
-        if (!$hasAccess && $entityType === ENTITY_TYPE_FILE && $parentFolderId !== null) {
-            // Check if user has access to parent folder
-            $folderAssignment = $db->fetchOne(
-                "SELECT id, assignment_reason, expires_at
-                 FROM file_assignments
-                 WHERE folder_id = ?
-                   AND assigned_to_user_id = ?
-                   AND tenant_id = ?
-                   AND deleted_at IS NULL
-                   AND (expires_at IS NULL OR expires_at > NOW())",
-                [$parentFolderId, $checkUserId, $tenantId]
-            );
-
-            if ($folderAssignment !== false) {
-                $hasAccess = true;
-                $accessReason = 'Accesso tramite cartella padre';
-                $accessDetails['access_type'] = 'parent_folder';
-                $accessDetails['parent_folder_assignment'] = [
-                    'id' => (int)$folderAssignment['id'],
-                    'folder_id' => (int)$parentFolderId,
-                    'reason' => $folderAssignment['assignment_reason']
-                ];
-            }
-        }
-
-        // ============================================
-        // REASON 6: Check Workflow Roles (for document workflow)
-        // ============================================
-
-        if (!$hasAccess && $entityType === ENTITY_TYPE_FILE) {
-            // Check if user is validator/approver and file is in workflow
-            $workflowState = $db->fetchOne(
-                "SELECT dw.state, dw.current_validator_id, dw.current_approver_id
-                 FROM document_workflow dw
-                 WHERE dw.file_id = ?
-                   AND dw.tenant_id = ?
-                   AND dw.deleted_at IS NULL",
-                [$entityId, $tenantId]
-            );
-
-            if ($workflowState !== false) {
-                // Check if user is assigned validator/approver
-                if (($workflowState['state'] === WORKFLOW_STATE_IN_VALIDATION &&
-                     $workflowState['current_validator_id'] === $checkUserId) ||
-                    ($workflowState['state'] === WORKFLOW_STATE_IN_APPROVAL &&
-                     $workflowState['current_approver_id'] === $checkUserId)) {
-
-                    $hasAccess = true;
-                    $accessReason = sprintf(
-                        'Assegnato come %s nel workflow',
-                        $workflowState['state'] === WORKFLOW_STATE_IN_VALIDATION ? 'validatore' : 'approvatore'
-                    );
-                    $accessDetails['access_type'] = 'workflow_role';
-                    $accessDetails['workflow'] = [
-                        'state' => $workflowState['state'],
-                        'role' => $workflowState['state'] === WORKFLOW_STATE_IN_VALIDATION ? 'validator' : 'approver'
-                    ];
-                }
-            }
-        }
+    } catch (Throwable $e) {
+        // non-blocking
     }
 
     // ============================================
@@ -297,13 +206,12 @@ try {
     // ============================================
 
     $response = [
-        'has_access' => $hasAccess,
-        'reason' => $accessReason,
-        'entity' => [
-            'type' => $entityType,
-            'id' => $entityId,
-            'name' => $entityName ?? null
-        ],
+        // Backward + forward compat: both keys are provided
+        'access' => (bool)$access['has_access'],
+        'has_access' => (bool)$access['has_access'],
+        'reason' => (string)$access['reason'],
+        'entity' => $access['entity'] ?? ['id' => $entityId],
+        'details' => $access['details'] ?? [],
         'user' => [
             'id' => $checkUserId,
             'name' => $checkUser['name'],
@@ -312,19 +220,22 @@ try {
         ]
     ];
 
-    // Add access details if available
-    if (!empty($accessDetails)) {
-        $response['details'] = $accessDetails;
+    // Ensure details contains non-sensitive assignment label
+    if (!isset($response['details']) || !is_array($response['details'])) {
+        $response['details'] = [];
     }
+    $response['details']['assignment_target_label'] = $assignmentTargetLabel;
 
     // ============================================
     // OPTIONAL AUDIT LOG (for security monitoring)
     // ============================================
 
-    if ($hasAccess && $checkUserId !== $currentUserId) {
+    if ($access['has_access'] && $checkUserId !== $currentUserId) {
         // Log when admins check access for other users (security audit)
         try {
             require_once __DIR__ . '/../../includes/audit_helper.php';
+
+            $entityType = (($access['entity']['is_folder'] ?? false) ? 'folder' : 'file');
 
             AuditLogger::logGeneric(
                 $currentUserId,
@@ -335,9 +246,9 @@ try {
                 sprintf(
                     'Verificato accesso di %s a %s "%s" - Risultato: %s',
                     $checkUser['name'],
-                    $entityType === ENTITY_TYPE_FILE ? 'file' : 'cartella',
-                    $entityName ?? 'Unknown',
-                    $hasAccess ? 'CONSENTITO' : 'NEGATO'
+                    ($access['entity']['is_folder'] ?? false) ? 'cartella' : 'file',
+                    $access['entity']['name'] ?? 'Unknown',
+                    $access['has_access'] ? 'CONSENTITO' : 'NEGATO'
                 ),
                 $response
             );

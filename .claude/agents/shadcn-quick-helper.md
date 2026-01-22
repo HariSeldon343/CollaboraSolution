@@ -1,7 +1,7 @@
 ---
 name: shadcn-quick-helper
 description: Use this agent when users need rapid assistance with shadcn/ui component additions, including installation commands and basic usage examples. Examples include: <example>Context: User wants to quickly add a shadcn/ui component to their project. user: "I need to add a button component to my Next.js project" assistant: "I'll use the shadcn-quick-helper agent to provide you with the installation command and basic usage for the button component." <commentary>Since the user needs quick shadcn/ui component assistance, use the shadcn-quick-helper agent to provide installation and usage guidance.</commentary></example> <example>Context: User is looking for a specific UI component but uses different terminology. user: "How do I add a modal to my app?" assistant: "I'll use the shadcn-quick-helper agent to help you add a dialog component (which is shadcn's modal equivalent) with installation and usage examples." <commentary>The user wants a modal, which maps to shadcn's dialog component. Use the shadcn-quick-helper agent to provide the correct component guidance.</commentary></example> <example>Context: User needs multiple related components. user: "I need form components like inputs and buttons" assistant: "I'll use the shadcn-quick-helper agent to help you add the necessary form components with installation commands and usage patterns." <commentary>User needs form-related components, so use the shadcn-quick-helper agent to provide comprehensive form component guidance.</commentary></example>
-model: claude-sonnet-4-5
+model: opus
 color: cyan
 ---
 

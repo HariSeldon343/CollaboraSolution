@@ -34,6 +34,21 @@ $tenantId = $userInfo['tenant_id'];
 $userId = $userInfo['user_id'];
 $userRole = $userInfo['role'];
 
+// For privileged multi-tenant roles, prefer the Company Filter tenant context (if set)
+// so assignments validate against the tenant currently selected in the UI.
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+$isSuperAdmin = (
+    ($userRole === 'super_admin') ||
+    (($_SESSION['role'] ?? '') === 'super_admin') ||
+    (($_SESSION['user_role'] ?? '') === 'super_admin')
+);
+
+if (($isSuperAdmin || $userRole === 'admin') && isset($_SESSION['company_filter_id']) && $_SESSION['company_filter_id'] !== null) {
+    $tenantId = (int)$_SESSION['company_filter_id'];
+}
+
 verifyApiCsrfToken();
 
 // Database connection
@@ -48,12 +63,18 @@ require_once __DIR__ . '/../../includes/workflow_constants.php';
 // ============================================
 
 // Handle both POST and DELETE methods
+// Also accept legacy POST { action: 'revoke', assignment_id } from file_assignment.js
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE' || (isset($_GET['action']) && $_GET['action'] === 'delete')) {
     // DELETE operation - Revoke assignment
     handleDeleteAssignment();
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // POST operation - Create assignment
-    handleCreateAssignment();
+    $peek = json_decode((string)file_get_contents('php://input'), true);
+    if (is_array($peek) && isset($peek['action']) && in_array((string)$peek['action'], ['revoke', 'delete'], true)) {
+        handleDeleteAssignment($peek);
+    } else {
+        // POST operation - Create assignment
+        handleCreateAssignment();
+    }
 } else {
     http_response_code(405);
     header('Allow: POST, DELETE');
@@ -87,20 +108,24 @@ function handleCreateAssignment() {
     }
 
     // Extract parameters
+    // NOTE: In this codebase folders are rows in `files` with is_folder=1, so we only accept file_id.
     $fileId = isset($input['file_id']) ? (int)$input['file_id'] : null;
-    $folderId = isset($input['folder_id']) ? (int)$input['folder_id'] : null;
     $assignedToUserId = isset($input['assigned_to_user_id']) ? (int)$input['assigned_to_user_id'] : null;
+    $assignedToTenantRoleId = isset($input['assigned_to_tenant_role_id']) ? (int)$input['assigned_to_tenant_role_id'] : null;
     $assignmentReason = $input['assignment_reason'] ?? null;
     $expiresAt = $input['expires_at'] ?? null;
+    $forceReassign = isset($input['force_reassign']) && ($input['force_reassign'] === true || $input['force_reassign'] === 1 || $input['force_reassign'] === '1');
 
-    // Validate: One of file_id OR folder_id required
-    if (($fileId === null && $folderId === null) || ($fileId !== null && $folderId !== null)) {
-        api_error('Specificare uno tra file_id o folder_id (non entrambi).', 400);
+    // Validate: file_id required (applies to files and folders)
+    if (!$fileId || $fileId <= 0) {
+        api_error('file_id richiesto e deve essere positivo.', 400);
     }
 
-    // Validate assigned_to_user_id
-    if (!$assignedToUserId || $assignedToUserId <= 0) {
-        api_error('assigned_to_user_id richiesto e deve essere positivo.', 400);
+    // Validate assignment target: exactly one between user and tenant role
+    $hasUserTarget = ($assignedToUserId !== null && $assignedToUserId > 0);
+    $hasRoleTarget = ($assignedToTenantRoleId !== null && $assignedToTenantRoleId > 0);
+    if (($hasUserTarget && $hasRoleTarget) || (!$hasUserTarget && !$hasRoleTarget)) {
+        api_error('Specificare uno tra assigned_to_user_id o assigned_to_tenant_role_id (non entrambi).', 400);
     }
 
     // Validate expires_at if provided
@@ -115,9 +140,8 @@ function handleCreateAssignment() {
         $expiresAt = date('Y-m-d H:i:s', $expiresTimestamp);
     }
 
-    // Determine entity type and ID
-    $entityType = $fileId !== null ? ENTITY_TYPE_FILE : ENTITY_TYPE_FOLDER;
-    $entityId = $fileId !== null ? $fileId : $folderId;
+    // Determine entity ID (always files table)
+    $entityId = $fileId;
 
     // ============================================
     // VALIDATION - User exists in tenant
@@ -126,93 +150,227 @@ function handleCreateAssignment() {
     $db->beginTransaction();
 
     try {
-        // Check if assigned user exists in tenant
-        $userExists = $db->fetchOne(
-            "SELECT u.id, u.name, u.email
-             FROM users u
-             JOIN user_tenant_access uta ON u.id = uta.user_id
-             WHERE u.id = ?
-               AND uta.tenant_id = ?
-               AND u.deleted_at IS NULL
-               AND uta.deleted_at IS NULL",
-            [$assignedToUserId, $tenantId]
-        );
-
-        if ($userExists === false) {
-            throw new Exception('Utente non trovato o non appartiene a questo tenant.');
+        // Validate target exists in tenant:
+        // - user target: accept single-tenant (users.tenant_id) OR multi-tenant (user_tenant_access)
+        // - role target: tenant_roles record in this tenant
+        if ($hasUserTarget) {
+            $userExists = $db->fetchOne(
+                "SELECT u.id, u.name, u.email
+                 FROM users u
+                 WHERE u.id = ?
+                   AND u.deleted_at IS NULL
+                   AND (
+                       u.tenant_id = ?
+                       OR EXISTS (
+                           SELECT 1
+                           FROM user_tenant_access uta
+                           WHERE uta.user_id = u.id
+                             AND uta.tenant_id = ?
+                             AND uta.deleted_at IS NULL
+                           LIMIT 1
+                       )
+                   )
+                 LIMIT 1",
+                [$assignedToUserId, $tenantId, $tenantId]
+            );
+            if ($userExists === false) {
+                throw new Exception('Utente non trovato o non appartiene a questo tenant.');
+            }
+        } else {
+            $roleExists = $db->fetchOne(
+                "SELECT id, name
+                 FROM tenant_roles
+                 WHERE id = ?
+                   AND tenant_id = ?
+                   AND is_active = 1
+                   AND deleted_at IS NULL
+                 LIMIT 1",
+                [$assignedToTenantRoleId, $tenantId]
+            );
+            if ($roleExists === false) {
+                throw new Exception('Ruolo aziendale non trovato o non appartiene a questo tenant.');
+            }
         }
 
         // ============================================
         // VALIDATION - File/Folder exists in tenant
         // ============================================
 
-        if ($entityType === ENTITY_TYPE_FILE) {
-            $entityExists = $db->fetchOne(
-                "SELECT id, file_name, uploaded_by
-                 FROM files
-                 WHERE id = ?
-                   AND tenant_id = ?
-                   AND deleted_at IS NULL",
-                [$entityId, $tenantId]
-            );
-
-            if ($entityExists === false) {
-                throw new Exception('File non trovato o non appartiene a questo tenant.');
-            }
-
-            $entityName = $entityExists['file_name'];
-            $entityCreatorId = $entityExists['uploaded_by'];
-        } else {
-            $entityExists = $db->fetchOne(
-                "SELECT id, folder_name, created_by
-                 FROM folders
-                 WHERE id = ?
-                   AND tenant_id = ?
-                   AND deleted_at IS NULL",
-                [$entityId, $tenantId]
-            );
-
-            if ($entityExists === false) {
-                throw new Exception('Cartella non trovata o non appartiene a questo tenant.');
-            }
-
-            $entityName = $entityExists['folder_name'];
-            $entityCreatorId = $entityExists['created_by'];
-        }
-
-        // ============================================
-        // VALIDATION - Not already assigned
-        // ============================================
-
-        $existingAssignment = $db->fetchOne(
-            "SELECT id, expires_at
-             FROM file_assignments
-             WHERE " . ($entityType === ENTITY_TYPE_FILE ? "file_id" : "folder_id") . " = ?
-               AND assigned_to_user_id = ?
+        // Entity exists in tenant (files table stores both files and folders)
+        $entityExists = $db->fetchOne(
+            "SELECT id, name, uploaded_by, is_folder
+             FROM files
+             WHERE id = ?
                AND tenant_id = ?
-               AND deleted_at IS NULL
-               AND (expires_at IS NULL OR expires_at > NOW())",
-            [$entityId, $assignedToUserId, $tenantId]
+               AND (deleted_at IS NULL OR deleted_at = '')",
+            [$entityId, $tenantId]
         );
 
-        if ($existingAssignment !== false) {
-            throw new Exception(
-                sprintf(
-                    'Questa %s è già assegnata a questo utente (ID assegnazione: %d).',
-                    $entityType === ENTITY_TYPE_FILE ? 'file' : 'cartella',
-                    $existingAssignment['id']
-                )
+        if ($entityExists === false) {
+            throw new Exception('File/Cartella non trovato o non appartiene a questo tenant.');
+        }
+
+        $entityName = $entityExists['name'];
+        $entityCreatorId = $entityExists['uploaded_by'];
+        $entityType = ((int)($entityExists['is_folder'] ?? 0) === 1) ? ENTITY_TYPE_FOLDER : ENTITY_TYPE_FILE;
+
+        // ============================================
+        // VALIDATION - Not already assigned (unless force_reassign)
+        // ============================================
+
+        $existingActiveAssignment = false;
+        if ($hasUserTarget) {
+            $existingActiveAssignment = $db->fetchOne(
+                "SELECT id, expires_at
+                 FROM file_assignments
+                 WHERE file_id = ?
+                   AND assigned_to_user_id = ?
+                   AND tenant_id = ?
+                   AND deleted_at IS NULL
+                   AND (expires_at IS NULL OR expires_at > NOW())
+                 LIMIT 1",
+                [$entityId, $assignedToUserId, $tenantId]
             );
+        } else {
+            $existingActiveAssignment = $db->fetchOne(
+                "SELECT id, expires_at
+                 FROM file_assignments
+                 WHERE file_id = ?
+                   AND assigned_to_tenant_role_id = ?
+                   AND tenant_id = ?
+                   AND deleted_at IS NULL
+                   AND (expires_at IS NULL OR expires_at > NOW())
+                 LIMIT 1",
+                [$entityId, $assignedToTenantRoleId, $tenantId]
+            );
+        }
+
+        if ($existingActiveAssignment !== false && !$forceReassign) {
+            // Business-level conflict: do NOT return 500.
+            if ($db->inTransaction()) {
+                $db->rollback();
+            }
+
+            $targetType = $hasUserTarget ? 'user' : 'tenant_role';
+            $targetLabel = $hasUserTarget
+                ? (($userExists['name'] ?? 'Utente') . (!empty($userExists['email']) ? ' (' . $userExists['email'] . ')' : ''))
+                : ($roleExists['name'] ?? 'Ruolo Aziendale');
+
+            api_error(
+                sprintf(
+                    'Questa %s è già assegnata a %s (ID assegnazione: %d).',
+                    $entityType === ENTITY_TYPE_FILE ? 'file' : 'cartella',
+                    $targetLabel,
+                    (int)$existingActiveAssignment['id']
+                ),
+                409,
+                [
+                    'can_reassign' => true,
+                    'reassign_scope' => 'exclusive_all',
+                    'existing_assignment' => [
+                        'id' => (int)$existingActiveAssignment['id'],
+                        'target_type' => $targetType,
+                        'target_label' => $targetLabel,
+                        'expires_at' => $existingActiveAssignment['expires_at'] ?? null
+                    ]
+                ]
+            );
+        }
+
+        // If force_reassign is requested, make the assignment exclusive:
+        // revoke all other active assignments for this entity (user and role targets).
+        if ($forceReassign) {
+            $reuseAssignmentId = 0;
+            if ($hasUserTarget) {
+                $reuse = $db->fetchOne(
+                    "SELECT id
+                     FROM file_assignments
+                     WHERE tenant_id = ?
+                       AND file_id = ?
+                       AND assigned_to_user_id = ?
+                     ORDER BY id DESC
+                     LIMIT 1",
+                    [$tenantId, $entityId, $assignedToUserId]
+                );
+                if ($reuse !== false) {
+                    $reuseAssignmentId = (int)$reuse['id'];
+                }
+            } else {
+                $reuse = $db->fetchOne(
+                    "SELECT id
+                     FROM file_assignments
+                     WHERE tenant_id = ?
+                       AND file_id = ?
+                       AND assigned_to_tenant_role_id = ?
+                     ORDER BY id DESC
+                     LIMIT 1",
+                    [$tenantId, $entityId, $assignedToTenantRoleId]
+                );
+                if ($reuse !== false) {
+                    $reuseAssignmentId = (int)$reuse['id'];
+                }
+            }
+
+            // Revoke all active assignments except the one we may reuse.
+            if ($reuseAssignmentId > 0) {
+                $db->query(
+                    "UPDATE file_assignments
+                     SET deleted_at = NOW(), updated_at = NOW()
+                     WHERE tenant_id = ?
+                       AND file_id = ?
+                       AND deleted_at IS NULL
+                       AND id <> ?",
+                    [$tenantId, $entityId, $reuseAssignmentId]
+                );
+            } else {
+                $db->query(
+                    "UPDATE file_assignments
+                     SET deleted_at = NOW(), updated_at = NOW()
+                     WHERE tenant_id = ?
+                       AND file_id = ?
+                       AND deleted_at IS NULL",
+                    [$tenantId, $entityId]
+                );
+            }
+
+            // If there is a reusable assignment row for this target, reactivate/update it.
+            if ($reuseAssignmentId > 0) {
+                $updatedReuse = $db->update(
+                    'file_assignments',
+                    [
+                        'tenant_id' => $tenantId,
+                        'file_id' => $entityId,
+                        'entity_type' => $entityType,
+                        'assigned_by_user_id' => $userId,
+                        'assigned_to_user_id' => $hasUserTarget ? $assignedToUserId : null,
+                        'assigned_to_tenant_role_id' => $hasRoleTarget ? $assignedToTenantRoleId : null,
+                        'assignment_reason' => $assignmentReason,
+                        'expires_at' => $expiresAt,
+                        'deleted_at' => null,
+                        'updated_at' => date('Y-m-d H:i:s')
+                    ],
+                    ['id' => $reuseAssignmentId]
+                );
+
+                if (!$updatedReuse) {
+                    throw new Exception('Impossibile aggiornare l’assegnazione esistente per la riassegnazione.');
+                }
+
+                $assignmentId = $reuseAssignmentId;
+            }
         }
 
         // ============================================
         // CREATE ASSIGNMENT
         // ============================================
 
+        // If force_reassign updated an existing row, we already have $assignmentId.
+        if (!isset($assignmentId) || (int)$assignmentId <= 0) {
         $assignmentData = [
             'tenant_id' => $tenantId,
             'assigned_by_user_id' => $userId,
-            'assigned_to_user_id' => $assignedToUserId,
+            'assigned_to_user_id' => $hasUserTarget ? $assignedToUserId : null,
+            'assigned_to_tenant_role_id' => $hasRoleTarget ? $assignedToTenantRoleId : null,
             'entity_type' => $entityType,
             'assignment_reason' => $assignmentReason,
             'expires_at' => $expiresAt,
@@ -220,20 +378,15 @@ function handleCreateAssignment() {
             'updated_at' => date('Y-m-d H:i:s')
         ];
 
-        // Add appropriate entity ID
-        if ($entityType === ENTITY_TYPE_FILE) {
-            $assignmentData['file_id'] = $entityId;
-            $assignmentData['folder_id'] = null;
-        } else {
-            $assignmentData['file_id'] = null;
-            $assignmentData['folder_id'] = $entityId;
-        }
+        // Entity id (files table)
+        $assignmentData['file_id'] = $entityId;
 
         // Insert assignment
-        $assignmentId = $db->insert('file_assignments', $assignmentData);
+            $assignmentId = $db->insert('file_assignments', $assignmentData);
 
-        if (!$assignmentId) {
-            throw new Exception('Impossibile creare assegnazione nel database.');
+            if (!$assignmentId) {
+                throw new Exception('Impossibile creare assegnazione nel database.');
+            }
         }
 
         // ============================================
@@ -254,13 +407,18 @@ function handleCreateAssignment() {
         try {
             require_once __DIR__ . '/../../includes/audit_helper.php';
 
+            $assignedToText = $hasUserTarget
+                ? ($userExists['name'] . ' (' . $userExists['email'] . ')')
+                : ($roleExists['name'] ?? 'Ruolo Aziendale');
+
             $auditData = [
                 'assignment_id' => $assignmentId,
                 'entity_type' => $entityType,
                 'entity_id' => $entityId,
                 'entity_name' => $entityName,
-                'assigned_to' => $userExists['name'] . ' (' . $userExists['email'] . ')',
-                'assigned_to_user_id' => $assignedToUserId,
+                'assigned_to' => $assignedToText,
+                'assigned_to_user_id' => $hasUserTarget ? $assignedToUserId : null,
+                'assigned_to_tenant_role_id' => $hasRoleTarget ? $assignedToTenantRoleId : null,
                 'reason' => $assignmentReason,
                 'expires_at' => $expiresAt
             ];
@@ -274,7 +432,7 @@ function handleCreateAssignment() {
                     'Assegnata %s "%s" a %s',
                     $entityType === ENTITY_TYPE_FILE ? 'file' : 'cartella',
                     $entityName,
-                    $userExists['name']
+                    $assignedToText
                 ),
                 $auditData
             );
@@ -299,17 +457,29 @@ function handleCreateAssignment() {
         // PREPARE RESPONSE
         // ============================================
 
+        $assignedToPayload = null;
+        if ($hasUserTarget) {
+            $assignedToPayload = [
+                'type' => 'user',
+                'id' => $assignedToUserId,
+                'name' => $userExists['name'],
+                'email' => $userExists['email']
+            ];
+        } else {
+            $assignedToPayload = [
+                'type' => 'tenant_role',
+                'id' => $assignedToTenantRoleId,
+                'name' => $roleExists['name'] ?? 'Ruolo Aziendale'
+            ];
+        }
+
         $response = [
             'assignment' => [
                 'id' => $assignmentId,
                 'entity_type' => $entityType,
                 'entity_id' => $entityId,
                 'entity_name' => $entityName,
-                'assigned_to' => [
-                    'id' => $assignedToUserId,
-                    'name' => $userExists['name'],
-                    'email' => $userExists['email']
-                ],
+                'assigned_to' => $assignedToPayload,
                 'assigned_by' => [
                     'id' => $userId,
                     'name' => $userInfo['user_name'],
@@ -317,16 +487,23 @@ function handleCreateAssignment() {
                 ],
                 'assignment_reason' => $assignmentReason,
                 'expires_at' => $expiresAt,
-                'created_at' => $assignmentData['created_at']
+                'created_at' => isset($assignmentData) && isset($assignmentData['created_at']) ? $assignmentData['created_at'] : null
             ]
         ];
+
+        $targetLabel = 'destinatario';
+        if ($hasUserTarget) {
+            $targetLabel = $userExists['name'] ?? 'Utente';
+        } elseif (isset($roleExists) && is_array($roleExists)) {
+            $targetLabel = $roleExists['name'] ?? 'Ruolo Aziendale';
+        }
 
         api_success(
             $response,
             sprintf(
                 '%s assegnata con successo a %s.',
                 $entityType === ENTITY_TYPE_FILE ? 'File' : 'Cartella',
-                $userExists['name']
+                $targetLabel
             )
         );
 
@@ -336,6 +513,15 @@ function handleCreateAssignment() {
         }
 
         error_log("[FILE_ASSIGNMENT_CREATE] Error: " . $e->getMessage());
+        // If this is a duplicate key (race condition), return 409 so UI can offer reassignment.
+        $msg = $e->getMessage();
+        if (stripos($msg, 'Duplicate entry') !== false || stripos($msg, 'SQLSTATE[23000]') !== false) {
+            api_error('Assegnazione già esistente. Aggiorna la pagina o conferma la riassegnazione.', 409, [
+                'can_reassign' => true,
+                'reassign_scope' => 'exclusive_all'
+            ]);
+        }
+
         api_error('Errore durante creazione assegnazione: ' . $e->getMessage(), 500);
     }
 }
@@ -343,7 +529,7 @@ function handleCreateAssignment() {
 /**
  * Handle assignment deletion (revoke)
  */
-function handleDeleteAssignment() {
+function handleDeleteAssignment(?array $preParsedInput = null) {
     global $db, $userInfo, $tenantId, $userId, $userRole;
 
     // ============================================
@@ -360,7 +546,9 @@ function handleDeleteAssignment() {
     // ============================================
 
     // Parse input based on method
-    if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    if (is_array($preParsedInput)) {
+        $input = $preParsedInput;
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         $input = json_decode(file_get_contents('php://input'), true);
     } else {
         $input = $_POST ?: $_GET;
@@ -379,15 +567,14 @@ function handleDeleteAssignment() {
     $db->beginTransaction();
 
     try {
-        // Check if assignment exists in tenant
+        // BUG-144c FIX: Check if assignment exists in tenant (removed folder_id join - column doesn't exist)
+        // BUG-146c FIX: Column is 'name' not 'file_name' in files table
         $assignment = $db->fetchOne(
             "SELECT fa.*,
-                    f.file_name,
-                    fo.folder_name,
+                    f.name as file_name,
                     u.name as assigned_to_name
              FROM file_assignments fa
              LEFT JOIN files f ON fa.file_id = f.id
-             LEFT JOIN folders fo ON fa.folder_id = fo.id
              LEFT JOIN users u ON fa.assigned_to_user_id = u.id
              WHERE fa.id = ?
                AND fa.tenant_id = ?
@@ -399,12 +586,11 @@ function handleDeleteAssignment() {
             throw new Exception('Assegnazione non trovata o già revocata.');
         }
 
-        // Soft delete the assignment
+        // Soft delete the assignment (schema-safe: file_assignments doesn't always have deleted_by)
         $updated = $db->update(
             'file_assignments',
             [
                 'deleted_at' => date('Y-m-d H:i:s'),
-                'deleted_by' => $userId,
                 'updated_at' => date('Y-m-d H:i:s')
             ],
             ['id' => $assignmentId]

@@ -67,12 +67,19 @@ try {
     $db = Database::getInstance();
 
     // Extract user details
-    $userId = (int)$userInfo['id'];
-    $userRole = $userInfo['role'];
+    $userId = (int)($userInfo['id'] ?? $userInfo['user_id'] ?? 0);
+    $userRole = (string)($userInfo['role'] ?? 'user');
+    // BUG-144 FIX: Removed active_tenant_id fallback (column does not exist)
     $sessionTenantId = (int)($userInfo['tenant_id'] ?? 0);
+
+    // Only manager/admin/super_admin can view/modify workflow role config
+    if (!in_array($userRole, ['manager', 'admin', 'super_admin'], true)) {
+        api_error('Non autorizzato', 403);
+    }
 
     // Parse tenant_id parameter (optional)
     $requestedTenantId = isset($_GET['tenant_id']) ? (int)$_GET['tenant_id'] : null;
+    $companyFilterTenantId = (int)($_SESSION['company_filter_id'] ?? 0);
 
     // Determine target tenant with security validation
     $tenantId = null;
@@ -83,26 +90,41 @@ try {
             // Super Admin: bypass tenant isolation
             $tenantId = $requestedTenantId;
         } else {
-            // Regular user: validate access via user_tenant_access table
-            $accessCheck = $db->fetchOne(
-                "SELECT COUNT(*) as cnt
-                 FROM user_tenant_access
-                 WHERE user_id = ?
-                   AND tenant_id = ?
-                   AND deleted_at IS NULL",
-                [$userId, $requestedTenantId]
-            );
-
-            if ($accessCheck && $accessCheck['cnt'] > 0) {
+            // Manager/Admin: allow session tenant, otherwise validate via access tables
+            if ($requestedTenantId === $sessionTenantId && $sessionTenantId > 0) {
                 $tenantId = $requestedTenantId;
             } else {
-                // User does not have access to requested tenant
-                api_error('Non hai accesso a questo tenant', 403);
+                $hasAccess = false;
+
+                // 1) user_tenant_access (multi-tenant memberships)
+                $uta = $db->fetchOne(
+                    "SELECT 1 as ok
+                     FROM user_tenant_access
+                     WHERE user_id = ?
+                       AND tenant_id = ?
+                       AND deleted_at IS NULL
+                     LIMIT 1",
+                    [$userId, $requestedTenantId]
+                );
+                if ($uta) $hasAccess = true;
+
+                // BUG-144 FIX: Removed user_companies table check (table does not exist)
+                // Access is already checked via user_tenant_access table above
+
+                if ($hasAccess) {
+                    $tenantId = $requestedTenantId;
+                } else {
+                    api_error('Non hai accesso a questo tenant', 403);
+                }
             }
         }
     } else {
-        // No tenant_id parameter - fallback to session tenant
-        $tenantId = $sessionTenantId;
+        // No tenant_id parameter - fallback to company_filter, then session
+        if ($companyFilterTenantId > 0) {
+            $tenantId = $companyFilterTenantId;
+        } else {
+            $tenantId = $sessionTenantId;
+        }
     }
 
     // Validate tenant_id is valid
@@ -110,23 +132,48 @@ try {
         api_error('Tenant non valido', 400);
     }
 
-    // Query: LEFT JOIN pattern to return ALL users with role indicators
-    // CRITICAL: NO exclusions (no NOT IN pattern)
-    // This ensures dropdown is ALWAYS populated with all tenant users
+    // BUG-144b FIX: Query to return ALL users with role indicators
+    // Removed: user_companies join (table doesn't exist)
+    // Removed: u.active_tenant_id (column doesn't exist)
+    // Multi-tenant via u.tenant_id OR user_tenant_access
+    // BUG-149a+149d FIX: Admin AND Manager are DEFAULT validators/approvers
+    // - If user has ANY workflow_roles record (even soft-deleted), they're NOT default
+    // - Only users with NO record at all get default role (based on system role)
     $sql = "SELECT DISTINCT
         u.id,
         u.name,
         u.email,
         u.role AS system_role,
         -- Role indicators (boolean flags)
-        MAX(CASE WHEN wr.workflow_role = 'validator' THEN 1 ELSE 0 END) AS is_validator,
-        MAX(CASE WHEN wr.workflow_role = 'approver' THEN 1 ELSE 0 END) AS is_approver,
+        -- BUG-147b FIX: Only show users with ACTIVE workflow roles (add is_active = 1 filter)
+        -- BUG-149a FIX: Removed deleted_at IS NULL from subquery - ANY record means explicitly configured
+        -- BUG-149d FIX: Admin AND Manager are default validators/approvers
+        MAX(CASE
+            WHEN wr.workflow_role = 'validator' AND wr.is_active = 1 THEN 1
+            WHEN u.role IN ('admin', 'manager') AND NOT EXISTS (
+                SELECT 1 FROM workflow_roles wr_v
+                WHERE wr_v.user_id = u.id
+                  AND wr_v.tenant_id = ?
+                  AND wr_v.workflow_role = 'validator'
+            ) THEN 1
+            ELSE 0
+        END) AS is_validator,
+        MAX(CASE
+            WHEN wr.workflow_role = 'approver' AND wr.is_active = 1 THEN 1
+            WHEN u.role IN ('admin', 'manager') AND NOT EXISTS (
+                SELECT 1 FROM workflow_roles wr_a
+                WHERE wr_a.user_id = u.id
+                  AND wr_a.tenant_id = ?
+                  AND wr_a.workflow_role = 'approver'
+            ) THEN 1
+            ELSE 0
+        END) AS is_approver,
         -- Role IDs (comma-separated, for removal operations)
         GROUP_CONCAT(
-            CASE WHEN wr.workflow_role = 'validator' THEN wr.id END
+            CASE WHEN wr.workflow_role = 'validator' AND wr.is_active = 1 THEN wr.id END
         ) AS validator_role_ids,
         GROUP_CONCAT(
-            CASE WHEN wr.workflow_role = 'approver' THEN wr.id END
+            CASE WHEN wr.workflow_role = 'approver' AND wr.is_active = 1 THEN wr.id END
         ) AS approver_role_ids
     FROM users u
     LEFT JOIN user_tenant_access uta ON u.id = uta.user_id
@@ -137,12 +184,14 @@ try {
         AND wr.deleted_at IS NULL
     WHERE u.deleted_at IS NULL
       AND u.is_active = 1
-      AND (u.role = 'super_admin' OR uta.user_id IS NOT NULL)
+      AND (u.tenant_id = ? OR uta.user_id IS NOT NULL)
     GROUP BY u.id, u.name, u.email, u.role
     ORDER BY u.name ASC";
 
     // Execute query
-    $users = $db->fetchAll($sql, [$tenantId, $tenantId]);
+    // BUG-144b FIX: Reduced to 3 placeholders (removed user_companies and active_tenant_id)
+    // BUG-148d FIX: Now 5 placeholders (added 2 for admin/manager default subqueries)
+    $users = $db->fetchAll($sql, [$tenantId, $tenantId, $tenantId, $tenantId, $tenantId]);
 
     // Handle empty result gracefully (still return success with empty arrays)
     if (empty($users)) {

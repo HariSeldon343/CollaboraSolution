@@ -1,7 +1,7 @@
 ---
 name: shadcn-component-researcher
 description: Use this agent when you need to research shadcn/ui components for implementation, gather component details, examples, and installation commands. This agent is particularly useful when working on UI features that require specific shadcn components.\n\nExamples:\n- <example>\n  Context: User is building a form feature and needs to research shadcn form components.\n  user: "I need to implement a user registration form with validation. Can you research the shadcn form components I'll need?"\n  assistant: "I'll use the shadcn-component-researcher agent to research form components, validation patterns, and installation commands for your registration form."\n  <commentary>\n  The user needs component research for a specific UI feature, so use the shadcn-component-researcher agent to gather implementation details.\n  </commentary>\n</example>\n- <example>\n  Context: User is working on a dashboard and needs to understand available shadcn data display components.\n  user: "What shadcn components are available for displaying data tables and charts?"\n  assistant: "I'll use the shadcn-component-researcher agent to research data display components, their APIs, and usage examples."\n  <commentary>\n  This is a component research request that requires deep investigation into shadcn registries and examples.\n  </commentary>\n</example>
-model: claude-sonnet-4-5
+model: opus
 color: green
 ---
 

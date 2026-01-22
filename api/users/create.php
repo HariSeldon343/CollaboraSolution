@@ -48,6 +48,12 @@ try {
     $tenantId = intval($_POST['tenant_id'] ?? $currentTenantId);
     $isActive = isset($_POST['is_active']) ? (bool)$_POST['is_active'] : true;
 
+    // TENANT_ROLES: Get tenant_role_id parameter
+    $tenantRoleId = isset($_POST['tenant_role_id']) ? intval($_POST['tenant_role_id']) : null;
+    if ($tenantRoleId === 0) {
+        $tenantRoleId = null;
+    }
+
     // Validation
     $errors = [];
     if (empty($name)) {
@@ -67,6 +73,15 @@ try {
     // Tenant admins can only create users in their own tenant
     if ($currentUserRole === 'admin' && $tenantId !== $currentTenantId) {
         $errors[] = 'Non puoi creare utenti in altre aziende';
+    }
+
+    // TENANT_ROLES: Managers can only create users with role='user'
+    if ($currentUserRole === 'manager') {
+        if (!in_array($role, ['user'])) {
+            $errors[] = 'I manager possono creare solo utenti con ruolo "user"';
+        }
+        // Force same tenant for managers
+        $tenantId = $currentTenantId;
     }
 
     if (!empty($errors)) {
@@ -106,6 +121,44 @@ try {
         http_response_code(400);
         die(json_encode(['error' => 'Azienda non attiva']));
     }
+
+    // TENANT_ROLES: Check if tenant has custom roles and validate tenant_role_id
+    $tenantHasCustomRoles = false;
+    $tenantHasRolesQuery = "SELECT has_custom_roles FROM tenants WHERE id = :tenant_id";
+    $tenantHasRolesStmt = $conn->prepare($tenantHasRolesQuery);
+    $tenantHasRolesStmt->bindParam(':tenant_id', $tenantId, PDO::PARAM_INT);
+    $tenantHasRolesStmt->execute();
+    $tenantRolesResult = $tenantHasRolesStmt->fetch(PDO::FETCH_ASSOC);
+    if ($tenantRolesResult) {
+        $tenantHasCustomRoles = (bool)$tenantRolesResult['has_custom_roles'];
+    }
+
+    // TENANT_ROLES: Validate tenant_role_id if provided
+    $validatedTenantRoleId = null;
+    if ($tenantRoleId !== null) {
+        // Verify role exists, belongs to same tenant, is active, and not deleted
+        $roleCheckQuery = "
+            SELECT id FROM tenant_roles
+            WHERE id = :role_id
+              AND tenant_id = :tenant_id
+              AND is_active = 1
+              AND deleted_at IS NULL
+        ";
+        $roleCheckStmt = $conn->prepare($roleCheckQuery);
+        $roleCheckStmt->bindParam(':role_id', $tenantRoleId, PDO::PARAM_INT);
+        $roleCheckStmt->bindParam(':tenant_id', $tenantId, PDO::PARAM_INT);
+        $roleCheckStmt->execute();
+        $validRole = $roleCheckStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$validRole) {
+            apiError('Ruolo aziendale non valido o non appartiene a questa azienda', 400);
+        }
+
+        $validatedTenantRoleId = (int)$tenantRoleId;
+    }
+
+    // TENANT_ROLES: If tenant has custom roles but none was provided, this is allowed
+    // (user can be created without a business role and assigned later)
 
     // Genera token sicuro per il reset password
     $resetToken = EmailSender::generateSecureToken();
@@ -157,6 +210,63 @@ try {
 
     $newUserId = $conn->lastInsertId();
 
+    // TENANT_ROLES: Create or update user_tenant_access record with tenant_role_id
+    if ($validatedTenantRoleId !== null) {
+        // Check if user_tenant_access record already exists
+        $utaCheckQuery = "
+            SELECT id FROM user_tenant_access
+            WHERE user_id = :user_id
+              AND tenant_id = :tenant_id
+              AND deleted_at IS NULL
+        ";
+        $utaCheckStmt = $conn->prepare($utaCheckQuery);
+        $utaCheckStmt->bindParam(':user_id', $newUserId, PDO::PARAM_INT);
+        $utaCheckStmt->bindParam(':tenant_id', $tenantId, PDO::PARAM_INT);
+        $utaCheckStmt->execute();
+        $existingUta = $utaCheckStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($existingUta) {
+            // Update existing record
+            $utaUpdateQuery = "
+                UPDATE user_tenant_access
+                SET tenant_role_id = :tenant_role_id,
+                    updated_at = NOW()
+                WHERE id = :uta_id
+            ";
+            $utaUpdateStmt = $conn->prepare($utaUpdateQuery);
+            $utaUpdateStmt->bindParam(':tenant_role_id', $validatedTenantRoleId, PDO::PARAM_INT);
+            $utaUpdateStmt->bindParam(':uta_id', $existingUta['id'], PDO::PARAM_INT);
+            $utaUpdateStmt->execute();
+        } else {
+            // Create new user_tenant_access record
+            $utaInsertQuery = "
+                INSERT INTO user_tenant_access (
+                    user_id,
+                    tenant_id,
+                    tenant_role_id,
+                    granted_by,
+                    granted_at,
+                    created_at,
+                    updated_at
+                ) VALUES (
+                    :user_id,
+                    :tenant_id,
+                    :tenant_role_id,
+                    :granted_by,
+                    NOW(),
+                    NOW(),
+                    NOW()
+                )
+            ";
+            $utaInsertStmt = $conn->prepare($utaInsertQuery);
+            $utaInsertStmt->bindParam(':user_id', $newUserId, PDO::PARAM_INT);
+            $utaInsertStmt->bindParam(':tenant_id', $tenantId, PDO::PARAM_INT);
+            $utaInsertStmt->bindParam(':tenant_role_id', $validatedTenantRoleId, PDO::PARAM_INT);
+            $utaInsertStmt->bindParam(':granted_by', $currentUserId, PDO::PARAM_INT);
+            $utaInsertStmt->execute();
+        }
+    }
+
     // Audit log - Track user creation
     try {
         require_once '../../includes/audit_helper.php';
@@ -171,7 +281,8 @@ try {
                 'email' => $email,
                 'role' => $role,
                 'tenant_id' => $tenantId,
-                'is_active' => $isActive
+                'is_active' => $isActive,
+                'tenant_role_id' => $validatedTenantRoleId
             ]
         );
     } catch (Exception $e) {
@@ -218,7 +329,8 @@ try {
         'success' => true,
         'data' => [
             'user_id' => (int)$newUserId,
-            'email_sent' => $emailSent
+            'email_sent' => $emailSent,
+            'tenant_role_id' => $validatedTenantRoleId
         ],
         'message' => 'Utente creato con successo'
     ];

@@ -34,6 +34,21 @@ $tenantId = $userInfo['tenant_id'];
 $userId = $userInfo['user_id'];
 $userRole = $userInfo['role'];
 
+// For privileged multi-tenant roles, prefer the Company Filter tenant context (if set)
+// so listing aligns with the tenant selected in the UI (matches api/files/assign.php).
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+$isSuperAdmin = (
+    ($userRole === 'super_admin') ||
+    (($_SESSION['role'] ?? '') === 'super_admin') ||
+    (($_SESSION['user_role'] ?? '') === 'super_admin')
+);
+
+if (($isSuperAdmin || $userRole === 'admin') && isset($_SESSION['company_filter_id']) && $_SESSION['company_filter_id'] !== null) {
+    $tenantId = (int)$_SESSION['company_filter_id'];
+}
+
 verifyApiCsrfToken();
 
 // Database connection
@@ -74,30 +89,35 @@ if ($fileId !== null && $folderId !== null) {
 // BUILD QUERY
 // ============================================
 
+// BUG-144c FIX: Removed fa.folder_id (column doesn't exist in file_assignments table)
+// Assignments are only for files, entity_type is for future extension
 $baseQuery = "SELECT
     fa.id,
     fa.entity_type,
     fa.file_id,
-    fa.folder_id,
+    fa.assigned_to_tenant_role_id,
     fa.assignment_reason,
     fa.expires_at,
     fa.created_at,
     fa.updated_at,
 
     -- File details
-    f.file_name,
+    -- BUG-146c FIX: Column is 'name' not 'file_name' in files table
+    f.name as file_name,
     f.file_size,
     f.mime_type,
     f.uploaded_by as file_creator_id,
 
-    -- Folder details
-    fo.folder_name,
-    fo.created_by as folder_creator_id,
-
-    -- Assigned to user
+    -- Assigned to user (nullable)
     u_to.id as assigned_to_id,
     u_to.name as assigned_to_name,
     u_to.email as assigned_to_email,
+
+    -- Assigned to tenant role (group) (nullable)
+    tr.id as assigned_to_role_id,
+    tr.name as assigned_to_role_name,
+    tr.code as assigned_to_role_code,
+    tr.color as assigned_to_role_color,
 
     -- Assigned by user
     u_by.id as assigned_by_id,
@@ -120,8 +140,8 @@ $baseQuery = "SELECT
 
 FROM file_assignments fa
 LEFT JOIN files f ON fa.file_id = f.id
-LEFT JOIN folders fo ON fa.folder_id = fo.id
 LEFT JOIN users u_to ON fa.assigned_to_user_id = u_to.id
+LEFT JOIN tenant_roles tr ON fa.assigned_to_tenant_role_id = tr.id
 LEFT JOIN users u_by ON fa.assigned_by_user_id = u_by.id
 WHERE fa.tenant_id = ?
   AND fa.deleted_at IS NULL";
@@ -149,11 +169,8 @@ if ($fileId !== null) {
     $params[] = $fileId;
 }
 
-// Folder filter
-if ($folderId !== null) {
-    $baseQuery .= " AND fa.folder_id = ?";
-    $params[] = $folderId;
-}
+// BUG-144c FIX: Removed folder_id filter (column doesn't exist)
+// Folder assignments not supported in current schema
 
 // Expired filter
 if (!$includeExpired) {
@@ -195,11 +212,24 @@ try {
     $formattedAssignments = [];
 
     foreach ($assignments as $assignment) {
+        $targetType = null;
+        if (!empty($assignment['assigned_to_id'])) {
+            $targetType = 'user';
+        } elseif (!empty($assignment['assigned_to_role_id'])) {
+            $targetType = 'tenant_role';
+        }
+
         $formatted = [
             'id' => (int)$assignment['id'],
             'entity_type' => $assignment['entity_type'],
             'entity' => null,
-            'assigned_to' => [
+            'assigned_to_type' => $targetType,
+            'assigned_to' => $targetType === 'tenant_role' ? [
+                'tenant_role_id' => (int)$assignment['assigned_to_role_id'],
+                'name' => $assignment['assigned_to_role_name'],
+                'code' => $assignment['assigned_to_role_code'],
+                'color' => $assignment['assigned_to_role_color'] ?? '#6366f1'
+            ] : [
                 'id' => (int)$assignment['assigned_to_id'],
                 'name' => $assignment['assigned_to_name'],
                 'email' => $assignment['assigned_to_email']
@@ -217,22 +247,30 @@ try {
             'updated_at' => $assignment['updated_at']
         ];
 
-        // Add entity details based on type
-        if ($assignment['entity_type'] === ENTITY_TYPE_FILE) {
-            $formatted['entity'] = [
-                'id' => (int)$assignment['file_id'],
-                'name' => $assignment['file_name'],
-                'size' => (int)$assignment['file_size'],
-                'mime_type' => $assignment['mime_type'],
-                'creator_id' => (int)$assignment['file_creator_id']
-            ];
+        // Backward-compat fields expected by assets/js/file_assignment.js
+        if ($targetType === 'tenant_role') {
+            $formatted['assigned_user_name'] = (string)($assignment['assigned_to_role_name'] ?? 'Ruolo Aziendale');
+            $formatted['assigned_user_email'] = (string)('Gruppo');
+            $formatted['assigned_target_badge'] = '👥';
+            $formatted['assigned_target_color'] = (string)($assignment['assigned_to_role_color'] ?? '#6366f1');
         } else {
-            $formatted['entity'] = [
-                'id' => (int)$assignment['folder_id'],
-                'name' => $assignment['folder_name'],
-                'creator_id' => (int)$assignment['folder_creator_id']
-            ];
+            $formatted['assigned_user_name'] = (string)($assignment['assigned_to_name'] ?? '');
+            $formatted['assigned_user_email'] = (string)($assignment['assigned_to_email'] ?? '');
+            $formatted['assigned_target_badge'] = '👤';
+            $formatted['assigned_target_color'] = '#6b7280';
         }
+        $formatted['created_by_name'] = (string)($assignment['assigned_by_name'] ?? '');
+        $formatted['created_by'] = (int)($assignment['assigned_by_id'] ?? 0);
+        $formatted['reason'] = $formatted['assignment_reason'];
+
+        // BUG-144c FIX: Add entity details (only file supported, folder_id doesn't exist)
+        $formatted['entity'] = [
+            'id' => (int)$assignment['file_id'],
+            'name' => $assignment['file_name'],
+            'size' => (int)($assignment['file_size'] ?? 0),
+            'mime_type' => $assignment['mime_type'],
+            'creator_id' => (int)($assignment['file_creator_id'] ?? 0)
+        ];
 
         $formattedAssignments[] = $formatted;
     }
@@ -259,7 +297,7 @@ try {
     $statistics = null;
 
     if (in_array($userRole, ['manager', 'admin', 'super_admin'])) {
-        // Count active, expired, and expiring soon
+        // BUG-144c FIX: Count stats (removed folder_id - column doesn't exist)
         $statsQuery = "SELECT
             COUNT(CASE WHEN expires_at IS NULL OR expires_at > NOW() THEN 1 END) as active_count,
             COUNT(CASE WHEN expires_at IS NOT NULL AND expires_at <= NOW() THEN 1 END) as expired_count,
@@ -267,7 +305,6 @@ try {
                        AND expires_at > NOW()
                        AND expires_at <= DATE_ADD(NOW(), INTERVAL 7 DAY) THEN 1 END) as expiring_soon_count,
             COUNT(DISTINCT file_id) as unique_files,
-            COUNT(DISTINCT folder_id) as unique_folders,
             COUNT(DISTINCT assigned_to_user_id) as unique_users
         FROM file_assignments
         WHERE tenant_id = ?
@@ -281,7 +318,6 @@ try {
                 'expired' => (int)$stats['expired_count'],
                 'expiring_soon' => (int)$stats['expiring_soon_count'],
                 'unique_files' => (int)$stats['unique_files'],
-                'unique_folders' => (int)$stats['unique_folders'],
                 'unique_users' => (int)$stats['unique_users']
             ];
         }

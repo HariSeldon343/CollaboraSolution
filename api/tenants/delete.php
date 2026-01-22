@@ -95,15 +95,31 @@ try {
     try {
         $conn = $db->getConnection();
 
-        // Prepara chiamata a stored procedure
-        $stmt = $conn->prepare('CALL sp_soft_delete_tenant_complete(?, ?, @success, @message, @records)');
+        // BUG-129 FIX: Correct syntax for calling stored procedure with OUT parameters
+        // PDO does NOT support OUT parameters as placeholders - must use session variables
+
+        // Step 1: Initialize session variables for OUT parameters
+        $conn->exec("SET @p_success = FALSE, @p_message = '', @p_records = NULL");
+
+        // Step 2: Call procedure with IN parameters as placeholders, OUT as session variables
+        // Allow system tenant deletion only when explicitly confirmed (session-level flag read by stored procedure)
+        if ($tenantId === 1) {
+            $conn->exec('SET @ALLOW_SYSTEM_TENANT_DELETE = TRUE');
+        } else {
+            $conn->exec('SET @ALLOW_SYSTEM_TENANT_DELETE = FALSE');
+        }
+
+        $stmt = $conn->prepare('CALL sp_soft_delete_tenant_complete(?, ?, @p_success, @p_message, @p_records)');
         $stmt->execute([$tenantId, $userInfo['user_id']]);
 
-        // Chiudi cursor prima di leggere gli output parameters
+        // Step 3: Close cursor before next query (CRITICAL)
         $stmt->closeCursor();
 
-        // Ottieni risultati della stored procedure
-        $result = $conn->query('SELECT @success as success, @message as message, @records as records')->fetch(PDO::FETCH_ASSOC);
+        // Step 4: Reset system tenant flag to avoid leaking into other sessions
+        $conn->exec('SET @ALLOW_SYSTEM_TENANT_DELETE = FALSE');
+
+        // Step 5: Retrieve OUT parameter values from session variables
+        $result = $conn->query('SELECT @p_success as success, @p_message as message, @p_records as records')->fetch(PDO::FETCH_ASSOC);
 
         // Verifica successo operazione
         if (!$result || !$result['success']) {

@@ -138,7 +138,7 @@ try {
         sendError('Codice provincia non valido: ' . $province, 400);
     }
 
-    // Step 2: Try exact match (case-insensitive, accent-tolerant using LOWER)
+    // Step 2: Try exact match (case-insensitive + accent-insensitive)
     $stmt = $conn->prepare("
         SELECT
             id,
@@ -148,7 +148,7 @@ try {
             cadastral_code,
             postal_code_prefix
         FROM italian_municipalities
-        WHERE LOWER(name) = LOWER(?)
+        WHERE name COLLATE utf8mb4_general_ci = ?
         AND province_code = ?
         LIMIT 1
     ");
@@ -183,7 +183,7 @@ try {
         sendSuccess($responseData, 'Comune valido per la provincia specificata');
     }
 
-    // Step 3: INVALID - Find similar suggestions using LIKE
+    // Step 3: INVALID - Find similar suggestions using LIKE (accent-insensitive)
     $stmt = $conn->prepare("
         SELECT
             name,
@@ -191,15 +191,15 @@ try {
             cadastral_code,
             postal_code_prefix
         FROM italian_municipalities
-        WHERE LOWER(name) LIKE LOWER(?)
+        WHERE name COLLATE utf8mb4_general_ci LIKE ?
         AND province_code = ?
         ORDER BY
             CASE
-                WHEN LOWER(name) = LOWER(?) THEN 1
-                WHEN LOWER(name) LIKE LOWER(?) THEN 2
+                WHEN name COLLATE utf8mb4_general_ci = ? THEN 1
+                WHEN name COLLATE utf8mb4_general_ci LIKE ? THEN 2
                 ELSE 3
             END,
-            name ASC
+            name COLLATE utf8mb4_general_ci ASC
         LIMIT 5
     ");
 
